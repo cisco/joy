@@ -107,7 +107,11 @@ filename(s) from the command line.  For instance,
 
 Installation
 
-To install the package on your system, 
+make
+
+To install the package on your system, as root:
+
+./install-sh
 
 
 Documentation
