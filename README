@@ -1,0 +1,125 @@
+                           _              
+                          (_) ___  _   _ 
+                          | |/ _ \| | | |
+                          | | (_) | |_| |
+                         _/ |\___/ \__, |
+                        |__/       |___/
+   
+            A package for capturing and analyzing network
+         flow data and intraflow data, for network research, 
+              forensics, and security monitoring. 
+
+Overview
+
+   Joy is a BSD-licensed libpcap-based software package for extracting
+   data features from live network traffic or packet capture (pcap)
+   files, using a flow-oriented model similar to that of IPFIX or
+   Netflow, and then representing these data features in JSON.  It
+   also contains analysis tools that can be applied to these data
+   files.  Joy can be used to explore data at scale, especially
+   security and threat-relevant data.
+
+   JSON is used in order to make the output easily consumable by data
+   analysis tools.  While the JSON output files are somewhat verbose,
+   they are reasonably small, and they respond well to compression.
+   
+   Joy can be configured to obtain intraflow data, that is, data and
+   information about events that occur within a network flow,
+   including:
+
+      * the sequence of lengths and arrival times of IP packets,
+        up to some configurable number of packets,
+
+      * the empirical probability distribution of the bytes within the
+        data portion of a flow, and the entropy derived from that
+        value, 
+   
+      * the sequence of lengths and arrival times of TLS records, 
+
+      * other non-encrypted TLS data, such as the list of offered
+        ciphersuites, the selected ciphersuite, and the length of the
+        clientKeyExchange field,
+
+      * the name of the process associated with the flow, for flows
+        originate or terminate on the 
+
+   Joy is intended for use by security research, forensics, and for
+   the monitoring of (small scale) networks to detect vulnerabilities,
+   threats and other unauthorized or unwanted behavior.  Researchers,
+   administrators, penetration testers, and security operations teams
+   can put this information to good use, for the protection of the
+   networks being monitored, and in the case of vulnerabilities, for
+   the benefit of the broader community through improved defensive
+   posture.  As with any network monitoring tool, Joy could
+   potentially be misused; do not use it on any network of which you
+   are not the owner or the administrator.
+
+   Flow, in positive psychology, is a state in which a person
+   performing an activity is fully immersed in a feeling of energized
+   focus, deep involvement, and joy.  This second meaning inspired
+   the choice of name for this software package.
+   
+   Joy is alpha/beta software; we hope that you use it and benefit
+   from it, but do understand that it is not suitable for production
+   use.
+
+
+Credits
+
+   This package was written by David McGrew and Blake Anderson
+   {mcgrew,blaander}@cisco.com of Cisco Systems Advanced Security
+   Research Group (ASRG).
+
+
+Quick Start
+
+Joy has been successfully run and tested on Linux (Debian, Ubuntu, and
+CentOS) and Mac OSX.
+
+First, obtain the package from github, and change to the joy
+directory.
+
+To build the package, run "make" in the main directory.  This will
+cause the programs to be compiled, linked, stripped, and copied into
+the main directory as apropriate.  It will also run a test script and
+a unit test program.  
+
+The main program for extracting data features from pcap files or live
+packet captures is the program pcap2flow, which occupies the src/
+subdirectory.  
+
+To understand how pcap2flow is configured, read one of
+the configuration files (linux.cfg or macosx.cfg).  To process a pcap
+file in offline mode, run
+
+   pcap2flow [ OPTIONS ] filename [ filename2 ... ]
+
+For instance, 
+   
+   pcap2flow bidir=1 output=data.json filename
+
+To run the packet capture in online mode, use the same command form,
+but have OPTIONS include an interface=<value> command, and omit the
+filename(s) from the command line.  For instance,
+
+   sudo ./pcap2flow interface=eth0 bidir=1 output=data.json
+
+
+Installation
+
+To install the package on your system, 
+
+
+Documentation
+
+A man page will be built and installed automatically as part of the
+package.  See the file pcap2flow.1.
+
+
+Testing
+
+Run the script ./pcap2flow_test.sh and the utility src/unit_test to
+test the programs.  These programs will indicate success or failure on
+the command line.
+
+

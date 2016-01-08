@@ -1,0 +1,378 @@
+#!/bin/bash
+#
+# install-sh
+#
+# note: this file is not named install.sh to avoid unwanted behavior
+# due to implicit rules with "make"
+#
+# installer for pcap2flow and related files
+
+usage() { 
+    echo "usage:"
+    echo ""
+    echo "   $0 [ -c configfile ] [ -a anonfile ] [-w watchfile ] [ -k keyfile ]"
+    echo ""
+    echo "where the options are as follows"
+    echo ""
+    echo "   configfile is the name of a pcap2flow configuration file; if no" 
+    echo "   such file is provided, then the default configuration p2f.cfg is used"
+    echo ""
+    echo "   anonfile is the name of a file containing subnets to be anonymized; if no" 
+    echo "   such file is provided, then the default file anon.cfg is used"
+    echo ""
+    echo "   watchfile is the name of a file containing subnets or addresses to labeled"
+    echo "   as malware; if no such file is provided, then the Talos ip-filter.blf file"
+    echo "   is downloaded and used"
+    echo ""
+    echo "   keyfile is the name of a file containing an SSH private key to be used"
+    echo "   to upload the JSON flow data files to a server via scp; if no such file"
+    echo "   is provided, then an SSH file with the default name of upload-key is created" 
+    echo ""
+    echo "for more information about these files and their formats, please read the" 
+    echo "pcap2flow man page"
+    echo ""
+    exit
+} 
+
+# set defaults
+#
+CONFIGFILE=linux.cfg
+MACOSX_CONFIGFILE=macosx.cfg
+ANONFILE=internal.net
+WATCHFILE=""
+KEYFILE=""
+
+# check command line arguments, ovveride defaults as appropirate
+#
+while getopts "c:a:w:k:" arg; do
+    case $arg in
+	c)
+	    echo "-c was triggered with option ${OPTARG}" 
+	    CONFIGFILE=${OPTARG}
+	    MACOSX_CONFIGFILE=${OPTARG}
+	    ;;
+	a)
+	    echo "-a was triggered with option ${OPTARG}" 
+	    ANONFILE=${OPTARG}
+	    ;;
+	w)
+	    echo "-w was triggered with option ${OPTARG}" 
+	    WATCHFILE=${OPTARG}
+	    ;;
+	k)
+	    echo "-k was triggered with option ${OPTARG}" 
+	    KEYFILE=${OPTARG}
+	    ;;
+	:)
+	    echo "error: option -${OPTARG} requires an argument" 
+	    usage
+	    ;;
+	?)
+	    usage
+	    ;;
+    esac
+done
+if [ $(($# + 1)) != "${OPTIND}" ]; then
+    echo "error: illegal option"
+    usage
+fi
+
+# check for the presence of required files
+#
+if [ ! -x ./pcap2flow ]; then
+    echo "error: could not find executable file pcap2flow (please run \"make\")"
+    exit
+fi
+
+if [ ! -f ./pcap2flow.1 ]; then
+    echo "error: could not find manual page pcap2flow.1"
+    exit
+fi
+
+if [ ! -f ./pcap2flow.rc ]; then
+    echo "error: could not find script pcap2flow.rc"
+    exit
+fi
+
+if [ ! -f $CONFIGFILE ]; then
+    echo "error: could not find configuration file $CONFIGFILE"
+    exit
+fi
+
+if [ ! -f $MACOSX_CONFIGFILE ]; then
+    echo "error: could not find configuration file $MACOSX_CONFIGFILE"
+    exit
+fi
+
+if [ ! -f ${ANONFILE} ]; then
+    echo "error: could not find private address configuration file ${ANONFILE}"
+    exit
+fi
+
+if [ "${WATCHFILE}" == "" ]; then
+    # use the default malware watchfile
+    #
+    WATCHFILE=ip-filter.blf
+
+    # download the current public list of malware IP addresses from
+    # Talos (the Sourcefire/Cisco threat intelligence team) - note
+    # that this file changes daily, so don't rely on it if you don't
+    # update it - and install it as a malware watchlist file
+    # 
+    echo "downloading ip-filter.blf ... "
+    wget http://www.talosintel.com/feeds/ip-filter.blf -O ./ip-filter.blf
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not download ${WATCHFILE}"
+	exit
+    fi
+    if [ ! -f ${WATCHFILE} ]; then
+	echo "error: could not find watchfile ${WATCHFILE}"
+	exit
+    fi
+fi
+
+if [ "${KEYFILE}" == "" ]; then
+    # set default name for upload key file 
+    #
+    KEYFILE=upload-key  
+fi
+if [ -f ${KEYFILE} ]; then 
+    echo "file ${KEYFILE} exists; not overwriting it"
+    NEWKEY=0
+else
+    echo "generating SSH public/private keypair ... "
+    ssh-keygen -f ${KEYFILE} -P "" -t rsa -b 2048
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not generate SSH key ${KEYFILE}"
+	exit
+    fi
+    if [ ! -f ${KEYFILE} ]; then
+	echo "error: could not find keyfile ${KEYFILE}"
+	exit
+    fi
+    NEWKEY=1
+fi
+
+sysname=`uname -s`
+
+if [ "$sysname" == "Darwin" ]; then
+
+    echo "found $sysname (Mac OS X), installing pcap2flow ..."
+
+    cp pcap2flow /usr/libexec/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy to /usr/libexec/"
+	exit
+    fi
+
+    if [ ! -d /var/p2f ]; then
+	mkdir /var/p2f
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not make directory /var/p2f"
+	    exit
+	fi
+    else
+	echo "directory /var/p2f/ already exists"
+    fi
+
+    if [ ! -d /etc/p2f ]; then
+	mkdir /etc/p2f
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not make directory /etc/p2f"
+	    exit
+	fi
+    else
+	echo "directory /etc/p2f/ already exists"
+    fi
+
+    if [ -f /etc/p2f/$MACOSX_CONFIGFILE ]; then
+	echo "file /etc/p2f/$MACOSX_CONFIGFILE exists; not installing config file"
+    else
+	cp ${MACOSX_CONFIGFILE} /etc/p2f/
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not copy to /etc/p2f"
+	    exit
+	fi
+    fi
+
+    if [ -f /etc/p2f/${ANONFILE} ]; then
+	echo "file /etc/p2f/${ANONFILE} exists; not installing anonymization subnet file"
+    else
+	cp ${ANONFILE} /etc/p2f/
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not copy to /etc/p2f"
+	    exit
+	fi
+    fi
+    mv ${KEYFILE} /etc/p2f/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not move ${KEYFILE} to /etc/p2f"
+	exit
+    fi
+    chmod 600 /etc/p2f/${KEYFILE}
+
+    cp pcap2flow.plist /System/Library/LaunchDaemons/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy to /System/Library/LaunchDaemons/"
+	exit
+    fi
+
+    cp pcap2flow.1 /usr/share/man/man1/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy to /usr/share/man/man1/ (man page will be unavailable)"
+	exit
+    fi
+
+    ls -l /usr/libexec/pcap2flow
+    ls -l /etc/p2f/${MACOSX_CONFIGFILE}
+    ls -l /etc/p2f/${ANONFILE}
+    ls -l /etc/p2f/${KEYFILE}
+    ls -l /System/Library/LaunchDaemons/pcap2flow.plist
+    ls -l /usr/share/man/man1/pcap2flow.1
+    echo "done"
+
+    echo "stopping flow capture daemon (just in case one is already running)"
+    launchctl unload /System/Library/LaunchDaemons/pcap2flow.plist
+
+    echo "starting flow capture daemon"
+    launchctl load /System/Library/LaunchDaemons/pcap2flow.plist
+
+    exit
+
+elif [ "$sysname" == "Linux" ]; then 
+
+    echo "found $sysname, installing pcap2flow ..."
+
+    cp pcap2flow /usr/sbin/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy to /usr/sbin/"
+	exit
+    fi
+
+    if [ ! -d /var/p2f ]; then
+	mkdir /var/p2f
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not make directory /var/p2f"
+	    exit
+	fi
+    else
+	echo "directory /var/p2f/ already exists"
+    fi
+
+    if [ ! -d /etc/p2f ]; then
+	mkdir /etc/p2f
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not make directory /etc/p2f"
+	    exit
+	fi
+    else
+	echo "directory /etc/p2f/ already exists"
+    fi
+
+    if [ -f /etc/p2f/$CONFIGFILE ]; then
+	echo "warning: file /etc/p2f/$CONFIGFILE exists; not overwriting that file"
+    else
+	cp ${CONFIGFILE} /etc/p2f/
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not copy to /etc/p2f"
+	    exit
+	fi
+    fi
+
+    if [ -f /etc/p2f/${ANONFILE} ]; then
+	echo "file /etc/p2f/${ANONFILE} exists; not installing subnet file"
+    else
+	cp ${ANONFILE} /etc/p2f/
+	retval=$?
+	if [ $retval -ne "0" ]; then
+	    echo "error: could not copy to /etc/p2f"
+	    exit
+	fi
+    fi
+
+    mv ${KEYFILE} /etc/p2f/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not move ${KEYFILE} to /etc/p2f"
+	exit
+    fi
+    chmod 600 /etc/p2f/${KEYFILE}
+
+    cp pcap2flow.rc /etc/init.d/pcap2flow
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy to /etc/init.d"
+	exit
+    fi
+    chmod +x /etc/init.d/pcap2flow
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not chmod +x /etc/init.d/pcap2flow"
+	exit
+    fi
+
+    # configure to run automatically at boot time
+    #
+    update-rc.d pcap2flow defaults
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: update-rc.d failed (return value: $retval)"
+	exit
+    fi
+    # start service
+    service pcap2flow start
+
+    cp pcap2flow.1 /usr/share/man/man1/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy to /usr/share/man/man1/"
+	exit
+    fi
+    mandb >/dev/null
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not run mandb (man page will be unavailable)"
+	# exit
+    fi
+
+    ls -l /usr/sbin/pcap2flow
+    ls -l /etc/p2f/${CONFIGFILE}
+    ls -l /etc/p2f/${ANONFILE}
+    ls -l /etc/p2f/${KEYFILE}
+    ls -l /etc/init.d/pcap2flow
+    ls -l /usr/share/man/man1/pcap2flow.1
+    service pcap2flow status
+
+    echo "done" 
+    
+else
+
+    echo "error: unknown system ($sysname)"
+    exit
+
+fi
+
+
+if [ "$NEWKEY" -eq "1" ]; then
+
+    echo "A new SSH key was generated, and its private key was installed in"
+    echo "the /etc/p2f directory.  To use this key to authenticate scp"
+    echo "connections to a server that copy the JSON files, you will need to"
+    echo "provide the public key ${KEYFILE}.pub to the server administrator,"
+    echo "as it needs to be installed in the ./ssh/known_hosts file."
+
+fi

@@ -1,0 +1,744 @@
+.TH pcap2flow 1 2015\-8\-02 "" ""
+.SH NAME
+pcap2flow \- capture and report intraflow data from an interface or PCAP file
+.SH SYNOPSIS
+.HP 5
+.B pcap2flow [OPTIONS] [ FILES ]
+
+where OPTIONS are as follows:
+
+  \-x F or \-\-xconfig F        read configuration from file F
+
+  COMMAND=VALUE              set a configuration parameter (see CONFIGURATION below) 
+
+  interface=I                read packets live from interface I
+  promisc=1                  put interface into promiscuous mode
+  output=F                   write output to file F (otherwise stdout is used)
+  logfile=F                  write secondary output to file F (otherwise stderr is used)
+  count=C                    rotate output files so each has about C records
+  upload=user@server:path    upload to user@server:path with scp after file rotation
+  keyfile=F                  use SSH identity (private key) in file F for upload
+  retain=1                   retain a local copy of file after upload
+  zeros=1                    include zero\-length data (e.g. ACKs) in packet list
+  bidir=1                    merge unidirectional flows into bidirectional ones
+  json=1                     output flow data in JSON format
+  dist=1                     include byte distribution array 
+  entropy=1                  include byte entropy 
+  tls=1                      include TLS ciphersuites
+  p0f=S                      include OS information read from p0f socket S
+  bpf="expression"           only process packets matching BPF "expression"
+  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads
+  num_pkts=N                 report on at most N packets per flow (0 <= N < 200)
+  type=T                     select message type: 1=SPLT, 2=SALT
+  nfv9_port=N                enable Netflow V9 capture on port N
+  anon=F                     anonymize addresses matching the subnets listed in file F
+  idp=N                      report N bytes of the initial data packet of each flow
+
+.SH DESCRIPTION
+.B pcap2flow
+observes packets from a live interface (in online mode, when
+configured with the interface=value command) or from a PCAP file (in
+offline mode, using the files listed on the command line after the
+options), and outputs flow data and intraflow data for each flow
+observed.  Online mode requires root privileges on most operating
+systems, but offline mode does not.
+
+Intraflow data extends traditional flow data by including more
+information about events within each flow, such as the length and
+times of messages, the distribution of bytes, and values extracted
+from packets.  By default, pcap2flow reports only flow data, but the
+command line options can be used to select the intraflow data to be
+captured and reported.  This data is reported using JavaScript Object
+Notation (JSON); the format is documented in the JSON FLOW DATA FORMAT
+section.
+
+pcap2flow uses two output streams.  The main output is for flow
+records (and packet information if \fBverbosity\fR > 0); in offline
+mode, this is stdout by default, but it can be set to file F by the
+\fBoutput=F\fR command on the command line or in the configuration
+file.  In online mode, the main output must be set either on the
+command line or in the configuration file; it can be set to
+\fBauto\fR, in which case the output file name will be generated
+automatically, using the interface MAC address and the current
+timestamp.  When the configuration file is used, the command
+\fBoutdir\fR can be used to specify the directory into which the files
+will be written; this is useful when file rotation is done during a
+live capture (rotation can be configured using the count command
+described below).
+
+The secondary output is used for errors, warnings, information, and
+debugging.  In offline mode, the secondary output defaults to stderr.
+In online mode, the secondary output defaults to /var/log/flocap.
+pcap2flow will write its running configuration and high level
+statistics to the secondary output upon startup, and upon receiving
+the SIGTSTP (Cntl-Z) or SIGHUP (kill -HUP <PID>) signal.  When Cntl-Z
+is used in online mode, note that the output will \fInot\fR appear in
+the terminal into which that key combination is pressed, but will
+instead appear in the log file (secondary output).
+
+There are many options, so it is useful to set option choices in
+configuration files, and cause a particular file F to be read with the
+-x F option.  Options set on the command line will override those in
+the configuration file.  Since the program can operate in only offline
+or online mode, it is an error to specify both an interface and a PCAP
+file.  The program will ignore an interface specified in a
+configuration file if \fB-l none\fR is used on the command line.
+
+This manual page provides examples, and documents both the options and
+the configuration file.  
+
+.SH EXAMPLES
+.TP 3
+.B pcap2flow \-x \fIconfiguration\-file \fR 
+Runs pcap2flow with the configuration defined the file
+\fIconfiguration\-file\fR; this only supports online mode.
+
+.TP 3
+.B pcap2flow bidir=1 json=1 output=\fIoutput\-file \fR \fIinput\-file \fR 
+Runs pcap2flow bidirectional flows and generates JSON output, writing
+output to \fIoutput\-file\fR and reading intput from the PCAP file
+\fIinput\-file\fR; this example uses offline mode.
+
+.RE
+.PD
+
+.SH CONFIGURATION
+
+The same command syntax is used on both the command line and in the
+(optional) configuration file.  This format has a single command on
+each line.  Commands have the form "command" or "command = value",
+where value can be a boolean, an integer, or a string, with no quotes
+around strings.  If "command = 1" is valid, then "command" is a
+synonym for "command = 1".  Omitting "command" from the file is the
+same as "command = 0".  Whitespace does not affect the interpretation
+of a command, but quotes around whitespace may be necessary on the
+command line (e.g. bpf="port 53").  The strings "auto" and "none" have
+special meanings, and should not be used for file names.
+
+.SS "Network options"
+.TP 3
+.BR interface = STRING
+Sets an interface for live data capture; linux uses eth0 and wlan0,
+MacOS uses en0, and so on.  interface be set to "auto", which is
+recommended, since it will then select an active, non-loopback
+interface automatically.  It can also be set to "none", in which case
+the interface must be specified on the command line, via the "-l"
+option.
+
+.TP 3
+.BR promisc = BOOLEAN
+Promiscuous mode will monitor traffic sent to any destination, not
+just the observation point.
+
+.SS "Output options"
+.TP 3
+.BR output = STRING
+Sets the main output (the file to which flow records are written).  It
+can be set to "auto", in which case the output file name will be
+generated automatically, based on the interface MAC address and the
+current timestamp.
+
+.TP 3
+.BR outdir = STRING
+Sets the directory to which flow record output files are written;
+outdir=/var/flocap is the default when used as a daemon.
+
+.TP 3
+.BR logfile = STRING
+Sets the secondary output, which is used for errors, warnings,
+information, and debugging statements.  logfile=stderr is the default.
+
+.TP 3
+.BR count = INTEGER
+Sets the number of flow records that will be obtained before the
+capture file is rotated; if this number is nonzero, then files will be
+rotated, and the n-th output file will have "-n" appended to it.  If
+count=0, then file rotation will not be done.
+
+.TP 3
+.BR upload = STRING
+Sets the SSH/SCP user and server, in the form user@server:path; if
+this parameter is set, then capture files will be uploaded to
+\fIserver\fR after rotation, using the account associated with
+\fIuser\fR, and copying the file to the location \fIpath\fR.  It may
+be necessary to provide the SSH identity information using the keyfile
+command (see below).
+
+.TP 3
+.BR keyfile = STRING
+This command sets the SSH identity (private key) file used to
+authenticate to the "upload" server; the corresponding public key file
+must be present in the ~/.ssh/authorized_hosts file on that server.
+In daemon mode, the default identity file is kept in
+/etc/flocap/upload-key.
+
+If you need to generate an SSH identity, you can use the command
+ssh-keygen -b 2048 -f upload-key -P "", which generates a 2048-bit RSA
+key and stores the private key in upload-key and the public key in
+upload-key.pub.  The public key from the latter file should be copied
+into the authorized_hosts file of the user on the upload server.
+
+.TP 3
+.BR retain = BOOLEAN
+retain=1 causes a local copy of the capture file to be retained after
+it is uploaded; currently, it is not possible to set retain=0.
+
+.SS "Data options"
+
+.TP 3
+.BR bidir = BOOLEAN
+bidir=1 causes flow stitching between directions to take place, so
+that flows will be reported as bidirectional.  Flows with no matching
+reverse-direction twin will still be reported as unidirectional, of
+course.
+
+.TP 3
+.BR json = BOOLEAN
+json=1 causes output to be in JSON format; this is probably what you
+want.
+
+.SS "Sequence of Application Lengths and Times (SALT) and Sequence of Packet Lengths and Times (SPLT) options"
+
+Message lengths and times are reported in the JSON "non_norm_stats"
+field.  These options control the details about what messages are
+reported on.
+
+.TP 3
+.BR type = INTEGER
+type=1 is SPLT, type = 2 is SALT.   This option may be modified in the future.
+
+.TP 3
+.BR num_pkts = INTEGER
+The command num_pkts sets the maximum number of entries in the SALT
+and SPLT arrays; it can be set to 0, or up to 200 (depending on
+compilation options).  If num_pkts=0, then no lengths and times will
+be reported at all.  The default value is num_pkts=50.
+
+.TP 3
+.BR zeros = BOOLEAN
+The command zeros=1 causes the zero-length messages (such as the
+initial TCP handshake messages, and TCP ACKs that contain no data) to
+be included in length and time arrays.  Otherwise, messages with zero
+length data are not included.  The default is zeros=0.
+
+.SS "Byte Distribution options"
+
+The Byte Distribution is a 256-element array that contains the sample distribution
+of the bytes within the data portion of each flow.  
+
+.TP 3
+.BR dist = BOOLEAN
+The command dist=1 causes the byte distribution to be reported.   The
+default value is dist=0.
+
+.TP 3
+.BR entropy = BOOLEAN
+The command entropy=1 causes the entropy of the byte distribution to
+be reported.  The entropy can be reported even when the byte
+distribution is not reported.  The default value is entropy=0.
+
+.SS "Transport Layer Security (TLS) options"
+
+.TP 3
+.BR tls = BOOLEAN 
+The command tls=1 causes TLS data to be output.  The default value is
+tls=0.  When tls=1, port 443 (HTTPS) is processed as SSL3.0/TLS
+traffic, and the lengths and arrival times of each TLS record is
+reported, along with the selected ciphersuite (scs) and the list of
+offered ciphersuites (cs), the TLS Version (tls_iv and tls_ov), the
+inbound and outbound TLS Session ID (isid and osid, respectively), and
+the inbound and outbound TLS Random (tls_irandom and tls_orandom).
+
+.SS "Initial Data Packet (IDP)"
+
+.TP 3
+.BR idp = INTEGER 
+The command idp=<num> causes <num> bytes of the initial data packet of
+each unidirectional flow to be reported.  Setting idp=0 causes no such
+data to be reported.  A good example is idp=1460, which mimics the
+amount of data that can be taken from a packet and then carried across
+a 1500-byte MTU via a 40-byte encapsulation.
+
+.b WARNING
+the command idp=1 does turn on IDP reporting, but it only reports a
+single byte of the initial data pakcet, which is not very useful.  
+
+
+
+.SS "Passive Operating System inference inference"
+
+.TP 3
+.BR p0f = STRING
+The command p0f=sock, where "sock" is a UNIX socket used to
+communicate between p0f and client processes, tells pcap2flow to
+obtain information about the Operating Systems associated with
+endpoint addresses via the p0f socket API.  In this scenario, p0f
+should be run with the "-s sock" argument, so that it accepts client
+requests on that socket.
+
+.SS "Traffic Selection"
+
+.TP 3
+.BR bpf = STRING
+This command sets a traffic filter to select traffic that matches the
+Berkeley Packet Filter (BPF) expression provided in the string.  The
+string argument may contain whitespace, and it must not be surrounded
+by quotes in the configuration file.  The filter must not specificy
+traffic that is not IP-based.  For example, to report only on HTTPS
+traffic, the configuration file should include the command "bpf = tcp
+port 443", and to report only communication to and from a particular
+host, "bpf = ip host 216.34.181.45" can be used.  To observe
+all IP traffic, leave bfp unset, or set it to "none", which is
+the default.  
+
+.SS "Anonymization"
+
+.TP 3
+.BR anon = STRING
+This command sets the anonymization subnet file; the program reads in
+that file and then anonymizes all addresses that match those subnets,
+by applying AES encryption to those addresses before they are included
+in any output.  If anon=none, then no anonymization is performed; this
+is the default.
+
+Each line of the anonymization subnet file must contain an IP subnet
+in CIDR notation (W.X.Y.Z/N), with no non-whitespace characters
+preceeding the subnet on the line.  For instance, the following
+file contains the RFC 1918 private subnets:
+
+   10.0.0.0/8         #  RFC 1918 address space
+   172.16.0.0/12      #  RFC 1918 address space
+   192.168.0.0/16     #  RFC 1918 address space
+
+.SS  Verbosity
+
+.TP 3
+.BR verbosity = NUMBER
+The verbosity command sets the level of detail provided on the main
+output:
+ 
+  verbosity = 0 -> silent
+  verbosity = 1 -> report a summary of each packet
+  verbosity = 2 -> report on all data of each packet
+
+The default is verbosity=0.  
+
+.SH JSON FLOW DATA FORMAT
+
+
+{
+
+    "$schema": "http://json-schema.org/draft-04/schema#",
+
+    "type" : "object",
+
+    "properties" : {
+
+        "appflows" : {
+
+            "type" : "array",
+
+            "items" : 
+
+            {
+
+                "type" : "object",
+
+                "properties" : {
+
+                    "flow" : {"type" : "object",
+
+                              "properties" : {
+
+                                  "sa" : {"type" : "string",
+
+                                          "description" : "IP Source Address, as a string. It MAY be in dotted quad notation, e.g. \"10.0.2.15\", or it MAY be an arbitrary hexadecimal JSON string, which will be the case when anonymization is used."
+
+                                         },
+
+                                  "da" : {"type" : "string",
+
+                                          "description" : "IP Destination Address, as a string. Its format is identical to the IP Source Address."
+
+                                         },
+
+                                  "x" : {"type" : "string",
+
+                                         "description" : "Timeout. a: active, i: inactive."
+
+                                        },
+
+                                  "scs" : {"type" : "string",
+
+                                           "description" : "The selected ciphersuite from a TLS session, as four hexadecimal characters expressed as a JSON string, e.g. \"c00a\". This value is sent only by a TLS server."
+
+                                          },
+
+                                  "pr" : {"type" : "number",
+
+                                          "description" : "IP Protocol number, as a JSON number. 6=tcp, 17=udp, and so on."
+
+                                         },
+
+                                  "sp" : {"type" : "number",
+
+                                          "description" : "TCP or UDP Source Port, as a JSON number."
+
+                                         },
+
+                                  "dp" : {"type" : "number",
+
+                                          "description" : "TCP or UDP Destination Port, as a JSON number."
+
+                                         },
+
+                                  "ob" : {"type" : "number",
+
+                                          "description" : "Number of bytes of outbound (source to destination) traffic, as a JSON number."
+
+                                         },
+
+                                  "op" : {"type" : "number",
+
+                                          "description" : "Number of packets of outbound (source to destination) traffic, as a JSON number."
+
+                                         },
+
+                                  "ib" : {"type" : "number",
+
+                                          "description" : "Number of bytes of inbound (destination to source) traffic, as a JSON number."
+
+                                         },
+
+                                  "ip" : {"type" : "number",
+
+                                          "description" : "Number of packets of inbound (destination to source) traffic, as a JSON number."
+
+                                         },
+
+                                  "ts" : {"type" : "number",
+
+                                          "description" : "Start time of the flow expressed as the number of seconds since the epoch (00:00:00 UTC, Thursday, 1 January 1970), as a JSON number. It SHOULD include a decimal part, and provide at least millisecond precision, e.g. 1411732528.590115"
+
+                                         },
+
+                                  "te" : {"type" : "number",
+
+                                          "description" : "End time of the flow expressed in the same way as the start time."
+
+                                         },
+
+                                  "be" : {"type" : "number",
+
+                                          "description" : "The empirical byte entropy estimate, expressed as a JSON number.  The number MUST be between 0.0 and 8.0."
+
+                                         },
+
+                                  "tls_iv" : {"type" : "number",
+
+                                              "description" : "Inbound TLS version, expressed as a JSON number, with the same mapping as the outbound TLS version."
+
+                                             },
+
+                                  "tls_ov" : {"type" : "number",
+
+                                              "description" : "Outbound TLS version, expressed as a JSON number. These numbers map onto SSL/TLS versions as follows: unknown = 0, SSLv2 = 1, SSLv3 = 2, TLS1.0 = 3, TLS1.1 = 4, TLS1.2 = 5."
+
+                                             },
+
+                                  "ottl" : {"type" : "number",
+
+                                            "description" : "The smallest outbound (source to destination) IP Time To Live (TTL) value observed for all packets in a flow."
+
+                                           },
+
+                                  "ittl" : {"type" : "number",
+
+                                            "description" : "The smallest inbound (destination to source) IP Time To Live (TTL) value observed for all packets in a flow."
+
+                                           },
+
+                                  "oidp" : {"type" : "string",
+
+                                            "description" : "The outbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string.  For example, \"iidp\": 450000300268000080019758ac1047ebac1001010000a8e214180000e8d27a99d108000000000000000000001090fdff."
+
+                                           },
+
+                                  "oidp_len" : {"type" : "number",
+
+						"description" : "The number of bytes in the outbound initial data packet."
+
+                                               },
+
+                                  "iidp" : {"type" : "string",
+
+                                            "description" : "The inbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string."
+
+                                           },
+
+                                  "iidp_len" : {"type" : "number",
+
+						"description" : "The number of bytes in the inbound initial data packet."
+
+                                               },
+
+                                  "sos" : {"type" : "string",
+
+                                           "description" : "The operating system associated with the source address, as a JSON string."
+
+                                          },
+
+                                  "dos" : {"type" : "string",
+
+                                           "description" : "The operating system associated with the destination address, as a JSON string."
+
+                                          },
+
+                                  "tls_osid" : {"type" : "string",
+
+						"description" : "The outbound TLS Session Identifier (SID)."
+
+                                               },
+
+                                  "tls_isid" : {"type" : "string",
+
+						"description" : "The inbound TLS Session Identifier (SID)."
+
+                                               },
+
+                                  "bd" : {"type" : "array",
+
+                                          "items" : {"type" : "number"},
+
+                                          "description" : "Byte Distribution"
+
+                                         },
+
+                                  "cs" : {"type" : "array",
+
+                                          "items" : {"type" : "string"},
+
+                                          "description" : "The offered ciphersuites from a TLS session, expressed as a JSON array, each element of which is a JSON string containing four hexadecimal characters."
+
+                                         },
+
+                                  "non_norm_stats" : {"type" : "array",
+
+                                                      "items" : {"type" : "object",
+
+                                                                 "properties" : {
+
+                                                                     "b" : {"type" : "number"},
+
+                                                                     "dir" : {"type" : "string"},
+
+                                                                     "ipt" : {"type" : "number"}
+
+                                                                 }
+
+                                                                },
+
+                                                      "description" : "A JSON array of packet objects. Each packet object contains the number of bytes of data in the packet, expressed as the JSON number \"b\", the JSON string \"<\" or \">\" to indicate inbound or outbound directions, respectively, and the number of milliseconds between the arrival of this packet and the previous packet, expressed as the JSON number \"ipt\". An example of a packet object is {\"b\": 873, \"dir\": \">\", \"ipt\": 121 }.  The old name for this element is \"non_norm_stats\"."
+
+                                                     },
+
+                                  "tls" : {"type" : "array",
+
+                                           "items" : {"type" : "object",
+
+                                                      "properties" : {
+
+                                                          "b" : {"type" : "number"},
+
+                                                          "dir" : {"type" : "string"},
+
+                                                          "ipt" : {"type" : "number"}
+
+                                                      }
+
+                                                     },
+
+                                           "description" : "The TLS records, expressed as a JSON array of TLS record objects. Those objects have a format that is similar to packet objects."
+
+                                          }
+
+                              },
+
+                              "additionalProperties":False
+
+                             }
+
+                }
+
+            }
+
+            
+
+        },
+
+        "metadata" : {"type" : "object",
+
+                      "properties" : {
+
+                          "userid" : {"type" : "string",
+
+                                      "description" : "Identifier for the user collecting the flows."
+
+				     },
+
+                          "mac_address" : {"type" : "string",
+
+					   "description" : "MAC address for the device collecting the flows."
+
+					  },
+
+                          "date" : {"type" : "number",
+
+                                    "description" : "Date the flows were collected. In Unix time (seconds since January 1, 1970)."
+
+				   },
+
+                          "version" : {"type" : "string",
+
+                                       "description" : "Version number of pcap2flow used to collect the flows."
+
+				      },
+
+                          "config_options" : {"type" : "object",
+
+                                              "properties" : {
+
+                                                  "b" : {"type" : "number",
+
+                                                         "description" : "1: merge unidirectional flows into bidirectional ones. 0: do not merge."
+
+							},
+
+                                                  "j" : {"type" : "number",
+
+                                                         "description" : "1: output flow data in JSON format. 0: do not output in JSON format."
+
+							},
+
+                                                  "d" : {"type" : "number",
+
+                                                         "description" : "1: include byte distribution array. 0: do not collect byte distribution."
+
+							},
+
+                                                  "e" : {"type" : "number",
+
+                                                         "description" : "1: include entropy. 0: do not collect entropy."
+
+							},
+
+                                                  "w" : {"type" : "number",
+
+                                                         "description" : "1: include tls data. 0: do not collect tls information."
+
+							},
+
+                                                  "l" : {"type" : "string",
+
+                                                         "description" : "read packets live from interface specified."
+
+							},
+
+                                                  "p" : {"type" : "number",
+
+                                                         "description" : "1: put interface into promiscuous mode."
+
+							},
+
+                                                  "o" : {"type" : "string",
+
+                                                         "description" : "write output to file specified (otherwise stdout is used)."
+
+							},
+
+                                                  "c" : {"type" : "number",
+
+                                                         "description" : "rotate output files so each has about C records."
+
+							},
+
+                                                  "u" : {"type" : "string",
+
+                                                         "description" : "upload to server S with rsync after file rotation."
+
+							},
+
+                                                  "i" : {"type" : "string",
+
+                                                         "description" : "read input from file specified (otherwise file list used)."
+
+							},
+
+                                                  "z" : {"type" : "number",
+
+                                                         "description" : "1: include zero-length data (e.g. ACKs) in packet list."
+
+							},
+
+                                                  "s" : {"type" : "string",
+
+                                                         "description" : "include OS information read from p0f socket <sock>."
+
+							},
+
+                                                  "f" : {"type" : "string",
+
+                                                         "description" : "use BPF expression <bpf> to filter packets."
+
+							},
+
+                                                  "v" : {"type" : "number",
+
+                                                         "description" : "0=quiet, 1=packet metadata, 2=packet payloads."
+
+							},
+
+                                                  "n" : {"type" : "number",
+
+                                                         "description" : "report on N packets per flow (0 <= N < 200)."
+
+							},
+
+                                                  "t" : {"type" : "number",
+
+                                                         "description" : "1=raw packet lengths, 2=aggregated, 3=defragmented."
+
+							},
+
+                                                  "a" : {"type" : "string",
+
+                                                         "description" : "anonymize addresses in the subnets listed in file."
+
+							}
+
+                                              }
+
+					     }
+
+                      }
+
+                     }
+
+    },
+    "required" : ["appflows"]
+}
+
+.SH CONTRIBUTORS
+
+.B pcap2flow 
+was implemented by David McGrew and Blake Anderson.  Thanks are due to
+Alison Kendler for help with TLS parsing.  
+
+.SH BUGS
+
+pcap2flow is at an alpha/beta stage in its development, and as such,
+it may exhibit strange behavior, including but not limited to crashes
+and maddening "Illegal Instruction: 4" errors on Mac OSX.  This
+program has been exhaustively tested, in the sense that when
+evalutation was completed, the tester was exhausted.  Please patiently
+report bugs to {mcgrew,blaander}@cisco.com.
