@@ -55,10 +55,10 @@ classifiers_to_display = []
 classifier_names = []
 
 paramserver = '' 
-out_dir = '/var/flocap/'
+out_dir = '/var/p2f/'
 count_flocap = 100
 try:
-    fp = open('../flocap.cfg','r')
+    fp = open('../linux.cfg','r')
     for line in fp:
         if line.startswith("outdir"):
             out_dir = line.split()[2]
@@ -67,7 +67,7 @@ try:
         elif line.startswith("count"):
             count_flocap = int(line.split()[2])
 except:
-    out_dir = '/var/flocap/'
+    out_dir = '/var/p2f/'
 
 # read in ciphersutie information
 fp = open('ciphersuites.txt','r')
@@ -102,6 +102,7 @@ def getOrgName(ip):
 
     return orgName + ', ' + country
 
+@route('/')
 @route('/home')
 @view('home')
 def home():
@@ -642,6 +643,147 @@ def devices():
 
     return template('devices',devices=devices_,subnet=subnet+'*',results=tmp,num_flows=len(results),classifier_names=classifier_names,
                     to_display_names=to_display_names)
+
+
+## specifically to work with the julia NN classifier
+@route('/windows',method='POST')
+@route('/windows')
+@view('windows')
+def windows():
+    global data
+    global metadata
+    global count_flocap
+    global classifiers_to_display
+    global classifier_names
+
+    classifiers_to_display = []
+    classifier_names = []
+    display_fields = OrderedDict({})
+    config_file = 'laui.cfg'
+    fp = open(config_file,'r')
+    for line in fp:
+        if line.startswith('display_field'):
+            tokens = line.split()
+            display_fields[int(tokens[3])] = (tokens[1],tokens[2].replace('_',' '))
+            continue
+        elif line.strip() == '' or line.startswith('#') or not line.startswith('classifier'):
+            continue
+    fp.close()
+
+    subnet = '10.0.2.'
+
+    file_names = []
+    is_upload = False
+    if request.files.get('upload') != None:
+        upload = request.files.get('upload')
+
+        dir_name = tempfile.mkdtemp()
+        upload.save(dir_name + 'temp.json')
+
+        file_names.append(dir_name+'temp.json')
+        is_upload = True
+    else:
+        tmp_files = get_files_by_time(out_dir)
+        tmp_files.reverse()
+        if len(tmp_files) > 0:
+            file_names.append(out_dir+tmp_files[0])
+        if len(tmp_files) > 1:
+            file_names.append(out_dir+tmp_files[1])
+
+    start_time = time.time()
+    flows_nn = []
+    devices = {}
+    for f in file_names:
+        try: # just a robustness check
+            data = ""
+            with open(f,'r') as fp:
+                for line in fp:
+                    if "\"hd\"" in line:
+                        continue
+                    data += line.strip().replace('"x": i','"x": "i"').replace('"x": a','"x": "a"')
+            try:
+                tmp_flows = json.loads(data)
+            except:
+                if not data.endswith("] }"):
+                    data += "] }"
+                tmp_flows = json.loads(data)
+        except:
+            continue
+
+        # organize flows in convenient way
+        for tmp_f in tmp_flows['appflows']:
+            if tmp_f['flow']['sa'] in devices:
+                devices[tmp_f['flow']['sa']].append((tmp_f['flow']['ts'],tmp_f))
+            else:
+                devices[tmp_f['flow']['sa']] = [(tmp_f['flow']['ts'],tmp_f)]
+            if tmp_f['flow']['da'] in devices:
+                devices[tmp_f['flow']['da']].append((tmp_f['flow']['ts'],tmp_f))
+            else:
+                devices[tmp_f['flow']['da']] = [(tmp_f['flow']['ts'],tmp_f)]
+            
+
+    if request.files.get('upload') != None:
+        os.removedirs(dir_name)
+
+
+    results = []
+    # find flows that belong to the same device, same 5 minute window
+    for d in devices:
+        devices[d].sort()
+        times, flows = zip(*devices[d])
+        cur_time = times[0] # time is in ms
+        next_time = cur_time + 150000 # sliding window of 2.5 minutes
+        cur_window = []
+        next_window = []
+        i = 0
+        while i < len(times):
+            if times[i] > next_time and times[i] < next_time + 300000: # five minute window
+                next_window.append(flows[i])
+            if times[i] < cur_time + 300000: # five minute window
+                cur_window.append(flows[i])
+            else: # classify and flush window
+                # as julia classify.jl input_json output_json 
+                dir_name = tempfile.mkdtemp()
+                tmp_json = {}
+                tmp_json['appflows'] = cur_window
+
+                with open(dir_name + '/tmp.json','wb') as fp:
+                    json.dump(tmp_json, fp, indent=4, separators=(',', ': '))
+
+                subprocess.call(["julia","julia_classifier/classify.jl",dir_name+"/tmp.json",dir_name+"/tmp_o.json"])
+
+                with open(dir_name + '/tmp_o.json','rb') as fp:
+                    tmp_results = json.load(fp)
+                    for tmp in tmp_results:
+                        results.append((tmp['output'],tmp['ip'],tmp['flows']))
+
+                os.removedirs(dir_name)
+
+                cur_window = next_window
+                cur_time = next_time
+                next_window = []
+                next_time = cur_time + 150000
+                
+            i += 1
+
+        # clean up to make sure we don't miss anything
+        dir_name = tempfile.mkdtemp()
+        tmp_json = {}
+        tmp_json['appflows'] = cur_window
+        with open(dir_name + '/tmp.json','wb') as fp:
+            json.dump(tmp_json, fp, indent=4, separators=(',', ': '))
+        subprocess.call(["julia","julia_classifier/classify.jl",dir_name+"/tmp.json",dir_name+"/tmp_o.json"])
+        with open(dir_name + '/tmp_o.json','rb') as fp:
+#        with open('julia_classifier/output.json','rb') as fp:
+            tmp_results = json.load(fp)
+            for tmp in tmp_results:
+                results.append((tmp['output'],tmp['ip'],tmp['flows']))
+#        os.removedirs(dir_name)
+#        break
+#    devices[str(results)]
+    results.sort()
+    results.reverse()
+    return template('windows',results=results)
 
 run(host='localhost', port=8080, debug=True)
 #run(host='192.168.0.96', port=80, debug=True)
