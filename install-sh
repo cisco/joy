@@ -77,6 +77,13 @@ if [ $(($# + 1)) != "${OPTIND}" ]; then
     usage
 fi
 
+# this script requires root privileges; complain and bail otherwise
+#
+if [[ $EUID -ne 0 ]]; then
+   echo "error: $0 must be run as root; perhaps run \"sudo $0\"" 
+   exit 1
+fi
+
 # check for the presence of required files
 #
 if [ ! -x ./pcap2flow ]; then
@@ -237,6 +244,7 @@ if [ "$sysname" == "Darwin" ]; then
     ls -l /etc/p2f/${MACOSX_CONFIGFILE}
     ls -l /etc/p2f/${ANONFILE}
     ls -l /etc/p2f/${KEYFILE}
+    ls -l /etc/p2f/${WATCHFILE}
     ls -l /System/Library/LaunchDaemons/pcap2flow.plist
     ls -l /usr/share/man/man1/pcap2flow.1
     echo "done"
@@ -353,6 +361,7 @@ elif [ "$sysname" == "Linux" ]; then
     ls -l /etc/p2f/${CONFIGFILE}
     ls -l /etc/p2f/${ANONFILE}
     ls -l /etc/p2f/${KEYFILE}
+    ls -l /etc/p2f/${WATCHFILE}
     ls -l /etc/init.d/pcap2flow
     ls -l /usr/share/man/man1/pcap2flow.1
     service pcap2flow status
