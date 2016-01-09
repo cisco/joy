@@ -113,7 +113,7 @@ Running and Configuration
    form, but have OPTIONS include an interface=<value> command, and
    omit the filename(s) from the command line.  For instance,
 
-      [joy]$ ./sudo ./pcap2flow interface=eth0 bidir=1 output=data.json
+      [joy]$ sudo ./pcap2flow interface=eth0 bidir=1 output=data.json
 
    There are many command line options, so instead of typing them all
    onto the command line, you may want to have the program read a
