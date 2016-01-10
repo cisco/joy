@@ -1,7 +1,12 @@
 import JSON
 using DataFrames
-include("../neuralNetworks/edunets.jl");
-include("../neuralNetworks/scaling.jl");
+include("columnsparsematrix.jl");
+include("superinstance.jl");
+include("linear.jl");
+include("losses.jl");
+include("reluMax.jl");
+include("reluMaxReluMax.jl");
+include("scaling.jl");
 # fixing jsons: sed -r -e 's/"tls_osid": ([a-f0-9]+),/"tls_osid": "\1",/' -e 's/"tls_isid": ([a-f0-9]+),/"tls_isid": "\1",/'
 # for f in `ls /Data/STLD` ; do 
 #   sed -r -e 's/"tls_osid": ([a-f0-9]+),/"tls_osid": "\1",/' -e 's/"tls_isid": ([a-f0-9]+),/"tls_isid": "\1",/' < $f > /home/tomas/data/jsons/${f##*/};
@@ -93,7 +98,7 @@ function processfile(filename;maxPacks=20,maxLen=Int64(1e7),maxFlows=Int64(1e6),
 
   (flows,info)=createdata(I,J,V,srcIP,dstIP,ms,ifName,srcPr,dstPr,ts,te,packetIdx,flowIdx);
   (bags,subbags,ipofbags)=bagusers(info[:srcIP],info[:dstIP],map(Int64,(floor(info[:ts]/300))))
-  ds=EduNets.SuperBagDataSet(flows,-ones(Int,length(bags)),bags,subbags,info)
+  ds=SuperBagDataSet(flows,-ones(Int,length(bags)),bags,subbags,info)
   return(ds,ipofbags)
 end
 
@@ -202,13 +207,13 @@ function contributors(ifname,ofname;scalefile="reluMaxReluMax_sc.txt",modelfile=
   sc=ScalingParams(scalefile);
   scale!(ds.x,sc);
 
-  model=EduNets.ReluMaxReluMaxModel((length(sc.mn),20,20));
-  EduNets.update!(model,readdlm(modelfile))
+  model=ReluMaxReluMaxModel((length(sc.mn),20,20));
+  update!(model,readdlm(modelfile))
 
   #do the forward part of the network
-  (O2,maxI2)=EduNets.forward(ds.x,model.first,ds.subbags);
-  (O1,maxI1)=EduNets.forward(O2,model.second,ds.bags);
-  O0=EduNets.forward(O1,model.third);
+  (O2,maxI2)=forward(ds.x,model.first,ds.subbags);
+  (O1,maxI1)=forward(O2,model.second,ds.bags);
+  O0=forward(O1,model.third);
 
   #sort the users from the most infected to the least ones
   idxs=sortperm(O0,rev=true);
