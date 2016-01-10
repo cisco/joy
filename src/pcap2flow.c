@@ -285,7 +285,9 @@ void sig_reload(int signal_arg) {
 int usage(char *s) {
   printf("usage: %s [OPTIONS] file1 [file2 ... ]\n", s);
   printf("where OPTIONS are as follows:\n"); 
-  printf("  interface=I                read packets live from interface I\n"
+  printf("General options\n"
+	 "  -x F                       read configuration commands from file F\n"
+	 "  interface=I                read packets live from interface I\n"
          "  promisc=1                  put interface into promiscuous mode\n"
          "  daemon=1                   run as daemon (background process)\n"
          "  output=F                   write output to file F (otherwise stdout is used)\n"
@@ -293,20 +295,27 @@ int usage(char *s) {
          "  count=C                    rotate output files so each has about C records\n" 
          "  upload=user@server:path    upload to user@server:path with scp after file rotation\n" 
          "  keyfile=F                  use SSH identity (private key) in file F for upload\n" 
-         "  label=L:F                  add label L to addresses that match the subnets in file F\n" 
+         "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
          "  retain=1                   retain a local copy of file after upload\n" 
+         "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
+         "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
+	 "Data feature options\n"
+         "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
          "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
          "  bidir=1                    merge unidirectional flows into bidirectional ones\n" 
          "  dist=1                     include byte distribution array\n" 
          "  entropy=1                  include byte entropy\n" 
-         "  tls=1                      include TLS ciphersuites\n" 
-         "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
-         "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
+         "  tls=1                      include TLS data (ciphersuites, record lengths and times, ...)\n" 
+         "  exe=1                      include information about host process associated with flow\n" 
+         "  classify=1                 include results of post-collection classification\n" 
          "  num_pkts=N                 report on at most N packets per flow (0 <= N < %d)\n" 
          "  type=T                     select message type: 1=SPLT, 2=SALT\n" 
-         "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
-         "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
-         "  idp=N                      report N bytes of the initial data packet of each flow\n", MAX_NUM_PKT_LEN); 
+         "  idp=N                      report N bytes of the initial data packet of each flow\n"
+         "  label=L:F                  add label L to addresses that match the subnets in file F\n"
+         "  dns=1                      include dns names\n" 
+         "  hd=1                       include header description\n" 
+         "  wht=1                      include walsh-hadamard transform\n", 
+	 MAX_NUM_PKT_LEN); 
   printf("RETURN VALUE                 0 if no errors; nonzero otherwise\n"); 
   return -1;
 }

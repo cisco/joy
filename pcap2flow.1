@@ -11,28 +11,40 @@ where OPTIONS are as follows:
 
   COMMAND=VALUE              set a configuration parameter (see CONFIGURATION below) 
 
+General options
+
+  -x F                       read configuration commands from file F
   interface=I                read packets live from interface I
   promisc=1                  put interface into promiscuous mode
+  daemon=1                   run as daemon (background process)
   output=F                   write output to file F (otherwise stdout is used)
   logfile=F                  write secondary output to file F (otherwise stderr is used)
   count=C                    rotate output files so each has about C records
   upload=user@server:path    upload to user@server:path with scp after file rotation
   keyfile=F                  use SSH identity (private key) in file F for upload
+  anon=F                     anonymize addresses matching the subnets listed in file F
   retain=1                   retain a local copy of file after upload
-  zeros=1                    include zero\-length data (e.g. ACKs) in packet list
-  bidir=1                    merge unidirectional flows into bidirectional ones
-  json=1                     output flow data in JSON format
-  dist=1                     include byte distribution array 
-  entropy=1                  include byte entropy 
-  tls=1                      include TLS ciphersuites
-  p0f=S                      include OS information read from p0f socket S
-  bpf="expression"           only process packets matching BPF "expression"
+  nfv9_port=N                enable Netflow V9 capture on port N
   verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads
+
+Data feature options
+
+  bpf="expression"           only process packets matching BPF "expression"
+  zeros=1                    include zero-length data (e.g. ACKs) in packet list
+  bidir=1                    merge unidirectional flows into bidirectional ones
+  dist=1                     include byte distribution array
+  entropy=1                  include byte entropy
+  tls=1                      include TLS data (ciphersuites, record lengths and times, ...)
+  exe=1                      include information about host process associated with flow
+  classify=1                 include results of post-collection classification
   num_pkts=N                 report on at most N packets per flow (0 <= N < 200)
   type=T                     select message type: 1=SPLT, 2=SALT
-  nfv9_port=N                enable Netflow V9 capture on port N
-  anon=F                     anonymize addresses matching the subnets listed in file F
   idp=N                      report N bytes of the initial data packet of each flow
+  label=L:F                  add label L to addresses that match the subnets in file F
+  dns=1                      include dns names
+  hd=1                       include header description
+  wht=1                      include walsh-hadamard transform
+
 
 .SH DESCRIPTION
 .B pcap2flow
@@ -49,8 +61,8 @@ times of messages, the distribution of bytes, and values extracted
 from packets.  By default, pcap2flow reports only flow data, but the
 command line options can be used to select the intraflow data to be
 captured and reported.  This data is reported using JavaScript Object
-Notation (JSON); the format is documented in the JSON FLOW DATA FORMAT
-section.
+Notation (JSON); the format of this output is documented in the JSON
+FLOW DATA FORMAT section.
 
 pcap2flow uses two output streams.  The main output is for flow
 records (and packet information if \fBverbosity\fR > 0); in offline
@@ -82,7 +94,8 @@ configuration files, and cause a particular file F to be read with the
 the configuration file.  Since the program can operate in only offline
 or online mode, it is an error to specify both an interface and a PCAP
 file.  The program will ignore an interface specified in a
-configuration file if \fB-l none\fR is used on the command line.
+configuration file if \fBinterface=none\fR is used on the command
+line, which is useful for testing out configuration files.
 
 This manual page provides examples, and documents both the options and
 the configuration file.  
@@ -94,13 +107,37 @@ Runs pcap2flow with the configuration defined the file
 \fIconfiguration\-file\fR; this only supports online mode.
 
 .TP 3
-.B pcap2flow bidir=1 json=1 output=\fIoutput\-file \fR \fIinput\-file \fR 
+.B pcap2flow bidir=1 output=\fIoutput\-file \fR \fIinput\-file \fR 
 Runs pcap2flow bidirectional flows and generates JSON output, writing
 output to \fIoutput\-file\fR and reading intput from the PCAP file
 \fIinput\-file\fR; this example uses offline mode.
 
 .RE
 .PD
+
+.SH MODEL
+
+Internally, pcap2flow models a complete flow monitoring system that
+incorporates both a flow exporter and a flow collector.  Packets are
+observed, and information about those packets are stored in
+unidirectional flow records; the flow key is the conventional (source
+address, destination address, source port, destination port, protocol)
+five-tuple.  If a flow is inactive for ten seconds, or if it is active
+for more than 30 seconds, then the flow record is "exported and
+collected" by performing bidirectional flow stitching (that is,
+finding the twin flow that has the source and destination reversed, if
+there is one), to produce bidirectional flow records.  These records
+are then processed by performing passive operating system inference,
+and then comparing the addresses against a preconfigured set of subnets
+to determine if address anonymization should be applied, and what
+labels (if any) should be associated with addresses.  After this
+processing has been performed, the flow records are printed out in
+JSON format.  When used in online mode, the output file is given a
+name that includes an interface MAC address, the time and date at
+which the collection started, and a trailing integer.  That file is
+periodically rotated by closing the current output file and opening a
+new one, after incrementing the trailing integer in the filename.
+
 
 .SH CONFIGURATION
 
@@ -192,12 +229,7 @@ that flows will be reported as bidirectional.  Flows with no matching
 reverse-direction twin will still be reported as unidirectional, of
 course.
 
-.TP 3
-.BR json = BOOLEAN
-json=1 causes output to be in JSON format; this is probably what you
-want.
-
-.SS "Sequence of Application Lengths and Times (SALT) and Sequence of Packet Lengths and Times (SPLT) options"
+.SS "Sequence of Packet Lengths and Times (SPLT) and Sequence of Application Lengths and Times (SALT) options"
 
 Message lengths and times are reported in the JSON "non_norm_stats"
 field.  These options control the details about what messages are
@@ -265,16 +297,11 @@ single byte of the initial data pakcet, which is not very useful.
 
 
 
-.SS "Passive Operating System inference inference"
+.SS "Passive Operating System inference"
 
-.TP 3
-.BR p0f = STRING
-The command p0f=sock, where "sock" is a UNIX socket used to
-communicate between p0f and client processes, tells pcap2flow to
-obtain information about the Operating Systems associated with
-endpoint addresses via the p0f socket API.  In this scenario, p0f
-should be run with the "-s sock" argument, so that it accepts client
-requests on that socket.
+By default, the operating system will be estimated and reported.  This
+estimate is made by applying a set of rules to some of the IP and TCP
+header data elements.
 
 .SS "Traffic Selection"
 
@@ -287,9 +314,8 @@ by quotes in the configuration file.  The filter must not specificy
 traffic that is not IP-based.  For example, to report only on HTTPS
 traffic, the configuration file should include the command "bpf = tcp
 port 443", and to report only communication to and from a particular
-host, "bpf = ip host 216.34.181.45" can be used.  To observe
-all IP traffic, leave bfp unset, or set it to "none", which is
-the default.  
+host, "bpf = ip host 216.34.181.45" can be used.  To observe all IP
+traffic, leave bfp unset, or set it to "none", which is the default.
 
 .SS "Anonymization"
 
@@ -321,10 +347,21 @@ output:
   verbosity = 1 -> report a summary of each packet
   verbosity = 2 -> report on all data of each packet
 
-The default is verbosity=0.  
+The default is verbosity=0.  You probably want to use the default for
+everything except for troubleshooting.
 
 .SH JSON FLOW DATA FORMAT
 
+The main output of this program uses Java Script Object Notation
+(JSON).  That output consists of a "metadata" object, which describes
+the data collection, and an array for "flow" objects.  The metadata
+object reproduces all of the configuration options that were used
+during collection, as well as the version of the program.  Each flow
+object describes a flow between a single source and a single
+destination address/port pair.  The JSON schema is available in the
+file "json" in the main joy directory of the source code package, and
+it is reproduced below for convenience (with apologies for the
+effects of man page formatting).
 
 {
 
@@ -737,8 +774,7 @@ Alison Kendler for help with TLS parsing.
 .SH BUGS
 
 pcap2flow is at an alpha/beta stage in its development, and as such,
-it may exhibit strange behavior, including but not limited to crashes
-and maddening "Illegal Instruction: 4" errors on Mac OSX.  This
-program has been exhaustively tested, in the sense that when
-evalutation was completed, the tester was exhausted.  Please patiently
-report bugs to {mcgrew,blaander}@cisco.com.
+it may exhibit strange or undesirable behavior.  This program has been
+exhaustively tested, but only in the sense that when evalutation was
+completed, the tester was exhausted.  Please patiently report bugs to
+{mcgrew,blaander}@cisco.com.
