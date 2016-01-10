@@ -41,9 +41,9 @@ Overview
         clientKeyExchange field,
 
       * the name of the process associated with the flow, for flows
-        originate or terminate on the 
+        originate or terminate on the host on which pcap is running.
 
-   Joy is intended for use by security research, forensics, and for
+   Joy is intended for use in security research, forensics, and for
    the monitoring of (small scale) networks to detect vulnerabilities,
    threats and other unauthorized or unwanted behavior.  Researchers,
    administrators, penetration testers, and security operations teams
@@ -52,7 +52,7 @@ Overview
    the benefit of the broader community through improved defensive
    posture.  As with any network monitoring tool, Joy could
    potentially be misused; do not use it on any network of which you
-   are not the owner or the administrator.
+   are not the owner or the administrator.  
 
    Flow, in positive psychology, is a state in which a person
    performing an activity is fully immersed in a feeling of energized
@@ -70,60 +70,96 @@ Credits
    {mcgrew,blaander}@cisco.com of Cisco Systems Advanced Security
    Research Group (ASRG).
 
-
 Quick Start
 
-Joy has been successfully run and tested on Linux (Debian, Ubuntu, and
-CentOS) and Mac OSX.
+Building
 
-First, obtain the package from github, and change to the joy
-directory.
+   Joy has been successfully run and tested on Linux (Debian, Ubuntu,
+   and CentOS) and Mac OSX.  The system has been built with gcc and
+   GNU make, but it should work with other development environments as
+   well.
 
-To build the package, run "make" in the main directory.  This will
-cause the programs to be compiled, linked, stripped, and copied into
-the main directory as apropriate.  It will also run a test script and
-a unit test program.  
+   First, obtain the package from github, and change to the joy
+   directory.
 
-The main program for extracting data features from pcap files or live
-packet captures is the program pcap2flow, which occupies the src/
-subdirectory.  
+   To build the package, run "make" in the main directoroy:
 
-To understand how pcap2flow is configured, read one of
-the configuration files (linux.cfg or macosx.cfg).  To process a pcap
-file in offline mode, run
+      [joy]$ make 
 
-   pcap2flow [ OPTIONS ] filename [ filename2 ... ]
+   This will cause the programs to be compiled, linked, stripped, and
+   copied into the main directory as appropriate.  It will also run a
+   test script and a unit test program.
 
-For instance, 
+   The main program for extracting data features from pcap files or
+   live packet captures is the program pcap2flow, which occupies the
+   src/ subdirectory.  It is copied into the main joy directory after
+   a successful build.  It can be run from that directory, or
+   installed so that it will automatically run as a daemon on Linux or
+   Mac OSX.  
+
+Running and Configuration
+
+   To understand how pcap2flow is configured, read one of the
+   configuration files (linux.cfg or macosx.cfg).  To process a pcap
+   file in offline mode, run
+
+      [joy]$ ./pcap2flow [ OPTIONS ] filename [ filename2 ... ]
+
+   For instance, 
    
-   pcap2flow bidir=1 output=data.json filename
+      [joy]$ ./pcap2flow bidir=1 output=data.json filename
 
-To run the packet capture in online mode, use the same command form,
-but have OPTIONS include an interface=<value> command, and omit the
-filename(s) from the command line.  For instance,
+   To run the packet capture in online mode, use the same command
+   form, but have OPTIONS include an interface=<value> command, and
+   omit the filename(s) from the command line.  For instance,
 
-   sudo ./pcap2flow interface=eth0 bidir=1 output=data.json
+      [joy]$ sudo ./pcap2flow interface=eth0 bidir=1 output=data.json
 
+   There are many command line options, so instead of typing them all
+   onto the command line, you may want to have the program read a
+   configuration file.  Two such files come with the distribution,
+   linux.cfg and macosx.cfg.  If you want to change the program
+   defaults (and you probably do, in order to capture exactly the data
+   of interest to you), then make a copy of the configuration file.
+   By making a local copy that has a different name, your
+   configuration will not be clobbered if you update the joy package.
 
 Installation
 
-make
+   To install the package on your system, you will need to first build
+   it.  Run the script install-sh (as root, or using sudo) to install
+   the package.  
 
-To install the package on your system, as root:
+      [joy]$ sudo ./install-sh
 
-./install-sh
+   If you run the script with no arguments, then the default
+   configuration will be installed into the /etc/ directory.  To have
+   a different configuration file installed, then use the -c option to
+   the install script:
+
+      [joy]$ sudo ./install-sh -c local-config-file.cfg
+
+   You can also configure anonymization of addresses, which requires a
+   file containing the internal subnets.  The default file for those
+   subnets is internal.net; you can change the configuration with the
+   -a option.  Similarly, you can change the watchfile of IP addresses
+   (using the -w option) or the SSH private key used to have files
+   uploaded via scp (using the -k option).  To see the full option
+   description for the installer, run that program with the -h option
+   to see the help or "usage" message.
 
 
 Documentation
 
-A man page will be built and installed automatically as part of the
-package.  See the file pcap2flow.1.
+   A man page will be built and installed automatically as part of the
+   package.  See the file pcap2flow.1, or after the install-sh script
+   has been run, access the man page through "man pcap2flow".
 
 
 Testing
 
-Run the script ./pcap2flow_test.sh and the utility src/unit_test to
-test the programs.  These programs will indicate success or failure on
-the command line.
+   Run the script ./pcap2flow_test.sh and the utility src/unit_test to
+   test the programs.  These programs will indicate success or failure
+   on the command line.
 
 
