@@ -773,8 +773,8 @@ def windows():
         with open(dir_name + '/tmp.json','wb') as fp:
             json.dump(tmp_json, fp, indent=4, separators=(',', ': '))
         subprocess.call(["julia","julia_classifier/classify.jl",dir_name+"/tmp.json",dir_name+"/tmp_o.json"])
-#        with open(dir_name + '/tmp_o.json','rb') as fp:
-        with open('julia_classifier/output.json','rb') as fp:
+        with open(dir_name + '/tmp_o.json','rb') as fp:
+#        with open('julia_classifier/output.json','rb') as fp:
             tmp_results = json.load(fp)
             for tmp in tmp_results:
                 results.append((tmp['output'],tmp['ip'],tmp['flows']))

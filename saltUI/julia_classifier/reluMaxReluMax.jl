@@ -61,11 +61,3 @@ function gradient(ds::SuperBagDataSet,model::ReluMaxReluMaxModel)
     g1=gradient(ds.x,model.first,gO1,maxI2);
     return(f,ReluMaxReluMaxModel(g1,g2,g3))
 end
-
-
-function trainReluMaxReluMax{T}(ds::EduNets.SuperBagDataSet{T},k::Tuple{Int,Int};options=AdamOptions())
-    theta=model2vector(ReluMaxReluMaxModel((size(X,1),k...)))
-    bagIDs=(find(ds.y.==-1),find(ds.y.==+1))
-    theta=adam((x,ids)->reluMaxReluMaxErrG(subview(ds,ids),ReluMaxReluMaxModel(x,k)),theta,bagIDs,options)
-    return(ReluMaxReluMaxModel(theta,k))
-end
