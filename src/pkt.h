@@ -41,9 +41,14 @@
 #ifndef PKT_H
 #define PKT_H
 
+#ifdef LINUX
 #include <endian.h>
+#else /* SYSNAME=DARWIN */
+// no special include needed
+#endif
 
 #define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
+
 
 /*
  * ethernet header

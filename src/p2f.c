@@ -219,8 +219,6 @@ int include_os = 1;
 
 #define FLOW_RECORD_LIST_LEN (flow_key_hash_mask + 1)
 
-typedef struct flow_record *flow_record_list;
-
 flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN] = { 0, };
 
 enum twins_match { exact = 0, near = 1 };
@@ -1115,8 +1113,8 @@ void flow_record_print_json(const struct flow_record *record) {
     fprintf(output, "\t\t\t\"ib\": %u,\n", rec->twin->ob);
     fprintf(output, "\t\t\t\"ip\": %u,\n", rec->twin->np);
   }
-  fprintf(output, "\t\t\t\"ts\": %ld.%06ld,\n", ts_start.tv_sec, ts_start.tv_usec);
-  fprintf(output, "\t\t\t\"te\": %ld.%06ld,\n", ts_end.tv_sec, ts_end.tv_usec);
+  fprintf(output, "\t\t\t\"ts\": %zd.%06zd,\n", ts_start.tv_sec, ts_start.tv_usec);
+  fprintf(output, "\t\t\t\"te\": %zd.%06zd,\n", ts_end.tv_sec, ts_end.tv_usec);
   fprintf(output, "\t\t\t\"ottl\": %u,\n", rec->ttl);
   if (rec->twin != NULL) {
     fprintf(output, "\t\t\t\"ittl\": %u,\n", rec->twin->ttl);
