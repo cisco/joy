@@ -190,7 +190,7 @@ attr_flags radix_trie_lookup_addr(struct radix_trie *trie, struct in_addr addr) 
   return 0;  /* indicate that no match occured */
 }
 
-inline void radix_trie_node_add_flag_to_all_leaves(const struct radix_trie_node *rt, attr_flags flags) {
+void radix_trie_node_add_flag_to_all_leaves(const struct radix_trie_node *rt, attr_flags flags) {
   unsigned int i;
   
   if (rt == NULL) {

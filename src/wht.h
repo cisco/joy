@@ -50,7 +50,7 @@ struct wht {
   int32_t spectrum[4];
 };
 
-inline void wht_init(struct wht *wht);
+void wht_init(struct wht *wht);
 
 void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned int report_wht);
 
