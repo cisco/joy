@@ -124,7 +124,18 @@ Running and Configuration
    By making a local copy that has a different name, your
    configuration will not be clobbered if you update the joy package.
 
+
+Analytics
+
+   Please see the file saltUI/README.
+
+
 Installation
+
+   NOTE: THE DEFAULT CONFIGURATION USED BY THE INSTALL SCRIPT WILL
+   PERFORM ONGOING DATA CAPTURE, WHICH WILL RESTART UPON REBOOT.  If
+   you do not want an ongoing capture, we suggest that you do not use
+   the install script.
 
    To install the package on your system, you will need to first build
    it.  Run the script install-sh (as root, or using sudo) to install

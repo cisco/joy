@@ -6,13 +6,9 @@
 
 QUICK START FOR LAUI
 
-# pull code from gitlab
-#
-git clone http://gitlab.cisco.com/mcgrew/json-flow-data-tools.git
-
 # change to project directory
 #
-cd json-flow-data-tools/saltUI/
+cd joy/saltUI/
 
 # start server
 #
@@ -29,7 +25,7 @@ click the Local Analytics drop down on the top banner
 
 select Upload JSON File
 
-click Browse, select test.json from the json-flow-data-tools/saltUI/
+click Browse, select test.json from the joy/saltUI/
       folder
 
 click Start Upload
