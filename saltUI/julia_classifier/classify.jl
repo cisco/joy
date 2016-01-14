@@ -1,12 +1,14 @@
 import JSON
 using DataFrames
-include("columnsparsematrix.jl");
-include("superinstance.jl");
-include("linear.jl");
-include("losses.jl");
-include("reluMax.jl");
-include("reluMaxReluMax.jl");
-include("scaling.jl");
+include("scaling.jl")
+module EduNets
+  include("columnsparsematrix.jl")
+  include("superinstance.jl")
+  include("linear.jl")
+  include("losses.jl")
+  include("reluMax.jl")
+  include("reluMaxReluMax.jl")
+end
 # fixing jsons: sed -r -e 's/"tls_osid": ([a-f0-9]+),/"tls_osid": "\1",/' -e 's/"tls_isid": ([a-f0-9]+),/"tls_isid": "\1",/'
 # for f in `ls /Data/STLD` ; do 
 #   sed -r -e 's/"tls_osid": ([a-f0-9]+),/"tls_osid": "\1",/' -e 's/"tls_isid": ([a-f0-9]+),/"tls_isid": "\1",/' < $f > /home/tomas/data/jsons/${f##*/};
@@ -22,6 +24,7 @@ function processfile(filename;maxPacks=20,maxLen=Int64(1e7),maxFlows=Int64(1e6),
   dstPr=zeros(Int32,maxFlows);
   ts=zeros(maxFlows);
   te=zeros(maxFlows);
+  index=zeros(Int32,maxFlows);
 
   #arrays to construct the sparse matrix with features
   I=zeros(Int64,maxLen);
@@ -29,13 +32,16 @@ function processfile(filename;maxPacks=20,maxLen=Int64(1e7),maxFlows=Int64(1e6),
   V=zeros(Int64,maxLen);
   packetIdx=1;
   flowIdx=1;
-  fileNo=1
+  absoluteindex=1
 
-  @time D=JSON.parsefile(filename);
+  D=JSON.parsefile(filename);
   # store counters before processing the file to provide statistics
   startPacketIdx=packetIdx;
   startFlowIdx=flowIdx;
-  @time for appflow in D["appflows"]
+  for appflow in D["appflows"]
+    index[flowIdx]=absoluteindex;
+    absoluteindex+=1;
+
     flow=appflow["flow"]
     #some checks to prevent useless work
     if !haskey(flow,"non_norm_stats")
@@ -89,17 +95,17 @@ function processfile(filename;maxPacks=20,maxLen=Int64(1e7),maxFlows=Int64(1e6),
 
   #if the sample does not have sufficient numebr of flows, it will be skipped
   if (flowIdx-startFlowIdx<minflows)
-    println("skipping $f since there was only $(flowIdx-startFlowIdx) flows")
+    # println("skipping $f since there was only $(flowIdx-startFlowIdx) flows")
     packetIdx=startPacketIdx;
     flowIdx=startFlowIdx;
   else
-    println("from file $filename $(flowIdx-startFlowIdx) flow and $(packetIdx-startPacketIdx) packets")
+    # println("from file $filename $(flowIdx-startFlowIdx) flow and $(packetIdx-startPacketIdx) packets")
   end
 
-  (flows,info)=createdata(I,J,V,srcIP,dstIP,ms,ifName,srcPr,dstPr,ts,te,packetIdx,flowIdx);
+  (flows,info)=createdata(I,J,V,srcIP,dstIP,ms,ifName,srcPr,dstPr,ts,te,packetIdx,index,flowIdx);
   (bags,subbags,ipofbags)=bagusers(info[:srcIP],info[:dstIP],map(Int64,(floor(info[:ts]/300))))
-  ds=SuperBagDataSet(flows,-ones(Int,length(bags)),bags,subbags,info)
-  return(ds,ipofbags)
+  ds=EduNets.SuperBagDataSet(flows,-ones(Int,length(bags)),bags,subbags,info)
+  return(ds,ipofbags,D["appflows"])
 end
 
 
@@ -146,7 +152,7 @@ function bagusers(srcip,dstip,timestamps)
   return(bags,subbags,ipofbags)
 end
 
-function createdata(I,J,V,srcIP,dstIP,ms,ifName,srcPr,dstPr,ts,te,packetIdx,flowIdx)
+function createdata(I,J,V,srcIP,dstIP,ms,ifName,srcPr,dstPr,ts,te,packetIdx,index,flowIdx)
   println("parsed $(flowIdx-1) flows and $(packetIdx-1) packets")
   I=I[1:packetIdx-1]
   J=J[1:packetIdx-1]
@@ -159,9 +165,10 @@ function createdata(I,J,V,srcIP,dstIP,ms,ifName,srcPr,dstPr,ts,te,packetIdx,flow
   dstPr=dstPr[1:flowIdx-1]
   ts=ts[1:flowIdx-1]
   te=te[1:flowIdx-1]
+  index=index[1:flowIdx-1]
     #create the data here
   flows=full(sparse(J,I,log(1+V)));
-  info=DataFrame(srcIP=srcIP,srcPr=srcPr,dstIP=dstIP,dstPr=dstPr,ts=ts,te=te,ifName=ifName);
+  info=DataFrame(srcIP=srcIP,srcPr=srcPr,dstIP=dstIP,dstPr=dstPr,ts=ts,te=te,ifName=ifName,flowindex=index);
   return(flows,info);
 end
 
@@ -185,42 +192,38 @@ function findhostips(srcip::AbstractString,dstip::AbstractString;check=false)
   return srcip;
 end
 
-type Flow
-    contribution::Float64;
-    sip::ASCIIString;
-    spr::Int;
-    dip::ASCIIString;
-    dpr::Int;
-    ts::Float64;
-    te::Float64;
-end
-
 type DeviceInfo
     ip::ASCIIString;
     output::AbstractFloat;
     label::Int;
-    flows::Array{Flow,1};
+    flows::Array{Any,1};
 end
 
-function contributors(ifname,ofname;scalefile="reluMaxReluMax_sc.txt",modelfile="reluMaxReluMax_theta.txt")
-  (ds,ipofbags)=processfile(ifname;maxPacks=20,maxLen=Int64(1e7),maxFlows=Int64(1e6),minflows=0)
+function contributors(ifname,ofname;scalefile="reluMaxReluMax_sc.txt",modelfile="reluMaxReluMax_theta.txt",topk=typemax(Int))
+  (ds,ipofbags,appflows)=processfile(ifname;maxPacks=20,maxLen=Int64(1e7),maxFlows=Int64(1e6),minflows=0)
   sc=ScalingParams(scalefile);
   scale!(ds.x,sc);
 
-  model=ReluMaxReluMaxModel((length(sc.mn),20,20));
-  update!(model,readdlm(modelfile))
+  model=EduNets.ReluMaxReluMaxModel((length(sc.mn),20,20));
+  EduNets.update!(model,readdlm(modelfile))
 
   #do the forward part of the network
-  (O2,maxI2)=forward(ds.x,model.first,ds.subbags);
-  (O1,maxI1)=forward(O2,model.second,ds.bags);
-  O0=forward(O1,model.third);
+  (O2,maxI2)=EduNets.forward(ds.x,model.first,ds.subbags);
+  (O1,maxI1)=EduNets.forward(O2,model.second,ds.bags);
+  O0=EduNets.forward(O1,model.third);
 
   #sort the users from the most infected to the least ones
   idxs=sortperm(O0,rev=true);
+  if length(idxs)>topk
+    idxs=idxs[1:topk]
+  end
+
   deviceinfos=Array{DeviceInfo,1}(0)
   for idx in idxs
     if O0[idx]<=0
-      push!(deviceinfos,DeviceInfo(ipofbags[idx],O0[idx],ds.y[idx],[]))
+      if topk<typemax(Int)
+        push!(deviceinfos,DeviceInfo(ipofbags[idx],1.0/(1+exp(-O0[idx])),ds.y[idx],[]))
+      end
       continue
     end
     # println("bagid = $idx $(ds.y[idx]) $(O0[idx])")
@@ -238,7 +241,7 @@ function contributors(ifname,ofname;scalefile="reluMaxReluMax_sc.txt",modelfile=
     end
 
     #try to get contributions of individual flows to the domain and output therefor
-    triggerflows=Array{Flow,1}(0)
+    triggerflows=Array{Any,1}(0)
     for domainindex in sortperm(domaincontributions,rev=true);
       d=domains[domainindex]
       # println("domain $(d) $(domaincontributions[domainindex])")
@@ -254,15 +257,16 @@ function contributors(ifname,ofname;scalefile="reluMaxReluMax_sc.txt",modelfile=
       sorti=sortperm(flowcontributions,rev=true);
       for j in sorti
         flowj=flows[j]
-        if flowcontributions[j]>0
+        # if flowcontributions[j]>0
           # println(@sprintf(" %+.2f %s:%d --> %s:%d\t %s",flowcontributions[j],ds.info[flowj,:srcIP],ds.info[flowj,:srcPr],ds.info[flowj,:dstIP],ds.info[flowj,:dstPr],ds.info[flowj,:ifName]))
           # println(@sprintf(" %+.2f %s:%d --> %s:%d",flowcontributions[j],ds.info[flowj,:srcIP],ds.info[flowj,:srcPr],ds.info[flowj,:dstIP],ds.info[flowj,:dstPr]))
-          push!(triggerflows,Flow(flowcontributions[j],ds.info[flowj,:srcIP],ds.info[flowj,:srcPr],ds.info[flowj,:dstIP],ds.info[flowj,:dstPr],ds.info[flowj,:ts],ds.info[flowj,:te]))
-        end
+          appflows[flowj]["flow"]["contribution"]=flowcontributions[j]
+          push!(triggerflows,appflows[flowj]["flow"]);
+        # end
       end
     end
     # println()
-    push!(deviceinfos,DeviceInfo(ipofbags[idx],O0[idx],ds.y[idx],triggerflows))
+    push!(deviceinfos,DeviceInfo(ipofbags[idx],1.0/(1+exp(-O0[idx])),ds.y[idx],triggerflows))
   end
   #write the json
   open(ofname,"w") do of
@@ -271,8 +275,12 @@ function contributors(ifname,ofname;scalefile="reluMaxReluMax_sc.txt",modelfile=
 end
 
 if length(ARGS)<2
-  println("usage: julia classify.jl input_json output_json");
+  println("usage: julia classify.jl input_json output_json (maximum)");
   println();
 else
-  contributors(ARGS[1],ARGS[2])
+  topk=typemax(Int)
+  if length(ARGS)==3;
+    topk=parse(Int,ARGS[3])
+  end
+  contributors(ARGS[1],ARGS[2];topk=topk)
 end
