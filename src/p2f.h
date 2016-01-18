@@ -54,6 +54,7 @@
 #include "pkt_proc.h"     /* for struct tls_type_code      */
 #include "hdr_dsc.h"      /* header description (proto id) */
 #include "wht.h"          /* walsh-hadamard transform      */
+#include "http.h"         /* http header data              */
 
 enum print_level { 
   none = 0, 
@@ -97,6 +98,7 @@ struct flow_record {
   struct wht wht;                       /* walsh hadamard transform            */
   struct header_description hd;         /* header description (proto ident)    */
   struct tls_information tls_info;      /* TLS awareness                       */
+  struct http_data http_data;           /* HTTP header information             */
   char *dns_name[MAX_NUM_PKT_LEN];       /* array of DNS names                 */
   void *idp;
   unsigned int idp_len;

@@ -50,6 +50,7 @@
 #include "err.h"
 #include "tls.h"
 #include "nfv9.h"
+#include "config.h"
 
 /*
  * external variables, defined in pcap2flow
@@ -69,6 +70,7 @@ extern unsigned int nfv9_capture_port;
 extern enum SALT_algorithm salt_algo;
 extern enum print_level output_level;
 extern struct flocap_stats stats;
+extern struct configuration config;
 
 /* START packet processing */
 #define MAX_TEMPLATES 100
@@ -570,6 +572,11 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   /* if packet has port 443 and nonzero data length, process it as TLS */
   if (include_tls && payload_len && (key->sp == 443 || key->dp == 443)) {
     process_tls(h, payload, payload_len, &record->tls_info);
+  }
+
+  /* if packet has port 80 and nonzero data length, process it as HTTP */
+  if (config.http && payload_len && (key->sp == 80 || key->dp == 80)) {
+    http_update(&record->http_data, payload, payload_len, config.http);
   }
 
   /*

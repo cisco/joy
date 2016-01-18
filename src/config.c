@@ -211,6 +211,9 @@ int config_parse_command(struct configuration *config,
   } else if (match(command, "dns")) {
     parse_check(parse_bool(&config->dns, arg, num));
 
+  } else if (match(command, "http")) {
+    parse_check(parse_bool(&config->http, arg, num));
+
   } else if (match(command, "anon")) {
     parse_check(parse_string(&config->anon_addrs_file, arg, num));
 

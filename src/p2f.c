@@ -55,6 +55,7 @@
 #include "tls.h"      /* TLS awareness                   */
 #include "classify.h" /* inline classification           */
 #include "wht.h"      /* walsh-hadamard transform        */
+#include "http.h"     /* http header data                */
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "config.h"     /* configuration                 */
@@ -112,9 +113,6 @@ struct flocap_stats last_stats = { 0, 0, 0, 0 };
 struct timeval last_stats_output_time;
 
 unsigned int num_pkt_len = NUM_PKT_LEN;
-
-void convert_string_to_printable(char *s, unsigned int len);
-
 
 #include "osdetect.h"
 
@@ -418,6 +416,7 @@ void flow_record_init(/* @out@ */ struct flow_record *record,
   /* initialize TLS data */
   tls_record_init(&record->tls_info);
 
+  http_init(&record->http_data);
   wht_init(&record->wht);
 
   header_description_init(&record->hd);
@@ -758,6 +757,7 @@ void flow_record_delete(struct flow_record *r) {
     free(r->idp);
   }
   tls_record_delete(&r->tls_info);
+  http_delete(&r->http_data);
 
   if (r->exe_name) {
     free(r->exe_name);
@@ -1514,6 +1514,13 @@ void flow_record_print_json(const struct flow_record *record) {
     }
   }
 
+  if (config.http) {
+    http_printf(&rec->http_data, "ohttp", output);
+    if (rec->twin) { 
+      http_printf(&rec->twin->http_data, "ihttp", output);
+    }
+  }
+
   if (report_dns && (rec->key.sp == 53 || rec->key.dp == 53)) {
     unsigned int count;
 
@@ -1802,137 +1809,9 @@ void flow_record_list_find_twins(const struct timeval *expiration) {
 
 /* END flow monitoring */
 
-
-
-
-/* BEGIN session termination */
-
 /*
- * TCP session termination model
- * 
- * Sessions to be terminated are entered into the session table; each
- * entry holds the the network five-tuple of that session, in the form
- * of a flow_key structure.  To terminate an ongoing active session,
- * the flow record is looked up, and a pointer to the session termination
- * function is made.
- * 
- * It would be better to have a traffic filter associated with a set
- * of actions.  Perhaps there could be a separate BPF and pcap_handle
- * associated with each action.  Then there could be a
- * tcp_session_termination function associated with a BPF filter
- * expression.   
- *
+ * file uploading after rotation
  */
-
-#if 0
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-
-int raw_socket;
-
-int session_termination_init() {
-  raw_socket = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-  if (raw_socket == -1) {
-    return failure;
-  }
-  return ok;
-}
-
-
-#define MAX_PKT_LEN 2048
-
-int tcp_construct_reset(const struct ip_hdr *ip, const struct tcp_hdr *tcp, void *pkt) {
-  struct ip_hdr *reset = pkt;
-  struct tcp_hdr *reset_tcp;
-  
-  /* set IP header */
-  reset->ip_vhl = ip->ip_vhl;
-  reset->ip_tos = ip->ip_tos;
-  reset->ip_len = 40;             /* is this always right? */
-  reset->ip_id = ip->ip_id;
-  reset->ip_off = ip->ip_off;
-  reset->ip_ttl = 255;            /* this should be more carefully chosen */
-  reset->ip_prot = ip->ip_prot;   /* 6, for TCP */
-  reset->ip_cksum = 0;            /* to be set later */
-  reset->ip_src.s_addr = ip->ip_dst.s_addr;
-  reset->ip_dst.s_addr = ip->ip_src.s_addr;
-
-  /* set TCP header */
-  reset_tcp = pkt + sizeof(struct ip_hdr);
-  reset_tcp->src_port = tcp->dst_port;
-  reset_tcp->dst_port = tcp->src_port;
-  reset_tcp->tcp_seq = 0xcafebabe;   /* should be set randomly */
-  reset_tcp->tcp_ack = tcp->tcp_seq;
-  reset_tcp->tcp_offrsv = 0;
-  reset_tcp->tcp_flags = TCP_RST;
-  reset_tcp->tcp_win = 0;
-  reset_tcp->tcp_csm = 0;          /* to be set later */
-  reset_tcp->tcp_urp = 0;
-  
-  return ok;
-}
-
-int packet_terminate_session(unsigned char *ignore, const struct pcap_pkthdr *header, const unsigned char *packet) {
-  const struct ip_hdr *ip;              
-  unsigned int transport_len;
-  int size_ip;
-  const void *transport_start;
-  unsigned char pkt[MAX_PKT_LEN];
-  struct sockaddr_in target;
-
-  if (output_level > none) {
-    fprintf(output, "terminating session\n");
-  }
-  
-  /* define/compute ip header offset */
-  ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
-  size_ip = ip_hdr_length(ip);
-  if (size_ip < 20) {
-    if (output_level > none) fprintf(output, "   * Invalid IP header length: %u bytes\n", size_ip);
-    return failure;
-  }
-
-  /* print source and destination IP addresses */
-  if (output_level > none) {
-    fprintf(output, "       from: %s\n", inet_ntoa(ip->ip_src));
-    fprintf(output, "         to: %s\n", inet_ntoa(ip->ip_dst));
-  }
-    
-  /* determine transport protocol and handle appropriately */
-  transport_len =  ntohs(ip->ip_len) - size_ip;
-  transport_start = packet + ETHERNET_HDR_LEN + size_ip;
-  switch(ip->ip_prot) {
-  case IPPROTO_TCP:
-    tcp_construct_reset(ip, transport_start, pkt);
-    break;
-  case IPPROTO_UDP:
-    break;
-  case IPPROTO_ICMP:
-    break;    
-  default:
-    break;
-  }
-
-  /* send packet */
-  target.sin_family = AF_INET;
-  target.sin_port = 0;
-  target.sin_addr.s_addr = ip->ip_src.s_addr;
-
-  if (sendto(raw_socket, pkt, 40, 0, (struct sockaddr *)&target, sizeof(target)) != 40) {
-    return failure;
-  }
-
-  return ok;
-}
-
-
-#endif /* 0/1 */
-
-/* END session termination */
-
-
-
 // #define RSYNC_CMD    "rsync", "rsync", "-avz", "-e", 
 // #define RSYNC_CMD_RM "rsync", "rsync", "-avz", "-e", "scp -v -i upload-key -l data", "--remove-source-files"
 // #define SCP_CMD      "scp", "scp", "-C", "-i", "/etc/flocap/upload-key"
@@ -1999,7 +1878,7 @@ void convert_string_to_printable(char *s, unsigned int len) {
   for (i=0; i<len; i++) {
     if (s[i] == 0) {
       break;
-    } else if (!isalnum(s[i])) {
+    } else if (!isprint(s[i])) {
       s[i] = '.';
     }
   }

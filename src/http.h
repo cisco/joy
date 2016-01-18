@@ -34,59 +34,26 @@
  *
  */
 
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef HTTP_H
+#define HTTP_H
 
-#include "radix_trie.h"
-
-#define LINEMAX 256
-
-#define NULL_KEYWORD "none"
+#include <stdio.h>   /* for FILE */
 
 
-struct configuration {
-  unsigned int bidir;
-  unsigned int include_zeroes;
-  unsigned int byte_distribution;
-  unsigned int report_entropy;
-  unsigned int report_wht;
-  unsigned int report_hd;
-  unsigned int report_exe;
-  unsigned int include_tls;
-  unsigned int include_classifier;
-  unsigned int idp;
-  unsigned int dns;
-  unsigned int http;
-  unsigned int promisc;
-  unsigned int daemon;
-  unsigned int num_pkts;
-  unsigned int type;           /* 1=SPLT, 2=SALT */
-  unsigned int retain_local;
-  unsigned int max_records;
-  unsigned int output_level;
-  unsigned int nfv9_capture_port;
-  unsigned int flow_key_match_method;
-  char *interface;
-  char *filename;              /* output file, if not NULL */
-  char *outputdir;             /* directory to write output files */
-  char *logfile; 
-  char *anon_addrs_file;
-  char *upload_servername;
-  char *upload_key;
-  char *bpf_filter_exp;
-  char *subnet[MAX_NUM_FLAGS]; /* max defined in radix_trie.h    */
-  unsigned int num_subnets;    /* counts entries in subnet array */
+struct http_data {
+  char *header;
+  unsigned int header_length;
 };
 
+void http_init(struct http_data *data);
 
-void config_set_defaults(struct configuration *config);
+void http_update(struct http_data *data,
+		 const void *http_start, 
+		 unsigned long bytes_in_msg,
+		 unsigned int report_http);
 
-int config_set_from_file(struct configuration *config, const char *fname);
+void http_printf(const struct http_data *data, char *string, FILE *f);
 
-int config_set_from_argv(struct configuration *config, char *argv[], int argc);
+void http_delete(struct http_data *data);
 
-void config_print(FILE *f, const struct configuration *c);
-
-void config_print_json(FILE *f, const struct configuration *c);
-
-#endif /* CONFIG_H */
+#endif /* HTTP_H */
