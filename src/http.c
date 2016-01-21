@@ -67,7 +67,7 @@ unsigned int memcpy_up_to_crlfcrlf(char *dst, const char *src, unsigned int leng
    * 4 = found second LF
    */
 
-  for (i=0; i<length; i++) {
+  for (i=0; i<(length-1); i++) {
     dst[i] = src[i];
     
     /* make string printable*/
@@ -99,15 +99,12 @@ unsigned int memcpy_up_to_crlfcrlf(char *dst, const char *src, unsigned int leng
     /* return if we have found a CRLFCRLF*/
     if (state == 4) {
       i++;
-      dst[i] = 0; /* NULL termination */
-      return i;
+      break;
     }
   }
-  //printf("AAA got here: %s\n", src);
-  //printf("BBB got here: %s\n", dst);
   dst[i] = 0;  /* NULL termination */
   
-  return length;
+  return i+1;
 }
 
 void http_init(struct http_data *data) {
@@ -121,14 +118,15 @@ void http_update(struct http_data *data,
 			unsigned int report_http) {
   
   if (report_http && (data->header == NULL)) {
-    unsigned int len = bytes_in_msg < (HTTP_LEN-1) ? bytes_in_msg : (HTTP_LEN-1);
+    unsigned int len = bytes_in_msg < HTTP_LEN ? bytes_in_msg : HTTP_LEN;
+    /*
+     * note: we leave room for null termination in the data buffer
+     */
 
     data->header = malloc(len);
     if (data->header == NULL) {
       return; 
     }
-    //    memcpy(data->header, http_start, len);
-    //data->header_length = len;
     data->header_length = memcpy_up_to_crlfcrlf(data->header, http_start, len);
   }
 
