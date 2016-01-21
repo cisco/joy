@@ -24,9 +24,11 @@ sysname = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
 
 # main executable and unit test program
 #
-pcap2flow: 
+pcap2flow: FORCE
 	cd src; $(MAKE)
 	cp src/pcap2flow .
+
+FORCE:
 
 unit_test:
 	cd src; $(MAKE)
