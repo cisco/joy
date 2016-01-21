@@ -515,9 +515,10 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
     if (ntohl(tcp->tcp_seq) < record->seq) {
       // fprintf(info, "retransmission detected\n");
       record->retrans++;
-    } else {
+    } 
+  }
+  if (include_zeroes || payload_len > 0) {
       flow_record_process_packet_length_and_time_ack(record, payload_len, &h->ts, tcp);
-    }  
   }
 
   // if initial SYN/ACK packet, parse TCP options
