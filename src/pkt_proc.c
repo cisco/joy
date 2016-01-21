@@ -188,7 +188,7 @@ void flow_record_process_packet_length_and_time_ack(struct flow_record *record,
 
   switch(salt_algo) {
   case rle:
-    if (length != 0) {
+    if (include_zeroes || length != 0) {
       if (length == record->last_pkt_len) {
 	if (record->pkt_len[record->op] < 32768) {
 	  record->op++;
@@ -208,7 +208,7 @@ void flow_record_process_packet_length_and_time_ack(struct flow_record *record,
     }
     break;
   case aggregated:
-    if (length != 0) {
+    if (include_zeroes || length != 0) {
       record->pkt_len[record->op] += length;
       record->pkt_time[record->op] = *time;
     } 
@@ -219,7 +219,7 @@ void flow_record_process_packet_length_and_time_ack(struct flow_record *record,
       }
     break;
   case defragmented:
-    if (length != 0) {
+    if (include_zeroes || length != 0) {
       if (length == record->last_pkt_len) {
 	record->op--;
 	record->pkt_len[record->op] += length;
