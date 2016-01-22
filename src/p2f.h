@@ -320,4 +320,10 @@ void flow_record_list_unit_test();
 
 void convert_string_to_printable(char *s, unsigned int len);
 
+
+/*
+ * print a buffer as hexadecimal
+ */
+void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len);
+
 #endif /* P2F_H */

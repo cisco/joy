@@ -42,6 +42,7 @@
 
 #include <ctype.h>
 #include "http.h"
+#include "p2f.h"   /* for fprintf_raw_as_hex() */
 
 #define HTTP_LEN 2048
 
@@ -72,7 +73,7 @@ unsigned int memcpy_up_to_crlfcrlf(char *dst, const char *src, unsigned int leng
     
     /* make string printable*/
     if (!isprint(dst[i])) {  // could add && !isspace(dst[i])
-      dst[i] = '.';
+      // dst[i] = '.';
     }
     /* avoid JSON confusion */
     if (dst[i] == '"') {
@@ -132,11 +133,70 @@ void http_update(struct http_data *data,
 
 } 
 
+void http_header_print_as_object(FILE *f, char *header, char *string) {
+  char *token1, *token2; 
+  char *saveptr1, *saveptr2;  
+  unsigned int not_first_header = 0;
+
+  fprintf(f, ",\n\t\t\t\"%s\": {", string);
+
+  /* print method, URI, and version */
+  token1 = strtok_r(header, "\r", &saveptr1);
+  if (*token1 != 0) {
+    token2 = strtok_r(token1, " ", &saveptr2);
+    token2 = strtok_r(NULL, "\r", &saveptr2);
+    fprintf(f, "\n\t\t\t\t\"%s\": \"%s\",", token1, token2);
+  }
+
+  /* print (nonzero-length) headers */
+  token1 = strtok_r(NULL, "\r", &saveptr1);
+  while (token1  != NULL) {
+
+    /* elide newlines */
+    if (*token1 == '\n') {
+      token1++;   
+    }
+    if (*token1 != 0) {
+      token2 = strtok_r(token1, ":", &saveptr2);
+      token2 = strtok_r(NULL, "\r", &saveptr2);
+
+      /* elide spaces */
+      if (*token2 == ' ') {
+	token2++;
+      }
+      
+      if (not_first_header) {
+	fprintf(f, ",");
+      }
+      fprintf(f, "\n\t\t\t\t\"%s\": \"%s\"", token1, token2);
+      not_first_header = 1;
+    }
+    token1 = strtok_r(NULL, "\r", &saveptr1);
+  }
+  fprintf(f, "\n\t\t\t}");
+
+}
+
+void http_header_print_as_hex(FILE *f, char *header, char *string, unsigned int len) {
+  fprintf(f, ",\n\t\t\t\"%s\": ", string);
+  fprintf_raw_as_hex(f, header, len); 
+}
+
 void http_printf(const struct http_data *data, char *string, FILE *f) {
 
+/*
+ * change this flag is you want hexadecimal output
+ */
+#if 1 
   if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
-    fprintf(f, ",\n\t\t\t\"%s:\": \"%s\"", string, data->header);
+    http_header_print_as_object(f, data->header, string);
   }
+#else
+  if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
+    http_header_print_as_hex(f, data->header, string, data->header_length);
+    // fprintf(f, ",\n\t\t\t\"%s\": \"%s\"", string, data->header);
+  }
+#endif
 }
 
 void http_delete(struct http_data *data) {
