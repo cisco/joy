@@ -569,6 +569,7 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   
   flow_record_update_byte_count(record, payload, payload_len);
   flow_record_update_byte_dist_mean_var(record, payload, payload_len);
+  wht_update(&record->wht, payload, payload_len, report_wht);
   
   /* if packet has port 443 and nonzero data length, process it as TLS */
   if (include_tls && payload_len && (key->sp == 443 || key->dp == 443)) {
@@ -649,6 +650,7 @@ process_udp(const struct pcap_pkthdr *h, const void *udp_start, int udp_len, str
 
   flow_record_update_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
+  wht_update(&record->wht, payload, size_payload, report_wht);
 
   if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
     process_nfv9(h, payload, size_payload, record);
@@ -717,6 +719,7 @@ process_icmp(const struct pcap_pkthdr *h, const void *start, int len, struct flo
 
   flow_record_update_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
+  wht_update(&record->wht, payload, size_payload, report_wht);
   
   return record;
 }
@@ -765,6 +768,7 @@ process_ip(const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struct
 
   flow_record_update_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
+  wht_update(&record->wht, payload, size_payload, report_wht);
 
   return record;
 }
