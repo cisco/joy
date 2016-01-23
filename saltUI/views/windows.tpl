@@ -79,10 +79,10 @@ $('body').on('hidden.bs.modal', '.modal', function () {
       <tr>
     % for c in contribs:
           <td>{{c['contribution']}}</td>
-          <td>{{c['sip']}}</td>
-          <td>{{c['dip']}}</td>
-          <td>{{c['spr']}}</td>
-          <td>{{c['dpr']}}</td>
+          <td>{{c['sa']}}</td>
+          <td>{{c['da']}}</td>
+          <td>{{c['sp']}}</td>
+          <td>{{c['dp']}}</td>
       </tr>
     % end
     </tbody>
