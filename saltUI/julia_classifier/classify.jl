@@ -199,7 +199,7 @@ type DeviceInfo
     flows::Array{Any,1};
 end
 
-function contributors(ifname,ofname;scalefile="reluMaxReluMax_sc.txt",modelfile="reluMaxReluMax_theta.txt",topk=typemax(Int))
+function contributors(ifname,ofname;scalefile="julia_classifier/reluMaxReluMax_sc.txt",modelfile="julia_classifier/reluMaxReluMax_theta.txt",topk=typemax(Int))
   (ds,ipofbags,appflows)=processfile(ifname;maxPacks=20,maxLen=Int64(1e7),maxFlows=Int64(1e6),minflows=0)
   sc=ScalingParams(scalefile);
   scale!(ds.x,sc);
