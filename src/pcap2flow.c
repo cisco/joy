@@ -312,6 +312,7 @@ int usage(char *s) {
          "  type=T                     select message type: 1=SPLT, 2=SALT\n" 
          "  idp=N                      report N bytes of the initial data packet of each flow\n"
          "  label=L:F                  add label L to addresses that match the subnets in file F\n"
+         "  model=F1:F2                change classifier parameters, SPLT in file F1 and SPLT+BD in file F2\n"
          "  dns=1                      include dns names\n" 
          "  hd=1                       include header description\n" 
          "  wht=1                      include walsh-hadamard transform\n", 
