@@ -529,6 +529,19 @@ int main(int argc, char **argv) {
    */
   config_print(info, &config);
 
+  if (config.params_file) {
+    char params_splt[LINEMAX];
+    char params_bd[LINEMAX];
+    int num;
+    num = sscanf(config.params_file, "%[^=:]:%[^=:\n#]", params_splt, params_bd);
+    if (num != 2) {
+      fprintf(info, "error: could not parse command \"%s\" into form param_splt:param_bd\n", config.params_file);
+      exit(1);
+    } else {
+      update_params(params_splt,params_bd);
+    }
+  }
+
   /*
    * configure labeled subnets (which uses a radix trie to identify
    * addresses that match subnets associated with labels)

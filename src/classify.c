@@ -75,9 +75,9 @@ inline void timer_sub_c(const struct timeval *a, const struct timeval *b, struct
   }                                                    
 }
 
-
 // bias (1) + w (207)
-const float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = {
+//const float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = {
+float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = {
    1.870162393265777379e+00, -4.795306993214020408e-05, -1.734180056229888626e-04, -6.750871045910851378e-04,
    5.175991233904169049e-04,  3.526042198693187802e-07, -2.903366739676974950e-07, -1.415422572109461820e-06,
   -1.771571627605233568e+00,  1.620550564201104216e+00, -4.612754771764762118e-01,  3.239944708329216994e+00,
@@ -133,7 +133,8 @@ const float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = {
 };
 
 // bias (1) + w (207)
-const float parameters_bd[NUM_PARAMETERS_BD_LOGREG] = {
+//const float parameters_bd[NUM_PARAMETERS_BD_LOGREG] = {
+float parameters_bd[NUM_PARAMETERS_BD_LOGREG] = {
  -2.953121634313102817e-01, -9.305965891856329863e-05, -1.604178587753208403e-04, -8.663508397764218205e-05,
   3.181501593122275080e-05,  4.869393011205743958e-08, -2.904473357729938132e-09, -1.074435511920153463e-08,
  -2.170603991277066491e+00,  6.744305938858414784e-01,  3.953560850413735395e-01,  1.361925254316559641e+00,
@@ -494,3 +495,37 @@ float classify(const unsigned short *pkt_len, const struct timeval *pkt_time,
   
   return 1.0/(1.0+exp(score));
 }
+
+// if a user supplies new parameter files, update parameters_splt/bd
+void update_params(char *splt_params, char *bd_params) {
+  float param;
+  FILE *fp;
+  int count = 0;
+
+  fp = fopen(bd_params,"r");
+  if (fp != NULL) {
+    while (fscanf(fp, "%f", &param) != EOF) {
+      parameters_bd[count] = param;
+      count++;
+      if (count >= NUM_PARAMETERS_BD_LOGREG) {
+	break;
+      }
+    }
+    fclose(fp);
+  }
+
+  count = 0;
+  fp = fopen(splt_params,"r");
+  if (fp != NULL) {
+    while (fscanf(fp, "%f", &param) != EOF) {
+      parameters_splt[count] = param;
+      count++;
+      if (count >= NUM_PARAMETERS_SPLT_LOGREG) {
+	break;
+      }
+    }
+    fclose(fp);
+  }
+
+}
+

@@ -53,6 +53,10 @@
 #define MAX_BIN_LEN 1500
 #define NUM_BD_VALUES 256
 
+extern float parameters_bd[NUM_PARAMETERS_BD_LOGREG];
+extern float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG];
+
+
 /* Classifier functions */
 float classify(const unsigned short *pkt_len, const struct timeval *pkt_time,
 	       const unsigned short *pkt_len_twin, const struct timeval *pkt_time_twin,
@@ -71,6 +75,7 @@ void get_mc_rep_lens(uint16_t *lens, float *mc_lens, uint16_t num_packets);
 
 void get_mc_rep_times(uint16_t *times, float *mc_times, uint16_t num_packets);
 
+void update_params(char *splt_params, char *bd_params);
 
 #endif /* CLASSIFY_H */
 
