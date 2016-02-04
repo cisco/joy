@@ -76,17 +76,17 @@ class DataParser:
                 continue
             tls_info = np.zeros(len(cs.keys())+36+1)
 
-            if 'cs' in flow['flow']:
-                for c in flow['flow']['cs']:
+            if 'cs' in flow['flow']['tls']:
+                for c in flow['flow']['cs']['tls']:
                     tls_info[cs[c]] = 1
 
             # need to look more into this
-            if 'tls_ext' in flow['flow']:
-                for c in flow['flow']['tls_ext']:
+            if 'tls_ext' in flow['flow']['tls']:
+                for c in flow['flow']['tls']['tls_ext']:
                     if int(c['type'],16) < 36:
                         tls_info[int(c['type'],16)+len(cs.keys())] = 1
-            if 'tls_client_key_length' in flow['flow']:
-                tls_info[len(cs.keys())+36] = flow['flow']['tls_client_key_length']
+            if 'tls_client_key_length' in flow['flow']['tls']:
+                tls_info[len(cs.keys())+36] = flow['flow']['tls']['tls_client_key_length']
 
             data.append(list(tls_info))
 
@@ -321,20 +321,20 @@ class DataParser:
                 tmp_m.append(0)
 
             # add tls specific items
-            if 'scs' in flow['flow']:
-                tmp_m.append(flow['flow']['scs'])
+            if 'scs' in flow['flow']['tls']:
+                tmp_m.append(flow['flow']['tls']['scs'])
             else:
                 tmp_m.append(-1)
-            if 'tls_client_key_length' in flow['flow']:
-                tmp_m.append(flow['flow']['tls_client_key_length'])
+            if 'tls_client_key_length' in flow['flow']['tls']:
+                tmp_m.append(flow['flow']['tls']['tls_client_key_length'])
             else:
                 tmp_m.append(-1)
-            if 'tls_ov' in flow['flow'] and 'tls_iv' in flow['flow']:
-                tmp_v = max(flow['flow']['tls_iv'],flow['flow']['tls_ov'])
-            elif 'tls_ov' in flow['flow']:
-                tmp_v = flow['flow']['tls_ov']
-            elif 'tls_iv' in flow['flow']:
-                tmp_v = flow['flow']['tls_iv']
+            if 'tls_ov' in flow['flow']['tls'] and 'tls_iv' in flow['flow']['tls']:
+                tmp_v = max(flow['flow']['tls']['tls_iv'],flow['flow']['tls']['tls_ov'])
+            elif 'tls_ov' in flow['flow']['tls']:
+                tmp_v = flow['flow']['tls']['tls_ov']
+            elif 'tls_iv' in flow['flow']['tls']:
+                tmp_v = flow['flow']['tls']['tls_iv']
             else:
                 tmp_v = -1
             if tmp_v == 5:
