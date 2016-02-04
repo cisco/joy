@@ -49,6 +49,33 @@
 #include <netinet/in.h>
 #include "tls.h"
 
+
+inline unsigned int timer_gt_tls(const struct timeval *a, const struct timeval *b) {
+  return (a->tv_sec == b->tv_sec) ? (a->tv_usec > b->tv_usec) : (a->tv_sec > b->tv_sec);
+}
+
+inline unsigned int timer_lt_tls(const struct timeval *a, const struct timeval *b) {
+  return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
+}
+
+inline void timer_sub_tls(const struct timeval *a, const struct timeval *b, struct timeval *result)  {  
+  result->tv_sec = a->tv_sec - b->tv_sec;        
+  result->tv_usec = a->tv_usec - b->tv_usec;     
+  if (result->tv_usec < 0) {                         
+    --result->tv_sec;                                
+    result->tv_usec += 1000000;                      
+  }                                                    
+}
+
+inline void timer_clear_tls(struct timeval *a) { 
+  a->tv_sec = a->tv_usec = 0; 
+}
+
+unsigned int timeval_to_milliseconds_tls(struct timeval ts) {
+  unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
+  return result;
+}
+
 /* initialize data associated with TLS */
 void tls_record_init(struct tls_information *r) {
   r->tls_op = 0;
@@ -168,14 +195,12 @@ void TLSClientHello_get_ciphersuites(const void *x, int len,
   }
   y += 2;
 
-  //  fprintf(output, "num_cipher_suites: %u\n", cipher_suites_len/2);
   r->num_ciphersuites = cipher_suites_len/2;
   r->num_ciphersuites = r->num_ciphersuites > MAX_CS ? MAX_CS : r->num_ciphersuites;
   for (i=0; i < r->num_ciphersuites; i++) {
     unsigned short int cs;
     
     cs = raw_to_unsigned_short(y);
-    // fprintf(output, "ciphersuite: %x\n", cs);
     r->ciphersuites[i] = cs;
     y += 2;
   }
@@ -270,7 +295,6 @@ void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
 
   y += 34;  /* skip over ProtocolVersion and Random */
   session_id_len = *y;
-  // fprintf(output, "session_id_len: %u\n", session_id_len);
   if (session_id_len + 3 > len) {
     //fprintf(info, "error: TLS session ID too long\n"); 
     return;   /* error: session ID too long */
@@ -285,7 +309,7 @@ void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
   y += (session_id_len + 1);   /* skip over SessionID and SessionIDLen */
   // mem_print(y, 2);
   cs = raw_to_unsigned_short(y);
-  // fprintf(output, "selected ciphersuite: %x\n", cs);
+
   r->num_ciphersuites = 1;
   r->ciphersuites[0] = cs;
 }
@@ -460,4 +484,243 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
   }
 
   return NULL;
+}
+
+void fprintf_raw_as_hex_tls(FILE *f, const void *data, unsigned int len) {
+  const unsigned char *x = data;
+  const unsigned char *end = data + len;
+  
+  fprintf(f, "\"");   /* quotes needed for JSON */
+  while (x < end) {
+    fprintf(f, "%02x", *x++);
+  }
+  fprintf(f, "\"");
+
+}
+
+void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir, struct timeval ts, struct tls_type_code type, char *term, FILE *f) {
+
+  fprintf(f, "\t\t\t\t\t{ \"b\": %u, \"dir\": \"%s\", \"ipt\": %u, \"tp\": \"%u:%u\" }%s", 
+	  pkt_len, dir, timeval_to_milliseconds_tls(ts), type.content, type.handshake, term);
+
+}
+
+unsigned int num_pkt_len_tls = NUM_PKT_LEN_TLS;
+
+void len_time_print_interleaved_tls(unsigned int op, const unsigned short *len, const struct timeval *time, const struct tls_type_code *type,
+				    unsigned int op2, const unsigned short *len2, const struct timeval *time2, const struct tls_type_code *type2, FILE *f) {
+  unsigned int i, j, imax, jmax;
+  struct timeval ts, ts_last, ts_start, tmp;
+  unsigned int pkt_len;
+  char *dir;
+  struct tls_type_code typecode;
+
+  fprintf(f, ",\n\t\t\t\t\"srlt\": [\n");
+
+  if (len2 == NULL) {
+    
+    ts_start = *time;
+
+    imax = op > num_pkt_len_tls ? num_pkt_len_tls : op;
+    if (imax == 0) { 
+      ; /* no packets had data, so we print out nothing */
+    } else {
+      for (i = 0; i < imax-1; i++) {
+	if (i > 0) {
+	  timer_sub_tls(&time[i], &time[i-1], &ts);
+	} else {
+	  timer_clear_tls(&ts);
+	}
+	print_bytes_dir_time_tls(len[i], OUT, ts, type[i], ",\n", f);
+      }
+      if (i == 0) {        /* this code could be simplified */ 	
+	timer_clear_tls(&ts);  
+      } else {
+	timer_sub_tls(&time[i], &time[i-1], &ts);
+      }
+      print_bytes_dir_time_tls(len[i], OUT, ts, type[i], "\n", f);
+    }
+    fprintf(f, "\t\t\t\t]"); 
+  } else {
+
+    if (timer_lt_tls(time, time2)) {
+      ts_start = *time;
+    } else {
+      ts_start = *time2;
+    }
+
+    imax = op > num_pkt_len_tls ? num_pkt_len_tls : op;
+    jmax = op2 > num_pkt_len_tls ? num_pkt_len_tls : op2;
+    i = j = 0;
+    ts_last = ts_start;
+    while ((i < imax) || (j < jmax)) {      
+
+      if (i >= imax) {  /* record list is exhausted, so use twin */
+	dir = OUT;
+	ts = time2[j];
+	pkt_len = len2[j];
+	typecode = type2[j];
+	j++;
+      } else if (j >= jmax) {  /* twin list is exhausted, so use record */
+	dir = IN;
+	ts = time[i];
+	pkt_len = len[i];
+	typecode = type[i];
+	i++;
+      } else { /* neither list is exhausted, so use list with lowest time */     
+
+	if (timer_lt_tls(&time[i], &time2[j])) {
+	  ts = time[i];
+	  pkt_len = len[i];
+	  typecode = type[i];
+	  dir = IN;
+	  if (i < imax) {
+	    i++;
+	  }
+	} else {
+	  ts = time2[j];
+	  pkt_len = len2[j];
+	  typecode = type2[j];
+	  dir = OUT;
+	  if (j < jmax) {
+	    j++;
+	  }
+	}
+      }
+      timer_sub_tls(&ts, &ts_last, &tmp);
+      print_bytes_dir_time_tls(pkt_len, dir, tmp, typecode, "", f);
+      ts_last = ts;
+      if ((i == imax) & (j == jmax)) { /* we are done */
+      	fprintf(f, "\n"); 
+      } else {
+	fprintf(f, ",\n");
+      }
+    }
+    fprintf(f, "\t\t\t\t]");
+  }
+
+}
+
+void tls_printf(const struct tls_information *data, const struct tls_information *data_twin, FILE *f) {
+  int i;
+
+  if (!data->tls_v && (data_twin == NULL || !data_twin->tls_v)) { // no reliable TLS information
+    return ;
+  }
+  fprintf(f, ",\n\t\t\t\"tls\": {");
+
+  if (data->tls_v) {
+    fprintf(f, "\n\t\t\t\t\"tls_ov\": %u", data->tls_v);
+  }
+  if (data_twin && data_twin->tls_v) {
+    if (data->tls_v) {
+      fprintf(f, ",\n\t\t\t\t\"tls_iv\": %u", data_twin->tls_v);
+    } else {
+      fprintf(f, "\n\t\t\t\t\"tls_iv\": %u", data_twin->tls_v);
+    }
+  }
+
+  if (data->tls_client_key_length) {
+    fprintf(f, ",\n\t\t\t\t\"tls_client_key_length\": %u", data->tls_client_key_length);
+  }
+  if (data_twin && data_twin->tls_client_key_length) {
+    fprintf(f, ",\n\t\t\t\t\"tls_client_key_length\": %u", data_twin->tls_client_key_length);
+  }
+
+  /*
+   * print out TLS random, using the ciphersuite count as a way to
+   * determine whether or not we have seen a clientHello or a
+   * serverHello
+   */
+
+  if (data->num_ciphersuites) {
+    fprintf(f, ",\n\t\t\t\t\"tls_orandom\": ");
+    fprintf_raw_as_hex_tls(f, data->tls_random, 32);
+  }
+  if (data_twin && data_twin->num_ciphersuites) {
+    fprintf(f, ",\n\t\t\t\t\"tls_irandom\": ");
+    fprintf_raw_as_hex_tls(f, data_twin->tls_random, 32);
+  }
+
+  if (data->tls_sid_len) {
+    fprintf(f, ",\n\t\t\t\t\"tls_osid\": ");
+    fprintf_raw_as_hex_tls(f, data->tls_sid, data->tls_sid_len);
+  }
+  if (data_twin && data_twin->tls_sid_len) {
+    fprintf(f, ",\n\t\t\t\t\"tls_isid\": ");
+    fprintf_raw_as_hex_tls(f, data_twin->tls_sid, data_twin->tls_sid_len);
+  }
+
+  if (data->num_ciphersuites) {
+    if (data->num_ciphersuites == 1) {
+      fprintf(f, ",\n\t\t\t\t\"scs\": \"%04x\"", data->ciphersuites[0]);
+    } else {
+      fprintf(f, ",\n\t\t\t\t\"cs\": [ ");
+      for (i = 0; i < data->num_ciphersuites-1; i++) {
+	if ((i % 8) == 0) {
+	  fprintf(f, "\n\t\t\t\t        ");	    
+	}
+	fprintf(f, "\"%04x\", ", data->ciphersuites[i]);
+      }
+      fprintf(f, "\"%04x\"\n\t\t\t\t]", data->ciphersuites[i]);
+    }
+  }  
+  if (data_twin && data_twin->num_ciphersuites) {
+    if (data_twin->num_ciphersuites == 1) {
+      fprintf(f, ",\n\t\t\t\t\"scs\": \"%04x\"", data_twin->ciphersuites[0]);
+    } else {
+      fprintf(f, ",\n\t\t\t\t\"cs\": [ ");
+      for (i = 0; i < data_twin->num_ciphersuites-1; i++) {
+	if ((i % 8) == 0) {
+	  fprintf(f, "\n\t\t\t\t        ");	    
+	}
+	fprintf(f, "\"%04x\", ", data_twin->ciphersuites[i]);
+      }
+      fprintf(f, "\"%04x\"\n\t\t\t\t]", data_twin->ciphersuites[i]);
+    }
+  }    
+  
+  if (data->num_tls_extensions) {
+    fprintf(f, ",\n\t\t\t\t\"tls_ext\": [ ");
+    for (i = 0; i < data->num_tls_extensions-1; i++) {
+      fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data->tls_extensions[i].type);
+      fprintf(f, "\"length\": %i, \"data\": ", data->tls_extensions[i].length);
+      fprintf_raw_as_hex_tls(f, data->tls_extensions[i].data, data->tls_extensions[i].length);
+      fprintf(f, "},");
+    }
+    fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data->tls_extensions[i].type);
+    fprintf(f, "\"length\": %i, \"data\": ", data->tls_extensions[i].length);
+    fprintf_raw_as_hex_tls(f, data->tls_extensions[i].data, data->tls_extensions[i].length);
+    fprintf(f, "}\n\t\t\t\t]");
+  }  
+  if (data_twin && data_twin->num_tls_extensions) {
+    fprintf(f, ",\n\t\t\t\t\"tls_ext\": [ ");
+    for (i = 0; i < data_twin->num_tls_extensions-1; i++) {
+      fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data_twin->tls_extensions[i].type);
+      fprintf(f, "\"length\": %i, \"data\": ", data_twin->tls_extensions[i].length);
+      fprintf_raw_as_hex_tls(f, data_twin->tls_extensions[i].data, data_twin->tls_extensions[i].length);
+      fprintf(f, "},");
+    }
+    fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data_twin->tls_extensions[i].type);
+    fprintf(f, "\"length\": %i, \"data\": ", data_twin->tls_extensions[i].length);
+    fprintf_raw_as_hex_tls(f, data_twin->tls_extensions[i].data, data_twin->tls_extensions[i].length);
+    fprintf(f, "}\n\t\t\t\t]");
+  }
+  
+    /* print out TLS application data lengths and times, if any */
+
+    if (data->tls_op) {
+      if (data_twin) {
+	len_time_print_interleaved_tls(data->tls_op, data->tls_len, data->tls_time, data->tls_type,
+				       data_twin->tls_op, data_twin->tls_len, data_twin->tls_time, data_twin->tls_type, f);
+      } else {
+	/*
+	 * unidirectional TLS does not typically happen, but if it
+	 * does, we need to pass in zero/NULLs, since there is no twin
+	 */
+	len_time_print_interleaved_tls(data->tls_op, data->tls_len, data->tls_time, data->tls_type, 0, NULL, NULL, NULL, f);
+      }
+    }
+ 
+  fprintf(f, "\n\t\t\t}");
 }

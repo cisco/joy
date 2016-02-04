@@ -50,6 +50,9 @@
 #define MAX_EXTENSIONS 256
 #define MAX_SID_LEN 256
 #define MAX_NUM_RCD_LEN 200
+#define OUT "<"
+#define IN  ">"
+#define NUM_PKT_LEN_TLS 50
 
 /* structure for TLS awareness */
 /*
@@ -227,6 +230,17 @@ unsigned char tls_version(const void *x);
 unsigned int packet_is_sslv2_hello(const void *data);
 struct tls_information *process_tls(const struct pcap_pkthdr *h, const void *start,
 				int len, struct tls_information *r);
+
+void len_time_print_interleaved_tls(unsigned int op, const unsigned short *len, const struct timeval *time,
+				    const struct tls_type_code *type, unsigned int op2,
+				    const unsigned short *len2, const struct timeval *time2,
+				    const struct tls_type_code *type2, FILE *f);
+void fprintf_raw_as_hex_tls(FILE *f, const void *data, unsigned int len);
+void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir, struct timeval ts, struct tls_type_code type, char *term, FILE *f);
+unsigned int timeval_to_milliseconds_tls(struct timeval ts);
+
+void tls_printf(const struct tls_information *data, const struct tls_information *data_twin, FILE *f);
+
 
 #endif /* TLS_H */
 
