@@ -321,19 +321,19 @@ class DataParser:
                 tmp_m.append(0)
 
             # add tls specific items
-            if 'scs' in flow['flow']['tls']:
+            if 'tls' in flow['flow'] and 'scs' in flow['flow']['tls']:
                 tmp_m.append(flow['flow']['tls']['scs'])
             else:
                 tmp_m.append(-1)
-            if 'tls_client_key_length' in flow['flow']['tls']:
+            if 'tls' in flow['flow'] and 'tls_client_key_length' in flow['flow']['tls']:
                 tmp_m.append(flow['flow']['tls']['tls_client_key_length'])
             else:
                 tmp_m.append(-1)
-            if 'tls_ov' in flow['flow']['tls'] and 'tls_iv' in flow['flow']['tls']:
+            if 'tls' in flow['flow'] and 'tls_ov' in flow['flow']['tls'] and 'tls_iv' in flow['flow']['tls']:
                 tmp_v = max(flow['flow']['tls']['tls_iv'],flow['flow']['tls']['tls_ov'])
-            elif 'tls_ov' in flow['flow']['tls']:
+            elif 'tls' in flow['flow'] and 'tls_ov' in flow['flow']['tls']:
                 tmp_v = flow['flow']['tls']['tls_ov']
-            elif 'tls_iv' in flow['flow']['tls']:
+            elif 'tls' in flow['flow'] and 'tls_iv' in flow['flow']['tls']:
                 tmp_v = flow['flow']['tls']['tls_iv']
             else:
                 tmp_v = -1
