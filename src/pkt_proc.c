@@ -409,7 +409,13 @@ enum status process_nfv9(const struct pcap_pkthdr *h, const void *start, int len
       const struct nfv9_template *cur_template = NULL;
       int i;
       for (i = 0; i < num_templates; i++) {
-	if (nfv9_template_key_cmp(&nf_template_key,&v9_templates[i].template_key) == 0) {
+	/*	if (nfv9_template_key_cmp(&nf_template_key,&v9_templates[i].template_key) == 0) {
+	  cur_template = &v9_templates[i];
+	  break ;
+	  }*/
+	if (nf_template_key.src_id == v9_templates[i].template_key.src_id &&
+	    nf_template_key.template_id == v9_templates[i].template_key.template_id &&
+	    nf_template_key.src_addr.s_addr == v9_templates[i].template_key.src_addr.s_addr) {
 	  cur_template = &v9_templates[i];
 	  break ;
 	}
@@ -451,6 +457,8 @@ enum status process_nfv9(const struct pcap_pkthdr *h, const void *start, int len
 	  //flow_record_print_json(nf_record);
 
 	}
+      } else {
+      printf("cur template is null\n");
       }
     }
 
