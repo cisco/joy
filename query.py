@@ -150,6 +150,8 @@ class conjunctionFilter(filter):
          tval = tval and f.match(flow)
       return tval
 
+def alwaysTrue(x,y):
+   return True
 
 class matchType:
    base = 0
@@ -201,7 +203,10 @@ class flowFilter:
                self.value = int(self.value)
 
             if op == '=':
-               self.operator = operator.eq 
+               if '*' in self.value:
+                  self.operator = alwaysTrue
+               else:
+                  self.operator = operator.eq 
             if op == '<':
                self.operator = operator.lt 
             if op == '>':
@@ -305,6 +310,40 @@ class flowProcessor:
       print "}"
 
 
+def flowSummaryPrint(f):
+      print "%32s" % str(f["sa"]), 
+      print "%32s" % str(f["da"]),
+      print "%4s" % str(f["pr"]),
+      print "%6s" % str(f["sp"]),
+      print "%6s" % str(f["dp"]),
+      print "%6s" % str(f["ob"]),
+      print "%6s" % str(f["op"]),
+      if "ib" in f:
+         print "%6s" % str(f["ib"]),
+         print "%6s" % str(f["ip"]),
+      else:
+         print "             ",
+      print "%14s" % str(f["ts"]) + " ",
+      print "%14s" % str(f["te"])
+
+class flowSummaryProcessor(flowProcessor):
+     def processFlow(self, flow):
+        flowSummaryPrint(flow)
+
+     def processMetadata(self, metadata):
+        pass
+     
+     def preProcess(self):    
+        print "%32s" % "src address", 
+        print "%32s" % "dst address",
+        print "%4s" %  "prot",
+        print "%6s" % "sport",
+        print "%6s" % "dport",
+        print "%6s" % "obytes",
+        print "%6s" % "opkts"
+     
+     def postProcess(self):    
+        pass
 
 class printSelectedElements:
    def __init__(self, field):
@@ -484,6 +523,7 @@ if __name__=='__main__':
    parser.add_option("--where", dest="filter", help="filter flows")
    parser.add_option("--select", dest="selection", help="select field to output")
    parser.add_option("--stats", action="store_true", help="print out statistics")
+   parser.add_option("--summary", action='store_true', dest="summary", help="print single line per flow ")
    parser.add_option("--schema", action='store_true', dest="schema", help="print out schema")
 
    # check args
@@ -501,6 +541,8 @@ if __name__=='__main__':
          fp = printSchema()
       elif opts.stats is True:
          fp = flowStatsPrinter()
+      elif opts.summary is True:
+         fp = flowSummaryProcessor()
       else:
          fp = flowProcessor()      
 
