@@ -76,7 +76,7 @@ classify: classify.c classify.h Makefile
 
 pcap2flow: $(PCAP2FLOW_FILES) Makefile VERSION
 	gcc $(CFLAGS) $(CDEFS) -o pcap2flow $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBS) 
-	strip pcap2flow
+#	strip pcap2flow
 
 unit_test: unit_test.c Makefile VERSION $(PCAP2FLOW_FILES)
 	gcc $(CFLAGS) $(CDEFS) -o unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBS) 
