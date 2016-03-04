@@ -56,37 +56,37 @@ class flowstats:
          self.inmsg += 1
 
    def printflowstats(self):
-      print "flows:      " + str(self.numflows)
-      print "messages:   " + str(self.num_msg)
-      print "bytes:      " + str(self.numbytes)
-      print "> messages: " + str(self.outmsg)
-      print "> bytes:    " + str(self.outbytes)
-      print "< messages: " + str(self.inmsg)
-      print "< bytes:    " + str(self.inbytes)
+      print "flows:      " + '%5s' % str(self.numflows)
+      print "messages:   " + '%5s' % str(self.num_msg)
+      print "bytes:      " + '%5s' % str(self.numbytes)
+      print "> messages: " + '%5s' % str(self.outmsg)
+      print "> bytes:    " + '%5s' % str(self.outbytes)
+      print "< messages: " + '%5s' % str(self.inmsg)
+      print "< bytes:    " + '%5s' % str(self.inbytes)
       if self.numflows > 0:
          amf = float(self.num_msg)/float(self.numflows)
-         print "messages per flow:    " + str(amf)
+         print "messages per flow:    " + '%5s' % str(amf)
          afs = float(self.numbytes)/float(self.numflows)
-         print "bytes per flow:       " + str(afs) 
+         print "bytes per flow:       " + '%5s' % str(afs) 
          amf = float(self.outmsg)/float(self.numflows)
-         print "outbound messages per flow: " + str(amf)
+         print "outbound messages per flow: " + '%5s' % str(amf)
          amf = float(self.inmsg)/float(self.numflows)
-         print "inbound messages per flow:  " + str(amf)
+         print "inbound messages per flow:  " + '%5s' % str(amf)
       if self.num_msg > 1:
          ads = float(self.numbytes)/float(self.num_msg)
-         print "average message size: " + str(ads)
+         print "average message size: " + '%5s' % str(ads)
          vms = (float(self.numbytesSq) - float(self.numbytes * self.numbytes)/float(self.num_msg))/float(self.num_msg - 1)
-         print "std dev message size: " + str(sqrt(vms))
+         print "std dev message size: " + '%5s' % str(sqrt(vms))
       if self.inmsg > 1:
          ads = float(self.inbytes)/float(self.inmsg)
-         print "average inbound message size: " + str(ads)
+         print "average inbound message size: " + '%5s' % str(ads)
          vms = (float(self.inbytesSq) - float(self.inbytes * self.inbytes)/float(self.inmsg))/float(self.inmsg - 1)
-         print "std dev inbound message size: " + str(sqrt(vms))
+         print "std dev inbound message size: " + '%5s' % str(sqrt(vms))
       if self.outmsg > 1:
          ads = float(self.outbytes)/float(self.outmsg)
-         print "average outbound message size: " + str(ads)
+         print "average outbound message size: " + '%5s' % str(ads)
          vms = (float(self.outbytesSq) - float(self.outbytes * self.outbytes)/float(self.outmsg))/float(self.outmsg - 1)
-         print "std dev outbound message size: " + str(sqrt(vms))
+         print "std dev outbound message size: " + '%5s' % str(sqrt(vms))
       
 
 flowdict = {}
@@ -134,6 +134,8 @@ def process_file(f, destPort, bidir, addrType):
       for x in flow["flow"]['non_norm_stats']:
          fs.observe(x["b"], x["dir"])
          flowtotal.observe(x["b"], x["dir"])
+         print x["b"]
+
 
    json_data.close()
 
