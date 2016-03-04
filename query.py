@@ -309,6 +309,7 @@ class flowProcessor:
       print "]"
       print "}"
 
+import time
 
 def flowSummaryPrint(f):
       print "%32s" % str(f["sa"]), 
@@ -323,8 +324,11 @@ def flowSummaryPrint(f):
          print "%6s" % str(f["ip"]),
       else:
          print "             ",
-      print "%14s" % str(f["ts"]) + " ",
-      print "%14s" % str(f["te"])
+      print time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(f["ts"])) + " ",
+      print round(f["te"] - f["ts"], 3)
+      # print time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(f["te"]))
+      # print "%14s" % str(f["ts"]) + " ",
+      # print "%14s" % str(f["te"])
 
 class flowSummaryProcessor(flowProcessor):
      def processFlow(self, flow):
@@ -334,13 +338,17 @@ class flowSummaryProcessor(flowProcessor):
         pass
      
      def preProcess(self):    
-        print "%32s" % "src address", 
-        print "%32s" % "dst address",
+        print "%32s" % "source address", 
+        print "%32s" % "destination address",
         print "%4s" %  "prot",
         print "%6s" % "sport",
         print "%6s" % "dport",
         print "%6s" % "obytes",
-        print "%6s" % "opkts"
+        print "%6s" % "opkts",
+        print "%6s" % "ibytes",
+        print "%6s" % "ipkts",
+        print "%19s" % "date     time",
+        print "%8s" % "seconds"
      
      def postProcess(self):    
         pass
