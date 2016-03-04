@@ -197,10 +197,11 @@ if [ "$sysname" == "Darwin" ]; then
 	echo "directory /etc/p2f/ already exists"
     fi
 
-    if [ -f /etc/p2f/$MACOSX_CONFIGFILE ]; then
-	echo "file /etc/p2f/$MACOSX_CONFIGFILE exists; not installing config file"
+    if [ -f /etc/p2f/macosx.cfg ]; then
+	echo "warning: file /etc/p2f/macosx.cfg exists; renaming that file to macosx.cfg.bak"
+	mv /etc/p2f/linux.cfg /etc/p2f/linux.cfg.bak 
     else
-	cp ${MACOSX_CONFIGFILE} /etc/p2f/
+	cp ${MACOSX_CONFIGFILE} /etc/p2f/macosx.cfg
 	retval=$?
 	if [ $retval -ne "0" ]; then
 	    echo "error: could not copy to /etc/p2f"
@@ -226,6 +227,16 @@ if [ "$sysname" == "Darwin" ]; then
     fi
     chmod 600 /etc/p2f/${KEYFILE}
 
+   if [ -f /etc/p2f/${WATCHFILE} ]; then
+	echo "file /etc/p2f/${WATCHFILE} exists; overwriting with recent file"
+   fi
+   cp ${WATCHFILE} /etc/p2f/
+   retval=$?
+   if [ $retval -ne "0" ]; then
+       echo "error: could not copy to /etc/p2f"
+       exit
+   fi
+
     cp pcap2flow.plist /System/Library/LaunchDaemons/
     retval=$?
     if [ $retval -ne "0" ]; then
@@ -241,7 +252,7 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     ls -l /usr/libexec/pcap2flow
-    ls -l /etc/p2f/${MACOSX_CONFIGFILE}
+    ls -l /etc/p2f/macosx.cfg
     ls -l /etc/p2f/${ANONFILE}
     ls -l /etc/p2f/${KEYFILE}
     ls -l /etc/p2f/${WATCHFILE}
@@ -260,6 +271,10 @@ if [ "$sysname" == "Darwin" ]; then
 elif [ "$sysname" == "Linux" ]; then 
 
     echo "found $sysname, installing pcap2flow ..."
+
+    # stop service, if a previous version is already running
+    echo "stopping service (this might take some time)" 
+    service pcap2flow stop 
 
     cp pcap2flow /usr/sbin/
     retval=$?
@@ -290,10 +305,11 @@ elif [ "$sysname" == "Linux" ]; then
 	echo "directory /etc/p2f/ already exists"
     fi
 
-    if [ -f /etc/p2f/$CONFIGFILE ]; then
-	echo "warning: file /etc/p2f/$CONFIGFILE exists; not overwriting that file"
+    if [ -f /etc/p2f/linux.cfg ]; then
+	echo "warning: file /etc/p2f/linux.cfg exists; renaming that file to linux.cfg.bak"
+	mv /etc/p2f/linux.cfg /etc/p2f/linux.cfg.bak 
     else
-	cp ${CONFIGFILE} /etc/p2f/
+	cp ${CONFIGFILE} /etc/p2f/linux.cfg
 	retval=$?
 	if [ $retval -ne "0" ]; then
 	    echo "error: could not copy to /etc/p2f"
@@ -320,6 +336,16 @@ elif [ "$sysname" == "Linux" ]; then
     fi
     chmod 600 /etc/p2f/${KEYFILE}
 
+   if [ -f /etc/p2f/${WATCHFILE} ]; then
+	echo "file /etc/p2f/${WATCHFILE} exists; overwriting with recent file"
+   fi
+   cp ${WATCHFILE} /etc/p2f/
+   retval=$?
+   if [ $retval -ne "0" ]; then
+       echo "error: could not copy to /etc/p2f"
+       exit
+   fi
+
     cp pcap2flow.rc /etc/init.d/pcap2flow
     retval=$?
     if [ $retval -ne "0" ]; then
@@ -341,7 +367,7 @@ elif [ "$sysname" == "Linux" ]; then
 	echo "error: update-rc.d failed (return value: $retval)"
 	exit
     fi
-    # start service
+    # start service 
     service pcap2flow start
 
     cp pcap2flow.1 /usr/share/man/man1/
@@ -358,7 +384,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     ls -l /usr/sbin/pcap2flow
-    ls -l /etc/p2f/${CONFIGFILE}
+    ls -l /etc/p2f/linux.cfg
     ls -l /etc/p2f/${ANONFILE}
     ls -l /etc/p2f/${KEYFILE}
     ls -l /etc/p2f/${WATCHFILE}
