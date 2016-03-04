@@ -498,7 +498,7 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
   }
 
   /*
-   * part of all of the message is malformed, so print out that fact
+   * part or all of the header is malformed, so print out that fact
    */
   if (type == http_malformed) {
      if (not_first_header) {
