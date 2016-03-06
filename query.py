@@ -37,7 +37,7 @@ import sys, json, operator
 from optparse import OptionParser
 from pprint import pprint
 from math import sqrt
-
+                    
 class flowstats:
    def __init__(self):
       self.numbytes = 0
@@ -203,7 +203,7 @@ class flowFilter:
                self.value = int(self.value)
 
             if op == '=':
-               if '*' in self.value:
+               if self.value is '*':
                   self.operator = alwaysTrue
                else:
                   self.operator = operator.eq 
@@ -242,44 +242,159 @@ class flowFilter:
       if self.field in flow:
          return self.matchElement(flow[self.field])
 
+import string
+
+class noTranslation():
+   def __init__(self):
+      pass
+
+   def translate(self, s, val):
+      return val
+
+class translator():
+   def __init__(self):
+      self.d = {}
+      with open("saltUI/ciphersuites.txt") as f:
+         for line in f:
+            (key, val, sec) = line.split()
+            self.d[key] = val + " (" + sec + ")"
+      
+      self.pr = {
+         6: "TCP",
+         17: "UDP"
+         }
+      with open("ip.txt") as f:
+         for line in f:
+            (key, val) = line.split()
+            self.pr[key] = val
+
+      self.ports = {}
+      with open("ports2.txt") as f:
+         for line in f:
+            try:
+               (val, key) = line.split()
+               if '-' in str(key):
+                  start, stop = str(key).split('-')
+                  for a in range(int(start), int(stop)):
+                     self.ports[a] = string.upper(val)
+               else:
+                  key = int(key)
+                  self.ports[key] = string.upper(val)
+            except:
+               pass
+               # print "could not parse line " + line
+
+   def translate(self, s, val):
+      if s is "scs" or s is "cs":
+         return self.d.setdefault(val, "unknown")
+      elif s is "pr":
+         return self.pr.setdefault(val, "unknown")
+      elif s is "dp" or s is "sp":
+         z = self.ports.setdefault(val, None)
+         if z is None:
+            return val
+         else:
+            return z
+      else:
+         return val
+
+t = translator()
+
+def elementPrint(f, *elements):
+   printComma = True
+   for s in elements:
+      if s is "START":
+         printComma = False
+      if (s) in f:
+         if printComma:
+            print ","
+         else:
+            printComma = True
+         val = t.translate(s, f[s])
+         print "         \"" + s + "\": ",
+         if type(val) is int or type(val) is float:
+            print str(val),
+         else:
+            print "\"" + str(val) + "\"",
+
+def listPrint(f, listname, itemsPerLine=16):
+   first = True
+   count = 0
+   if listname in f:
+      print ","
+      print "         \"" + listname + "\": [",
+      for x in f[listname]:
+         if not first:
+            print ",",
+         else:
+            first = False
+         if count % itemsPerLine == 0:
+            print
+            print "         ",
+         val = t.translate(listname, x)
+         print '%4s' % str(val),
+         count = count + 1
+      print
+      print "          ]",
+
+def listPrintObject(f, listname, *elements):
+   first = True
+   if listname in f:
+      print ","
+      print "         \"" + listname + "\": ["
+      for x in f[listname]:
+         if not first:
+            print ","
+         else:
+            first = False
+         print "            {",
+         objFirst = True
+         for s in elements:
+            if (s) in x:
+               if not objFirst:
+                  print ",",
+               else:
+                  objFirst = False
+               print " \"" + s + "\": ",
+               if type(x[s]) is int or type(x[s]) is float:
+                  print str(x[s]),
+               else:
+                  print "\"" + str(x[s]) + "\"",
+         print "}",
+      if f[listname]:
+         print
+      print "          ]",
+
+def objectPrint(f, objname):
+   first = True
+   if objname in f:
+      print ","
+      print "         \"" + objname + "\": {"
+      for x in f[objname]:
+         if not first:
+            print ","
+         else:
+            first = False
+         print "            \"" + str(x) + "\": \"" + str(f[objname][x]) + "\"",
+      print
+      print "          }",
 
 def flowPrint(f):
       print "   {"
-      print "      \"flow\": {"
-      print "         \"sa\": \"" + str(f["sa"]) + "\","
-      print "         \"da\": \"" + str(f["da"]) + "\","
-      print "         \"pr\": " + str(f["pr"]) + ","
-      print "         \"sp\": " + str(f["sp"]) + ","
-      print "         \"dp\": " + str(f["dp"]) + ","
-      print "         \"ob\": " + str(f["ob"]) + ","
-      print "         \"op\": " + str(f["op"]) + ","
-      if "ib" in f:
-         print "         \"ib\": " + str(f["ib"]) + ","
-         print "         \"ip\": " + str(f["ip"]) + ","         
-      print "         \"ts\": " + str(f["ts"]) + ","
-      print "         \"te\": " + str(f["te"]) + ","
-      print "         \"ottl\": " + str(f["ottl"]) + ","
-      if "ittl" in f:
-         print "         \"ittl\": " + str(f["ittl"]) + ","
-      print "         \"non_norm_stats\": ["
-      for x in f["non_norm_stats"][0:-1]:
-         print "            ", 
-         print "{ \"b\": " + str(x["b"]) + ", \"dir\": \"" + str(x["dir"]) + "\", \"ipt\": " + str(x["ipt"]) + " },"
-      if f["non_norm_stats"]:
-         x = f["non_norm_stats"][-1]
-         print "            ", 
-         print "{ \"b\": " + str(x["b"]) + ", \"dir\": \"" + str(x["dir"]) + "\", \"ipt\": " + str(x["ipt"]) + " }"
-      print "          ],"
-
-      if "bd" in f:
-         print "         \"bd\": ["
-         for x in f["bd"][0:-1]:
-            print str(x) + ", ", 
-         print str(x) 
-         print "           ]", 
-
       # print json.dumps(f, indent=3),
-      print "      }\n   }",
+      print "      \"flow\": {"
+      elementPrint(f, "START", "sa", "da", "pr", "sp", "dp", "ob", "op", "ib", "ip", "ts", "te", "ottl", "ittl")
+      listPrintObject(f, "non_norm_stats", "b", "dir", "ipt")
+      listPrint(f, "bd")
+      elementPrint(f, "bd_mean", "bd_std", "be", "tbe", "i_probable_os", "o_probable_os")
+      listPrintObject(f, "dns", "qn", "rn")
+      elementPrint(f,  "tls_iv", "tls_ov", "tls_orandom", "tls_irandom", "tls_osid", "tls_isid")
+      listPrint(f, "cs", 1)
+      elementPrint(f, "scs")
+      listPrintObject(f, "tls", "b", "dir", "ipt", "tp")
+      objectPrint(f, "ihttp")
+      objectPrint(f, "ohttp")
+      print "\n      }\n   }",
 
 
 class flowProcessor:
@@ -532,6 +647,7 @@ if __name__=='__main__':
    parser.add_option("--select", dest="selection", help="select field to output")
    parser.add_option("--stats", action="store_true", help="print out statistics")
    parser.add_option("--summary", action='store_true', dest="summary", help="print single line per flow ")
+   parser.add_option("--translate", action='store_true', dest="translate", help="translate numbers to acronyms ")
    parser.add_option("--schema", action='store_true', dest="schema", help="print out schema")
 
    # check args
@@ -541,6 +657,11 @@ if __name__=='__main__':
       sys.exit()
 
    (opts, args) = parser.parse_args()
+
+   if opts.translate is True:
+      t = translator()
+   else:
+      t = noTranslation()
 
    if opts.selection is not None:
       fp = printSelectedElements(opts.selection)
