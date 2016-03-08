@@ -556,6 +556,8 @@ class flowSummaryProcessor(flowProcessor):
 
 class printSelectedElements:
    def __init__(self, field):
+      self.func = identity
+      self.funcname = None
       self.firstFlow = 1
       self.field = field
       if '.' in self.field:
@@ -565,7 +567,6 @@ class printSelectedElements:
          self.depth = 1
 
       # look for functions
-      self.func = identity
       if '(' in self.field:
          self.funcname, argument = self.field.split('(')
          if ')' in argument:
