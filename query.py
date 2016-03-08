@@ -36,7 +36,7 @@
 import sys, json, operator
 from optparse import OptionParser
 from pprint import pprint
-from math import sqrt
+from math import sqrt, log
                     
 class flowstats:
    def __init__(self):
@@ -150,6 +150,63 @@ class conjunctionFilter(filter):
          tval = tval and f.match(flow)
       return tval
 
+def entropy(bd):
+   if type(bd) is not list:
+      print "error: wrong type argument to entropy function"
+      sys.exit()
+   sum = 0.0
+   e = 0.0
+   for x in bd:
+      sum = sum + x
+   if sum == 0.0:
+      return 0.0
+   for x in bd:
+      p = x / sum
+      if p > 0:
+         e = e - p * log(p)
+   return e / log(2.0)
+
+def collision(bd):
+   if type(bd) is not list:
+      print "error: wrong type argument to collision entropy function"
+      sys.exit()
+   total = 0.0
+   e = 0.0
+   for x in bd:
+      total = total + x
+   if total == 0.0:
+      return 0.0
+   for x in bd:
+      p = x / total
+      e = e + (p * p)
+   if e == 0.0:
+      e = 0.0
+   else:
+      e = - log(e) / log(2.0)
+   return e
+
+def minentropy(bd):
+   if type(bd) is not list:
+      print "error: wrong type argument to collision entropy function"
+      sys.exit()
+   total = 0.0
+   e = 0.0
+   for x in bd:
+      total = total + x
+   if total == 0.0:
+      return 0.0
+   for x in bd:
+      if x > e:
+         e = x
+   if e == 0.0:
+      e = 0.0
+   else:
+      e = - log(e / total) / log(2.0)
+   return e
+
+def identity(x):
+   return x
+
 def alwaysTrue(x,y):
    return True
 
@@ -169,6 +226,8 @@ class flowFilter:
          return None
 
    def __init__(self, string):
+      self.func = identity
+      
       if string is None:
          self.matchAll = True
          return
@@ -176,11 +235,29 @@ class flowFilter:
          self.matchAll = False
 
       # remove whitespace
-      string = string.replace(" ", "")
+      string = string.replace(" ", "")         
 
       for op in [ '=', '>', '<' ]: 
          if op in string:
             (self.field, self.value) = string.split(op, 2)
+
+            # look for functions
+            if '(' in self.field:
+               funcname, argument = self.field.split('(')
+               if ')' in argument:
+                  self.field = argument.split(')')[0]
+                  if funcname == "entropy":
+                     self.func = entropy
+                  elif funcname == "collision":
+                     self.func = collision
+                  elif funcname == "minentropy":
+                     self.func = minentropy
+                  else:
+                     print "error: unrecognized function " + funcname
+                     sys.exit()
+               else:
+                  print "error: could not parse command " + str(string)
+                  sys.exit()
       
             # arrays are notated array[all] or array[any]
             if "[all]" in self.field:
@@ -213,11 +290,20 @@ class flowFilter:
                self.operator = operator.gt 
             # print "filter: " + self.field + " " + str(self.operator) + " " + str(self.value)
 
+
+
    def matchElement(self, filter):
       # print "this is my filter: " + str(filter)
       # print "type: " + str(self.type) + " : " + str(matchType.list_all)
       if self.type is matchType.base:
-         if self.operator(self.selectField(filter), self.value):
+         # print self.func(self.selectField(filter)),
+         # print self.operator,
+         # print self.value,
+         # print type(self.value),
+         # print " = ",
+         # print self.operator(self.func(self.selectField(filter)), float(self.value))
+         # print "------"
+         if self.operator(self.func(self.selectField(filter)), float(self.value)):
             return True
          else:
             return False
@@ -478,6 +564,26 @@ class printSelectedElements:
       else:
          self.depth = 1
 
+      # look for functions
+      self.func = identity
+      if '(' in self.field:
+         self.funcname, argument = self.field.split('(')
+         if ')' in argument:
+            self.field = argument.split(')')[0]
+            if self.funcname == "entropy":
+               self.func = entropy
+            elif self.funcname == "collision":
+               self.func = collision
+            elif self.funcname == "minentropy":
+               self.func = minentropy
+            else:
+               print "error: unrecognized function " + funcname
+               sys.exit()
+         else:
+            print "error: could not parse command " + str(string)
+            sys.exit()
+
+
    def processFlow(self, flow):
       # print "   {"
       # print "      \"flow\": ",
@@ -490,7 +596,11 @@ class printSelectedElements:
                print ","
             else:
                self.firstFlow = 0    
-            print  "\t{ \"" + str(self.field) + "\": " + str(filter) + " }", 
+            if self.funcname is not None:
+               name = self.funcname + "(" + self.field + ")"
+            else:
+               name = self.field
+            print  "\t{ \"" + name + "\": " + str(self.func(filter)) + " }", 
          else:
             if type(filter) is list:
                for a in filter:
@@ -620,14 +730,17 @@ def usage():
    print "./query.py sample.json --where \" non_norm_stats[any].b = 478 & pr = 6\" --select dp"
    print
    print "FILTER examples:"
-   print "  dp = 443"
-   print "  dp > 1024"
-   print "  sa = 10.0.0.1"
-   print "  pr = 17"
-   print "  bd[all] > 10"
-   print "  bd[any] > 10"
-   print "  non_norm_stats[any].b = 41 & ip = 2"
-   print "  non_norm_stats[all].ipt < 5 & dp = 80"
+   print "  dp=443"
+   print "  \"dp > 1024\""
+   print "  \"sa = 10.0.0.1\""
+   print "  \"pr = 17\""
+   print "  \"bd[all] > 10\""
+   print "  \"bd[any] > 10\""
+   print "  \"non_norm_stats[any].b = 41 & ip = 2\""
+   print "  \"non_norm_stats[all].ipt < 5 & dp = 80\""
+   print "  \"entropy(bd) > 7.0\""
+   print "  \"collision(bd) > 7.0\""
+   print "  \"minentropy(bd) > 7.0\""
    print
    print "SELECTION examples:"
    print "  dp"
@@ -635,6 +748,9 @@ def usage():
    print "  ohttp.uri"
    print "  non_norm_stats"
    print "  non_norm_stats.ipt"
+   print "  \"entropy(bd)\""
+   print "  \"collision(bd)\""
+   print "  \"minentropy(bd)\""
 
 #
 # main function 
