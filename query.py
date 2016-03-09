@@ -204,6 +204,28 @@ def minentropy(bd):
       e = - log(e / total) / log(2.0)
    return e
 
+def gini(bd):
+   if type(bd) is not list:
+      print "error: wrong type argument to collision entropy function"
+      sys.exit()
+   total = 0.0
+   for x in bd:
+      total = total + x
+   if total == 0.0:
+      return 0.0
+
+   bd.sort()   
+   n = len(bd)
+   for i in range(n):
+      bd[i] = bd[i] / total
+   print "bd: " + str(bd)
+   e = 0.0
+   for i in range(n):
+      e = (n - i) * bd[i]
+   e = 1 + (- 2 * e)/float(n)
+   print "gini: " + str(e)
+   return e
+
 def identity(x):
    return x
 
@@ -252,6 +274,8 @@ class flowFilter:
                      self.func = collision
                   elif funcname == "minentropy":
                      self.func = minentropy
+                  elif funcname == "gini":
+                     self.func = gini
                   else:
                      print "error: unrecognized function " + funcname
                      sys.exit()
@@ -383,8 +407,6 @@ class translator():
             return z
       else:
          return val
-
-t = translator()
 
 def elementPrint(f, *elements):
    printComma = True
@@ -577,6 +599,8 @@ class printSelectedElements:
                self.func = collision
             elif self.funcname == "minentropy":
                self.func = minentropy
+            elif self.funcname == "gini":
+               self.func = gini
             else:
                print "error: unrecognized function " + funcname
                sys.exit()
@@ -814,7 +838,14 @@ if __name__=='__main__':
    #
    fp.preProcess()
    for x in args:
-      processFile(x, ff, fp)
+      try:
+         processFile(x, ff, fp)
+      except KeyboardInterrupt:
+         # quit
+         sys.exit()      
+      except:
+         # silently ignore failures, for now
+         pass
    fp.postProcess()
 
 
