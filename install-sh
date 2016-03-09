@@ -145,7 +145,7 @@ if [ "${WATCHFILE}" == "" ]; then
     # update it - and install it as a malware watchlist file
     # 
     echo "downloading ip-filter.blf ... "
-    wget http://www.talosintel.com/feeds/ip-filter.blf -o ./ip-filter.blf
+    $downloader http://www.talosintel.com/feeds/ip-filter.blf -o ./ip-filter.blf
     retval=$?
     if [ $retval -ne "0" ]; then
 	echo "error: could not download ${WATCHFILE}"
