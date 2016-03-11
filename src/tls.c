@@ -81,6 +81,7 @@ void tls_record_init(struct tls_information *r) {
   r->tls_op = 0;
   r->num_ciphersuites = 0;
   r->num_tls_extensions = 0;
+  r->num_server_tls_extensions = 0;
   r->tls_sid_len = 0;
   r->tls_v = 0;
   r->tls_client_key_length = 0;
@@ -90,6 +91,7 @@ void tls_record_init(struct tls_information *r) {
   memset(r->tls_type, 0, sizeof(r->tls_type));
   memset(r->ciphersuites, 0, sizeof(r->ciphersuites));
   memset(r->tls_extensions, 0, sizeof(r->tls_extensions));
+  memset(r->server_tls_extensions, 0, sizeof(r->server_tls_extensions));
   memset(r->tls_sid, 0, sizeof(r->tls_sid));
   memset(r->tls_random, 0, sizeof(r->tls_random));
 }
@@ -272,9 +274,6 @@ void TLSClientHello_get_extensions(const void *x, int len,
     len -= raw_to_unsigned_short(y+2);
     y += 4 + raw_to_unsigned_short(y+2);
   }
-
-  
-
 }
 
 void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
@@ -314,6 +313,60 @@ void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
   r->ciphersuites[0] = cs;
 }
 
+void TLSServerHello_get_extensions(const void *x, unsigned int len,
+				    struct tls_information *r) {
+  unsigned int session_id_len, compression_method_len;
+  const unsigned char *y = x;
+  unsigned short int extensions_len;
+  unsigned int i = 0;
+
+  //  mem_print(x, len);
+  len -= 4;
+  if ((y[0] != 3) || (y[1] > 3)) {
+    // fprintf(stderr, "warning: TLS version %0x%0x\n", y[0], y[1]);
+    return;  
+  }
+
+  y += 34;  /* skip over ProtocolVersion and Random */
+  len -= 34;
+  session_id_len = *y;
+
+  len -= (session_id_len + 1);
+  y += (session_id_len + 1);   /* skip over SessionID and SessionIDLen */
+
+  len -= 2; /* skip over scs */
+  y += 2;
+
+  // skip over compression methods
+  compression_method_len = *y;
+  y += 1+compression_method_len;
+  len -= 1+compression_method_len;
+
+  // extensions length
+  extensions_len = raw_to_unsigned_short(y);
+  if (len < extensions_len) {
+    //fprintf(info, "error: TLS extensions too long\n"); 
+    return;   /* error: session ID too long */
+  }
+  y += 2;
+  len -= 2;
+
+  i = 0;
+  while (len > 0) {
+    r->server_tls_extensions[i].type = raw_to_unsigned_short(y);
+    r->server_tls_extensions[i].length = raw_to_unsigned_short(y+2);
+    // should check if length is reasonable?
+    r->server_tls_extensions[i].data = malloc(r->server_tls_extensions[i].length);
+    memcpy(r->server_tls_extensions[i].data, y+4, r->server_tls_extensions[i].length);
+
+    r->num_server_tls_extensions += 1;
+    i += 1;
+
+    len -= 4;
+    len -= raw_to_unsigned_short(y+2);
+    y += 4 + raw_to_unsigned_short(y+2);
+  }
+}
 
 unsigned int TLSHandshake_get_length(const struct TLSHandshake *H) {
   return H->lengthLo + ((unsigned int) H->lengthMid) * 0x100 
@@ -429,6 +482,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
       } else if (tls->Handshake.HandshakeType == server_hello) {
 
 	TLSServerHello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
+	TLSServerHello_get_extensions(&tls->Handshake.body, tls_len, r);
 
       } else if (tls->Handshake.HandshakeType == client_key_exchange) {
 
@@ -704,6 +758,33 @@ void tls_printf(const struct tls_information *data, const struct tls_information
     fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data_twin->tls_extensions[i].type);
     fprintf(f, "\"length\": %i, \"data\": ", data_twin->tls_extensions[i].length);
     fprintf_raw_as_hex_tls(f, data_twin->tls_extensions[i].data, data_twin->tls_extensions[i].length);
+    fprintf(f, "}\n\t\t\t\t]");
+  }
+  
+  if (data->num_server_tls_extensions) {
+    fprintf(f, ",\n\t\t\t\t\"s_tls_ext\": [ ");
+    for (i = 0; i < data->num_server_tls_extensions-1; i++) {
+      fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data->server_tls_extensions[i].type);
+      fprintf(f, "\"length\": %i, \"data\": ", data->server_tls_extensions[i].length);
+      fprintf_raw_as_hex_tls(f, data->server_tls_extensions[i].data, data->server_tls_extensions[i].length);
+      fprintf(f, "},");
+    }
+    fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data->server_tls_extensions[i].type);
+    fprintf(f, "\"length\": %i, \"data\": ", data->server_tls_extensions[i].length);
+    fprintf_raw_as_hex_tls(f, data->server_tls_extensions[i].data, data->server_tls_extensions[i].length);
+    fprintf(f, "}\n\t\t\t\t]");
+  }  
+  if (data_twin && data_twin->num_server_tls_extensions) {
+    fprintf(f, ",\n\t\t\t\t\"s_tls_ext\": [ ");
+    for (i = 0; i < data_twin->num_server_tls_extensions-1; i++) {
+      fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data_twin->server_tls_extensions[i].type);
+      fprintf(f, "\"length\": %i, \"data\": ", data_twin->server_tls_extensions[i].length);
+      fprintf_raw_as_hex_tls(f, data_twin->server_tls_extensions[i].data, data_twin->server_tls_extensions[i].length);
+      fprintf(f, "},");
+    }
+    fprintf(f, "\n\t\t\t\t\t{ \"type\": \"%04x\", ", data_twin->server_tls_extensions[i].type);
+    fprintf(f, "\"length\": %i, \"data\": ", data_twin->server_tls_extensions[i].length);
+    fprintf_raw_as_hex_tls(f, data_twin->server_tls_extensions[i].data, data_twin->server_tls_extensions[i].length);
     fprintf(f, "}\n\t\t\t\t]");
   }
   
