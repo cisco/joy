@@ -4,34 +4,6 @@
 #
 # see the "usage" function for instructions
 #
-# TBD:
-# compute entropy from bd
-# string matching functions
-# compound filter statements 
-# select internal traffic 
-# select on sa/da labels
-# allow port = sp/dp, addr = sa/da, etc.
-#
-# distinct | counted | orderby
-# 
-# list elements 
-#
-# functions:
-#    entropy(bd)
-#    reo2(bd)
-#    max(bd)
-#    min(bd)
-#    avg(bd)
-#    var(bd)
-#
-# functions can be applied to the elements in the predicate, or to the output data
-#
-# output can be flows, or an array of json objects, or a single json object  
-#  
-# pretty-printing function for flows
-# names to numbers output translation (dp=80 -> dp=HTTP)
-# numbers to names input translation (dp=HTTP -> dp=80,dp=8080)
-
 
 import sys, json, operator
 from optparse import OptionParser
@@ -206,7 +178,7 @@ def minentropy(bd):
 
 def gini(bd):
    if type(bd) is not list:
-      print "error: wrong type argument to collision entropy function"
+      print "error: wrong type argument to gini function"
       sys.exit()
    total = 0.0
    for x in bd:
@@ -363,6 +335,13 @@ class noTranslation():
 
 class translator():
    def __init__(self):
+      try:
+         self.initialize()
+      except:
+         print "error: could not initialize translator (check for missing data files)"
+         sys.exit()
+
+   def initialize(self):
       self.d = {}
       with open("saltUI/ciphersuites.txt") as f:
          for line in f:
@@ -373,13 +352,13 @@ class translator():
          6: "TCP",
          17: "UDP"
          }
-      with open("ip.txt") as f:
+      with open("data/ip.txt") as f:
          for line in f:
             (key, val) = line.split()
             self.pr[key] = val
 
       self.ports = {}
-      with open("ports2.txt") as f:
+      with open("data/ports.txt") as f:
          for line in f:
             try:
                (val, key) = line.split()
@@ -393,6 +372,7 @@ class translator():
             except:
                pass
                # print "could not parse line " + line
+
 
    def translate(self, s, val):
       if s is "scs" or s is "cs":
@@ -580,8 +560,8 @@ class printSelectedElements:
    def __init__(self, field):
       self.func = identity
       self.funcname = None
-      self.firstFlow = 1
-      self.field = field
+      self.firstFlow = True
+      self.field = field.replace(" ", "") # no whitespace
       if '.' in self.field:
          (self.field, self.field2) = self.field.split(".", 2)
          self.depth = 2
@@ -609,7 +589,7 @@ class printSelectedElements:
             sys.exit()
 
 
-   def processFlow(self, flow):
+   def processFlow(self, flow, first):
       # print "   {"
       # print "      \"flow\": ",
       # print json.dumps(flow, indent=3),
@@ -617,34 +597,48 @@ class printSelectedElements:
       if self.field in flow:
          filter = flow[self.field]
          if self.depth is 1:
-            if not self.firstFlow:
-               print ","
-            else:
-               self.firstFlow = 0    
             if self.funcname is not None:
                name = self.funcname + "(" + self.field + ")"
             else:
                name = self.field
-            print  "\t{ \"" + name + "\": " + str(self.func(filter)) + " }", 
+            if first:
+               first = False
+               if not self.firstFlow:
+                  print ",",
+               else:
+                  self.firstFlow = False
+               print  "\n\t{ ",
+            else:
+               print ", ",
+            print "\"" + name + "\": " + str(self.func(filter)), 
          else:
             if type(filter) is list:
                for a in filter:
                   if self.field2 in a:
                      filter2 = a[self.field2]
-                     if not self.firstFlow:
-                        print ","
+                     if first:
+                        first = False
+                        if not self.firstFlow:
+                           print ",",
+                        else:
+                           self.firstFlow = False
+                        print  "\n\t{ ",
                      else:
-                        self.firstFlow = 0    
-                     print  "\t{ \"" + str(self.field2) + "\": " + str(filter2) + " }", 
+                        print ", ",
+                     print "\"" + str(self.field2) + "\": " + str(filter2)
             else:
                if self.field2 in filter:
                   filter2 = filter[self.field2]
-                  if not self.firstFlow:
-                     print ","
-                  else:
-                     self.firstFlow = 0
-                  print  "\t{ \"" + str(self.field2) + "\": " + str(filter2) + " }", 
+                  if first:
+                     first = False
+                     if not self.firstFlow:
+                        print ",",
+                     else:
+                        self.firstFlow = False
+                     print  "\n\t{ ",
+                  print "\"" + str(self.field2) + "\": " + str(filter2),
       # print "   }",
+      return first
 
    def processMetadata(self, metadata):
       pass
@@ -657,6 +651,33 @@ class printSelectedElements:
       print
       print "   ]"
       print "}"
+
+
+class printMultipleElements():
+   def __init__(self, name):
+      self.array = []
+      self.field = name
+      self.firstFlow = True
+
+   def addElement(self, x):
+      self.array.append(x)
+
+   def processFlow(self, flow):
+      first = True
+      for x in self.array:
+         first = x.processFlow(flow, first)
+      if not first:
+         print "}",
+
+   def preProcess(self):    
+      print "{"
+      print "\"" + str(self.field) + "\": [",
+
+   def postProcess(self):    
+      print
+      print "   ]"
+      print "}"
+
 
 class flowStatsPrinter:
    def __init__(self):
@@ -805,7 +826,10 @@ if __name__=='__main__':
       t = noTranslation()
 
    if opts.selection is not None:
-      fp = printSelectedElements(opts.selection)
+      # fp = printSelectedElements(opts.selection)
+      fp = printMultipleElements("name")
+      for z in opts.selection.split(','):
+         fp.addElement(printSelectedElements(z))
    else:
       if opts.schema is True:
          fp = printSchema()
