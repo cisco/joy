@@ -1064,7 +1064,28 @@ void fprintf_raw_as_hex(FILE *f, const void *data, unsigned int len) {
 
 }
 
+void reduce_bd_bits(unsigned int *bd, unsigned int len) {
+  int mask = 0;
+  int shift = 0;
+  int i = 0;
 
+  for (i = 0; i < len; i++) {
+    mask = mask | bd[i];
+  }
+
+  mask = mask >> 8;
+  for (i = 0; i < 24 && mask; i++) {
+    mask = mask >> 1;
+    if (mask == 0) {
+      shift = i+1;
+      break;
+    }
+  }
+
+  for (i = 0; i < len; i++) {
+    bd[i] = bd[i] >> shift;
+  }
+}
 
 void flow_record_print_json(const struct flow_record *record) {
   unsigned int i, j, imax, jmax;
@@ -1311,6 +1332,13 @@ void flow_record_print_json(const struct flow_record *record) {
       compact_array = rec->compact_byte_count;
       num_bytes = rec->ob;
 
+      for (i=0; i<256; i++) {
+	tmp[i] = rec->byte_count[i];
+      }
+      for (i=0; i<16; i++) {
+	compact_tmp[i] = rec->compact_byte_count[i];
+      }
+
       if (rec->num_bytes != 0) {
 	mean = rec->bd_mean;
 	variance = rec->bd_variance/(rec->num_bytes - 1);
@@ -1344,14 +1372,17 @@ void flow_record_print_json(const struct flow_record *record) {
     }
     
     if (byte_distribution) {
+      reduce_bd_bits(tmp, 256);
+      array = tmp;
+
       fprintf(output, ",\n\t\t\t\"bd\": [ ");
       for (i = 0; i < 255; i++) {
 	if ((i % 16) == 0) {
 	  fprintf(output, "\n\t\t\t        ");	    
 	}
-	fprintf(output, "%3u, ", array[i]);
+	fprintf(output, "%3u, ", (unsigned char)array[i]);
       }
-      fprintf(output, "%3u\n\t\t\t]", array[i]);
+      fprintf(output, "%3u\n\t\t\t]", (unsigned char)array[i]);
 
       // output the mean
       if (num_bytes != 0) {
@@ -1362,14 +1393,17 @@ void flow_record_print_json(const struct flow_record *record) {
     }
 
     if (compact_byte_distribution) {
+      reduce_bd_bits(compact_tmp, 16);
+      compact_array = compact_tmp;
+
       fprintf(output, ",\n\t\t\t\"compact_bd\": [ ");
       for (i = 0; i < 15; i++) {
 	if ((i % 16) == 0) {
 	  fprintf(output, "\n\t\t\t        ");	    
 	}
-	fprintf(output, "%3u, ", compact_array[i]);
+	fprintf(output, "%3u, ", (unsigned char)compact_array[i]);
       }
-      fprintf(output, "%3u\n\t\t\t]", compact_array[i]);
+      fprintf(output, "%3u\n\t\t\t]", (unsigned char)compact_array[i]);
     }
 
     if (report_entropy) {
