@@ -327,8 +327,8 @@ void TLSServerHello_get_extensions(const void *x, unsigned int len,
 
   //  mem_print(x, len);
   len -= 4;
-  if ((y[0] != 3) || (y[1] > 3)) {
-    // fprintf(stderr, "warning: TLS version %0x%0x\n", y[0], y[1]);
+  if ((y[0] != 3) || (y[1] < 3)) {
+    //printf("warning: TLS version %0x%0x\n", y[0], y[1]);
     return;  
   }
 
