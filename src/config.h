@@ -66,6 +66,7 @@ struct configuration {
   unsigned int output_level;
   unsigned int nfv9_capture_port;
   unsigned int flow_key_match_method;
+  char *compact_byte_distribution;
   char *interface;
   char *filename;              /* output file, if not NULL */
   char *outputdir;             /* directory to write output files */

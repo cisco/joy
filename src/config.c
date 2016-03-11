@@ -172,6 +172,9 @@ int config_parse_command(struct configuration *config,
   } else if (match(command, "dist")) {
     parse_check(parse_bool(&config->byte_distribution, arg, num));
 
+  } else if (match(command, "cdist")) {
+    parse_check(parse_string(&config->compact_byte_distribution, arg, num));
+
   } else if (match(command, "entropy")) {
     parse_check(parse_bool(&config->report_entropy, arg, num));
 
@@ -388,6 +391,7 @@ void config_print(FILE *f, const struct configuration *c) {
   fprintf(f, "type = %u\n", c->type);
   fprintf(f, "zeros = %u\n", c->include_zeroes);
   fprintf(f, "dist = %u\n", c->byte_distribution);
+  fprintf(f, "cdist = %s\n", val(c->compact_byte_distribution));
   fprintf(f, "entropy = %u\n", c->report_entropy);
   fprintf(f, "wht = %u\n", c->report_wht);
   fprintf(f, "hd = %u\n", c->report_hd);
@@ -428,6 +432,7 @@ void config_print_json(FILE *f, const struct configuration *c) {
   fprintf(f, "\t\"type\": %u,\n", c->type);
   fprintf(f, "\t\"zeros\": %u,\n", c->include_zeroes);
   fprintf(f, "\t\"dist\": %u,\n", c->byte_distribution);
+  fprintf(f, "\t\"cdist\": \"%s\",\n", val(c->compact_byte_distribution));
   fprintf(f, "\t\"entropy\": %u,\n", c->report_entropy);
   fprintf(f, "\t\"wht\": %u,\n", c->report_wht);
   fprintf(f, "\t\"hd\": %u,\n", c->report_hd);

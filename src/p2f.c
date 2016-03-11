@@ -163,6 +163,8 @@ unsigned int include_zeroes = 0;
 
 unsigned int byte_distribution = 0;
 
+char *compact_byte_distribution = 0;
+
 unsigned int report_entropy = 0;
 
 unsigned int report_wht = 0;
@@ -184,6 +186,8 @@ FILE *output = NULL;
 FILE *info = NULL;
 
 unsigned int records_in_file = 0;
+
+unsigned short compact_bd_mapping[16];
 
 /*
  * config is the global configuration 
@@ -391,6 +395,7 @@ void flow_record_init(/* @out@ */ struct flow_record *record,
   timer_clear(&record->end);
   record->last_pkt_len = 0;
   memset(record->byte_count, 0, sizeof(record->byte_count));
+  memset(record->compact_byte_count, 0, sizeof(record->compact_byte_count));
   memset(record->pkt_len, 0, sizeof(record->pkt_len));
   memset(record->pkt_time, 0, sizeof(record->pkt_time));
   memset(record->pkt_flags, 0, sizeof(record->pkt_flags));
@@ -806,6 +811,17 @@ void flow_record_update_byte_count(struct flow_record *f, const void *x, unsigne
 
 }
 
+void flow_record_update_compact_byte_count(struct flow_record *f, const void *x, unsigned int len) {
+  const unsigned char *data = x;
+  int i;
+
+  if (compact_byte_distribution) {
+    for (i=0; i<len; i++) {
+      f->compact_byte_count[compact_bd_mapping[data[i]]]++;
+    }
+  }
+}
+
 void flow_record_update_byte_dist_mean_var(struct flow_record *f, const void *x, unsigned int len) {
   const unsigned char *data = x;
   double delta;
@@ -896,6 +912,15 @@ void flow_record_print(const struct flow_record *record) {
 	fprintf(output, "%u, ", record->byte_count[i]);
       }
       fprintf(output, "%u ]\n", record->byte_count[i]);
+    }
+  }
+  if (compact_byte_distribution) {
+    if (record->ob != 0) {
+      fprintf(output, "\tcompact_bd: [ ");
+      for (i = 0; i < 15; i++) {
+	fprintf(output, "%u, ", record->compact_byte_count[i]);
+      }
+      fprintf(output, "%u ]\n", record->compact_byte_count[i]);
     }
   }
   if (report_entropy) {
@@ -1271,7 +1296,9 @@ void flow_record_print_json(const struct flow_record *record) {
 
   if (byte_distribution || report_entropy) {
     const unsigned int *array;
+    const unsigned int *compact_array;
     unsigned int tmp[256];
+    unsigned int compact_tmp[16];
     unsigned int num_bytes;
     double mean = 0.0, variance = 0.0;
 
@@ -1281,6 +1308,7 @@ void flow_record_print_json(const struct flow_record *record) {
      */
     if (rec->twin == NULL) {
       array = rec->byte_count;
+      compact_array = rec->compact_byte_count;
       num_bytes = rec->ob;
 
       if (rec->num_bytes != 0) {
@@ -1295,7 +1323,11 @@ void flow_record_print_json(const struct flow_record *record) {
       for (i=0; i<256; i++) {
 	tmp[i] = rec->byte_count[i] + rec->twin->byte_count[i];
       }
+      for (i=0; i<16; i++) {
+	compact_tmp[i] = rec->compact_byte_count[i] + rec->twin->compact_byte_count[i];
+      }
       array = tmp;
+      compact_array = compact_tmp;
       num_bytes = rec->ob + rec->twin->ob;
 
       if (rec->num_bytes + rec->twin->num_bytes != 0) {
@@ -1327,6 +1359,17 @@ void flow_record_print_json(const struct flow_record *record) {
 	fprintf(output, ",\n\t\t\t\"bd_std\": %f", variance);
       }
 
+    }
+
+    if (compact_byte_distribution) {
+      fprintf(output, ",\n\t\t\t\"compact_bd\": [ ");
+      for (i = 0; i < 15; i++) {
+	if ((i % 16) == 0) {
+	  fprintf(output, "\n\t\t\t        ");	    
+	}
+	fprintf(output, "%3u, ", compact_array[i]);
+      }
+      fprintf(output, "%3u\n\t\t\t]", compact_array[i]);
     }
 
     if (report_entropy) {

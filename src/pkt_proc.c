@@ -576,6 +576,7 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   record->ob += payload_len; 
   
   flow_record_update_byte_count(record, payload, payload_len);
+  flow_record_update_compact_byte_count(record, payload, payload_len);
   flow_record_update_byte_dist_mean_var(record, payload, payload_len);
   wht_update(&record->wht, payload, payload_len, report_wht);
   
@@ -657,6 +658,7 @@ process_udp(const struct pcap_pkthdr *h, const void *udp_start, int udp_len, str
   record->ob += size_payload; 
 
   flow_record_update_byte_count(record, payload, size_payload);
+  flow_record_update_compact_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
   wht_update(&record->wht, payload, size_payload, report_wht);
 
@@ -726,6 +728,7 @@ process_icmp(const struct pcap_pkthdr *h, const void *start, int len, struct flo
   record->ob += size_payload; 
 
   flow_record_update_byte_count(record, payload, size_payload);
+  flow_record_update_compact_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
   wht_update(&record->wht, payload, size_payload, report_wht);
   
@@ -775,6 +778,7 @@ process_ip(const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struct
   record->ob += size_payload; 
 
   flow_record_update_byte_count(record, payload, size_payload);
+  flow_record_update_compact_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
   wht_update(&record->wht, payload, size_payload, report_wht);
 
