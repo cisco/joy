@@ -104,6 +104,11 @@ void tls_record_delete(struct tls_information *r) {
       free(r->tls_extensions[i].data);
     }
   }
+  for (i=0; i<r->num_server_tls_extensions; i++) {
+    if (r->server_tls_extensions[i].data) {
+      free(r->server_tls_extensions[i].data);
+    }
+  }
 }
 
 
