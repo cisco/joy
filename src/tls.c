@@ -360,6 +360,9 @@ void TLSServerHello_get_extensions(const void *x, unsigned int len,
   while (len > 0) {
     r->server_tls_extensions[i].type = raw_to_unsigned_short(y);
     r->server_tls_extensions[i].length = raw_to_unsigned_short(y+2);
+    if (r->server_tls_extensions[i].length > 64) {
+      break;
+    }
     // should check if length is reasonable?
     r->server_tls_extensions[i].data = malloc(r->server_tls_extensions[i].length);
     memcpy(r->server_tls_extensions[i].data, y+4, r->server_tls_extensions[i].length);
