@@ -318,7 +318,7 @@ void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
   r->ciphersuites[0] = cs;
 }
 
-void TLSServerHello_get_extensions(const void *x, unsigned int len,
+void TLSServerHello_get_extensions(const void *x, int len,
 				    struct tls_information *r) {
   unsigned int session_id_len, compression_method_len;
   const unsigned char *y = x;
@@ -358,6 +358,9 @@ void TLSServerHello_get_extensions(const void *x, unsigned int len,
 
   i = 0;
   while (len > 0) {
+    if (raw_to_unsigned_short(y+2) > 64) {
+      break;
+    }
     r->server_tls_extensions[i].type = raw_to_unsigned_short(y);
     r->server_tls_extensions[i].length = raw_to_unsigned_short(y+2);
     // should check if length is reasonable?
@@ -487,7 +490,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
       } else if (tls->Handshake.HandshakeType == server_hello) {
 
 	TLSServerHello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
-	TLSServerHello_get_extensions(&tls->Handshake.body, tls_len, r);
+	TLSServerHello_get_extensions(&tls->Handshake.body, (int)tls_len, r);
 
       } else if (tls->Handshake.HandshakeType == client_key_exchange) {
 
