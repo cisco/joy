@@ -163,7 +163,7 @@ unsigned int include_zeroes = 0;
 
 unsigned int byte_distribution = 0;
 
-char *compact_byte_distribution = 0;
+char *compact_byte_distribution = NULL;
 
 unsigned int report_entropy = 0;
 
@@ -1315,7 +1315,7 @@ void flow_record_print_json(const struct flow_record *record) {
   }
 #endif /* 0 */
 
-  if (byte_distribution || report_entropy) {
+  if (byte_distribution || report_entropy || compact_byte_distribution) {
     const unsigned int *array;
     const unsigned int *compact_array;
     unsigned int tmp[256];

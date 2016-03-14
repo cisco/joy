@@ -556,8 +556,7 @@ int main(int argc, char **argv) {
 
     memset(compact_bd_mapping, 0, sizeof(compact_bd_mapping));
 
-
-    fp = fopen(config.compact_byte_distribution,"r");
+    fp = fopen(compact_byte_distribution, "r");
     if (fp != NULL) {
       while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
 	compact_bd_mapping[b_value] = map_b_value;
@@ -567,7 +566,10 @@ int main(int argc, char **argv) {
 	}
       }
       fclose(fp);
-    }    
+    } else {
+      fprintf(info, "error: could not open file %s\n", compact_byte_distribution);
+      exit(1);
+    }
   }
 
   /*
@@ -616,6 +618,14 @@ int main(int argc, char **argv) {
     if (anon_init(config.anon_addrs_file, info) == failure) {
       fprintf(info, "error: could not initialize anonymization subnets from file %s\n", 
 	      config.anon_addrs_file); 
+      return -1;
+    }
+  }
+
+  if (config.anon_http_file != NULL) {
+    if (anon_http_init(config.anon_http_file, info) == failure) {
+      fprintf(info, "error: could not initialize HTTP anonymization from username file %s\n", 
+	      config.anon_http_file); 
       return -1;
     }
   }

@@ -849,7 +849,9 @@ process_packet(unsigned char *ignore, const struct pcap_pkthdr *header, const un
     /*
      * select IP processing, since we don't have a TCP or UDP header 
      */
-    proto = IPPROTO_IP;
+    key.sa = ip->ip_src;
+    key.da = ip->ip_dst;
+    proto = key.prot = IPPROTO_IP;
   }  
 
   /* determine transport protocol and handle appropriately */

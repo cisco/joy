@@ -385,3 +385,67 @@ int anon_unit_test() {
 
 /* END address anonymization  */
 
+/* START http anonymization */
+
+
+enum status anon_pii_add_from_string(char *pii_string) {
+  fprintf(stdout, "%s\t%u\n", pii_string, strlen(pii_string));
+  return ok;
+}
+
+enum status anon_http_init(const char *pathname, FILE *logfile) {
+  enum status s;
+  FILE *fp;
+  size_t len;
+  char *line = NULL;
+  extern FILE *anon_info;
+  unsigned int num_usernames = 0;
+
+  if (logfile != NULL) {
+    anon_info = logfile;
+  } else {
+    anon_info = stderr;
+  }
+
+  fp = fopen(pathname, "r");
+  if (fp == NULL) {
+    return failure;
+  } else {
+    
+    while (getline(&line, &len, fp) != -1) {
+      char *username = line;
+      unsigned int i;
+
+      /* remove newline */
+      i = 0;
+      while (i < 80) {     // 80 = max length of a username
+	if (username[i] == '\n') {
+	  username[i] = 0;
+	  break;
+	}
+	i++;
+      }
+
+      if (anon_pii_add_from_string(username) != ok) {
+	fprintf(anon_info, "error: could not add username %s to anon set\n", username);
+	return failure;
+      }
+
+      num_usernames++;
+    }
+
+    fprintf(anon_info, "configured %d usernames for anonymization\n", num_usernames);
+      
+    free(line);
+    
+    fclose(fp);
+  } 
+
+  /* should check to see if key is already initialized! */
+  s = key_init();
+
+  return s;
+}
+
+
+/* END http anonymization */
