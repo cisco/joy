@@ -678,6 +678,9 @@ class printMultipleElements():
       print "   ]"
       print "}"
 
+   def processMetadata(self, metadata):    
+      pass
+
 
 class flowStatsPrinter:
    def __init__(self):
@@ -734,28 +737,50 @@ class printSchema:
    def __init__(self):
       self.firstFlow = 1
       self.indentation = ""
+      self.schema = {}
+
+   def processDatum(self, x, y):
+      t = type(y)
+      if t is dict:
+         print "processing object: " + str(y)
+         tmp = self.indentation
+         self.indentation = self.indentation + "\t"
+         self.processFlow(y)
+         self.indentation = tmp
+         self.schema[x] = "flow.object" + str(x) + '\t' 
+      elif t is list:
+         print "processing list: " + str(y)
+         tmp = self.indentation
+         self.indentation = self.indentation + "\t"
+         # self.processFlow((y)[1])
+         self.indentation = tmp
+      else:
+         print self.indentation + "flow." + str(x) + '\t' + description(t)
+         self.schema[x] = self.indentation + "flow." + str(x) + '\t' + description(t)
+      
 
    def processFlow(self, flow):
+      print "got flow"
       for x in flow:
-         t = type(flow[x])
-         print "type(" + str(flow[x]) + "): " + str(t),
-         if t is object:
-            print "processing object: " + str(flow[x])
-            tmp = self.indentation
-            self.indentation = self.indentation + "\t"
-            self.processFlow(flow[x])
-            self.indentation = tmp
-         elif t is list:
-            print "processing list: " + str(flow[x])
-            tmp = self.indentation
-            self.indentation = self.indentation + "\t"
-            # self.processFlow((flow[x])[1])
-            self.indentation = tmp
-         else:
-            print self.indentation + "flow." + str(x) + "\t" + description(t)
+         self.processDatum(x, flow[x])
+
+   def printSchema(self, schema):
+      for x in schema:
+         print schema[x] + " " + str(type(schema[x]))
+         if type(schema[x]) is dict:
+            print "printing dictionary"
+            self.printSchema(x)
+
+   def preProcess(self):    
+      pass
 
    def postProcess(self):    
-      print
+      print "schema: "
+      # print self.schema
+      self.printSchema(self.schema)
+      
+   def processMetadata(self, x):
+      pass
 
 def processFile(f, ff, fp):
    global flowdict, flowtotal
