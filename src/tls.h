@@ -129,7 +129,9 @@ struct tls_information {
   unsigned short int num_ciphersuites;   /* number of SSLv3/TLS ciphersuites   */
   unsigned short int ciphersuites[MAX_CS];  /* array of ciphersuites           */
   unsigned short int num_tls_extensions;  /* number of TLS extensions          */
+  unsigned short int num_server_tls_extensions;  /* number of TLS extensions          */
   struct tls_extension tls_extensions[MAX_EXTENSIONS];  /* array of extensions */
+  struct tls_extension server_tls_extensions[MAX_EXTENSIONS];  /* array of extensions */
   unsigned char tls_v;                   /* TLS version                        */
   unsigned int tls_client_key_length;    /* client key exchange key length     */
   unsigned char tls_sid_len;             /* TLS session ID length              */
@@ -223,6 +225,8 @@ void TLSClientHello_get_extensions(const void *x, int len,
 				   struct tls_information *r);
 void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
 				    struct tls_information *r);
+void TLSServerHello_get_extensions(const void *x, unsigned int len, 
+				   struct tls_information *r);
 unsigned int TLSHandshake_get_length(const struct TLSHandshake *H);
 unsigned int tls_header_get_length(const struct tls_header *H);
 char *tls_version_get_string(enum tls_version v);

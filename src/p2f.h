@@ -92,6 +92,7 @@ struct flow_record {
   struct timeval pkt_time[MAX_NUM_PKT_LEN]; /* array of arrival times          */
   unsigned char pkt_flags[MAX_NUM_PKT_LEN]; /* array of packet flags           */
   unsigned int byte_count[256];         /* number of occurences of each byte   */
+  unsigned int compact_byte_count[16];         /* number of occurences of each byte, mapping to compact form   */
   unsigned long int num_bytes;
   double bd_mean;
   double bd_variance;
@@ -205,6 +206,8 @@ void flow_record_init(/*@out@*/ struct flow_record *record,
 void flow_record_print_json(const struct flow_record *record);
 
 void flow_record_update_byte_count(struct flow_record *f, const void *x, unsigned int len);
+
+void flow_record_update_compact_byte_count(struct flow_record *f, const void *x, unsigned int len);
 
 void flow_record_update_byte_dist_mean_var(struct flow_record *f, const void *x, unsigned int len);
 

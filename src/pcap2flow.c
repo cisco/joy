@@ -95,6 +95,8 @@ extern struct timeval active_timeout;
 
 extern unsigned int active_max;
 
+extern unsigned short compact_bd_mapping[16];
+
 /* configuration state */
 
 extern unsigned int bidir;
@@ -102,6 +104,8 @@ extern unsigned int bidir;
 extern unsigned int include_zeroes;
 
 extern unsigned int byte_distribution;
+
+extern char *compact_byte_distribution;
 
 extern unsigned int report_entropy;
 
@@ -304,6 +308,7 @@ int usage(char *s) {
          "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
          "  bidir=1                    merge unidirectional flows into bidirectional ones\n" 
          "  dist=1                     include byte distribution array\n" 
+         "  cdist=F                    include compact byte distribution array using the mapping file, F\n" 
          "  entropy=1                  include byte entropy\n" 
          "  tls=1                      include TLS data (ciphersuites, record lengths and times, ...)\n" 
          "  exe=1                      include information about host process associated with flow\n" 
@@ -442,6 +447,7 @@ int main(int argc, char **argv) {
     bidir = config.bidir;
     include_zeroes = config.include_zeroes;
     byte_distribution = config.byte_distribution;
+    compact_byte_distribution = config.compact_byte_distribution;
     report_entropy = config.report_entropy;
     report_wht = config.report_wht;
     report_hd = config.report_hd;
@@ -541,6 +547,27 @@ int main(int argc, char **argv) {
     } else {
       update_params(params_splt,params_bd);
     }
+  }
+
+  if (config.compact_byte_distribution) {
+    FILE *fp;
+    int count = 0;
+    unsigned short b_value, map_b_value;
+
+    memset(compact_bd_mapping, 0, sizeof(compact_bd_mapping));
+
+
+    fp = fopen(config.compact_byte_distribution,"r");
+    if (fp != NULL) {
+      while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
+	compact_bd_mapping[b_value] = map_b_value;
+	count++;
+	if (count >= 256) {
+	  break;
+	}
+      }
+      fclose(fp);
+    }    
   }
 
   /*
