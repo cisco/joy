@@ -225,7 +225,7 @@ void TLSClientHello_get_extensions(const void *x, int len,
 				   struct tls_information *r);
 void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
 				    struct tls_information *r);
-void TLSServerHello_get_extensions(const void *x, unsigned int len, 
+void TLSServerHello_get_extensions(const void *x, int len, 
 				   struct tls_information *r);
 unsigned int TLSHandshake_get_length(const struct TLSHandshake *H);
 unsigned int tls_header_get_length(const struct tls_header *H);
