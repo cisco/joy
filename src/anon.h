@@ -86,4 +86,7 @@ unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 /* END address anonymization  */
 
 
+
+enum status anon_http_init(const char *pathname, FILE *logfile);
+
 #endif /* ANON_H */
