@@ -71,6 +71,7 @@ struct configuration {
   char *outputdir;             /* directory to write output files */
   char *logfile; 
   char *anon_addrs_file;
+  char *anon_http_file;
   char *upload_servername;
   char *upload_key;
   char *params_file;
