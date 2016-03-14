@@ -130,6 +130,13 @@ int config_parse_command(struct configuration *config,
     tmp--;
   }
   
+  /*
+   * note: because of the simplistic match function currently
+   * implemented, each command name MUST NOT be a prefix of any other
+   * command name; otherwise, the shorter name will be matched rather
+   * than the longer one
+   */
+
   if (match(command, "interface")) {
     parse_check(parse_string(&config->interface, arg, num));
 
@@ -219,6 +226,9 @@ int config_parse_command(struct configuration *config,
 
   } else if (match(command, "anon")) {
     parse_check(parse_string(&config->anon_addrs_file, arg, num));
+
+  } else if (match(command, "useranon")) {
+    parse_check(parse_string(&config->anon_http_file, arg, num));
 
   } else if (match(command, "exe")) {
     parse_check(parse_bool(&config->report_exe, arg, num));
@@ -397,6 +407,7 @@ void config_print(FILE *f, const struct configuration *c) {
   fprintf(f, "dns = %u\n", c->dns);
   fprintf(f, "exe = %u\n", c->report_exe);
   fprintf(f, "anon = %s\n", val(c->anon_addrs_file));
+  fprintf(f, "useranon = %s\n", val(c->anon_http_file));
   fprintf(f, "bpf = %s\n", val(c->bpf_filter_exp));
   fprintf(f, "verbosity = %u\n", c->output_level);
 
@@ -437,6 +448,7 @@ void config_print_json(FILE *f, const struct configuration *c) {
   fprintf(f, "\t\"dns\": %u,\n", c->dns);
   fprintf(f, "\t\"exe\": %u,\n", c->report_exe);
   fprintf(f, "\t\"anon\": \"%s\",\n", val(c->anon_addrs_file));
+  fprintf(f, "\t\"useranon\": \"%s\",\n", val(c->anon_http_file));
   fprintf(f, "\t\"bpf\": \"%s\",\n", val(c->bpf_filter_exp));
   fprintf(f, "\t\"verbosity\": %u\n", c->output_level);
   fprintf(f, "},\n");  
