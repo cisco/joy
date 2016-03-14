@@ -593,6 +593,14 @@ int main(int argc, char **argv) {
     }
   }
 
+  if (config.anon_http_file != NULL) {
+    if (anon_http_init(config.anon_http_file, info) == failure) {
+      fprintf(info, "error: could not initialize HTTP anonymization from username file %s\n", 
+	      config.anon_http_file); 
+      return -1;
+    }
+  }
+
   if (config.filename != NULL) {
     char *outputdir;
     
