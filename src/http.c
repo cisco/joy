@@ -210,14 +210,18 @@ unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsign
 
   for (i=0; i<length; i++) {
     dst[i] = src[i];
-    
-    /* make string printable*/
-    if (iscntrl(dst[i]) && dst[i] != '\r' && dst[i] != '\n') {
-      dst[i] = '.';
-    }
-    /* avoid JSON confusion */
-    if (dst[i] == '"' || dst[i] == '\\' || dst[i] > 127) {
-      dst[i] = '.';
+
+    if (state != second_lf) {
+      /* still parsing HTTP headers */
+
+      /* make string printable*/
+      if (iscntrl(dst[i]) && dst[i] != '\r' && dst[i] != '\n') {
+	dst[i] = '.';
+      }
+      /* avoid JSON confusion */
+      if (dst[i] == '"' || dst[i] == '\\' || dst[i] > 127) {
+	dst[i] = '.';
+      }
     }
 
     /* advance lexer state  */
