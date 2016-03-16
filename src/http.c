@@ -210,14 +210,21 @@ unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsign
 
   for (i=0; i<length; i++) {
     dst[i] = src[i];
-    
-    /* make string printable*/
-    if (iscntrl(dst[i]) && dst[i] != '\r' && dst[i] != '\n') {
-      dst[i] = '.';
-    }
-    /* avoid JSON confusion */
-    if (dst[i] == '"' || dst[i] == '\\' || dst[i] > 127) {
-      dst[i] = '.';
+
+    if (state != second_lf) {
+      /* still parsing HTTP headers */
+
+      /*
+       * make string printable, by suppressing characters below SPACE
+       * (32) and above DEL (127), inclusive, except for \r and \n
+       */
+      if ((dst[i] < 32 || dst[i] > 126) && dst[i] != '\r' && dst[i] != '\n') {
+	dst[i] = '.';
+      }
+      /* avoid JSON confusion */
+      if (dst[i] == '"' || dst[i] == '\\') {
+	dst[i] = '.';
+      }
     }
 
     /* advance lexer state  */
@@ -487,13 +494,15 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
      */ 
     do { 
       type = http_get_next_line(&saveptr, &length, &token1, &token2);
-      if (not_first_header) {
-	fprintf(f, ",");
-      } else {
-	not_first_header = 1;
+      if (type != http_malformed) {
+	if (not_first_header) {
+	  fprintf(f, ",");
+	} else {
+	  not_first_header = 1;
+	}
+	fprintf(f, "\n\t\t\t\t\"%s\": \"%s\"", token1, token2);
       }
-      fprintf(f, "\n\t\t\t\t\"%s\": \"%s\"", token1, token2);
-      
+
     } while (type == http_header);
   }
 

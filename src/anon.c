@@ -389,7 +389,7 @@ int anon_unit_test() {
 
 
 enum status anon_pii_add_from_string(char *pii_string) {
-  fprintf(stdout, "%s\t%u\n", pii_string, strlen(pii_string));
+  fprintf(stdout, "%s\t%zu\n", pii_string, strlen(pii_string));
   return ok;
 }
 
