@@ -544,7 +544,7 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
 
     // parse TCP options
     while (offset < tcp_hdr_len) { // while there are TCP options present
-      if ((int)*(const char *)(tcp_start+offset) == 0) { // EOL
+      if ((int)*(const char *)(tcp_start+offset) <= 0) { // EOL
 	break ;
       }
       if ((int)*(const char *)(tcp_start+offset) == 1) { // NOP
