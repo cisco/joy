@@ -460,7 +460,7 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
   unsigned int not_first_header = 0;
   enum http_type type = http_done;  
 
-  fprintf(f, ",\n\t\t\t\"%s\": {", string);
+  fprintf(f, ",\"%s\":{", string);
 
   if (length < 4) {
     goto bail;
@@ -473,16 +473,16 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
   type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
   if (type == http_request_line) {    
     fprintf(f, 
-	    "\n\t\t\t\t\"method\": \"%s\","
-	    "\n\t\t\t\t\"uri\": \"%s\","
-	    "\n\t\t\t\t\"v\": \"%s\"", 
+	    "\"method\":\"%s\","
+	    "\"uri\":\"%s\","
+	    "\"v\":\"%s\"", 
 	    token1, token2, token3);
     not_first_header = 1;
   } else if (type == http_status_line) {    
     fprintf(f, 
-	    "\n\t\t\t\t\"v\": \"%s\","
-	    "\n\t\t\t\t\"code\": \"%s\","
-	    "\n\t\t\t\t\"reason\": \"%s\"", 
+	    "\"v\":\"%s\","
+	    "\"code\":\"%s\","
+	    "\"reason\":\"%s\"", 
 	    token1, token2, token3);
     not_first_header = 1;
   }
@@ -500,7 +500,7 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
 	} else {
 	  not_first_header = 1;
 	}
-	fprintf(f, "\n\t\t\t\t\"%s\": \"%s\"", token1, token2);
+	fprintf(f, "\"%s\":\"%s\"", token1, token2);
       }
 
     } while (type == http_header);
@@ -515,7 +515,7 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
     } else {
       not_first_header = 1;
     }
-   fprintf(f, "\n\t\t\t\t\"malformed\": %u", length);
+   fprintf(f, "\"malformed\":%u", length);
   }
 
   /*
@@ -525,17 +525,17 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
     if (not_first_header) {
       fprintf(f, ",");
     } 
-    fprintf(f, "\n\t\t\t\t\"body\": ");
+    fprintf(f, "\"body\":");
     fprintf_raw_as_hex(f, saveptr, length); 
   }
 
- bail:  fprintf(f, "\n\t\t\t}");
+ bail:  fprintf(f, "}");
 
 }
 
 
 void http_header_print_as_hex(FILE *f, char *header, char *string, unsigned int len) {
-  fprintf(f, ",\n\t\t\t\"%s\": ", string);
+  fprintf(f, ",\"%s\":", string);
   fprintf_raw_as_hex(f, header, len); 
 }
 

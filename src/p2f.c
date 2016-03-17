@@ -933,17 +933,17 @@ void flow_record_print(const struct flow_record *record) {
 
 void print_bytes_dir_time(unsigned short int pkt_len, char *dir, struct timeval ts, char *term) {
   if (pkt_len < 32768) {
-    fprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \"%s\", \"ipt\": %u }%s", 
+    fprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u}%s", 
 	    pkt_len, dir, timeval_to_milliseconds(ts), term);
   } else {
-    fprintf(output, "\t\t\t\t{ \"rep\": %u, \"dir\": \"%s\", \"ipt\": %u }%s", 
+    fprintf(output, "{\"rep\":%u,\"dir\":\"%s\",\"ipt\":%u}%s", 
 	    65536-pkt_len, dir, timeval_to_milliseconds(ts), term);    
   }
 }
 
 void print_bytes_dir_time_type(unsigned short int pkt_len, char *dir, struct timeval ts, struct tls_type_code type, char *term) {
 
-  fprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \"%s\", \"ipt\": %u, \"tp\": \"%u:%u\" }%s", 
+  fprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:%u\"}%s", 
 	  pkt_len, dir, timeval_to_milliseconds(ts), type.content, type.handshake, term);
 
 }
@@ -959,7 +959,7 @@ void len_time_print_interleaved(unsigned int op, const unsigned short *len, cons
   char *dir;
   struct tls_type_code typecode;
 
-  fprintf(output, ",\n\t\t\t\"tls\": [\n");
+  //  fprintf(output, ",\n\t\t\t\"tls\": [\n");
 
   if (len2 == NULL) {
     
@@ -975,7 +975,7 @@ void len_time_print_interleaved(unsigned int op, const unsigned short *len, cons
 	} else {
 	  timer_clear(&ts);
 	}
-	print_bytes_dir_time_type(len[i], OUT, ts, type[i], ",\n");
+	print_bytes_dir_time_type(len[i], OUT, ts, type[i], ",");
 	// fprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u },\n", 
 	//    len[i], timeval_to_milliseconds(ts));
       }
@@ -984,11 +984,11 @@ void len_time_print_interleaved(unsigned int op, const unsigned short *len, cons
       } else {
 	timer_sub(&time[i], &time[i-1], &ts);
       }
-      print_bytes_dir_time_type(len[i], OUT, ts, type[i], "\n");
+      print_bytes_dir_time_type(len[i], OUT, ts, type[i], "");
       // fprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u }\n", 
       //    len[i], timeval_to_milliseconds(ts));
     }
-    fprintf(output, "\t\t\t]"); 
+    //    fprintf(output, "\t\t\t]"); 
   } else {
 
     if (timer_lt(time, time2)) {
@@ -1041,13 +1041,11 @@ void len_time_print_interleaved(unsigned int op, const unsigned short *len, cons
       //     pkt_len, dir, timeval_to_milliseconds(tmp));
       print_bytes_dir_time_type(pkt_len, dir, tmp, typecode, "");
       ts_last = ts;
-      if ((i == imax) & (j == jmax)) { /* we are done */
-      	fprintf(output, "\n"); 
-      } else {
-	fprintf(output, ",\n");
+      if (!((i == imax) & (j == jmax))) { /* we are done */
+	fprintf(output, ",");
       }
     }
-    fprintf(output, "\t\t\t]");
+    //    fprintf(output, "\t\t\t]");
   }
 
 }
@@ -1094,9 +1092,9 @@ void flow_record_print_json(const struct flow_record *record) {
   unsigned int pkt_len;
   char *dir;
 
-  if (records_in_file != 0) {
-    fprintf(output, ",\n");
-  }
+  //if (records_in_file != 0) {
+  //  fprintf(output, ",\n");
+  //}
  
   flocap_stats_incr_records_output();
   records_in_file++;
@@ -1120,23 +1118,23 @@ void flow_record_print_json(const struct flow_record *record) {
     rec = record;
   }
 
-  fprintf(output, "\t\{\n\t\t\"flow\": {\n");
+  fprintf(output, "{");
 
   /* print flow key */
   if (ipv4_addr_needs_anonymization(&rec->key.sa)) {
-    fprintf(output, "\t\t\t\"sa\": \"%s\",\n", addr_get_anon_hexstring(&rec->key.sa));
+    fprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->key.sa));
   } else {
-    fprintf(output, "\t\t\t\"sa\": \"%s\",\n", inet_ntoa(rec->key.sa));
+    fprintf(output, "\"sa\":\"%s\",", inet_ntoa(rec->key.sa));
   }
   if (ipv4_addr_needs_anonymization(&rec->key.da)) {
-    fprintf(output, "\t\t\t\"da\": \"%s\",\n", addr_get_anon_hexstring(&rec->key.da));
+    fprintf(output, "\"da\":\"%s\",", addr_get_anon_hexstring(&rec->key.da));
   } else {
-    fprintf(output, "\t\t\t\"da\": \"%s\",\n", inet_ntoa(rec->key.da));
+    fprintf(output, "\"da\":\"%s\",", inet_ntoa(rec->key.da));
   }
-  fprintf(output, "\t\t\t\"pr\": %u,\n", rec->key.prot);
+  fprintf(output, "\"pr\":%u,", rec->key.prot);
   if (1 || rec->key.prot == 6 || rec->key.prot == 17) {
-    fprintf(output, "\t\t\t\"sp\": %u,\n", rec->key.sp);
-    fprintf(output, "\t\t\t\"dp\": %u,\n", rec->key.dp);
+    fprintf(output, "\"sp\":%u,", rec->key.sp);
+    fprintf(output, "\"dp\":%u,", rec->key.dp);
   }
 
   /* 
@@ -1153,79 +1151,79 @@ void flow_record_print_json(const struct flow_record *record) {
   }
 
   /* print flow stats */
-  fprintf(output, "\t\t\t\"ob\": %u,\n", rec->ob);
-  fprintf(output, "\t\t\t\"op\": %u,\n", rec->np); /* not just packets with data */
+  fprintf(output, "\"ob\":%u,", rec->ob);
+  fprintf(output, "\"op\":%u,", rec->np); /* not just packets with data */
   if (rec->twin != NULL) {
-    fprintf(output, "\t\t\t\"ib\": %u,\n", rec->twin->ob);
-    fprintf(output, "\t\t\t\"ip\": %u,\n", rec->twin->np);
+    fprintf(output, "\"ib\":%u,", rec->twin->ob);
+    fprintf(output, "\"ip\":%u,", rec->twin->np);
   }
-  fprintf(output, "\t\t\t\"ts\": %zd.%06zd,\n", ts_start.tv_sec, ts_start.tv_usec);
-  fprintf(output, "\t\t\t\"te\": %zd.%06zd,\n", ts_end.tv_sec, ts_end.tv_usec);
-  fprintf(output, "\t\t\t\"ottl\": %u,\n", rec->ttl);
+  fprintf(output, "\"ts\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
+  fprintf(output, "\"te\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
+  fprintf(output, "\"ottl\":%u,", rec->ttl);
   if (rec->twin != NULL) {
-    fprintf(output, "\t\t\t\"ittl\": %u,\n", rec->twin->ttl);
+    fprintf(output, "\"ittl\":%u,", rec->twin->ttl);
   }
 
   if (rec->tcp_initial_window_size) {
-    fprintf(output, "\t\t\t\"otcp_win\": %u,\n", rec->tcp_initial_window_size);
+    fprintf(output, "\"otcp_win\":%u,", rec->tcp_initial_window_size);
   }
   if (rec->twin != NULL) {
     if (rec->twin->tcp_initial_window_size) {
-      fprintf(output, "\t\t\t\"itcp_win\": %u,\n", rec->twin->tcp_initial_window_size);
+      fprintf(output, "\"itcp_win\":%u,", rec->twin->tcp_initial_window_size);
     }
   }
 
   if (rec->tcp_syn_size) {
-    fprintf(output, "\t\t\t\"otcp_syn\": %u,\n", rec->tcp_syn_size);
+    fprintf(output, "\"otcp_syn\":%u,", rec->tcp_syn_size);
   }
   if (rec->twin != NULL) {
     if (rec->twin->tcp_syn_size) {
-      fprintf(output, "\t\t\t\"itcp_syn\": %u,\n", rec->twin->tcp_syn_size);
+      fprintf(output, "\"itcp_syn\":%u,", rec->twin->tcp_syn_size);
     }
   }
 
   if (rec->tcp_option_nop) {
-    fprintf(output, "\t\t\t\"otcp_nop\": %u,\n", rec->tcp_option_nop);
+    fprintf(output, "\"otcp_nop\":%u,", rec->tcp_option_nop);
   }
   if (rec->twin != NULL) {
     if (rec->twin->tcp_option_nop) {
-      fprintf(output, "\t\t\t\"itcp_nop\": %u,\n", rec->twin->tcp_option_nop);
+      fprintf(output, "\"itcp_nop\":%u,", rec->twin->tcp_option_nop);
     }
   }
 
   if (rec->tcp_option_mss) {
-    fprintf(output, "\t\t\t\"otcp_mss\": %u,\n", rec->tcp_option_mss);
+    fprintf(output, "\"otcp_mss\":%u,", rec->tcp_option_mss);
   }
   if (rec->twin != NULL) {
     if (rec->twin->tcp_option_mss) {
-      fprintf(output, "\t\t\t\"itcp_mss\": %u,\n", rec->twin->tcp_option_mss);
+      fprintf(output, "\"itcp_mss\":%u,", rec->twin->tcp_option_mss);
     }
   }
 
   if (rec->tcp_option_wscale) {
-    fprintf(output, "\t\t\t\"otcp_wscale\": %u,\n", rec->tcp_option_wscale);
+    fprintf(output, "\"otcp_wscale\":%u,", rec->tcp_option_wscale);
   }
   if (rec->twin != NULL) {
     if (rec->twin->tcp_option_wscale) {
-      fprintf(output, "\t\t\t\"itcp_wscale\": %u,\n", rec->twin->tcp_option_wscale);
+      fprintf(output, "\"itcp_wscale\":%u,", rec->twin->tcp_option_wscale);
     }
   }
 
   if (rec->tcp_option_sack) {
-    fprintf(output, "\t\t\t\"otcp_sack\": %u,\n", rec->tcp_option_sack);
+    fprintf(output, "\"otcp_sack\":%u,", rec->tcp_option_sack);
   }
   if (rec->twin != NULL) {
     if (rec->twin->tcp_option_sack) {
-      fprintf(output, "\t\t\t\"itcp_sack\": %u,\n", rec->twin->tcp_option_sack);
+      fprintf(output, "\"itcp_sack\":%u,", rec->twin->tcp_option_sack);
     }
   }
 
   if (rec->tcp_option_tstamp) {
-    fprintf(output, "\t\t\t\"otcp_tstamp\": %u,\n", rec->tcp_option_tstamp);
+    fprintf(output, "\"otcp_tstamp\":%u,", rec->tcp_option_tstamp);
   }
   if (rec->twin != NULL) {
     if (rec->twin->tcp_option_tstamp) {
-      fprintf(output, "\t\t\t\"itcp_tstamp\": %u,\n", rec->twin->tcp_option_tstamp);
+      fprintf(output, "\"itcp_tstamp\":%u,", rec->twin->tcp_option_tstamp);
     }
   }
 
@@ -1235,7 +1233,7 @@ void flow_record_print_json(const struct flow_record *record) {
 			     rec->twin->op, rec->twin->pkt_len, rec->twin->pkt_time);
 #else
   /* print length and time arrays */
-  fprintf(output, "\t\t\t\"non_norm_stats\": [\n");
+  fprintf(output, "\"packets\":[");
 
   if (rec->twin == NULL) {
     
@@ -1249,7 +1247,7 @@ void flow_record_print_json(const struct flow_record *record) {
 	} else {
 	  timer_clear(&ts);
 	}
-	print_bytes_dir_time(rec->pkt_len[i], OUT, ts, ",\n");
+	print_bytes_dir_time(rec->pkt_len[i], OUT, ts, ",");
 	// fprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u },\n", 
 	//    record->pkt_len[i], timeval_to_milliseconds(ts));
       }
@@ -1258,11 +1256,11 @@ void flow_record_print_json(const struct flow_record *record) {
       } else {
 	timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
       }
-      print_bytes_dir_time(rec->pkt_len[i], OUT, ts, "\n");
+      print_bytes_dir_time(rec->pkt_len[i], OUT, ts, "");
       // fprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u }\n", 
       //    record->pkt_len[i], timeval_to_milliseconds(ts));
     }
-    fprintf(output, "\t\t\t]"); 
+    fprintf(output, "]"); 
   } else {
 
     imax = rec->op > num_pkt_len ? num_pkt_len : rec->op;
@@ -1305,13 +1303,16 @@ void flow_record_print_json(const struct flow_record *record) {
       //     pkt_len, dir, timeval_to_milliseconds(tmp));
       print_bytes_dir_time(pkt_len, dir, tmp, "");
       ts_last = ts;
-      if ((i == imax) & (j == jmax)) { /* we are done */
-      	fprintf(output, "\n"); 
-      } else {
-	fprintf(output, ",\n");
+      if (!((i == imax) & (j == jmax))) { /* we are done */
+	fprintf(output, ",");
       }
+      /*if ((i == imax) & (j == jmax)) {
+      	fprintf(output, ""); 
+      } else {
+	fprintf(output, ",");
+      }*/
     }
-    fprintf(output, "\t\t\t]");
+    fprintf(output, "]");
   }
 #endif /* 0 */
 
@@ -1375,19 +1376,19 @@ void flow_record_print_json(const struct flow_record *record) {
       reduce_bd_bits(tmp, 256);
       array = tmp;
 
-      fprintf(output, ",\n\t\t\t\"bd\": [ ");
+      fprintf(output, ",\"bd\":[");
       for (i = 0; i < 255; i++) {
-	if ((i % 16) == 0) {
-	  fprintf(output, "\n\t\t\t        ");	    
-	}
-	fprintf(output, "%3u, ", (unsigned char)array[i]);
+	//if ((i % 16) == 0) {
+	//  fprintf(output, "");	    
+	//}
+	fprintf(output, "%u,", (unsigned char)array[i]);
       }
-      fprintf(output, "%3u\n\t\t\t]", (unsigned char)array[i]);
+      fprintf(output, "%u]", (unsigned char)array[i]);
 
       // output the mean
       if (num_bytes != 0) {
-	fprintf(output, ",\n\t\t\t\"bd_mean\": %f", mean);
-	fprintf(output, ",\n\t\t\t\"bd_std\": %f", variance);
+	fprintf(output, ",\"bd_mean\":%f", mean);
+	fprintf(output, ",\"bd_std\":%f", variance);
       }
 
     }
@@ -1396,22 +1397,22 @@ void flow_record_print_json(const struct flow_record *record) {
       reduce_bd_bits(compact_tmp, 16);
       compact_array = compact_tmp;
 
-      fprintf(output, ",\n\t\t\t\"compact_bd\": [ ");
+      fprintf(output, ",\"compact_bd\":[");
       for (i = 0; i < 15; i++) {
-	if ((i % 16) == 0) {
-	  fprintf(output, "\n\t\t\t        ");	    
-	}
-	fprintf(output, "%3u, ", (unsigned char)compact_array[i]);
+	//if ((i % 16) == 0) {
+	//  fprintf(output, "");	    
+	//}
+	fprintf(output, "%u,", (unsigned char)compact_array[i]);
       }
-      fprintf(output, "%3u\n\t\t\t]", (unsigned char)compact_array[i]);
+      fprintf(output, "%u]", (unsigned char)compact_array[i]);
     }
 
     if (report_entropy) {
       if (num_bytes != 0) {
 	double entropy = flow_record_get_byte_count_entropy(array, num_bytes);
 	
-	fprintf(output, ",\n\t\t\t\"be\": %f", entropy);
-	fprintf(output, ",\n\t\t\t\"tbe\": %f", entropy * num_bytes);
+	fprintf(output, ",\"be\":%f", entropy);
+	fprintf(output, ",\"tbe\":%f", entropy * num_bytes);
       }
     }
   }
@@ -1433,7 +1434,7 @@ void flow_record_print_json(const struct flow_record *record) {
 		       rec->byte_count, NULL);
     }
 
-    fprintf(output, ",\n\t\t\t\"p_malware\": \"%f\"", score);
+    fprintf(output, ",\"p_malware\":%f", score);
   }
 
   if (report_wht) { 
@@ -1473,14 +1474,14 @@ void flow_record_print_json(const struct flow_record *record) {
 
   if (report_idp) {
     if (rec->idp != NULL) {
-      fprintf(output, ",\n\t\t\t\"oidp\": ");
+      fprintf(output, ",\"oidp\":");
       fprintf_raw_as_hex(output, rec->idp, rec->idp_len);
-      fprintf(output, ",\n\t\t\t\"oidp_len\": %u", rec->idp_len);
+      fprintf(output, ",\"oidp_len\":%u", rec->idp_len);
     }
     if (rec->twin && (rec->twin->idp != NULL)) {
-      fprintf(output, ",\n\t\t\t\"iidp\": ");
+      fprintf(output, ",\"iidp\":");
       fprintf_raw_as_hex(output, rec->twin->idp, rec->twin->idp_len);
-      fprintf(output, ",\n\t\t\t\"iidp_len\": %u", rec->twin->idp_len);
+      fprintf(output, ",\"iidp_len\":%u", rec->twin->idp_len);
     }
   }
 
@@ -1494,7 +1495,7 @@ void flow_record_print_json(const struct flow_record *record) {
   if (report_dns && (rec->key.sp == 53 || rec->key.dp == 53)) {
     unsigned int count;
 
-    fprintf(output, ",\n\t\t\t\"dns\": [");
+    fprintf(output, ",\"dns\":[");
     
     count = rec->op > MAX_NUM_PKT_LEN ? MAX_NUM_PKT_LEN : rec->op;
 
@@ -1518,7 +1519,7 @@ void flow_record_print_json(const struct flow_record *record) {
 	} else {
 	  r = "";
 	}
-	fprintf(output, "\n\t\t\t\t{ \"qn\": \"%s\", \"rn\": \"%s\" }", q, r);
+	fprintf(output, "{\"qn\":\"%s\",\"rn\":\"%s\"}", q, r);
       }
       
     } else { /* unidirectional flow, with no twin */
@@ -1529,12 +1530,12 @@ void flow_record_print_json(const struct flow_record *record) {
 	}
 	if (rec->dns_name[i]) {
 	  convert_string_to_printable(rec->dns_name[i], rec->pkt_len[i] - 13);
-	  fprintf(output, "\n\t\t\t\t{ \"qn\": \"%s\" }", rec->dns_name[i]);
+	  fprintf(output, "{\"qn\":\"%s\"}", rec->dns_name[i]);
 	}
       }
     }
 
-    fprintf(output, "\n\t\t\t]");
+    fprintf(output, "]");
   }
   
   { 
@@ -1547,23 +1548,23 @@ void flow_record_print_json(const struct flow_record *record) {
       invalid += rec->twin->invalid;
     }
     if (retrans) {
-      fprintf(output, ",\n\t\t\t\"rtn\": %u", retrans);
+      fprintf(output, ",\"rtn\":%u", retrans);
     }
     if (invalid) {
-      fprintf(output, ",\n\t\t\t\"inv\": %u", invalid);
+      fprintf(output, ",\"inv\":%u", invalid);
     }
 
   }
 
   if (rec->exe_name) {
-    fprintf(output, ",\n\t\t\t\"exe\": \"%s\"", rec->exe_name);
+    fprintf(output, ",\"exe\":\"%s\"", rec->exe_name);
   }
 
   if (rec->exp_type) {
-    fprintf(output, ",\n\t\t\t\"x\": \"%c\"", rec->exp_type);
+    fprintf(output, ",\"x\":\"%c\"", rec->exp_type);
   }
 
-  fprintf(output, "\n\t\t}\n\t}");
+  fprintf(output, "}\n");
 
 }
 

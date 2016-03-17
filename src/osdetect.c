@@ -47,12 +47,12 @@ void os_printf(FILE *f, int ttl, int iws, int ttl_twin, int iws_twin) {
   detect_os(ttl, iws, os_name, sizeof(os_name));
 
   if (*os_name) {
-    fprintf(f, ",\n\t\t\t\"o_probable_os\": \"%s\"", os_name);
+    fprintf(f, ",\"o_probable_os\":\"%s\"", os_name);
   }
   if (ttl_twin) {
     detect_os(ttl_twin, iws_twin, os_name, sizeof(os_name));
     if (*os_name) {
-      fprintf(f, ",\n\t\t\t\"i_probable_os\": \"%s\"", os_name);
+      fprintf(f, ",\"i_probable_os\":\"%s\"", os_name);
     }
   }
 }

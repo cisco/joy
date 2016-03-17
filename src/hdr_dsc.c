@@ -161,23 +161,23 @@ void header_description_printf(const struct header_description *hd, FILE *f, uns
    *    ] 
    *
    *  0 = constant
-   *  1 = integer
+   *  1 = integexr
    *  2 = other
    */
 
-  fprintf(f, ",\n\t\t\t\"hd\": [ \"n\": %u, \"cm\": \"", hd->num_headers_seen);
+  fprintf(f, ",\"hd\":{\"n\":%u,\"cm\":\"", hd->num_headers_seen);
   for (i=0; i<len; i++) {
     fprintf(f, "%02x", hd->const_mask[i]);
   }
-  fprintf(f, "\", \"cv\": \"");
+  fprintf(f, "\",\"cv\":\"");
   for (i=0; i<len; i++) {
     fprintf(f, "%02x", hd->const_value[i]);
   }
-  fprintf(f, "\", \"sm\": \"");
+  fprintf(f, "\",\"sm\":\"");
   for (i=0; i<len; i++) {
     fprintf(f, "%02x", hd->seq_mask[i]);
   }
-  fprintf(f, "\" ]");
+  fprintf(f, "\"}");
 
 }
 

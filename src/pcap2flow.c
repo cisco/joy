@@ -775,9 +775,7 @@ int main(int argc, char **argv) {
     /* 
      * write out JSON preamble
      */ 
-    fprintf(output, "{\n");
     config_print_json(output, &config);
-    fprintf(output, "\"appflows\": [\n");
 
     while(1) {
       struct timeval time_of_day, inactive_flow_cutoff;
@@ -819,8 +817,6 @@ int main(int argc, char **argv) {
 	  /*
 	   * write JSON postamble
 	   */
-	  fprintf(output, "\n] }\n");
-
 	  fclose(output);
 	  if (config.upload_servername) {
 	    upload_file(filename, config.upload_servername, config.upload_key, config.retain_local);
@@ -837,7 +833,6 @@ int main(int argc, char **argv) {
 	    return -1;
 	  }
 	  records_in_file = 0;
-	  fprintf(output, "{ \"appflows\": [\n");
 	}
       
 	/*
@@ -849,8 +844,6 @@ int main(int argc, char **argv) {
       // fflush(output);
     }
 
-    fprintf(output, "\n] }\n");
-    
     if (filter_exp) {
       pcap_freecode(&fp);
     }
@@ -865,9 +858,7 @@ int main(int argc, char **argv) {
       return usage(argv[0]);
     }
 
-    fprintf(output, "{\n");
     config_print_json(output, &config);
-    fprintf(output, "\"appflows\": [\n");
 
     flow_record_list_init();
     flocap_stats_timer_init();
@@ -905,10 +896,6 @@ int main(int argc, char **argv) {
 	}
       }
     }
-    
-    fprintf(output, "\n]");
-    fprintf(output, "\n}\n");
-    
   }
 
   flocap_stats_output(info);
