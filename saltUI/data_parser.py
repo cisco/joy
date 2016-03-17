@@ -51,22 +51,67 @@ class DataParser:
     def __init__(self, json_file, compact=1):
         self.compact = compact
         self.skipped = 0
+        self.legacy_format = False
+        self.flows = []
 
-        data = ""
         with open(json_file,'r') as fp:
             for line in fp:
-                if "\"hd\"" in line:
+                if line.strip == '{' or 'metadata' in line:
+                    self.legacy_format = True
+                    break
+
+                try:
+                    tmp = json.loads(line)
+                    if 'version' not in tmp:
+                        self.flows.append(tmp)
+                except:
                     continue
-                data += line.strip().replace('"x": i','"x": "i"').replace('"x": a','"x": "a"')
-        try:
-            self.flows = json.loads(data)
-        except:
-            if not data.endswith("] }"):
-                data += "] }"
-            self.flows = json.loads(data)
+
+
+        if self.legacy_format:
+            data = ""
+            with open(json_file,'r') as fp:
+                for line in fp:
+                    if "\"hd\"" in line:
+                        continue
+                    data += line.strip().replace('"x": i','"x": "i"').replace('"x": a','"x": "a"')
+            try:
+                self.flows = json.loads(data)
+            except:
+                if not data.endswith("] }"):
+                    data += "] }"
+                self.flows = json.loads(data)
+
         self.advancedInfo = {}
 
     def getTLSInfo(self):
+        if self.legacy_format == False:
+            if self.flows == []:
+                return None
+
+            data = []
+            for flow in self.flows:
+                if len(flow['packets']) == 0:
+                    continue
+                tls_info = np.zeros(len(cs.keys())+36+1)
+
+                if 'tls' in flow and 'cs' in flow['tls']:
+                    for c in flow['tls']['cs']:
+                        tls_info[cs[c]] = 1
+
+                # need to look more into this
+                if 'tls' in flow and 'tls_ext' in flow['tls']:
+                    for c in flow['tls']['tls_ext']:
+                        if int(c['type'],16) < 36:
+                            tls_info[int(c['type'],16)+len(cs.keys())] = 1
+                if 'tls' in flow and 'tls_client_key_length' in flow['tls']:
+                    tls_info[len(cs.keys())+36] = flow['tls']['tls_client_key_length']
+
+                data.append(list(tls_info))
+
+            return data
+
+
         if self.flows['appflows'] == []:
             return None
 
@@ -76,16 +121,16 @@ class DataParser:
                 continue
             tls_info = np.zeros(len(cs.keys())+36+1)
 
-            if 'cs' in flow['flow']['tls']:
-                for c in flow['flow']['cs']['tls']:
+            if 'tls' in flow['flow'] and 'cs' in flow['flow']['tls']:
+                for c in flow['flow']['tls']['cs']:
                     tls_info[cs[c]] = 1
 
             # need to look more into this
-            if 'tls_ext' in flow['flow']['tls']:
+            if 'tls' in flow['flow'] and 'tls_ext' in flow['flow']['tls']:
                 for c in flow['flow']['tls']['tls_ext']:
                     if int(c['type'],16) < 36:
                         tls_info[int(c['type'],16)+len(cs.keys())] = 1
-            if 'tls_client_key_length' in flow['flow']['tls']:
+            if 'tls' in flow['flow'] and 'tls_client_key_length' in flow['flow']['tls']:
                 tls_info[len(cs.keys())+36] = flow['flow']['tls']['tls_client_key_length']
 
             data.append(list(tls_info))
@@ -94,6 +139,23 @@ class DataParser:
         
 
     def getByteDistribution(self):
+        if self.legacy_format == False:
+            if self.flows == []:
+                return None
+
+            data = []
+            for flow in self.flows:
+                if len(flow['packets']) == 0:
+                    continue
+                if 'bd' in flow and sum(flow['bd']) > 0:
+                    tmp = map(lambda x: x/float(sum(flow['bd'])),flow['bd'])
+                    data.append(tmp)
+                else:
+                    data.append(np.zeros(256))
+
+            return data
+
+
         if self.flows['appflows'] == []:
             return None
 
@@ -110,6 +172,16 @@ class DataParser:
         return data
 
     def getByteDistribution_compact(self):
+        if self.legacy_format == False:
+            if self.flows == []:
+                return None
+
+            data = []
+
+
+            return data
+
+
         if self.flows['appflows'] == []:
             return None
 
@@ -129,6 +201,16 @@ class DataParser:
         return data
 
     def getByteDistribution_mean_std(self):
+        if self.legacy_format == False:
+            if self.flows == []:
+                return None
+
+            data = []
+
+
+            return data
+
+
         if self.flows['appflows'] == []:
             return None
 
@@ -176,6 +258,45 @@ class DataParser:
         return data
 
     def getIndividualFlowPacketLengths(self):
+        if self.legacy_format == False:
+            if self.flows == []:
+                return None
+
+            data = []
+            if self.compact:
+                numRows = 10
+                binSize = 150.0
+            else:
+                numRows = 60
+                binSize = 25.0
+            for flow in self.flows:
+                transMat = np.zeros((numRows,numRows))
+                if len(flow['packets']) == 0:
+                    continue
+                elif len(flow['packets']) == 1:
+                    curPacketSize = min(int(flow['packets'][0]['b']/binSize),numRows-1)
+                    transMat[curPacketSize,curPacketSize] = 1
+                    data.append(list(transMat.flatten()))
+                    continue
+
+                # get raw transition counts
+                for i in range(1,len(flow['packets'])):
+                    prevPacketSize = min(int(flow['packets'][i-1]['b']/binSize),numRows-1)
+                    if 'b' not in flow['packets'][i]:
+                        break
+                    curPacketSize = min(int(flow['packets'][i]['b']/binSize),numRows-1)
+                    transMat[prevPacketSize,curPacketSize] += 1
+
+                # get empirical transition probabilities
+                for i in range(numRows):
+                    if float(np.sum(transMat[i:i+1])) != 0:
+                        transMat[i:i+1] = transMat[i:i+1]/float(np.sum(transMat[i:i+1]))
+
+                data.append(list(transMat.flatten()))
+
+            return data
+
+
         if self.flows['appflows'] == []:
             return None
 
@@ -214,6 +335,43 @@ class DataParser:
         return data
 
     def getIndividualFlowIPTs(self):
+        if self.legacy_format == False:
+            if self.flows == []:
+                return None
+
+            data = []
+            if self.compact:
+                numRows = 10
+                binSize = 50.0
+            else:
+                numRows = 30
+                binSize = 50.0
+            for flow in self.flows:
+                transMat = np.zeros((numRows,numRows))
+                if len(flow['packets']) == 0:
+                    continue
+                elif len(flow['packets']) == 1:
+                    curIPT = min(int(flow['packets'][0]['ipt']/float(binSize)),numRows-1)
+                    transMat[curIPT,curIPT] = 1
+                    data.append(list(transMat.flatten()))
+                    continue
+
+                # get raw transition counts
+                for i in range(1,len(flow['packets'])):
+                    prevIPT = min(int(flow['packets'][i-1]['ipt']/float(binSize)),numRows-1)
+                    curIPT = min(int(flow['packets'][i]['ipt']/float(binSize)),numRows-1)
+                    transMat[prevIPT,curIPT] += 1
+
+                # get empirical transition probabilities
+                for i in range(numRows):
+                    if float(np.sum(transMat[i:i+1])) != 0:
+                        transMat[i:i+1] = transMat[i:i+1]/float(np.sum(transMat[i:i+1]))
+
+                data.append(list(transMat.flatten()))
+
+            return data
+
+
         if self.flows['appflows'] == []:
             return None
 
@@ -250,6 +408,111 @@ class DataParser:
         return data
 
     def getIndividualFlowMetadata(self):
+        if self.legacy_format == False:
+            if self.flows == []:
+                return None, None
+
+            data = []
+            metadata = []
+            for flow in self.flows:
+                if len(flow['packets']) == 0:
+                    continue
+                tmp = []
+                tmp_m = []
+                tmp_b = 0
+                if 'ib' in flow:
+                    tmp_b += flow['ib']
+                if 'ob' in flow:
+                    tmp_b += flow['ob']
+            
+
+                key = flow['sa'].replace('.','')+flow['da'].replace('.','')+str(int(flow['sp']))+str(int(flow['dp']))+str(tmp_b)
+                key = str(key)
+                bd = None
+                if 'bd' in flow:
+                    bd = flow['bd']
+                self.advancedInfo[key] = (flow['sa'],flow['da'],flow['sp'],flow['dp'],flow['packets'],bd)
+                tmp_m.append(flow['sa']) # source port
+                tmp_m.append(flow['da']) # destination port
+                tmp_m.append(flow['sp']) # source port
+                tmp_m.append(flow['dp']) # destination port
+                tmp.append(float(flow['dp'])) # destination port
+                tmp.append(float(flow['sp'])) # source port
+                if 'ip' in flow:
+                    tmp.append(flow['ip']) # inbound packets
+                    tmp_m.append(flow['ip'])
+                else:
+                    tmp.append(0)
+                    tmp_m.append(0)
+                if 'op' in flow:
+                    tmp.append(flow['op']) # outbound packets
+                    tmp_m.append(flow['op'])
+                else:
+                    tmp.append(0)
+                    tmp_m.append(0)
+                if 'ib' in flow:
+                    tmp.append(flow['ib']) # inbound bytes
+                    tmp_m.append(flow['ib'])
+                else:
+                    tmp.append(0)
+                    tmp_m.append(0)
+                if 'ob' in flow:
+                    tmp.append(flow['ob']) # outbound bytes
+                    tmp_m.append(flow['ob'])
+                else:
+                    tmp_m.append(0)
+                    tmp.append(0)
+                # elapsed time of flow
+                if flow['packets'] == []:
+                    tmp.append(0)
+                else:
+                    time = 0
+                    for packet in flow['packets']:
+                        time += packet['ipt']
+                    tmp.append(time)
+                if 'pr' in flow:
+                    tmp_m.append(flow['pr'])
+                else:
+                    tmp_m.append(0)
+
+                # add tls specific items
+                if 'tls' in flow and 'scs' in flow['tls']:
+                    tmp_m.append(flow['tls']['scs'])
+                else:
+                    tmp_m.append(-1)
+                if 'tls' in flow and 'tls_client_key_length' in flow['tls']:
+                    tmp_m.append(flow['tls']['tls_client_key_length'])
+                else:
+                    tmp_m.append(-1)
+                if 'tls' in flow and 'tls_ov' in flow['tls'] and 'tls_iv' in flow['tls']:
+                    tmp_v = max(flow['tls']['tls_iv'],flow['tls']['tls_ov'])
+                elif 'tls' in flow and 'tls_ov' in flow['tls']:
+                    tmp_v = flow['tls']['tls_ov']
+                elif 'tls' in flow and 'tls_iv' in flow['tls']:
+                    tmp_v = flow['tls']['tls_iv']
+                else:
+                    tmp_v = -1
+                if tmp_v == 5:
+                    tmp_m.append('TLS 1.2')
+                elif tmp_v == 4:
+                    tmp_m.append('TLS 1.1')
+                elif tmp_v == 3:
+                    tmp_m.append('TLS 1.0')
+                elif tmp_v == 2:
+                    tmp_m.append('SSL 3.0')
+                elif tmp_v == 1:
+                    tmp_m.append('SSL 2.0')
+                else:
+                    tmp_m.append(-1)                
+                tmp_m.append(tmp_v) # for convenience
+
+                data.append(tmp)
+                metadata.append(tmp_m)
+
+            if data == []:
+                return None,None
+            return data, metadata
+
         if 'appflows' not in self.flows:
             return None, None
         if self.flows['appflows'] == None:
