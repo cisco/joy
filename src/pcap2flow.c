@@ -268,7 +268,6 @@ void sig_close(int signal_arg) {
    */
   flow_record_list_print_json(NULL);
   fprintf(info, "got signal %d, shutting down\n", signal_arg); 
-  fprintf(output, "\n] }\n");
   exit(EXIT_SUCCESS);
 }
 
