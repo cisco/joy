@@ -387,6 +387,9 @@ int anon_unit_test() {
 
 /* START http anonymization */
 
+#include "str_match.h"
+
+str_match_ctx ctx;
 
 enum status anon_pii_add_from_string(char *pii_string) {
   fprintf(stdout, "%s\t%zu\n", pii_string, strlen(pii_string));
@@ -395,11 +398,6 @@ enum status anon_pii_add_from_string(char *pii_string) {
 
 enum status anon_http_init(const char *pathname, FILE *logfile) {
   enum status s;
-  FILE *fp;
-  size_t len;
-  char *line = NULL;
-  extern FILE *anon_info;
-  unsigned int num_usernames = 0;
 
   if (logfile != NULL) {
     anon_info = logfile;
@@ -407,41 +405,17 @@ enum status anon_http_init(const char *pathname, FILE *logfile) {
     anon_info = stderr;
   }
 
-  fp = fopen(pathname, "r");
-  if (fp == NULL) {
-    return failure;
-  } else {
-    
-    while (getline(&line, &len, fp) != -1) {
-      char *username = line;
-      unsigned int i;
+  ctx = str_match_ctx_alloc();
+  if (ctx == NULL) {
+    fprintf(stderr, "error: could not allocate string matching context\n");
+    return -1;
+  }
+  if (str_match_ctx_init_from_file(ctx, pathname) != 0) {
+    fprintf(stderr, "error: could not init string matching context from file\n");
+    exit(EXIT_FAILURE);
+  }
 
-      /* remove newline */
-      i = 0;
-      while (i < 80) {     // 80 = max length of a username
-	if (username[i] == '\n') {
-	  username[i] = 0;
-	  break;
-	}
-	i++;
-      }
-
-      if (anon_pii_add_from_string(username) != ok) {
-	fprintf(anon_info, "error: could not add username %s to anon set\n", username);
-	return failure;
-      }
-
-      num_usernames++;
-    }
-
-    fprintf(anon_info, "configured %d usernames for anonymization\n", num_usernames);
-      
-    free(line);
-    
-    fclose(fp);
-  } 
-
-  /* should check to see if key is already initialized! */
+  /* make sure that key is initialized */
   s = key_init();
 
   return s;

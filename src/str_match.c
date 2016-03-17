@@ -142,7 +142,7 @@ void strip_newline(char *line) {
   }
 }
 
-int str_match_ctx_init_from_file(str_match_ctx ctx, char *filename) {
+int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename) {
   // acsm_pattern_t *pattern;
   FILE *fp;
   char *line = NULL;

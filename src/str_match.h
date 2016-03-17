@@ -67,7 +67,7 @@ void str_match_ctx_find_all_longest(const str_match_ctx ctx,
 				    size_t len, 
 				    struct matches *matches);
 
-int str_match_ctx_init_from_file(str_match_ctx ctx, char *filename);
+int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename);
 
 #define str_match_ctx_alloc() acsm_alloc(NO_CASE)
 
