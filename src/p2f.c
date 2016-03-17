@@ -726,6 +726,11 @@ struct flow_record *flow_key_get_record(const struct flow_key *key,
 	debug_printf("\trecord:    (hash key %x)(addr: %p)\n", flow_key_hash(&record->key), record);
 	debug_printf("\ttwin:      (hash key %x)(addr: %p)\n", flow_key_hash(&record->twin->key), &record->twin);
 	debug_printf("\ttwin twin: (hash key %x)(addr: %p)\n", flow_key_hash(&record->twin->twin->key), &record->twin->key);
+	/* 
+	 * experimental - consider this record an orphan, add it to chrono list, but without its twin pointer set
+	 */
+	record->twin = NULL;
+	flow_record_chrono_list_append(record);      
       } else {
 	record->twin->twin = record;
       }
