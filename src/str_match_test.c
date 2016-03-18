@@ -39,7 +39,7 @@ void anon_print(FILE *f, struct matches *matches, char *text) {
     if (i < matches->count-1) {
       fprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
     } else {
-      fprintf(f, text + matches->stop[i] + 1);  /* nonmatching */
+      fprintf(f, "%s", text + matches->stop[i] + 1);  /* nonmatching */
     }
   }
 }
