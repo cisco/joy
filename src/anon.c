@@ -454,7 +454,7 @@ void anon_print_uri(FILE *f, struct matches *matches, char *text) {
   unsigned int i;
 
   if (matches->count == 0) {
-    fprintf(f, text);
+    fprintf(f, "%s", text);
     return;
   }
 

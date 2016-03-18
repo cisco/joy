@@ -458,6 +458,11 @@ enum http_type http_get_start_line(char **saveptr,
   return http_malformed;
 }
 
+int http_header_select(char *h) {
+
+  return 1;
+}
+
 void http_header_print_as_object(FILE *f, char *header, char *string, unsigned length) {
   char *token1, *token2, *token3, *saveptr;  
   unsigned int not_first_header = 0;
@@ -505,7 +510,7 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
      */ 
     do { 
       type = http_get_next_line(&saveptr, &length, &token1, &token2);
-      if (type != http_malformed) {
+      if (type != http_malformed && http_header_select(token1)) {
 	if (not_first_header) {
 	  fprintf(f, ",");
 	} else {

@@ -12,6 +12,7 @@ void matches_print(struct matches *matches, char *text) {
   unsigned int i;
   char tmp[1024];
 
+  printf("no matches\n");
   for (i=0; i < matches->count; i++) {
     size_t len = matches->stop[i] - matches->start[i] + 1;
     if (len > 1024) {
@@ -28,7 +29,7 @@ void anon_print(FILE *f, struct matches *matches, char *text) {
   unsigned int i;
 
   if (matches->count == 0) {
-    fprintf(f, text);
+    fprintf(f, "%s", text);
     return;
   }
 
@@ -67,7 +68,8 @@ char *text2 = "EXAMPLE TEXT WITH prefix AND middle BUT NOT suffix HAS prefixmidd
 
 char *text3 = "/root/shaggy/blahvelmablah/query?username=fred;subject=daphne;docname=blahscooby;alt=scoobyblah;path=velma";
 
-char *text4 = "/pca3.crl";
+// char *text4 = "/pca3.crl";
+char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400e76571fe%22,%22s%22:%2210.241.40.128%22}&m=[]&_=1458318857011";
 
 int main() {
   str_match_ctx ctx;
