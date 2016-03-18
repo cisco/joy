@@ -1,4 +1,10 @@
 /*
+ * str_match.h
+ *
+ * declarations for string matching functions
+ *
+ */
+/*
  *	
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
@@ -34,65 +40,37 @@
  *
  */
 
-/*
- * anon.h
- *
- * address anonymization
- */
+#ifndef STR_MATCH_H
+#define STR_MATCH_H
 
-#ifndef ANON_H
-#define ANON_H 
+#include <string.h>
+#include "acsm.h"
 
-/*
- * The anonymization key is generated via calls to /dev/random, and is
- * stored in the file ANON_KEYFILE in encrypted form, with the
- * decryption key being stored inside the executable.  A user who can
- * access ANON_KEYFILE and the executable will be able to determine
- * the anonymization key; it is essential to provide strong access
- * control on ANON_KEYFILE in particular.
- */
+#define MATCH_ARRAY_LEN 32
 
-#include <stdio.h>          /* for FILE */
-#include <netinet/in.h>     /* for struct in_addr */
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <openssl/aes.h>
-#include "err.h"
+struct matches {
+  size_t start[MATCH_ARRAY_LEN];
+  size_t stop[MATCH_ARRAY_LEN];
+  unsigned int count;
+};
 
+#define matches_init(x) (x->count = 0)
 
-//struct subnet {
-//  struct in_addr addr;
-//  struct in_addr mask;
-//};
+void matches_add(struct matches *matches, size_t stop, size_t length);
 
-#define MAX_ANON_SUBNETS 256
+void matches_print(struct matches *matches, char *text);
 
-/*
- * anon_init(subnetfile, logfile) initializes anonymization using the
- * subnets in the file subnetfile and sets the secondary output to
- * logfile
- */
-enum status anon_init(const char *pathname, FILE *logfile);
+typedef acsm_context_t *str_match_ctx;
 
-enum status anon_subnet_add_from_string(char *addr);
+void str_match_ctx_find_all_longest(const str_match_ctx ctx, 
+				    const unsigned char *text, 
+				    size_t len, 
+				    struct matches *matches);
 
-int anon_print_subnets(FILE *f);
+int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename);
 
-char *addr_get_anon_hexstring(const struct in_addr *a);
+#define str_match_ctx_alloc() acsm_alloc(NO_CASE)
 
-unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
+#define str_match_ctx_free(ctx) acsm_free(ctx)
 
-
-/* END address anonymization  */
-
-#include "str_match.h"
-
-enum status anon_http_init(const char *pathname, FILE *logfile);
-
-void fprintf_anon_nbytes(FILE *f, char *s, size_t len);
-
-void fprintf_nbytes(FILE *f, char *s, size_t len);
-
-void anon_print_uri(FILE *f, struct matches *matches, char *text);
-
-#endif /* ANON_H */
+#endif /* STR_MATCH_H */

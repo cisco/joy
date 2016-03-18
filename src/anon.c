@@ -387,19 +387,12 @@ int anon_unit_test() {
 
 /* START http anonymization */
 
+#include "str_match.h"
 
-enum status anon_pii_add_from_string(char *pii_string) {
-  fprintf(stdout, "%s\t%zu\n", pii_string, strlen(pii_string));
-  return ok;
-}
+str_match_ctx usernames_ctx = NULL;
 
 enum status anon_http_init(const char *pathname, FILE *logfile) {
   enum status s;
-  FILE *fp;
-  size_t len;
-  char *line = NULL;
-  extern FILE *anon_info;
-  unsigned int num_usernames = 0;
 
   if (logfile != NULL) {
     anon_info = logfile;
@@ -407,44 +400,78 @@ enum status anon_http_init(const char *pathname, FILE *logfile) {
     anon_info = stderr;
   }
 
-  fp = fopen(pathname, "r");
-  if (fp == NULL) {
-    return failure;
-  } else {
-    
-    while (getline(&line, &len, fp) != -1) {
-      char *username = line;
-      unsigned int i;
+  usernames_ctx = str_match_ctx_alloc();
+  if (usernames_ctx == NULL) {
+    fprintf(stderr, "error: could not allocate string matching context\n");
+    return -1;
+  }
+  if (str_match_ctx_init_from_file(usernames_ctx, pathname) != 0) {
+    fprintf(stderr, "error: could not init string matching context from file\n");
+    exit(EXIT_FAILURE);
+  }
 
-      /* remove newline */
-      i = 0;
-      while (i < 80) {     // 80 = max length of a username
-	if (username[i] == '\n') {
-	  username[i] = 0;
-	  break;
-	}
-	i++;
-      }
-
-      if (anon_pii_add_from_string(username) != ok) {
-	fprintf(anon_info, "error: could not add username %s to anon set\n", username);
-	return failure;
-      }
-
-      num_usernames++;
-    }
-
-    fprintf(anon_info, "configured %d usernames for anonymization\n", num_usernames);
-      
-    free(line);
-    
-    fclose(fp);
-  } 
-
-  /* should check to see if key is already initialized! */
+  /* make sure that key is initialized */
   s = key_init();
 
   return s;
+}
+
+void fprintf_nbytes(FILE *f, char *s, size_t len) {
+  char tmp[1024];
+  
+  if (len > 1024) {
+    fprintf(stdout, "error: string longer than fixed buffer (length: %zu)\n", len);
+    return;
+  }
+  memcpy(tmp, s, len);
+  tmp[len] = 0;
+  fprintf(f, "%s", tmp);
+  
+}
+
+void fprintf_anon_nbytes(FILE *f, char *s, size_t len) {
+  char tmp[1024];
+  unsigned int i;
+
+  if (len > 1024) {
+    fprintf(stdout, "error: string longer than fixed buffer (length: %zu)\n", len);
+    return;
+  }
+  for (i=0; i<len; i++) {
+    tmp[i] = '*';
+  }
+  tmp[len] = 0;
+  fprintf(f, "%s", tmp);
+  
+}
+
+int is_special(char *ptr) {
+  char c = *ptr;
+  return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.');
+}
+
+void anon_print_uri(FILE *f, struct matches *matches, char *text) {
+  unsigned int i;
+
+  if (matches->count == 0) {
+    fprintf(f, "%s", text);
+    return;
+  }
+
+  fprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
+  for (i=0; i < matches->count; i++) {
+
+    if ((matches->start[i] == 0 || is_special(text + matches->start[i] - 1)) && is_special(text + matches->stop[i] + 1)) {
+      fprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching and special */
+    } else {
+      fprintf_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching, not special */
+    }
+    if (i < matches->count-1) {
+      fprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
+    } else {
+      fprintf(f, "%s", text + matches->stop[i] + 1);  /* nonmatching */
+    }
+  }
 }
 
 

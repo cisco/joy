@@ -86,7 +86,7 @@ void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned in
 
 void wht_printf(const struct wht *wht, FILE *f) {
   
-  fprintf(f, ",\n\t\t\t\"wht\": [ %d, %d, %d, %d ]",
+  fprintf(f, ",\"wht\":[%d,%d,%d,%d]",
 	  wht->spectrum[0], wht->spectrum[1], wht->spectrum[2], wht->spectrum[3]);
   
 }
@@ -97,7 +97,7 @@ void wht_printf_scaled(const struct wht *wht, FILE *f, unsigned int num_bytes) {
     return;
   }
   
-  fprintf(f, ",\n\t\t\t\"wht\": [ %.5g, %.5g, %.5g, %.5g ]",
+  fprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
 	  (float) wht->spectrum[0] / num_bytes, 
 	  (float) wht->spectrum[1] / num_bytes,
 	  (float) wht->spectrum[2] / num_bytes,
@@ -121,18 +121,18 @@ void wht_printf_scaled_bidir(const struct wht *w1, unsigned int b1,
   s[2] = w1->spectrum[2] + w2->spectrum[2];  
   s[3] = w1->spectrum[3] + w2->spectrum[3];  
 
-  fprintf(f, ",\n\t\t\t\"wht\": [ %.5g, %.5g, %.5g, %.5g ]",
+  fprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
 	  (float) s[0] / n, 
 	  (float) s[1] / n,
 	  (float) s[2] / n,
 	  (float) s[3] / n);
 #if 0
-  fprintf(f, ",\n\t\t\t\"RAW1\": [ %d, %d, %d, %d ]",
+  fprintf(f, ",\"RAW1\":[%d,%d,%d,%d]",
 	  w1->spectrum[0], 
 	  w1->spectrum[1],
 	  w1->spectrum[2],
 	  w1->spectrum[3]);
-  fprintf(f, ",\n\t\t\t\"RAW2\": [ %d, %d, %d, %d ]",
+  fprintf(f, ",\"RAW2\":[%d,%d,%d,%d]",
 	  w1->spectrum[0], 
 	  w1->spectrum[1],
 	  w1->spectrum[2],

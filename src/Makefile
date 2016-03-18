@@ -38,7 +38,7 @@ NFV9_FILES = exporter.c nfv9.c nfv9.h Makefile
 TLS_FILES = tls.c tls.h
 CLASSIFY_FILES = classify.c classify.h
 
-PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c
+PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c
 PCAP2FLOW_HDR = osdetect.h anon.h p2f.h pkt.h tls.h pkt_proc.h radix_trie.h classify.h hdr_dsc.h addr_attr.h addr.h err.h
 
 ifeq ($(sysname),LINUX)
@@ -60,7 +60,7 @@ FILES = $(NFV9_FILES) $(TLS_FILES) $(CLASSIFY_FILES) $(PCAP2FLOW_FILES) $(CFGFIL
 
 .PHONY: print
 
-all:	print pcap2flow jfd-anon unit_test
+all:	print pcap2flow jfd-anon unit_test str_match_test
 
 print:
 	@echo "Makefile variables:"
@@ -81,8 +81,11 @@ pcap2flow: $(PCAP2FLOW_FILES) Makefile VERSION
 unit_test: unit_test.c Makefile VERSION $(PCAP2FLOW_FILES)
 	gcc $(CFLAGS) $(CDEFS) -o unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBS) 
 
+str_match_test: str_match_test.c Makefile VERSION $(PCAP2FLOW_FILES)
+	gcc $(CFLAGS) $(CDEFS) -o str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBS) 
+
 jfd-anon: jfd-anon.c anon.c addr.c Makefile
-	gcc $(CFLAGS) $(CDEFS) -o jfd-anon $(INCLUDEDIR) jfd-anon.c anon.c addr.c $(LIBS)
+	gcc $(CFLAGS) $(CDEFS) -o jfd-anon $(INCLUDEDIR) jfd-anon.c anon.c addr.c str_match.c acsm.c $(LIBS)
 
 jfd-analysis: jfd-analysis.c 
 	gcc $(CFLAGS) $(CDEFS) jfd-analysis.c -o jfd-analysis $(LIBS)
@@ -110,7 +113,7 @@ man: pcap2flow.1
 	rm -f pcap2flow.dvi
 
 clean: 
-	rm -f tls classify pcap2flow pcap2flow.pdf pcap2flow.dvi pcap2flow.txt jfd-anon jfd-analysis unit_test
+	rm -f tls classify pcap2flow pcap2flow.pdf pcap2flow.dvi pcap2flow.txt jfd-anon jfd-analysis unit_test str_match_test
 	for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 
 
