@@ -472,6 +472,7 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
   saveptr = header;
   type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
   if (type == http_request_line) {    
+    
     fprintf(f, 
 	    "\"method\":\"%s\","
 	    "\"uri\":\"%s\","

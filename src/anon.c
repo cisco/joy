@@ -421,5 +421,79 @@ enum status anon_http_init(const char *pathname, FILE *logfile) {
   return s;
 }
 
+void anon_http_print_uri(FILE *f, const char *src, size_t len) {
+  struct matches matches;
+
+  str_match_ctx_find_all_longest(ctx, (unsigned char *)src, len, &matches);
+
+  if (matches.count == 0) {
+    /*
+     * no anonymization needed, just print out uri string
+     */
+    fprintf(f, "\"uri\":\"%s\",", src);
+
+  } else {
+    /* 
+     * print out non-matched strings, interleaved with anon'ed data
+     */
+    
+  }
+  
+}
+
+
+void fprintf_nbytes(FILE *f, char *s, size_t len) {
+  char tmp[1024];
+  
+  if (len > 1024) {
+    fprintf(stdout, "error: string longer than fixed buffer (length: %zu)\n", len);
+    return;
+  }
+  memcpy(tmp, s, len);
+  tmp[len] = 0;
+  fprintf(f, "%s", tmp);
+  
+}
+
+void fprintf_anon_nbytes(FILE *f, char *s, size_t len) {
+  char tmp[1024];
+  unsigned int i;
+
+  if (len > 1024) {
+    fprintf(stdout, "error: string longer than fixed buffer (length: %zu)\n", len);
+    return;
+  }
+  for (i=0; i<len; i++) {
+    tmp[i] = '*';
+  }
+  tmp[len] = 0;
+  fprintf(f, "%s", tmp);
+  
+}
+
+
+int is_special(char *ptr) {
+  char c = *ptr;
+  return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.');
+}
+
+void anon_print_uri(FILE *f, struct matches *matches, char *text) {
+  unsigned int i;
+
+  fprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
+  for (i=0; i < matches->count; i++) {
+
+    if ((matches->start[i] == 0 || is_special(text + matches->start[i] - 1)) && is_special(text + matches->stop[i] + 1)) {
+      fprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching and special */
+    } else {
+      fprintf_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching, not special */
+    }
+    if (i < matches->count-1) {
+      fprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
+    } else {
+      fprintf(f, text + matches->stop[i] + 1);  /* nonmatching */
+    }
+  }
+}
 
 /* END http anonymization */

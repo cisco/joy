@@ -85,8 +85,14 @@ unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 
 /* END address anonymization  */
 
-
+#include "str_match.h"
 
 enum status anon_http_init(const char *pathname, FILE *logfile);
+
+void fprintf_anon_nbytes(FILE *f, char *s, size_t len);
+
+void fprintf_nbytes(FILE *f, char *s, size_t len);
+
+void anon_print_uri(FILE *f, struct matches *matches, char *text);
 
 #endif /* ANON_H */

@@ -75,21 +75,6 @@ void matches_add(struct matches *matches, size_t stop, size_t length) {
   //	 i, start, i, stop, matches->count);
 }
 
-void matches_print(struct matches *matches, char *text) {
-  unsigned int i;
-  char tmp[1024];
-
-  for (i=0; i < matches->count; i++) {
-    size_t len = matches->stop[i] - matches->start[i] + 1;
-    if (len > 1024) {
-      return;
-    }
-    memcpy(tmp, text + matches->start[i], len);
-    tmp[len] = 0;
-    printf("match %d: %s\n", i, tmp);
-  }
-}
-
 void str_match_ctx_find_all_longest(const str_match_ctx ctx, const unsigned char *text, size_t len, struct matches *matches) {
   static int state = 0;
   const unsigned char *p;
