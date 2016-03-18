@@ -389,12 +389,7 @@ int anon_unit_test() {
 
 #include "str_match.h"
 
-str_match_ctx ctx;
-
-enum status anon_pii_add_from_string(char *pii_string) {
-  fprintf(stdout, "%s\t%zu\n", pii_string, strlen(pii_string));
-  return ok;
-}
+str_match_ctx usernames_ctx = NULL;
 
 enum status anon_http_init(const char *pathname, FILE *logfile) {
   enum status s;
@@ -405,12 +400,12 @@ enum status anon_http_init(const char *pathname, FILE *logfile) {
     anon_info = stderr;
   }
 
-  ctx = str_match_ctx_alloc();
-  if (ctx == NULL) {
+  usernames_ctx = str_match_ctx_alloc();
+  if (usernames_ctx == NULL) {
     fprintf(stderr, "error: could not allocate string matching context\n");
     return -1;
   }
-  if (str_match_ctx_init_from_file(ctx, pathname) != 0) {
+  if (str_match_ctx_init_from_file(usernames_ctx, pathname) != 0) {
     fprintf(stderr, "error: could not init string matching context from file\n");
     exit(EXIT_FAILURE);
   }
@@ -420,27 +415,6 @@ enum status anon_http_init(const char *pathname, FILE *logfile) {
 
   return s;
 }
-
-void anon_http_print_uri(FILE *f, const char *src, size_t len) {
-  struct matches matches;
-
-  str_match_ctx_find_all_longest(ctx, (unsigned char *)src, len, &matches);
-
-  if (matches.count == 0) {
-    /*
-     * no anonymization needed, just print out uri string
-     */
-    fprintf(f, "\"uri\":\"%s\",", src);
-
-  } else {
-    /* 
-     * print out non-matched strings, interleaved with anon'ed data
-     */
-    
-  }
-  
-}
-
 
 void fprintf_nbytes(FILE *f, char *s, size_t len) {
   char tmp[1024];
@@ -471,7 +445,6 @@ void fprintf_anon_nbytes(FILE *f, char *s, size_t len) {
   
 }
 
-
 int is_special(char *ptr) {
   char c = *ptr;
   return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.');
@@ -479,6 +452,11 @@ int is_special(char *ptr) {
 
 void anon_print_uri(FILE *f, struct matches *matches, char *text) {
   unsigned int i;
+
+  if (matches->count == 0) {
+    fprintf(f, text);
+    return;
+  }
 
   fprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
   for (i=0; i < matches->count; i++) {
@@ -495,5 +473,6 @@ void anon_print_uri(FILE *f, struct matches *matches, char *text) {
     }
   }
 }
+
 
 /* END http anonymization */

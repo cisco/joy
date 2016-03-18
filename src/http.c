@@ -42,7 +42,11 @@
 
 #include <ctype.h>
 #include "http.h"
-#include "p2f.h"   /* for fprintf_raw_as_hex() */
+#include "p2f.h"       /* for fprintf_raw_as_hex() */
+#include "str_match.h" /* for str_match_ctx        */
+#include "anon.h"
+
+extern str_match_ctx  usernames_ctx;
 
 #define HTTP_LEN 2048
 
@@ -454,11 +458,11 @@ enum http_type http_get_start_line(char **saveptr,
   return http_malformed;
 }
 
-
 void http_header_print_as_object(FILE *f, char *header, char *string, unsigned length) {
   char *token1, *token2, *token3, *saveptr;  
   unsigned int not_first_header = 0;
   enum http_type type = http_done;  
+  struct matches matches;
 
   fprintf(f, ",\"%s\":{", string);
 
@@ -473,11 +477,17 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
   type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
   if (type == http_request_line) {    
     
-    fprintf(f, 
-	    "\"method\":\"%s\","
-	    "\"uri\":\"%s\","
-	    "\"v\":\"%s\"", 
-	    token1, token2, token3);
+    fprintf(f, "\"method\":\"%s\",", token1);
+    fprintf(f, "\"uri\":\"");
+    if (usernames_ctx) {
+      str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
+      anon_print_uri(f, &matches, token2);
+    } else {
+      fprintf(f, "%s", token2);
+    }
+    fprintf(f, "\",");
+    fprintf(f, "\"v\":\"%s\"", token3);
+
     not_first_header = 1;
   } else if (type == http_status_line) {    
     fprintf(f, 
