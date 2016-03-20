@@ -470,19 +470,21 @@ def objectPrint(f, objname):
 def flowPrint(f):
       print "   {"
       # print json.dumps(f, indent=3),
-      print "      \"flow\": {"
+      # OLD: print "      \"flow\": {"
       elementPrint(f, "START", "sa", "da", "pr", "sp", "dp", "ob", "op", "ib", "ip", "ts", "te", "ottl", "ittl")
-      listPrintObject(f, "non_norm_stats", "b", "dir", "ipt")
+      listPrintObject(f, "packets", "b", "dir", "ipt")
       listPrint(f, "bd")
+      listPrint(f, "compact_bd")
       elementPrint(f, "bd_mean", "bd_std", "be", "tbe", "i_probable_os", "o_probable_os")
       listPrintObject(f, "dns", "qn", "rn")
-      elementPrint(f,  "tls_iv", "tls_ov", "tls_orandom", "tls_irandom", "tls_osid", "tls_isid")
+      elementPrint(f,  )
       listPrint(f, "cs", 1)
       elementPrint(f, "scs")
-      listPrintObject(f, "tls", "b", "dir", "ipt", "tp")
+      listPrintObject(f, "tls", "tls_iv", "tls_ov", "tls_orandom", "tls_irandom", "tls_osid", "tls_isid", "srlt")
       objectPrint(f, "ihttp")
       objectPrint(f, "ohttp")
-      print "\n      }\n   }",
+      # OLD: print "\n      }"
+      print "\n   }",
 
 
 class flowProcessor:
@@ -490,27 +492,28 @@ class flowProcessor:
       self.firstFlow = 1
 
    def processFlow(self, flow):
-      if not self.firstFlow:
-         print ","
-      else:
-         self.firstFlow = 0
-         print "\"appflows\": ["
+      # OLD: if not self.firstFlow:
+      # OLD:    print ","
+      # OLD: else:
+      # OLD:    self.firstFlow = 0
+         # OLD: print "\"appflows\": ["
       flowPrint(flow)
 
    def processMetadata(self, metadata):
-      print "\"metadata\": ", 
+      # OLD: print "\"metadata\": ", 
       print json.dumps(metadata, indent=3),
-      print ","
+      # OLD: print ","
 
    def preProcess(self):    
-      print "{"
+      pass
+      # OLD: print "{"
 
    def postProcess(self):    
       if self.firstFlow:
          self.firstFlow = 0
-         print "\"appflows\": ["
-      print "]"
-      print "}"
+         # OLD: print "\"appflows\": ["
+      # OLD: print "]"
+      # OLD: print "}"
 
 import time
 
@@ -555,6 +558,13 @@ class flowSummaryProcessor(flowProcessor):
      
      def postProcess(self):    
         pass
+
+
+def printable(s):
+   if not s.isdigit():
+      return "\"" + s + "\""
+   else:
+      return str(s)
 
 class printSelectedElements:
    def __init__(self, field):
@@ -625,7 +635,7 @@ class printSelectedElements:
                         print  "\n\t{ ",
                      else:
                         print ", ",
-                     print "\"" + str(self.field2) + "\": " + str(filter2)
+                     print "\"" + str(self.field2) + "\": " + printable(filter2),
             else:
                if self.field2 in filter:
                   filter2 = filter[self.field2]
@@ -699,7 +709,7 @@ class flowStatsPrinter:
 
       fs.numflows += 1
       self.flowtotal.numflows += 1
-      for x in flow['non_norm_stats']:
+      for x in flow['packets']:
          fs.observe(x["b"], x["dir"], x["ipt"])
          self.flowtotal.observe(x["b"], x["dir"], x["ipt"])      
 
@@ -782,7 +792,7 @@ class printSchema:
    def processMetadata(self, x):
       pass
 
-def processFile(f, ff, fp):
+def processFileOld(f, ff, fp):
    global flowdict, flowtotal
    json_data=open(f)
    data = json.load(json_data)
@@ -795,10 +805,28 @@ def processFile(f, ff, fp):
          fp.processFlow(flow["flow"])
    json_data.close()
 
+def processFile(f, ff, fp):
+   with open(f,'r') as jsonobjects:
+      for line in jsonobjects:
+         if line.strip == '{' or 'metadata' in line:
+            self.legacy_format = True
+            print "legacy format"
+            break
+         
+         try:
+            tmp = json.loads(line)
+            if 'version' not in tmp:
+               if ff.match(tmp):
+                  fp.processFlow(tmp)
+         except:
+            continue
+
+
+
 def usage():
    print
    print "EXAMPLE"
-   print "./query.py sample.json --where \" non_norm_stats[any].b = 478 & pr = 6\" --select dp"
+   print "./query.py sample.json --where \" packets[any].b = 478 & pr = 6\" --select dp"
    print
    print "FILTER examples:"
    print "  dp=443"
@@ -807,8 +835,8 @@ def usage():
    print "  \"pr = 17\""
    print "  \"bd[all] > 10\""
    print "  \"bd[any] > 10\""
-   print "  \"non_norm_stats[any].b = 41 & ip = 2\""
-   print "  \"non_norm_stats[all].ipt < 5 & dp = 80\""
+   print "  \"packets[any].b = 41 & ip = 2\""
+   print "  \"packets[all].ipt < 5 & dp = 80\""
    print "  \"entropy(bd) > 7.0\""
    print "  \"collision(bd) > 7.0\""
    print "  \"minentropy(bd) > 7.0\""
@@ -817,8 +845,8 @@ def usage():
    print "  dp"
    print "  sa"
    print "  ohttp.uri"
-   print "  non_norm_stats"
-   print "  non_norm_stats.ipt"
+   print "  packets"
+   print "  packets.ipt"
    print "  \"entropy(bd)\""
    print "  \"collision(bd)\""
    print "  \"minentropy(bd)\""
@@ -892,9 +920,9 @@ if __name__=='__main__':
       except KeyboardInterrupt:
          # quit
          sys.exit()      
-      except:
+      # except:
          # silently ignore failures, for now
-         pass
+      #   pass
    fp.postProcess()
 
 
