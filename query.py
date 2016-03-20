@@ -480,11 +480,11 @@ def flowPrint(f):
       elementPrint(f,  )
       listPrint(f, "cs", 1)
       elementPrint(f, "scs")
-      listPrintObject(f, "tls", "tls_iv", "tls_ov", "tls_orandom", "tls_irandom", "tls_osid", "tls_isid", "srlt")
+      objectPrint(f, "tls") # , "tls_iv", "tls_ov", "tls_orandom", "tls_irandom", "tls_osid", "tls_isid", "srlt")
       objectPrint(f, "ihttp")
       objectPrint(f, "ohttp")
       # OLD: print "\n      }"
-      print "\n   }",
+      print "\n   }"
 
 
 class flowProcessor:
