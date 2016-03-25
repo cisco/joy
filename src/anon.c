@@ -447,7 +447,8 @@ void fprintf_anon_nbytes(FILE *f, char *s, size_t len) {
 
 int is_special(char *ptr) {
   char c = *ptr;
-  return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.');
+  // printf("\nc='%c'\n", c); 
+  return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.')||(c=='=')||(c==';')||(c==0);
 }
 
 void anon_print_uri(FILE *f, struct matches *matches, char *text) {
