@@ -39,7 +39,108 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "pkt.h"     /* for CPU_IS_BIG_ENDIAN */
 #include "dns.h"
+
+/*
+ * implementation strategy: store and print out DNS responses,
+ * including NAME, RCODE, and addresses.  Queries need not be
+ * stored/printed, since the responses repeat the "question" before
+ * giving the "answer".
+ *
+ * IPv4 addresses are read from the RR fields that appear in RDATA; 
+ * they are indicated by RR.TYPE == A (1) and RR.CLASS == IN (1).
+ */
+
+/*
+ * DNS packet formats (from RFC 1035)
+ *
+ *                      DNS Header
+ * 
+ *                                   1  1  1  1  1  1
+ *     0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                      ID                       |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                    QDCOUNT                    |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                    ANCOUNT                    |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                    NSCOUNT                    |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                    ARCOUNT                    |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *
+ *
+ *                    Resource Records
+ * 
+ *                                  1  1  1  1  1  1
+ *    0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                                               |
+ *   /                                               /
+ *   /                      NAME                     /
+ *   |                                               |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                      TYPE                     |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                     CLASS                     |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                      TTL                      |
+ *   |                                               |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *   |                   RDLENGTH                    |
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--|
+ *   /                     RDATA                     /
+ *   /                                               /
+ *   +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+ *
+ *
+ * 
+ */
+
+#if CPU_IS_BIG_ENDIAN
+
+struct dns_hdr {
+  unsigned short id;
+  unsigned char qr:1;
+  unsigned char opcode:4;
+  unsigned char aa:1;
+  unsigned char tc:1;
+  unsigned char rd:1;
+  unsigned char ra:1;
+  unsigned char z:3;
+  unsigned char rcode:4;
+  unsigned short qdcount;
+  unsigned short ancount;
+  unsigned short nscount;
+  unsigned short arcount;
+};
+
+#else
+
+struct dns_hdr {
+  unsigned short id;
+  unsigned char rd:1;
+  unsigned char tc:1;
+  unsigned char aa:1;
+  unsigned char opcode:4;
+  unsigned char qr:1;
+  unsigned char rcode:4;
+  unsigned char z:3;
+  unsigned char ra:1;
+  unsigned short qdcount;
+  unsigned short ancount;
+  unsigned short nscount;
+  unsigned short arcount;
+};
+
+#endif
+
+
+
 
 
 /*

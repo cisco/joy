@@ -53,6 +53,7 @@
 #include "err.h"      /* error codes and error reporting */
 #include "anon.h"     /* address anonymization           */
 #include "tls.h"      /* TLS awareness                   */
+#include "dns.h"      /* DNS awareness                   */
 #include "classify.h" /* inline classification           */
 #include "wht.h"      /* walsh-hadamard transform        */
 #include "http.h"     /* http header data                */
@@ -1499,48 +1500,17 @@ void flow_record_print_json(const struct flow_record *record) {
 
   if (report_dns && (rec->key.sp == 53 || rec->key.dp == 53)) {
     unsigned int count;
-
-    fprintf(output, ",\"dns\":[");
+    char **twin_dns_name = NULL;
+    unsigned short *twin_pkt_len = NULL;
     
     count = rec->op > MAX_NUM_PKT_LEN ? MAX_NUM_PKT_LEN : rec->op;
-
     if (rec->twin) {
-      char *q, *r;
-
       count = rec->twin->op > count ? rec->twin->op : count;
-      for (i=0; i<count; i++) {
-	if (i) {
-	  fprintf(output, ",");
-	}
-	if (rec->dns_name[i]) {
-	  q = rec->dns_name[i];
-	  convert_string_to_printable(q, rec->pkt_len[i] - 13);
-	} else {
-	  q = "";
-	}
-	if (rec->twin->dns_name[i]) {
-	  r = rec->twin->dns_name[i];
-	  convert_string_to_printable(r, rec->twin->pkt_len[i] - 13);
-	} else {
-	  r = "";
-	}
-	fprintf(output, "{\"qn\":\"%s\",\"rn\":\"%s\"}", q, r);
-      }
-      
-    } else { /* unidirectional flow, with no twin */
-
-      for (i=0; i<count; i++) {
-	if (i) {
-	  fprintf(output, ",");
-	}
-	if (rec->dns_name[i]) {
-	  convert_string_to_printable(rec->dns_name[i], rec->pkt_len[i] - 13);
-	  fprintf(output, "{\"qn\":\"%s\"}", rec->dns_name[i]);
-	}
-      }
+      twin_dns_name = rec->twin->dns_name;
+      twin_pkt_len = rec->twin->pkt_len;
     }
 
-    fprintf(output, "]");
+    dns_printf(rec->dns_name, rec->pkt_len, twin_dns_name, twin_pkt_len, count, output);
   }
   
   { 
