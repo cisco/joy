@@ -805,22 +805,27 @@ def processFileOld(f, ff, fp):
          fp.processFlow(flow["flow"])
    json_data.close()
 
-def processFile(f, ff, fp):
-   with open(f,'r') as jsonobjects:
-      for line in jsonobjects:
-         if line.strip == '{' or 'metadata' in line:
-            self.legacy_format = True
-            print "legacy format"
-            break
-         
-         try:
-            tmp = json.loads(line)
-            if 'version' not in tmp:
-               if ff.match(tmp):
-                  fp.processFlow(tmp)
-         except:
-            continue
+def processLine(line):
+   if line.strip == '{' or 'metadata' in line:
+      self.legacy_format = True
+      print "warning: legacy JSON format"
+      return
+   try:
+      tmp = json.loads(line)
+      if 'version' not in tmp:
+         if ff.match(tmp):
+            fp.processFlow(tmp)
+   except:
+      pass
 
+def processFile(f, ff, fp):
+   if f is '-':
+      for line in sys.stdin:
+         processLine(line)
+   else:
+      with open(f,'r') as jsonobjects:
+         for line in jsonobjects:
+            processLine(line)
 
 
 def usage():
