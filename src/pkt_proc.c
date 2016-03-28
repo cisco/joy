@@ -460,6 +460,16 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
     fprintf(output, "payload len: %u\n", payload_len);
     fprintf(output, "    tcp len: %u\n", tcp_len);
     fprintf(output, "tcp hdr len: %u\n", tcp_hdr_len);
+    fprintf(output, "      flags:");
+    if (tcp->tcp_flags & TCP_FIN) { fprintf(output, "FIN "); }
+    if (tcp->tcp_flags & TCP_SYN) { fprintf(output, "SYN "); }
+    if (tcp->tcp_flags & TCP_RST) { fprintf(output, "RST "); }
+    if (tcp->tcp_flags & TCP_PSH) { fprintf(output, "PSH "); }
+    if (tcp->tcp_flags & TCP_ACK) { fprintf(output, "ACK "); }
+    if (tcp->tcp_flags & TCP_URG) { fprintf(output, "URG "); }
+    if (tcp->tcp_flags & TCP_ECE) { fprintf(output, "ECE "); }
+    if (tcp->tcp_flags & TCP_CWR) { fprintf(output, "CWR "); }
+    fprintf(output, "\n");
 
     if (output_level > packet_summary) {
       if (payload_len > 0) {
@@ -476,9 +486,13 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   if (record == NULL) {
     return NULL;
   }
-  //fprintf(output, "   SEQ:      %d\n", ntohl(tcp->tcp_seq) - record->seq);
-  //fprintf(output, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
-  
+  if (output_level > none) {
+    fprintf(output, "   SEQ:      %d\trelative SEQ: %d\n", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->seq);
+    fprintf(output, "   ACK:      %d\trelative ACK: %d\n", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->ack);
+    // fprintf(output, "   SEQ:      %d\n", ntohl(tcp->tcp_seq) - record->seq);
+    // fprintf(output, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
+  }
+
   if (payload_len > 0) {
     if (ntohl(tcp->tcp_seq) < record->seq) {
       // fprintf(info, "retransmission detected\n");
