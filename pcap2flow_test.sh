@@ -53,7 +53,7 @@ for args in "output=tmpfile"                                     \
             "output=tmpfile bidir=1 type=1"; do
     echo -n "testing pcap2flow with arguments" $args "... "
     if ./pcap2flow $args $data; then
-	if ./summary.py tmpfile > tmpfile2; then
+	if ./query.py tmpfile > tmpfile2; then
 	    echo "passed"
 	else
 	    echo "failed: output was not valid JSON (see file tmpfile2)"
