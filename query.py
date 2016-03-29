@@ -626,6 +626,7 @@ class printSelectedElements:
                for a in filter:
                   if self.field2 in a:
                      filter2 = a[self.field2]
+                     print "\"" + str(self.field2) + "\": " + printable(filter2),
                      if first:
                         first = False
                         if not self.firstFlow:
@@ -818,14 +819,22 @@ def processLine(line):
    except:
       pass
 
+import gzip
+
 def processFile(f, ff, fp):
    if f is '-':
       for line in sys.stdin:
          processLine(line)
    else:
-      with open(f,'r') as jsonobjects:
-         for line in jsonobjects:
-            processLine(line)
+      if ".gz" in f:
+         with gzip.open(f,'r') as jsonobjects:
+            for line in jsonobjects:
+               processLine(line)
+      else:
+         with open(f,'r') as jsonobjects:
+            for line in jsonobjects:
+               processLine(line)
+
 
 
 def usage():
