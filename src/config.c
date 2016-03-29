@@ -420,40 +420,40 @@ void config_print(FILE *f, const struct configuration *c) {
 
 }
 
-void config_print_json(FILE *f, const struct configuration *c) {
+void config_print_json(zfile f, const struct configuration *c) {
   unsigned int i;
 
-  fprintf(f, "{\"version\":\"%s\",", VERSION);
-  fprintf(f, "\"interface\":\"%s\",", val(c->interface));
-  fprintf(f, "\"promisc\":%u,", c->promisc);
-  fprintf(f, "\"daemon\":%u,", c->daemon);
-  fprintf(f, "\"output\":\"%s\",", val(c->filename));
-  fprintf(f, "\"outputdir\":\"%s\",", val(c->outputdir));
-  fprintf(f, "\"info\":\"%s\",", val(c->logfile));
-  fprintf(f, "\"count\":%u,", c->max_records); 
-  fprintf(f, "\"upload\":\"%s\",", val(c->upload_servername));
-  fprintf(f, "\"keyfile\":\"%s\",", val(c->upload_key));
+  zprintf(f, "{\"version\":\"%s\",", VERSION);
+  zprintf(f, "\"interface\":\"%s\",", val(c->interface));
+  zprintf(f, "\"promisc\":%u,", c->promisc);
+  zprintf(f, "\"daemon\":%u,", c->daemon);
+  zprintf(f, "\"output\":\"%s\",", val(c->filename));
+  zprintf(f, "\"outputdir\":\"%s\",", val(c->outputdir));
+  zprintf(f, "\"info\":\"%s\",", val(c->logfile));
+  zprintf(f, "\"count\":%u,", c->max_records); 
+  zprintf(f, "\"upload\":\"%s\",", val(c->upload_servername));
+  zprintf(f, "\"keyfile\":\"%s\",", val(c->upload_key));
   for (i=0; i<c->num_subnets; i++) {
-    fprintf(f, "\"label\":\"%s\",", c->subnet[i]);
+    zprintf(f, "\"label\":\"%s\",", c->subnet[i]);
   }
-  fprintf(f, "\"retain\":%u,", c->retain_local);
-  fprintf(f, "\"bidir\":%u,", c->bidir);
-  fprintf(f, "\"num_pkts\":%u,", c->num_pkts);
-  fprintf(f, "\"type\":%u,", c->type);
-  fprintf(f, "\"zeros\":%u,", c->include_zeroes);
-  fprintf(f, "\"dist\":%u,", c->byte_distribution);
-  fprintf(f, "\"cdist\":\"%s\",", val(c->compact_byte_distribution));
-  fprintf(f, "\"entropy\":%u,", c->report_entropy);
-  fprintf(f, "\"wht\":%u,", c->report_wht);
-  fprintf(f, "\"hd\":%u,", c->report_hd);
-  fprintf(f, "\"tls\":%u,", c->include_tls);
-  fprintf(f, "\"classify\":%u,", c->include_classifier);
-  fprintf(f, "\"idp\":%u,", c->idp);
-  fprintf(f, "\"dns\":%u,", c->dns);
-  fprintf(f, "\"exe\":%u,", c->report_exe);
-  fprintf(f, "\"anon\":\"%s\",", val(c->anon_addrs_file));
-  fprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
-  fprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
-  fprintf(f, "\"verbosity\":%u", c->output_level);
-  fprintf(f, "}\n");  
+  zprintf(f, "\"retain\":%u,", c->retain_local);
+  zprintf(f, "\"bidir\":%u,", c->bidir);
+  zprintf(f, "\"num_pkts\":%u,", c->num_pkts);
+  zprintf(f, "\"type\":%u,", c->type);
+  zprintf(f, "\"zeros\":%u,", c->include_zeroes);
+  zprintf(f, "\"dist\":%u,", c->byte_distribution);
+  zprintf(f, "\"cdist\":\"%s\",", val(c->compact_byte_distribution));
+  zprintf(f, "\"entropy\":%u,", c->report_entropy);
+  zprintf(f, "\"wht\":%u,", c->report_wht);
+  zprintf(f, "\"hd\":%u,", c->report_hd);
+  zprintf(f, "\"tls\":%u,", c->include_tls);
+  zprintf(f, "\"classify\":%u,", c->include_classifier);
+  zprintf(f, "\"idp\":%u,", c->idp);
+  zprintf(f, "\"dns\":%u,", c->dns);
+  zprintf(f, "\"exe\":%u,", c->report_exe);
+  zprintf(f, "\"anon\":\"%s\",", val(c->anon_addrs_file));
+  zprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
+  zprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
+  zprintf(f, "\"verbosity\":%u", c->output_level);
+  zprintf(f, "}\n");  
 }

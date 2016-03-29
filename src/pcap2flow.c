@@ -72,6 +72,7 @@
 #include "wht.h"      /* walsh-hadamard transform        */
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
+#include "output.h"     /* compressed output             */
 
 enum operating_mode {
   mode_none = 0,
@@ -123,7 +124,7 @@ extern unsigned int include_classifier;
 
 extern unsigned int nfv9_capture_port;
 
-extern FILE *output;
+extern zfile output;
 
 extern FILE *info;
 
@@ -675,15 +676,15 @@ int main(int argc, char **argv) {
     }
     file_base_len = strlen(filename);
     if (config.max_records != 0) {
-      snprintf(filename + file_base_len, MAX_FILENAME_LEN - file_base_len, "%d", file_count);
+      snprintf(filename + file_base_len, MAX_FILENAME_LEN - file_base_len, zsuffix("%d"), file_count);
     }
-    output = fopen(filename, "w");
+    output = zopen(filename, "w");
     if (output == NULL) {
       fprintf(info, "error: could not open output file %s (%s)\n", filename, strerror(errno));
       return -1;
     }
   } else {
-    output = stdout;
+    output = zattach(stdout, "w");
   }
   
   if (ifile != NULL) {
@@ -783,7 +784,7 @@ int main(int argc, char **argv) {
       pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
       
       if (output_level > none) { 
-	fprintf(output, "# pcap processing loop done\n");
+	zprintf(output, "# pcap processing loop done\n");
       }
 
       if (config.report_exe) {
@@ -816,7 +817,7 @@ int main(int argc, char **argv) {
 	  /*
 	   * write JSON postamble
 	   */
-	  fclose(output);
+	  zclose(output);
 	  if (config.upload_servername) {
 	    upload_file(filename, config.upload_servername, config.upload_key, config.retain_local);
 	  }
@@ -824,9 +825,9 @@ int main(int argc, char **argv) {
 	  // printf("records: %d\tmax_records: %d\n", records_in_file, config.max_records);
 	  file_count++;
 	  if (config.max_records != 0) {
-	    snprintf(filename + file_base_len, MAX_FILENAME_LEN - file_base_len, "%d", file_count);
+	    snprintf(filename + file_base_len, MAX_FILENAME_LEN - file_base_len, zsuffix("%d"), file_count);
 	  }
-	  output = fopen(filename, "w");
+	  output = zopen(filename, "w");
 	  if (output == NULL) {
 	    perror("error: could not open output file");
 	    return -1;
@@ -899,6 +900,8 @@ int main(int argc, char **argv) {
 
   flocap_stats_output(info);
   // config_print(info, &config);
+
+  zclose(output);
 
   return 0;
 }

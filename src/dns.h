@@ -55,6 +55,6 @@ enum status process_dns(const struct pcap_pkthdr *h,
 
 void dns_printf(char * const dns_name[], const unsigned short pkt_len[], 
 		char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
-		unsigned int count, FILE *output);
+		unsigned int count, zfile output);
 
 #endif /* DNS_H */

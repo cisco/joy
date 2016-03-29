@@ -68,9 +68,9 @@ extern str_match_ctx  usernames_ctx;
  */
 unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsigned int length);
 
-void http_header_print_as_object(FILE *f, char *header, char *string, unsigned length);
+void http_header_print_as_object(zfile f, char *header, char *string, unsigned length);
 
-void http_header_print_as_hex(FILE *f, char *header, char *string, unsigned int len);
+void http_header_print_as_hex(zfile f, char *header, char *string, unsigned int len);
 
 /*
  * high level HTTP handling functions
@@ -101,7 +101,7 @@ void http_update(struct http_data *data,
 } 
 
 
-void http_printf(const struct http_data *data, char *string, FILE *f) {
+void http_printf(const struct http_data *data, char *string, zfile f) {
 
 /*
  * change this flag is you want hexadecimal output
@@ -463,13 +463,13 @@ int http_header_select(char *h) {
   return 1;
 }
 
-void http_header_print_as_object(FILE *f, char *header, char *string, unsigned length) {
+void http_header_print_as_object(zfile f, char *header, char *string, unsigned length) {
   char *token1, *token2, *token3, *saveptr;  
   unsigned int not_first_header = 0;
   enum http_type type = http_done;  
   struct matches matches;
 
-  fprintf(f, ",\"%s\":{", string);
+  zprintf(f, ",\"%s\":{", string);
 
   if (length < 4) {
     goto bail;
@@ -482,20 +482,20 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
   type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
   if (type == http_request_line) {    
     
-    fprintf(f, "\"method\":\"%s\",", token1);
-    fprintf(f, "\"uri\":\"");
+    zprintf(f, "\"method\":\"%s\",", token1);
+    zprintf(f, "\"uri\":\"");
     if (usernames_ctx) {
       str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
       anon_print_uri(f, &matches, token2);
     } else {
-      fprintf(f, "%s", token2);
+      zprintf(f, "%s", token2);
     }
-    fprintf(f, "\",");
-    fprintf(f, "\"v\":\"%s\"", token3);
+    zprintf(f, "\",");
+    zprintf(f, "\"v\":\"%s\"", token3);
 
     not_first_header = 1;
   } else if (type == http_status_line) {    
-    fprintf(f, 
+    zprintf(f, 
 	    "\"v\":\"%s\","
 	    "\"code\":\"%s\","
 	    "\"reason\":\"%s\"", 
@@ -512,11 +512,11 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
       type = http_get_next_line(&saveptr, &length, &token1, &token2);
       if (type != http_malformed && http_header_select(token1)) {
 	if (not_first_header) {
-	  fprintf(f, ",");
+	  zprintf(f, ",");
 	} else {
 	  not_first_header = 1;
 	}
-	fprintf(f, "\"%s\":\"%s\"", token1, token2);
+	zprintf(f, "\"%s\":\"%s\"", token1, token2);
       }
 
     } while (type == http_header);
@@ -527,11 +527,11 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
    */
   if (type == http_malformed) {
      if (not_first_header) {
-      fprintf(f, ",");
+      zprintf(f, ",");
     } else {
       not_first_header = 1;
     }
-   fprintf(f, "\"malformed\":%u", length);
+   zprintf(f, "\"malformed\":%u", length);
   }
 
   /*
@@ -539,20 +539,20 @@ void http_header_print_as_object(FILE *f, char *header, char *string, unsigned l
    */
   if (type == http_done && (MAGIC != 0) && (length != 0)) {
     if (not_first_header) {
-      fprintf(f, ",");
+      zprintf(f, ",");
     } 
-    fprintf(f, "\"body\":");
-    fprintf_raw_as_hex(f, saveptr, length); 
+    zprintf(f, "\"body\":");
+    zprintf_raw_as_hex(f, saveptr, length); 
   }
 
- bail:  fprintf(f, "}");
+ bail:  zprintf(f, "}");
 
 }
 
 
-void http_header_print_as_hex(FILE *f, char *header, char *string, unsigned int len) {
-  fprintf(f, ",\"%s\":", string);
-  fprintf_raw_as_hex(f, header, len); 
+void http_header_print_as_hex(zfile f, char *header, char *string, unsigned int len) {
+  zprintf(f, ",\"%s\":", string);
+  zprintf_raw_as_hex(f, header, len); 
 }
 
 void http_delete(struct http_data *data) {

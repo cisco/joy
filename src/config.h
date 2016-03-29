@@ -37,6 +37,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "output.h"
 #include "radix_trie.h"
 
 #define LINEMAX 256
@@ -90,6 +91,6 @@ int config_set_from_argv(struct configuration *config, char *argv[], int argc);
 
 void config_print(FILE *f, const struct configuration *c);
 
-void config_print_json(FILE *f, const struct configuration *c);
+void config_print_json(zfile f, const struct configuration *c);
 
 #endif /* CONFIG_H */

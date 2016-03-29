@@ -416,32 +416,32 @@ enum status anon_http_init(const char *pathname, FILE *logfile) {
   return s;
 }
 
-void fprintf_nbytes(FILE *f, char *s, size_t len) {
+void zprintf_nbytes(zfile f, char *s, size_t len) {
   char tmp[1024];
   
   if (len > 1024) {
-    fprintf(stdout, "error: string longer than fixed buffer (length: %zu)\n", len);
+    zprintf(f, "error: string longer than fixed buffer (length: %zu)\n", len);
     return;
   }
   memcpy(tmp, s, len);
   tmp[len] = 0;
-  fprintf(f, "%s", tmp);
+  zprintf(f, "%s", tmp);
   
 }
 
-void fprintf_anon_nbytes(FILE *f, char *s, size_t len) {
+void zprintf_anon_nbytes(zfile f, char *s, size_t len) {
   char tmp[1024];
   unsigned int i;
 
   if (len > 1024) {
-    fprintf(stdout, "error: string longer than fixed buffer (length: %zu)\n", len);
+    zprintf(f, "error: string longer than fixed buffer (length: %zu)\n", len);
     return;
   }
   for (i=0; i<len; i++) {
     tmp[i] = '*';
   }
   tmp[len] = 0;
-  fprintf(f, "%s", tmp);
+  zprintf(f, "%s", tmp);
   
 }
 
@@ -451,26 +451,26 @@ int is_special(char *ptr) {
   return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.')||(c=='=')||(c==';')||(c==0);
 }
 
-void anon_print_uri(FILE *f, struct matches *matches, char *text) {
+void anon_print_uri(zfile f, struct matches *matches, char *text) {
   unsigned int i;
 
   if (matches->count == 0) {
-    fprintf(f, "%s", text);
+    zprintf(f, "%s", text);
     return;
   }
 
-  fprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
+  zprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
   for (i=0; i < matches->count; i++) {
 
     if ((matches->start[i] == 0 || is_special(text + matches->start[i] - 1)) && is_special(text + matches->stop[i] + 1)) {
-      fprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching and special */
+      zprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching and special */
     } else {
-      fprintf_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching, not special */
+      zprintf_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching, not special */
     }
     if (i < matches->count-1) {
-      fprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
+      zprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
     } else {
-      fprintf(f, "%s", text + matches->stop[i] + 1);  /* nonmatching */
+      zprintf(f, "%s", text + matches->stop[i] + 1);  /* nonmatching */
     }
   }
 }

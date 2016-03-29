@@ -44,6 +44,7 @@
 #define HDR_DSC_H
 
 #include <stdio.h>   
+#include "output.h"
 
 #define HDR_DSC_LEN 32
 
@@ -60,7 +61,7 @@ void header_description_update(struct header_description *hd,
 			       const void *packet, 
 			       unsigned int report_hd);
 
-void header_description_printf(const struct header_description *hd, FILE *f, unsigned int len);
+void header_description_printf(const struct header_description *hd, zfile f, unsigned int len);
 
 
 /*

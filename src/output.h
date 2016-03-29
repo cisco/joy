@@ -1,4 +1,12 @@
 /*
+ * output.h
+ *
+ * this header defines macros for a compile-time option that can
+ * automatically compress file output using zlib; it is used for
+ * automatic JSON compression (but could be used for other purposes as
+ * well)
+ */
+/*
  *	
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
@@ -34,21 +42,51 @@
  *
  */
 
+
+#ifndef OUTPUT_H
+#define OUTPUT_H
+
+#include <zlib.h>      /* for gzip file read/writes      */
+
 /*
- * osdetect.h
- *
- * operating system identification
+ * Set the variable COMPRESSED_OUTPUT to 1 to use zlib to
+ * automatically compress the JSON output, or set it to 0 to have
+ * normal output.  When compressed output is used, zless can be used
+ * to read the files, and gunzip can be used to convert them to normal
+ * files.  
+ */
+#define COMPRESSED_OUTPUT 1
+
+
+#if (COMPRESSED_OUTPUT == 0)
+/*
+ * normal output
  */
 
-#ifndef OS_DETECT_H
-#define OS_DETECT_H
+typedef FILE *zfile;
 
-#include <string.h>
-#include <stdio.h>
-#include "output.h"
+#define zopen(fname, ...)    (fopen(fname, __VA_ARGS__))
+#define zattach(fd, ...)     (fd)
+#define zprintf(output, ...) (fprintf(output, __VA_ARGS__))
+#define zflush(FILEp)        (fflush(FILEp))
+#define zclose(output)       (fclose(output))
+#define zsuffix(string)      (string)
 
-void os_printf(zfile f, int ttl, int iws, int ttl_twin, int iws_twin);
+#else
+/*
+ * gzip compressed output
+ */
 
-void detect_os(int ttl, int iws, char* os_name, int buf_size);
+typedef gzFile zfile;
 
-#endif /* OS_DETECT_H */
+#define zopen(fname, ...)    (gzopen(fname, __VA_ARGS__))
+#define zattach(FILEp, ...)  (gzdopen(fileno(FILEp), __VA_ARGS__))
+#define zprintf(output, ...) (gzprintf(output, __VA_ARGS__))
+#define zflush(FILEp)        (gzflush(FILEp))
+#define zclose(output)       (gzclose(output))
+#define zsuffix(string)      (string ".gz")
+
+#endif
+
+
+#endif  /* OUTPUT_H */

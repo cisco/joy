@@ -193,17 +193,17 @@ enum status process_dns(const struct pcap_pkthdr *h, const void *start, int len,
 
 void dns_printf(char * const dns_name[], const unsigned short pkt_len[], 
 		char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
-		unsigned int count, FILE *output) {
+		unsigned int count, zfile output) {
   unsigned int i;
 
-  fprintf(output, ",\"dns\":[");
+  zprintf(output, ",\"dns\":[");
   
   if (twin_dns_name) {
     char *q, *r;
     
     for (i=0; i<count; i++) {
       if (i) {
-	fprintf(output, ",");
+	zprintf(output, ",");
       }
       if (dns_name[i]) {
 	q = dns_name[i];
@@ -217,21 +217,21 @@ void dns_printf(char * const dns_name[], const unsigned short pkt_len[],
       } else {
 	r = "";
       }
-      fprintf(output, "{\"qn\":\"%s\",\"rn\":\"%s\"}", q, r);
+      zprintf(output, "{\"qn\":\"%s\",\"rn\":\"%s\"}", q, r);
     }
     
   } else { /* unidirectional flow, with no twin */
     
     for (i=0; i<count; i++) {
       if (i) {
-	fprintf(output, ",");
+	zprintf(output, ",");
       }
       if (dns_name[i]) {
 	convert_string_to_printable(dns_name[i], pkt_len[i] - 13);
-	fprintf(output, "{\"qn\":\"%s\"}", dns_name[i]);
+	zprintf(output, "{\"qn\":\"%s\"}", dns_name[i]);
       }
     }
   }
   
-  fprintf(output, "]");
+  zprintf(output, "]");
 }

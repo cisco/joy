@@ -25,21 +25,21 @@ void matches_print(struct matches *matches, char *text) {
 }
 
 
-void anon_print(FILE *f, struct matches *matches, char *text) {
+void anon_print(zfile f, struct matches *matches, char *text) {
   unsigned int i;
 
   if (matches->count == 0) {
-    fprintf(f, "%s", text);
+    zprintf(f, "%s", text);
     return;
   }
 
-  fprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
+  zprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
   for (i=0; i < matches->count; i++) {
-    fprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching */
+    zprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching */
     if (i < matches->count-1) {
-      fprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
+      zprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
     } else {
-      fprintf(f, "%s", text + matches->stop[i] + 1);  /* nonmatching */
+      zprintf(f, "%s", text + matches->stop[i] + 1);  /* nonmatching */
     }
   }
 }
@@ -47,19 +47,24 @@ void anon_print(FILE *f, struct matches *matches, char *text) {
 
 void str_match_test(str_match_ctx ctx, char *search) {
   struct matches matches;
+  zfile output;
 
+  output = zattach(stdout, "w");
+  if (output == NULL) {
+    fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
+  }
   
   str_match_ctx_find_all_longest(ctx, (const unsigned char *)search, strlen(search), &matches);
   
   matches_print(&matches, (char *)search);
 
-  printf("text being searched:   %s\n", search);  
-  printf("anonymized string:     ");
-  anon_print(stdout, &matches, (char *)search);
-  printf("\n");
-  printf("anonymized uri string: ");
-  anon_print_uri(stdout, &matches, (char *)search);
-  printf("\n");
+  zprintf(output, "text being searched:   %s\n", search);  
+  zprintf(output, "anonymized string:     ");
+  anon_print(output, &matches, (char *)search);
+  zprintf(output, "\n");
+  zprintf(output, "anonymized uri string: ");
+  anon_print_uri(output, &matches, (char *)search);
+  zprintf(output, "\n");
 }
 
 char *text = "prefix middle suffix prefixmiddle middlesuffix prefixmiddlesuffix frogers2 velmad vdinkey";
