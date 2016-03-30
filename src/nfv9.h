@@ -246,7 +246,14 @@ enum nfv9_type {
   SPLT =                       16387,
   SALT =                       16388,
   SPLT_NGA =                   16389,
-  BYTE_DISTRIBUTION =          16390
+  BYTE_DISTRIBUTION =          16390,
+  SRLT =                       16391,
+  TLS_CS =                     16392,
+  TLS_EXT =                    16393,
+  TLS_VERSION =                16394,
+  TLS_CLIENT_KEY_LENGTH =      16395,
+  TLS_SESSION_ID =             16396,
+  TLS_HELLO_RANDOM =           16397
 };
 
 

@@ -662,7 +662,7 @@ void len_time_print_interleaved_tls(unsigned int op, const unsigned short *len, 
 }
 
 void tls_printf(const struct tls_information *data, const struct tls_information *data_twin, zfile f) {
-  int i;
+  int i, j, sum;
 
   if (!data->tls_v && (data_twin == NULL || !data_twin->tls_v)) { // no reliable TLS information
     return ;
@@ -693,11 +693,20 @@ void tls_printf(const struct tls_information *data, const struct tls_information
    * serverHello
    */
 
-  if (data->num_ciphersuites) {
+  //  if (data->num_ciphersuites) {
+  sum = 0;
+  for (j = 0; j < 32; ++j) {
+    sum |= *(const char *)(data->tls_random+j);
+  }
+  if (sum != 0) {
     zprintf(f, ",\"tls_orandom\":");
     zprintf_raw_as_hex_tls(f, data->tls_random, 32);
   }
-  if (data_twin && data_twin->num_ciphersuites) {
+  sum = 0;
+  for (j = 0; j < 32; ++j) {
+    sum |= *(const char *)(data_twin->tls_random+j);
+  }
+  if (data_twin && sum != 0) {
     zprintf(f, ",\"tls_irandom\":");
     zprintf_raw_as_hex_tls(f, data_twin->tls_random, 32);
   }

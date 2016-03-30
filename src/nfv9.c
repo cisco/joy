@@ -795,7 +795,7 @@ void nfv9_flow_key_init(struct flow_key *key, const struct nfv9_template *cur_te
 
 void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_template *cur_template, const void *flow_data, int record_num) {
   struct timeval old_val_time;
-  int i,j;
+  int i,j,sum;
   for (i = 0; i < cur_template->hdr.FieldCount; i++) {
     switch (htons(cur_template->fields[i].FieldType)) {
       /*case IPV4_SRC_ADDR:
@@ -880,7 +880,35 @@ void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_t
 
       flow_data += htons(cur_template->fields[i].FieldLength);
       break;
-      
+    case TLS_VERSION:
+      nf_record->tls_info.tls_v = *(const char *)flow_data;
+      flow_data += htons(cur_template->fields[i].FieldLength);
+      break;
+    case TLS_CLIENT_KEY_LENGTH:
+      nf_record->tls_info.tls_client_key_length = htons(*(const short *)flow_data);
+      flow_data += htons(cur_template->fields[i].FieldLength);
+      break;
+    case TLS_SESSION_ID:
+      //  unsigned char tls_sid_len;             /* TLS session ID length              */
+      //  unsigned char tls_sid[MAX_SID_LEN];    /* TLS session ID                     */
+      if (!nf_record->tls_info.tls_sid_len) {
+	nf_record->tls_info.tls_sid_len = htons(*(const short *)flow_data);
+	printf("%i\n",htons(*(const short *)flow_data));
+	memcpy(nf_record->tls_info.tls_sid, flow_data+1, nf_record->tls_info.tls_sid_len);
+      }
+      flow_data += htons(cur_template->fields[i].FieldLength);
+      break;
+    case TLS_HELLO_RANDOM:
+      //   unsigned char tls_random[32];          /* TLS random field from hello        */ 
+      sum = 0;
+      for (j = 0; j < 32; ++j) {
+	sum |= *(const char *)(flow_data+j);
+      }
+      if (sum != 0) {
+	memcpy(nf_record->tls_info.tls_random, flow_data, 32);
+      }
+      flow_data += htons(cur_template->fields[i].FieldLength);
+      break;
     case IDP:
       nf_record->idp_len = htons(cur_template->fields[i].FieldLength);
       nf_record->idp = malloc(nf_record->idp_len);
