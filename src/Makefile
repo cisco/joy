@@ -27,6 +27,7 @@ sysname = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
 LIBS = -lpcap    # packet capture library; hard requirement
 LIBS += -lm      # math library; logf() used in entropy computation
 LIBS += -lcrypto # openSSL crypto library; used in anonymization
+LIBS += -lz
 
 INCLUDEDIR = 
 
