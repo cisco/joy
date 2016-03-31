@@ -247,7 +247,7 @@ enum nfv9_type {
   SALT =                       16388,
   SPLT_NGA =                   16389,
   BYTE_DISTRIBUTION =          16390,
-  SRLT =                       16391,
+  TLS_SRLT =                   16391,
   TLS_CS =                     16392,
   TLS_EXT =                    16393,
   TLS_VERSION =                16394,
@@ -262,6 +262,11 @@ struct nfv9_field_type {
   u_short Value;
   u_short Length;
 };
+
+#define min(a,b) \
+  ({ __typeof__ (a) _a = (a); \
+  __typeof__ (b) _b = (b); \
+  _a < _b ? _a : _b; })
 
 #define MAX_TYPES 105
 

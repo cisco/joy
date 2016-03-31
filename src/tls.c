@@ -551,6 +551,12 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
 void zprintf_raw_as_hex_tls(zfile f, const void *data, unsigned int len) {
   const unsigned char *x = data;
   const unsigned char *end = data + len;
+
+  if (data == NULL) { /* special case for nfv9 TLS export */
+    zprintf(f, "\"");   /* quotes needed for JSON */
+    zprintf(f, "\"");
+    return ;
+  }
   
   zprintf(f, "\"");   /* quotes needed for JSON */
   while (x < end) {

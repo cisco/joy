@@ -795,41 +795,10 @@ void nfv9_flow_key_init(struct flow_key *key, const struct nfv9_template *cur_te
 
 void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_template *cur_template, const void *flow_data, int record_num) {
   struct timeval old_val_time;
-  int i,j,sum;
+  unsigned int total_ms;
+  int i,j;
   for (i = 0; i < cur_template->hdr.FieldCount; i++) {
     switch (htons(cur_template->fields[i].FieldType)) {
-      /*case IPV4_SRC_ADDR:
-      nf_record->key.sa.s_addr = *(const int *)flow_data;
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case IPV4_DST_ADDR:
-      nf_record->key.da.s_addr = *(const int *)flow_data;
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case L4_SRC_PORT:
-      nf_record->key.sp = htons(*(const short *)flow_data);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case L4_DST_PORT:
-      nf_record->key.dp = htons(*(const short *)flow_data);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case PROTOCOL:
-      nf_record->key.prot = *(const char *)flow_data;
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;*/
-    case IN_BYTES:
-      /* ignoring to keep 'ob' the same as pcap2flow non-nfv9 (which is sum(SPLT byte values))
-      if (record_num == 0) {
-      if (htons(cur_template->fields[i].FieldLength) == 4) {
-	nf_record->ob += htonl(*(const int *)(flow_data));
-      } else {
-	nf_record->ob += __builtin_bswap64(*(const uint64_t *)(flow_data));
-      }
-      }
-      */
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
     case IN_PKTS:
       if (record_num == 0) {
 	if (htons(cur_template->fields[i].FieldLength) == 4) {
@@ -843,41 +812,62 @@ void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_t
       break;
       
     case FIRST_SWITCHED:
-      /*
-      // ok, switch/NGA has first_switched after SPLT, which will mess up timing info, correct here
-      // also, FIRST_SWITCHED can be called multiple times
-      if (nf_record->first_switched_found == 0) {
-      nf_record->start.tv_sec = (time_t)((int)(htonl(*(const int *)flow_data) / 1000));
-      nf_record->start.tv_usec = (time_t)((int)htonl(*(const int *)flow_data) % 1000)*1000;
-      for (j = 0; j < nf_record->op; j++) {
-	nf_record->pkt_time[j].tv_sec += nf_record->start.tv_sec;
-	nf_record->pkt_time[j].tv_usec += nf_record->start.tv_usec;
-
-	// make sure to check for wrap around, weirdness happens when usec >= 1000000
-	if (nf_record->pkt_time[j].tv_usec >= 1000000) {
-	  nf_record->pkt_time[j].tv_sec += (time_t)((int)(nf_record->pkt_time[j].tv_usec / 1000000));
-	  nf_record->pkt_time[j].tv_usec %= 1000000;
-	}
+      if (nf_record->start.tv_sec + nf_record->start.tv_usec == 0) {
+	nf_record->start.tv_sec = (time_t)((int)(htonl(*(const unsigned int *)flow_data) / 1000));
+	nf_record->start.tv_usec = (time_t)((int)htonl(*(const unsigned int *)flow_data) % 1000)*1000;
       }
-      if (nf_record->op > 0) {
-	// correct old_val_time
-	old_val_time.tv_sec += nf_record->start.tv_sec;
-	old_val_time.tv_usec += nf_record->start.tv_usec;
-	// make sure to check for wrap around, weirdness happens when usec >= 1000000
-	if (old_val_time.tv_usec >= 1000000) {
-	  old_val_time.tv_sec += (time_t)((int)(old_val_time.tv_usec / 1000000));
-	  old_val_time.tv_usec %= 1000000;
-	}
-      }
-      nf_record->first_switched_found = 1;
-      }*/
 
       flow_data += htons(cur_template->fields[i].FieldLength);
       break;
     case LAST_SWITCHED:
-      //nf_record->end.tv_sec = (time_t)((int)(htonl(*(const int *)flow_data) / 1000));
-      //nf_record->end.tv_usec = (time_t)((int)htonl(*(const int *)flow_data) % 1000)*1000;
+      if (nf_record->end.tv_sec + nf_record->end.tv_usec == 0) {
+	nf_record->end.tv_sec = (time_t)((int)(htonl(*(const int *)flow_data) / 1000));
+	nf_record->end.tv_usec = (time_t)((int)htonl(*(const int *)flow_data) % 1000)*1000;
+      }
 
+      flow_data += htons(cur_template->fields[i].FieldLength);
+      break;
+    case TLS_SRLT:
+      total_ms = 0;
+      for (j = 0; j < 20; j++) {
+	if (htons(*(const short *)(flow_data+j*2)) == 0) {
+	  break;
+	}
+
+	nf_record->tls_info.tls_len[j] = htons(*(const unsigned short *)(flow_data+j*2));
+	nf_record->tls_info.tls_time[j].tv_sec = (total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)/1000;
+	nf_record->tls_info.tls_time[j].tv_usec = ((total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)%1000)*1000;
+	total_ms += htons(*(const unsigned short *)(flow_data+40+j*2));
+
+	nf_record->tls_info.tls_type[j].content = *(const unsigned char *)(flow_data+80+j);
+	nf_record->tls_info.tls_type[j].handshake = *(const unsigned char *)(flow_data+100+j);
+	nf_record->tls_info.tls_op += 1;
+      }
+      
+      flow_data += htons(cur_template->fields[i].FieldLength);
+      break;
+    case TLS_CS:
+      for (j = 0; j < 125; j++) {
+	if (htons(*(const short *)(flow_data+j*2)) == 65535) {
+	  break;
+	}
+	nf_record->tls_info.ciphersuites[j] = htons(*(const unsigned short *)(flow_data+j*2));
+	nf_record->tls_info.num_ciphersuites += 1;
+      }
+      
+      flow_data += htons(cur_template->fields[i].FieldLength);
+      break;
+    case TLS_EXT:
+      for (j = 0; j < 35; j++) {
+	if (htons(*(const short *)(flow_data+j*2)) == 0) {
+	  break;
+	}
+	nf_record->tls_info.tls_extensions[j].length = htons(*(const unsigned short *)(flow_data+j*2));
+	nf_record->tls_info.tls_extensions[j].type = htons(*(const unsigned short *)(flow_data+70+j*2));
+	nf_record->tls_info.tls_extensions[j].data = NULL;
+	nf_record->tls_info.num_tls_extensions += 1;
+      }
+      
       flow_data += htons(cur_template->fields[i].FieldLength);
       break;
     case TLS_VERSION:
@@ -889,24 +879,13 @@ void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_t
       flow_data += htons(cur_template->fields[i].FieldLength);
       break;
     case TLS_SESSION_ID:
-      //  unsigned char tls_sid_len;             /* TLS session ID length              */
-      //  unsigned char tls_sid[MAX_SID_LEN];    /* TLS session ID                     */
-      if (!nf_record->tls_info.tls_sid_len) {
-	nf_record->tls_info.tls_sid_len = htons(*(const short *)flow_data);
-	printf("%i\n",htons(*(const short *)flow_data));
-	memcpy(nf_record->tls_info.tls_sid, flow_data+1, nf_record->tls_info.tls_sid_len);
-      }
+      nf_record->tls_info.tls_sid_len = htons(*(const short *)flow_data);
+      nf_record->tls_info.tls_sid_len = min(nf_record->tls_info.tls_sid_len,256);
+      memcpy(nf_record->tls_info.tls_sid, flow_data+2, nf_record->tls_info.tls_sid_len);
       flow_data += htons(cur_template->fields[i].FieldLength);
       break;
     case TLS_HELLO_RANDOM:
-      //   unsigned char tls_random[32];          /* TLS random field from hello        */ 
-      sum = 0;
-      for (j = 0; j < 32; ++j) {
-	sum |= *(const char *)(flow_data+j);
-      }
-      if (sum != 0) {
-	memcpy(nf_record->tls_info.tls_random, flow_data, 32);
-      }
+      memcpy(nf_record->tls_info.tls_random, flow_data, 32);
       flow_data += htons(cur_template->fields[i].FieldLength);
       break;
     case IDP:
@@ -935,8 +914,6 @@ void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_t
       } else {
 	old_val_time.tv_sec = nf_record->start.tv_sec;
 	old_val_time.tv_usec = nf_record->start.tv_usec;
-	//old_val_time.tv_sec = 0;
-	//old_val_time.tv_usec = 0;
       }
       
 
