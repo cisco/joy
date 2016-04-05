@@ -41,6 +41,8 @@
 #ifndef PKT_H
 #define PKT_H
 
+#include <netinet/in.h>     /* for struct in_addr */
+
 #ifdef LINUX
 #include <endian.h>
 #else /* SYSNAME=DARWIN */

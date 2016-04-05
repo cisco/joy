@@ -55,7 +55,7 @@
 #include <arpa/inet.h>   /* for sockaddr_in, inet_ntoa() */
 #include "err.h"         /* for enum status              */
 #include "addr_attr.h"   /* for typedef attr_flags       */
-
+#include "output.h"      /* compressed output            */
 
 #define MAX_NUM_FLAGS (sizeof(attr_flags)*8)
 
@@ -113,7 +113,7 @@ enum status radix_trie_add_subnet(struct radix_trie *trie,
 void attr_flags_json_print_labels(const struct radix_trie *rt, 
 				  attr_flags f, 
 				  char *prefix, 
-				  FILE *file);
+				  zfile file);
 
 
 /*

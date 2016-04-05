@@ -50,6 +50,7 @@
 #include <ctype.h>       /* for isblank(), etc.          */
 #include "radix_trie.h"
 #include "addr.h"
+#include "output.h"
 
 /*
  * radix_trie internals
@@ -359,23 +360,23 @@ void attr_flags_print_labels(const struct radix_trie *rt, attr_flags f) {
   printf("\n");
 }
 
-void attr_flags_json_print_labels(const struct radix_trie *rt, attr_flags f, char *prefix, FILE *file) {
+void attr_flags_json_print_labels(const struct radix_trie *rt, attr_flags f, char *prefix, zfile file) {
   unsigned int i, c=0;
 
   if (f == 0) {
     return;    /* print nothing */
   }
-  fprintf(file, "\t\t\t\"%s\": [ ", prefix);
+  zprintf(file, "\t\t\t\"%s\": [ ", prefix);
   for (i=0; i < rt->num_flags; i++) {
     if (index_to_flag(i) & f) {
       if (c) {
-	fprintf(file, ", ");
+	zprintf(file, ", ");
       }
-      fprintf(file, "\"%s\" ", rt->flag[i]);
+      zprintf(file, "\"%s\" ", rt->flag[i]);
       c++;
     }
   }
-  fprintf(file, "],\n");
+  zprintf(file, "],\n");
 }
 
 enum status radix_trie_init(struct radix_trie *rt) {
@@ -547,7 +548,13 @@ int radix_trie_high_level_unit_test() {
   struct in_addr addr;
   enum status err;
   unsigned test_failed = 0;
-  
+  zfile output;
+
+  output = zattach(stdout, "w");
+  if (output == NULL) {
+    fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
+  }
+
   /* initialize */
   err = radix_trie_init(&rt);
   if (err != ok) {
@@ -585,20 +592,20 @@ int radix_trie_high_level_unit_test() {
   addr.s_addr = htonl(0xc0a80101);   /* 192.168.1.1 */
   flag = radix_trie_lookup_addr(&rt, addr); 
   if ((flag & flag_internal) == 0) {
-    fprintf(stdout, "error: attribute lookup failed (expected %x, got %x)\n",
+    zprintf(output, "error: attribute lookup failed (expected %x, got %x)\n",
 	    flag_internal, flag);
     test_failed = 1;
   }
-  attr_flags_json_print_labels(&rt, flag, "addr", stdout);
+  attr_flags_json_print_labels(&rt, flag, "addr", output);
   
   addr.s_addr = htonl(0x08080808);   /* not internal */
   flag = radix_trie_lookup_addr(&rt, addr); 
   if ((flag & flag_internal) == 1) {
-    fprintf(stdout, "error: attribute lookup failed (did not expect %x, but got %x)\n",
+    zprintf(output, "error: attribute lookup failed (did not expect %x, but got %x)\n",
 	    flag_internal, flag);
     test_failed = 1;
   }
-  attr_flags_json_print_labels(&rt, flag, "addr", stdout);
+  attr_flags_json_print_labels(&rt, flag, "addr", output);
 
   printf("\n==================\n");
   radix_trie_print(&rt);
@@ -620,6 +627,12 @@ int radix_trie_unit_test() {
   unsigned int i;
   unsigned int test_failed = 0;
   unsigned int flag;
+  zfile output;
+
+ output = zattach(stdout, "w");
+  if (output == NULL) {
+    fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
+  }
   
   for (i=0; i<32; i++) {
     flag = index_to_flag(i);
@@ -645,14 +658,14 @@ int radix_trie_unit_test() {
   flag = 1;
   for (i=0; i<3; i++) {
     if (radix_trie_add_subnet(&rt, a[i], 32, af[i]) != ok) {
-      fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: could not add subnet %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
 
   for (i=6; i<9; i++) {
     if (radix_trie_add_subnet(&rt, a[i], 16, af[i]) != ok) {
-      fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: could not add subnet %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
@@ -660,13 +673,13 @@ int radix_trie_unit_test() {
   printf("testing lookup (expecting success)\n");
   for (i=0; i<3; i++) {
     if (radix_trie_lookup_addr(&rt, a[i]) != af[i]) {
-      fprintf(stdout, "error: could not lookup subnet %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: could not lookup subnet %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
   for (i=6; i<9; i++) {
     if (radix_trie_lookup_addr(&rt, a[i]) != af[i]) {
-      fprintf(stdout, "error: could not lookup subnet %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: could not lookup subnet %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
@@ -674,7 +687,7 @@ int radix_trie_unit_test() {
   printf("testing lookup (expecting failure)\n");
   for (i=3; i<6; i++) {
     if (radix_trie_lookup_addr(&rt, a[i]) != 0) {
-      fprintf(stdout, "error: false positive lookup subnet %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: false positive lookup subnet %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
@@ -682,7 +695,7 @@ int radix_trie_unit_test() {
   printf("testing 14-bit add\n");
   for (i=0; i<3; i++) {
     if (radix_trie_add_subnet(&rt, a[i], 14, 0x100) != ok) {
-      fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: could not add subnet %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
@@ -691,7 +704,7 @@ int radix_trie_unit_test() {
   for (i=0; i<3; i++) {
     unsigned int f = radix_trie_lookup_addr(&rt, a[i]);
     if (f != (af[i] | 0x100)) {
-      fprintf(stdout, "error: could not lookup address %s (%x), got %x instead\n", 
+      zprintf(output, "error: could not lookup address %s (%x), got %x instead\n", 
 	      inet_ntoa(a[i]), htonl(a[i].s_addr), f);
       test_failed = 1;
     }
@@ -700,7 +713,7 @@ int radix_trie_unit_test() {
   printf("testing 15-bit add\n");
   for (i=0; i<3; i++) {
     if (radix_trie_add_subnet(&rt, a[i], 15, 0x1000) != ok) {
-      fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: could not add subnet %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
@@ -709,7 +722,7 @@ int radix_trie_unit_test() {
   for (i=0; i<3; i++) {
     unsigned int f = radix_trie_lookup_addr(&rt, a[i]);
     if (f != (af[i] | 0x1000 | 0x100)) {
-      fprintf(stdout, "error: could not lookup address %s (%x), got %x but expected %x\n", 
+      zprintf(output, "error: could not lookup address %s (%x), got %x but expected %x\n", 
 	      inet_ntoa(a[i]), htonl(a[i].s_addr), f, (af[i] | 0x1000 | 0x100));
       test_failed = 1;
     }
@@ -718,7 +731,7 @@ int radix_trie_unit_test() {
   printf("testing lookup (expecting failure)\n");
   for (i=3; i<6; i++) {
     if (radix_trie_lookup_addr(&rt, a[i]) != 0) {
-      fprintf(stdout, "error: false positive lookup address %s\n", inet_ntoa(a[i]));
+      zprintf(output, "error: false positive lookup address %s\n", inet_ntoa(a[i]));
       test_failed = 1;
     }
   }
@@ -748,57 +761,57 @@ int radix_trie_unit_test() {
 
   addr = hex2addr(0xcafe0000);
   if (radix_trie_add_subnet(&rt2, addr, 16, internal_attr) != ok) { 
-    fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(addr));
+    zprintf(output, "error: could not add subnet %s\n", inet_ntoa(addr));
     test_failed = 1;
   }
   attr = radix_trie_lookup_addr(&rt2, addr); 
   if ((attr & internal_attr) == 0) {
-    fprintf(stdout, "error: attribute lookup failed (expected %x, got %x)\n",
+    zprintf(output, "error: attribute lookup failed (expected %x, got %x)\n",
 	    internal_attr, attr);
     test_failed = 1;
   }
   addr = hex2addr(0xdecaf000);
   if (radix_trie_add_subnet(&rt2, addr, 20, internal_attr) != ok) {
-    fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(addr));
+    zprintf(output, "error: could not add subnet %s\n", inet_ntoa(addr));
     test_failed = 1;
   }
   attr = radix_trie_lookup_addr(&rt2, addr); 
   if ((attr & internal_attr) == 0) {
-    fprintf(stdout, "error: attribute lookup failed (expected %x, got %x)\n",
+    zprintf(output, "error: attribute lookup failed (expected %x, got %x)\n",
 	    internal_attr, attr);
     test_failed = 1;
   }
   addr = hex2addr(0xdadacafe);
   if (radix_trie_add_subnet(&rt2, addr, 32, c2_attr) != ok) {
-    fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(addr));
+    zprintf(output, "error: could not add subnet %s\n", inet_ntoa(addr));
     test_failed = 1;
   }
   attr = radix_trie_lookup_addr(&rt2, addr); 
   if ((attr & c2_attr) == 0) {
-    fprintf(stdout, "error: attribute lookup failed (expected %x, got %x)\n",
+    zprintf(output, "error: attribute lookup failed (expected %x, got %x)\n",
 	    c2_attr, attr);
     test_failed = 1;
   }
   addr = hex2addr(0xdadacafe);
   if (radix_trie_add_subnet(&rt2, addr, 8, watchlist_attr) != ok) {
-    fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(addr));
+    zprintf(output, "error: could not add subnet %s\n", inet_ntoa(addr));
     test_failed = 1;
   }
   attr = radix_trie_lookup_addr(&rt2, addr); 
   if ((attr & watchlist_attr) == 0) {
-    fprintf(stdout, "error: attribute lookup failed (expected %x, got %x)\n",
+    zprintf(output, "error: attribute lookup failed (expected %x, got %x)\n",
 	    watchlist_attr, attr);
     test_failed = 1;
   }
  
   addr = hex2addr(0xffffffff);
   if (radix_trie_add_subnet(&rt2, addr, 1, watchlist_attr) != ok) {
-    fprintf(stdout, "error: could not add subnet %s\n", inet_ntoa(addr));
+    zprintf(output, "error: could not add subnet %s\n", inet_ntoa(addr));
     test_failed = 1;
   }
   attr = radix_trie_lookup_addr(&rt2, addr); 
   if ((attr & watchlist_attr) == 0) {
-    fprintf(stdout, "error: attribute lookup failed (expected %x, got %x)\n",
+    zprintf(output, "error: attribute lookup failed (expected %x, got %x)\n",
 	    c2_attr, attr);
     test_failed = 1;
   }

@@ -548,21 +548,27 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
   return NULL;
 }
 
-void fprintf_raw_as_hex_tls(FILE *f, const void *data, unsigned int len) {
+void zprintf_raw_as_hex_tls(zfile f, const void *data, unsigned int len) {
   const unsigned char *x = data;
   const unsigned char *end = data + len;
-  
-  fprintf(f, "\"");   /* quotes needed for JSON */
-  while (x < end) {
-    fprintf(f, "%02x", *x++);
+
+  if (data == NULL) { /* special case for nfv9 TLS export */
+    zprintf(f, "\"");   /* quotes needed for JSON */
+    zprintf(f, "\"");
+    return ;
   }
-  fprintf(f, "\"");
+  
+  zprintf(f, "\"");   /* quotes needed for JSON */
+  while (x < end) {
+    zprintf(f, "%02x", *x++);
+  }
+  zprintf(f, "\"");
 
 }
 
-void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir, struct timeval ts, struct tls_type_code type, char *term, FILE *f) {
+void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir, struct timeval ts, struct tls_type_code type, char *term, zfile f) {
 
-  fprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:%u\"}%s", 
+  zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:%u\"}%s", 
 	  pkt_len, dir, timeval_to_milliseconds_tls(ts), type.content, type.handshake, term);
 
 }
@@ -570,14 +576,14 @@ void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir, struct time
 unsigned int num_pkt_len_tls = NUM_PKT_LEN_TLS;
 
 void len_time_print_interleaved_tls(unsigned int op, const unsigned short *len, const struct timeval *time, const struct tls_type_code *type,
-				    unsigned int op2, const unsigned short *len2, const struct timeval *time2, const struct tls_type_code *type2, FILE *f) {
+				    unsigned int op2, const unsigned short *len2, const struct timeval *time2, const struct tls_type_code *type2, zfile f) {
   unsigned int i, j, imax, jmax;
   struct timeval ts, ts_last, ts_start, tmp;
   unsigned int pkt_len;
   char *dir;
   struct tls_type_code typecode;
 
-  fprintf(f, ",\"srlt\":[");
+  zprintf(f, ",\"srlt\":[");
 
   if (len2 == NULL) {
     
@@ -602,7 +608,7 @@ void len_time_print_interleaved_tls(unsigned int op, const unsigned short *len, 
       }
       print_bytes_dir_time_tls(len[i], OUT, ts, type[i], "", f);
     }
-    fprintf(f, "]"); 
+    zprintf(f, "]"); 
   } else {
 
     if (timer_lt_tls(time, time2)) {
@@ -653,38 +659,38 @@ void len_time_print_interleaved_tls(unsigned int op, const unsigned short *len, 
       print_bytes_dir_time_tls(pkt_len, dir, tmp, typecode, "", f);
       ts_last = ts;
       if (!((i == imax) & (j == jmax))) { /* we are done */
-	fprintf(f, ",");
+	zprintf(f, ",");
       }
     }
-    fprintf(f, "]");
+    zprintf(f, "]");
   }
 
 }
 
-void tls_printf(const struct tls_information *data, const struct tls_information *data_twin, FILE *f) {
-  int i;
+void tls_printf(const struct tls_information *data, const struct tls_information *data_twin, zfile f) {
+  int i, j, sum;
 
   if (!data->tls_v && (data_twin == NULL || !data_twin->tls_v)) { // no reliable TLS information
     return ;
   }
-  fprintf(f, ",\"tls\":{");
+  zprintf(f, ",\"tls\":{");
 
   if (data->tls_v) {
-    fprintf(f, "\"tls_ov\":%u", data->tls_v);
+    zprintf(f, "\"tls_ov\":%u", data->tls_v);
   }
   if (data_twin && data_twin->tls_v) {
     if (data->tls_v) {
-      fprintf(f, ",\"tls_iv\":%u", data_twin->tls_v);
+      zprintf(f, ",\"tls_iv\":%u", data_twin->tls_v);
     } else {
-      fprintf(f, "\"tls_iv\":%u", data_twin->tls_v);
+      zprintf(f, "\"tls_iv\":%u", data_twin->tls_v);
     }
   }
 
   if (data->tls_client_key_length) {
-    fprintf(f, ",\"tls_client_key_length\":%u", data->tls_client_key_length);
+    zprintf(f, ",\"tls_client_key_length\":%u", data->tls_client_key_length);
   }
   if (data_twin && data_twin->tls_client_key_length) {
-    fprintf(f, ",\"tls_client_key_length\":%u", data_twin->tls_client_key_length);
+    zprintf(f, ",\"tls_client_key_length\":%u", data_twin->tls_client_key_length);
   }
 
   /*
@@ -693,99 +699,108 @@ void tls_printf(const struct tls_information *data, const struct tls_information
    * serverHello
    */
 
-  if (data->num_ciphersuites) {
-    fprintf(f, ",\"tls_orandom\":");
-    fprintf_raw_as_hex_tls(f, data->tls_random, 32);
+  //  if (data->num_ciphersuites) {
+  sum = 0;
+  for (j = 0; j < 32; ++j) {
+    sum |= *(const char *)(data->tls_random+j);
   }
-  if (data_twin && data_twin->num_ciphersuites) {
-    fprintf(f, ",\"tls_irandom\":");
-    fprintf_raw_as_hex_tls(f, data_twin->tls_random, 32);
+  if (sum != 0) {
+    zprintf(f, ",\"tls_orandom\":");
+    zprintf_raw_as_hex_tls(f, data->tls_random, 32);
+  }
+  sum = 0;
+  for (j = 0; j < 32; ++j) {
+    sum |= *(const char *)(data_twin->tls_random+j);
+  }
+  if (data_twin && sum != 0) {
+    zprintf(f, ",\"tls_irandom\":");
+    zprintf_raw_as_hex_tls(f, data_twin->tls_random, 32);
   }
 
   if (data->tls_sid_len) {
-    fprintf(f, ",\"tls_osid\":");
-    fprintf_raw_as_hex_tls(f, data->tls_sid, data->tls_sid_len);
+    zprintf(f, ",\"tls_osid\":");
+    zprintf_raw_as_hex_tls(f, data->tls_sid, data->tls_sid_len);
   }
   if (data_twin && data_twin->tls_sid_len) {
-    fprintf(f, ",\"tls_isid\":");
-    fprintf_raw_as_hex_tls(f, data_twin->tls_sid, data_twin->tls_sid_len);
+    zprintf(f, ",\"tls_isid\":");
+    zprintf_raw_as_hex_tls(f, data_twin->tls_sid, data_twin->tls_sid_len);
   }
 
   if (data->num_ciphersuites) {
     if (data->num_ciphersuites == 1) {
-      fprintf(f, ",\"scs\":\"%04x\"", data->ciphersuites[0]);
+      zprintf(f, ",\"scs\":\"%04x\"", data->ciphersuites[0]);
     } else {
-      fprintf(f, ",\"cs\":[");
+      zprintf(f, ",\"cs\":[");
       for (i = 0; i < data->num_ciphersuites-1; i++) {
-	fprintf(f, "\"%04x\",", data->ciphersuites[i]);
+	zprintf(f, "\"%04x\",", data->ciphersuites[i]);
       }
-      fprintf(f, "\"%04x\"]", data->ciphersuites[i]);
+      zprintf(f, "\"%04x\"]", data->ciphersuites[i]);
     }
   }  
   if (data_twin && data_twin->num_ciphersuites) {
     if (data_twin->num_ciphersuites == 1) {
-      fprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
+      zprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
     } else {
-      fprintf(f, ",\"cs\":[");
+      zprintf(f, ",\"cs\":[");
       for (i = 0; i < data_twin->num_ciphersuites-1; i++) {
-	fprintf(f, "\"%04x\",", data_twin->ciphersuites[i]);
+	zprintf(f, "\"%04x\",", data_twin->ciphersuites[i]);
       }
-      fprintf(f, "\"%04x\"]", data_twin->ciphersuites[i]);
+      zprintf(f, "\"%04x\"]", data_twin->ciphersuites[i]);
     }
   }    
   
   if (data->num_tls_extensions) {
-    fprintf(f, ",\"tls_ext\":[");
+    zprintf(f, ",\"tls_ext\":[");
     for (i = 0; i < data->num_tls_extensions-1; i++) {
-      fprintf(f, "{\"type\":\"%04x\",", data->tls_extensions[i].type);
-      fprintf(f, "\"length\":%i,\"data\":", data->tls_extensions[i].length);
-      fprintf_raw_as_hex_tls(f, data->tls_extensions[i].data, data->tls_extensions[i].length);
-      fprintf(f, "},");
+      zprintf(f, "{\"type\":\"%04x\",", data->tls_extensions[i].type);
+      zprintf(f, "\"length\":%i,\"data\":", data->tls_extensions[i].length);
+      zprintf_raw_as_hex_tls(f, data->tls_extensions[i].data, data->tls_extensions[i].length);
+      zprintf(f, "},");
     }
-    fprintf(f, "{\"type\":\"%04x\",", data->tls_extensions[i].type);
-    fprintf(f, "\"length\":%i,\"data\":", data->tls_extensions[i].length);
-    fprintf_raw_as_hex_tls(f, data->tls_extensions[i].data, data->tls_extensions[i].length);
-    fprintf(f, "}]");
+    zprintf(f, "{\"type\":\"%04x\",", data->tls_extensions[i].type);
+    zprintf(f, "\"length\":%i,\"data\":", data->tls_extensions[i].length);
+    zprintf_raw_as_hex_tls(f, data->tls_extensions[i].data, data->tls_extensions[i].length);
+    zprintf(f, "}]");
   }  
   if (data_twin && data_twin->num_tls_extensions) {
-    fprintf(f, ",\"tls_ext\":[");
+    zprintf(f, ",\"tls_ext\":[");
     for (i = 0; i < data_twin->num_tls_extensions-1; i++) {
-      fprintf(f, "{\"type\":\"%04x\",", data_twin->tls_extensions[i].type);
-      fprintf(f, "\"length\":%i,\"data\":", data_twin->tls_extensions[i].length);
-      fprintf_raw_as_hex_tls(f, data_twin->tls_extensions[i].data, data_twin->tls_extensions[i].length);
-      fprintf(f, "},");
+      zprintf(f, "{\"type\":\"%04x\",", data_twin->tls_extensions[i].type);
+      zprintf(f, "\"length\":%i,\"data\":", data_twin->tls_extensions[i].length);
+      zprintf_raw_as_hex_tls(f, data_twin->tls_extensions[i].data, data_twin->tls_extensions[i].length);
+      zprintf(f, "},");
     }
-    fprintf(f, "{\"type\":\"%04x\",", data_twin->tls_extensions[i].type);
-    fprintf(f, "\"length\":%i,\"data\":", data_twin->tls_extensions[i].length);
-    fprintf_raw_as_hex_tls(f, data_twin->tls_extensions[i].data, data_twin->tls_extensions[i].length);
-    fprintf(f, "}]");
+    zprintf(f, "{\"type\":\"%04x\",", data_twin->tls_extensions[i].type);
+    zprintf(f, "\"length\":%i,\"data\":", data_twin->tls_extensions[i].length);
+    zprintf_raw_as_hex_tls(f, data_twin->tls_extensions[i].data, data_twin->tls_extensions[i].length);
+    zprintf(f, "}]");
   }
   
   if (data->num_server_tls_extensions) {
-    fprintf(f, ",\"s_tls_ext\":[");
+    zprintf(f, ",\"s_tls_ext\":[");
     for (i = 0; i < data->num_server_tls_extensions-1; i++) {
-      fprintf(f, "{\"type\":\"%04x\",", data->server_tls_extensions[i].type);
-      fprintf(f, "\"length\":%i,\"data\":", data->server_tls_extensions[i].length);
-      fprintf_raw_as_hex_tls(f, data->server_tls_extensions[i].data, data->server_tls_extensions[i].length);
-      fprintf(f, "},");
+      zprintf(f, "{\"type\":\"%04x\",", data->server_tls_extensions[i].type);
+      zprintf(f, "\"length\":%i,\"data\":", data->server_tls_extensions[i].length);
+      zprintf_raw_as_hex_tls(f, data->server_tls_extensions[i].data, data->server_tls_extensions[i].length);
+      zprintf(f, "},");
     }
-    fprintf(f, "{\"type\":\"%04x\",", data->server_tls_extensions[i].type);
-    fprintf(f, "\"length\":%i,\"data\":", data->server_tls_extensions[i].length);
-    fprintf_raw_as_hex_tls(f, data->server_tls_extensions[i].data, data->server_tls_extensions[i].length);
-    fprintf(f, "}]");
+    zprintf(f, "{\"type\":\"%04x\",", data->server_tls_extensions[i].type);
+    zprintf(f, "\"length\":%i,\"data\":", data->server_tls_extensions[i].length);
+    zprintf_raw_as_hex_tls(f, data->server_tls_extensions[i].data, data->server_tls_extensions[i].length);
+    zprintf(f, "}]");
   }  
   if (data_twin && data_twin->num_server_tls_extensions) {
-    fprintf(f, ",\"s_tls_ext\":[");
+    zprintf(f, ",\"s_tls_ext\":[");
     for (i = 0; i < data_twin->num_server_tls_extensions-1; i++) {
-      fprintf(f, "{\"type\":\"%04x\",", data_twin->server_tls_extensions[i].type);
-      fprintf(f, "\"length\":%i,\"data\":", data_twin->server_tls_extensions[i].length);
-      fprintf_raw_as_hex_tls(f, data_twin->server_tls_extensions[i].data, data_twin->server_tls_extensions[i].length);
-      fprintf(f, "},");
+      zprintf(f, "{\"type\":\"%04x\",", data_twin->server_tls_extensions[i].type);
+      zprintf(f, "\"length\":%i,\"data\":", data_twin->server_tls_extensions[i].length);
+      zprintf_raw_as_hex_tls(f, data_twin->server_tls_extensions[i].data, data_twin->server_tls_extensions[i].length);
+      zprintf(f, "},");
     }
-    fprintf(f, "{\"type\":\"%04x\",", data_twin->server_tls_extensions[i].type);
-    fprintf(f, "\"length\":%i,\"data\":", data_twin->server_tls_extensions[i].length);
-    fprintf_raw_as_hex_tls(f, data_twin->server_tls_extensions[i].data, data_twin->server_tls_extensions[i].length);
-    fprintf(f, "}]");
+    zprintf(f, "{\"type\":\"%04x\",", data_twin->server_tls_extensions[i].type);
+    zprintf(f, "\"length\":%i,\"data\":", data_twin->server_tls_extensions[i].length);
+    zprintf_raw_as_hex_tls(f, data_twin->server_tls_extensions[i].data, data_twin->server_tls_extensions[i].length);
+    zprintf(f, "}]");
   }
   
     /* print out TLS application data lengths and times, if any */
@@ -803,5 +818,5 @@ void tls_printf(const struct tls_information *data, const struct tls_information
       }
     }
  
-  fprintf(f, "}");
+  zprintf(f, "}");
 }

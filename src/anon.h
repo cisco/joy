@@ -58,7 +58,7 @@
 #include <fcntl.h>
 #include <openssl/aes.h>
 #include "err.h"
-
+#include "output.h"
 
 //struct subnet {
 //  struct in_addr addr;
@@ -89,10 +89,10 @@ unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 
 enum status anon_http_init(const char *pathname, FILE *logfile);
 
-void fprintf_anon_nbytes(FILE *f, char *s, size_t len);
+void zprintf_anon_nbytes(zfile f, char *s, size_t len);
 
-void fprintf_nbytes(FILE *f, char *s, size_t len);
+void zprintf_nbytes(zfile f, char *s, size_t len);
 
-void anon_print_uri(FILE *f, struct matches *matches, char *text);
+void anon_print_uri(zfile f, struct matches *matches, char *text);
 
 #endif /* ANON_H */

@@ -626,6 +626,7 @@ class printSelectedElements:
                for a in filter:
                   if self.field2 in a:
                      filter2 = a[self.field2]
+                     print "\"" + str(self.field2) + "\": " + printable(filter2),
                      if first:
                         first = False
                         if not self.firstFlow:
@@ -805,21 +806,34 @@ def processFileOld(f, ff, fp):
          fp.processFlow(flow["flow"])
    json_data.close()
 
+def processLine(line):
+   if line.strip == '{' or 'metadata' in line:
+      self.legacy_format = True
+      print "warning: legacy JSON format"
+      return
+   try:
+      tmp = json.loads(line)
+      if 'version' not in tmp:
+         if ff.match(tmp):
+            fp.processFlow(tmp)
+   except:
+      pass
+
+import gzip
+
 def processFile(f, ff, fp):
-   with open(f,'r') as jsonobjects:
-      for line in jsonobjects:
-         if line.strip == '{' or 'metadata' in line:
-            self.legacy_format = True
-            print "legacy format"
-            break
-         
-         try:
-            tmp = json.loads(line)
-            if 'version' not in tmp:
-               if ff.match(tmp):
-                  fp.processFlow(tmp)
-         except:
-            continue
+   if f is '-':
+      for line in sys.stdin:
+         processLine(line)
+   else:
+      if ".gz" in f:
+         with gzip.open(f,'r') as jsonobjects:
+            for line in jsonobjects:
+               processLine(line)
+      else:
+         with open(f,'r') as jsonobjects:
+            for line in jsonobjects:
+               processLine(line)
 
 
 

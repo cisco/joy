@@ -146,7 +146,7 @@ inline void header_description_update(struct header_description *hd,
  * type/length/values, with types = const, integer, and other?
  */
 
-void header_description_printf(const struct header_description *hd, FILE *f, unsigned int len) {
+void header_description_printf(const struct header_description *hd, zfile f, unsigned int len) {
   unsigned int i;
 
   if (hd->num_headers_seen < 2) {
@@ -165,19 +165,19 @@ void header_description_printf(const struct header_description *hd, FILE *f, uns
    *  2 = other
    */
 
-  fprintf(f, ",\"hd\":{\"n\":%u,\"cm\":\"", hd->num_headers_seen);
+  zprintf(f, ",\"hd\":{\"n\":%u,\"cm\":\"", hd->num_headers_seen);
   for (i=0; i<len; i++) {
-    fprintf(f, "%02x", hd->const_mask[i]);
+    zprintf(f, "%02x", hd->const_mask[i]);
   }
-  fprintf(f, "\",\"cv\":\"");
+  zprintf(f, "\",\"cv\":\"");
   for (i=0; i<len; i++) {
-    fprintf(f, "%02x", hd->const_value[i]);
+    zprintf(f, "%02x", hd->const_value[i]);
   }
-  fprintf(f, "\",\"sm\":\"");
+  zprintf(f, "\",\"sm\":\"");
   for (i=0; i<len; i++) {
-    fprintf(f, "%02x", hd->seq_mask[i]);
+    zprintf(f, "%02x", hd->seq_mask[i]);
   }
-  fprintf(f, "\"}");
+  zprintf(f, "\"}");
 
 }
 

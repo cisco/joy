@@ -38,7 +38,7 @@
 #define HTTP_H
 
 #include <stdio.h>   /* for FILE */
-
+#include "output.h"
 
 struct http_data {
   char *header;
@@ -52,7 +52,7 @@ void http_update(struct http_data *data,
 		 unsigned long bytes_in_msg,
 		 unsigned int report_http);
 
-void http_printf(const struct http_data *data, char *string, FILE *f);
+void http_printf(const struct http_data *data, char *string, zfile f);
 
 void http_delete(struct http_data *data);
 

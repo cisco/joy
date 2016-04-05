@@ -49,6 +49,7 @@
 #include "pkt.h"
 #include "err.h"
 #include "tls.h"
+#include "dns.h"
 #include "nfv9.h"
 #include "config.h"
 
@@ -255,47 +256,6 @@ void flow_record_process_packet_length_and_time_ack(struct flow_record *record,
 
 }
 
-void dns_query_to_string(char *q, unsigned int len) {
-  unsigned int i;
-
-  /* 
-   * question: what should this function do if a null character
-   *  appears before the end of the string?
-   */ 
-
-  for (i=1; i<len; i++) {
-    if (q[i] == 0) {
-      break;
-    }
-    if (q[i] < 32) {
-      q[i] = '.';
-    }
-  }
-}
-
-enum status process_dns(const struct pcap_pkthdr *h, const void *start, int len, struct flow_record *r) {
-  const char *name = start + 13;
-  // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
-  // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
-
-  if (r->op >= num_pkt_len) {
-    return failure;  /* no more room */
-  }  
-
-  if (len < 13) {
-    return failure;  /* not long enough to be a proper DNS packet */
-  }
-
-  // printf("dns len: %u name: %s qr: %u rcode: %u\n", len-14, name, qr, rcode);
-  if (!r->dns_name[r->op]) {
-    r->dns_name[r->op] = malloc(len-13);
-    strncpy(r->dns_name[r->op], name, len-13);
-    dns_query_to_string(r->dns_name[r->op], len-13);
-  }
-
-  return ok;
-}
-
 enum status process_nfv9(const struct pcap_pkthdr *h, const void *start, int len, struct flow_record *r) {
   /* debugging output */
 
@@ -500,6 +460,16 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
     fprintf(output, "payload len: %u\n", payload_len);
     fprintf(output, "    tcp len: %u\n", tcp_len);
     fprintf(output, "tcp hdr len: %u\n", tcp_hdr_len);
+    fprintf(output, "      flags:");
+    if (tcp->tcp_flags & TCP_FIN) { fprintf(output, "FIN "); }
+    if (tcp->tcp_flags & TCP_SYN) { fprintf(output, "SYN "); }
+    if (tcp->tcp_flags & TCP_RST) { fprintf(output, "RST "); }
+    if (tcp->tcp_flags & TCP_PSH) { fprintf(output, "PSH "); }
+    if (tcp->tcp_flags & TCP_ACK) { fprintf(output, "ACK "); }
+    if (tcp->tcp_flags & TCP_URG) { fprintf(output, "URG "); }
+    if (tcp->tcp_flags & TCP_ECE) { fprintf(output, "ECE "); }
+    if (tcp->tcp_flags & TCP_CWR) { fprintf(output, "CWR "); }
+    fprintf(output, "\n");
 
     if (output_level > packet_summary) {
       if (payload_len > 0) {
@@ -516,9 +486,13 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   if (record == NULL) {
     return NULL;
   }
-  //fprintf(output, "   SEQ:      %d\n", ntohl(tcp->tcp_seq) - record->seq);
-  //fprintf(output, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
-  
+  if (output_level > none) {
+    fprintf(output, "   SEQ:      %d\trelative SEQ: %d\n", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->seq);
+    fprintf(output, "   ACK:      %d\trelative ACK: %d\n", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->ack);
+    // fprintf(output, "   SEQ:      %d\n", ntohl(tcp->tcp_seq) - record->seq);
+    // fprintf(output, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
+  }
+
   if (payload_len > 0) {
     if (ntohl(tcp->tcp_seq) < record->seq) {
       // fprintf(info, "retransmission detected\n");

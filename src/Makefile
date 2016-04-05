@@ -27,6 +27,7 @@ sysname = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
 LIBS = -lpcap    # packet capture library; hard requirement
 LIBS += -lm      # math library; logf() used in entropy computation
 LIBS += -lcrypto # openSSL crypto library; used in anonymization
+LIBS += -lz
 
 INCLUDEDIR = 
 
@@ -38,8 +39,8 @@ NFV9_FILES = exporter.c nfv9.c nfv9.h Makefile
 TLS_FILES = tls.c tls.h
 CLASSIFY_FILES = classify.c classify.h
 
-PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c
-PCAP2FLOW_HDR = osdetect.h anon.h p2f.h pkt.h tls.h pkt_proc.h radix_trie.h classify.h hdr_dsc.h addr_attr.h addr.h err.h
+PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c
+PCAP2FLOW_HDR = osdetect.h anon.h p2f.h pkt.h tls.h pkt_proc.h radix_trie.h classify.h hdr_dsc.h addr_attr.h addr.h err.h dns.h
 
 ifeq ($(sysname),LINUX)
 	CFLAGS += # -Wno-maybe-uninitialized 
@@ -77,6 +78,7 @@ classify: classify.c classify.h Makefile
 pcap2flow: $(PCAP2FLOW_FILES) Makefile VERSION
 	gcc $(CFLAGS) $(CDEFS) -o pcap2flow $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBS) 
 #	strip pcap2flow
+	cp pcap2flow ./..
 
 unit_test: unit_test.c Makefile VERSION $(PCAP2FLOW_FILES)
 	gcc $(CFLAGS) $(CDEFS) -o unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBS) 

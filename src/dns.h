@@ -1,4 +1,7 @@
 /*
+ * dns.h
+ */
+/*
  *	
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
@@ -34,21 +37,24 @@
  *
  */
 
-/*
- * osdetect.h
- *
- * operating system identification
- */
+#ifndef DNS_H
+#define DNS_H
 
-#ifndef OS_DETECT_H
-#define OS_DETECT_H
+#include <pcap.h>
+#include "p2f.h"
+#include "err.h"
 
-#include <string.h>
-#include <stdio.h>
-#include "output.h"
+struct dns_data {
+  char *dns_name[MAX_NUM_PKT_LEN];  /* array of DNS names */
+};
 
-void os_printf(zfile f, int ttl, int iws, int ttl_twin, int iws_twin);
+enum status process_dns(const struct pcap_pkthdr *h, 
+			const void *start, 
+			int len, 
+			struct flow_record *r);
 
-void detect_os(int ttl, int iws, char* os_name, int buf_size);
+void dns_printf(char * const dns_name[], const unsigned short pkt_len[], 
+		char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
+		unsigned int count, zfile output);
 
-#endif /* OS_DETECT_H */
+#endif /* DNS_H */

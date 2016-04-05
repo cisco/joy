@@ -45,6 +45,7 @@
 #define WHT_H
 
 #include <stdio.h>   /* for FILE* */
+#include "output.h"
 
 struct wht {
   int32_t spectrum[4];
@@ -54,13 +55,13 @@ void wht_init(struct wht *wht);
 
 void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned int report_wht);
 
-void wht_printf(const struct wht *wht, FILE *f);
+void wht_printf(const struct wht *wht, zfile f);
 
-void wht_printf_scaled(const struct wht *wht, FILE *f, unsigned int num_bytes);
+void wht_printf_scaled(const struct wht *wht, zfile f, unsigned int num_bytes);
 
 void wht_printf_scaled_bidir(const struct wht *w1, unsigned int b1,
 			     const struct wht *w2, unsigned int b2,
-			     FILE *f);
+			     zfile f);
 
 
 void wht_unit_test();

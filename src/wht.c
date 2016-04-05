@@ -84,20 +84,20 @@ void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned in
   }
 }
 
-void wht_printf(const struct wht *wht, FILE *f) {
+void wht_printf(const struct wht *wht, zfile f) {
   
-  fprintf(f, ",\"wht\":[%d,%d,%d,%d]",
+  zprintf(f, ",\"wht\":[%d,%d,%d,%d]",
 	  wht->spectrum[0], wht->spectrum[1], wht->spectrum[2], wht->spectrum[3]);
   
 }
 
-void wht_printf_scaled(const struct wht *wht, FILE *f, unsigned int num_bytes) {
+void wht_printf_scaled(const struct wht *wht, zfile f, unsigned int num_bytes) {
 
   if (num_bytes == 0) {
     return;
   }
   
-  fprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
+  zprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
 	  (float) wht->spectrum[0] / num_bytes, 
 	  (float) wht->spectrum[1] / num_bytes,
 	  (float) wht->spectrum[2] / num_bytes,
@@ -107,7 +107,7 @@ void wht_printf_scaled(const struct wht *wht, FILE *f, unsigned int num_bytes) {
 
 void wht_printf_scaled_bidir(const struct wht *w1, unsigned int b1,
 			     const struct wht *w2, unsigned int b2,
-			     FILE *f) {
+			     zfile f) {
   int64_t s[4];
   uint64_t n = b1 + b2;
 
@@ -121,18 +121,18 @@ void wht_printf_scaled_bidir(const struct wht *w1, unsigned int b1,
   s[2] = w1->spectrum[2] + w2->spectrum[2];  
   s[3] = w1->spectrum[3] + w2->spectrum[3];  
 
-  fprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
+  zprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
 	  (float) s[0] / n, 
 	  (float) s[1] / n,
 	  (float) s[2] / n,
 	  (float) s[3] / n);
 #if 0
-  fprintf(f, ",\"RAW1\":[%d,%d,%d,%d]",
+  zprintf(f, ",\"RAW1\":[%d,%d,%d,%d]",
 	  w1->spectrum[0], 
 	  w1->spectrum[1],
 	  w1->spectrum[2],
 	  w1->spectrum[3]);
-  fprintf(f, ",\"RAW2\":[%d,%d,%d,%d]",
+  zprintf(f, ",\"RAW2\":[%d,%d,%d,%d]",
 	  w1->spectrum[0], 
 	  w1->spectrum[1],
 	  w1->spectrum[2],
@@ -156,24 +156,30 @@ void wht_unit_test() {
   uint8_t buffer4[4] = {
     255, 254, 253, 252
   };
+  zfile output;
+
+  output = zattach(stdout, "w");
+  if (output == NULL) {
+    fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
+  }
 
   wht_init(&wht);
   wht_update(&wht, buffer1, sizeof(buffer1), 1);
-  wht_printf_scaled(&wht, stdout, sizeof(buffer1));
+  wht_printf_scaled(&wht, output, sizeof(buffer1));
 
   wht_init(&wht);
   wht_update(&wht, buffer2, sizeof(buffer2), 1);
-  wht_printf_scaled(&wht, stdout, sizeof(buffer2));
+  wht_printf_scaled(&wht, output, sizeof(buffer2));
 
   wht_init(&wht);
   wht_update(&wht, buffer3, sizeof(buffer3), 1);
-  wht_printf_scaled(&wht, stdout, sizeof(buffer3));
+  wht_printf_scaled(&wht, output, sizeof(buffer3));
 
   wht_init(&wht);
   wht_init(&wht2);
   wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
   wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
   wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
-  wht_printf_scaled_bidir(&wht, 3, &wht2, 0, stdout);
+  wht_printf_scaled_bidir(&wht, 3, &wht2, 0, output);
 
 } 

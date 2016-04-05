@@ -42,17 +42,17 @@
 
 #include "osdetect.h"
 
-void os_printf(FILE *f, int ttl, int iws, int ttl_twin, int iws_twin) {
+void os_printf(zfile f, int ttl, int iws, int ttl_twin, int iws_twin) {
   char os_name[32];
   detect_os(ttl, iws, os_name, sizeof(os_name));
 
   if (*os_name) {
-    fprintf(f, ",\"o_probable_os\":\"%s\"", os_name);
+    zprintf(f, ",\"o_probable_os\":\"%s\"", os_name);
   }
   if (ttl_twin) {
     detect_os(ttl_twin, iws_twin, os_name, sizeof(os_name));
     if (*os_name) {
-      fprintf(f, ",\"i_probable_os\":\"%s\"", os_name);
+      zprintf(f, ",\"i_probable_os\":\"%s\"", os_name);
     }
   }
 }

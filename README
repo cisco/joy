@@ -90,12 +90,18 @@ Building
    copied into the main directory as appropriate.  It will also run a
    test script and a unit test program.
 
+   Set COMPRESSED_OUTPUT (in src/output.h) to 1 for gzip-compressed
+   JSON output.  This compile-time option is on by default.  If that
+   #define is instead set to 0, then normal JSON will be output.
+   There are many tools that can be used to work with gzip-compressed
+   output, such as zless, gunzip, etc.  
+
    The main program for extracting data features from pcap files or
    live packet captures is the program pcap2flow, which occupies the
    src/ subdirectory.  It is copied into the main joy directory after
    a successful build.  It can be run from that directory, or
    installed so that it will automatically run as a daemon on Linux or
-   Mac OSX.  
+   Mac OSX.
 
 Running and Configuration
 
