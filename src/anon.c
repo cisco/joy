@@ -420,7 +420,7 @@ void zprintf_nbytes(zfile f, char *s, size_t len) {
   char tmp[1024];
   
   if (len > 1024) {
-    zprintf(f, "error: string longer than fixed buffer (length: %zu)\n", len);
+    fprintf(stderr, "error: string longer than fixed buffer (length: %zu)\n", len);
     return;
   }
   memcpy(tmp, s, len);
@@ -434,7 +434,7 @@ void zprintf_anon_nbytes(zfile f, char *s, size_t len) {
   unsigned int i;
 
   if (len > 1024) {
-    zprintf(f, "error: string longer than fixed buffer (length: %zu)\n", len);
+    fprintf(stderr, "error: string longer than fixed buffer (length: %zu)\n", len);
     return;
   }
   for (i=0; i<len; i++) {
