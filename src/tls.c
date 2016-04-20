@@ -557,6 +557,11 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
 	  y += 4;
 	  certs_len -= 4;
 	  ext_len -= 4;		
+	} else if (tmp_len2 == 129) {
+	  tmp_len2 = *(y+2);
+	  y += 3;
+	  certs_len -= 3;
+	  ext_len -= 3;
 	} else {
 	  y += 2;
 	  certs_len -= 2;
@@ -570,8 +575,12 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
 	if ((hi == 85) && (mid == 29) && (lo == 17)) { // parse SAN
 	  tmp_len = *(y+1);
 	  tmp_len2 = tmp_len2-tmp_len-2;
-	  
-	  parse_san(y+tmp_len+2+4, tmp_len2-4, &r->certificates[cur_cert]);
+
+	  if (*(y+6) == 129) {
+	    parse_san(y+tmp_len+2+4+2, tmp_len2-4-2, &r->certificates[cur_cert]);
+	  } else {
+	    parse_san(y+tmp_len+2+4, tmp_len2-4, &r->certificates[cur_cert]);
+	  }
 	  
 	  y += tmp_len2+tmp_len+2;
 	  certs_len -= tmp_len2+tmp_len+2;
@@ -637,12 +646,20 @@ void parse_san(const void *x, int len, struct tls_certificate *r) {
   unsigned short num_san = 0;
   unsigned short tmp_len;
   const unsigned char *y = x;
+  char i;
 
   while (len > 0) {
     tmp_len = *(y+1);
+
     r->san[num_san] = malloc(tmp_len+1);
     memset(r->san[num_san], 0, tmp_len+1);
     memcpy(r->san[num_san], y+2, tmp_len);
+
+    for (i = 0; i < tmp_len; i++) {
+      if (*(char *)(r->san[num_san]+i) < 48 || *(char *)(r->san[num_san]+i) > 126) {
+	memset(r->san[num_san]+i, '.', 1);
+      }
+    }
 
     num_san += 1;
     y += tmp_len+2;
