@@ -338,7 +338,15 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     
     y += 14; // skip over lengths
     certs_len -= 14;
-    
+
+    /*
+    // only parse v3
+    if (*(y-2) != 3) {
+      r->num_certificates = 0;
+      break;
+    }
+    */
+
     // parse serial number
     tmp_len = (*y);
     r->certificates[cur_cert].serial_number = malloc(tmp_len);
@@ -857,24 +865,24 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
 
   /* currently skipping SSLv2 */
 
+  /* currently skipping jumbo frames */
+  if (len > 1600) {
+    return NULL;
+  }
+
   tls = start;
   if (tls->ContentType == handshake && tls->Handshake.HandshakeType == server_hello) {
     if (r->start_cert == 0) {
       // create buffer to store the server certificate
-      r->certificate_buffer = malloc(MAX_CERTIFICATE_BUFFER);
-    
-      //memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
+      r->certificate_buffer = calloc(1,MAX_CERTIFICATE_BUFFER);
       memcpy(r->certificate_buffer, tls, len);
-      //r->certificate_offset += tls_len;
       r->certificate_offset += len;
       
       r->start_cert = 1;
     } else {
       if (r->certificate_offset + len > MAX_CERTIFICATE_BUFFER) {
       } else {
-	//memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
 	memcpy(r->certificate_buffer+r->certificate_offset, tls, len);
-	//r->certificate_offset += tls_len;
 	r->certificate_offset += len;
       }
     }
@@ -899,7 +907,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
     //}
 
     // process certificate
-    if (r->start_cert && ((tls->ContentType == application_data) ||
+    if (r->certificate_offset && r->start_cert && ((tls->ContentType == application_data) ||
 		       (r->certificate_offset >= 4000) ||
 		       (tls->Handshake.HandshakeType == server_hello_done))) {
       //TLSServerCertificate_parse(r->certificate_buffer, tls_len, r);
@@ -994,6 +1002,7 @@ process_certificate(const void *start, int len, struct tls_information *r) {
 
   while (len > 0) {
     tls = start;
+
     tls_len = tls_header_get_length(tls);
 
     //printf("%i\n",tls->ContentType);
