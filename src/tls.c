@@ -646,7 +646,7 @@ void parse_san(const void *x, int len, struct tls_certificate *r) {
   unsigned short num_san = 0;
   unsigned short tmp_len;
   const unsigned char *y = x;
-  char i;
+  int i;
 
   while (len > 0) {
     tmp_len = *(y+1);
