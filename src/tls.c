@@ -85,6 +85,9 @@ void tls_record_init(struct tls_information *r) {
   r->tls_sid_len = 0;
   r->tls_v = 0;
   r->tls_client_key_length = 0;
+  r->certificate_buffer = NULL;
+  r->certificate_offset = 0;
+  r->start_cert = 0;
 
   memset(r->tls_len, 0, sizeof(r->tls_len));
   memset(r->tls_time, 0, sizeof(r->tls_time));
@@ -94,11 +97,26 @@ void tls_record_init(struct tls_information *r) {
   memset(r->server_tls_extensions, 0, sizeof(r->server_tls_extensions));
   memset(r->tls_sid, 0, sizeof(r->tls_sid));
   memset(r->tls_random, 0, sizeof(r->tls_random));
+
+  r->num_certificates = 0;
+  int i, j;
+  for (i = 0; i < MAX_CERTIFICATES; i++) {
+    r->certificates[i].signature = NULL;
+    r->certificates[i].subject_public_key_size = 0;
+    r->certificates[i].signature_key_size = 0;
+
+    for (j = 0; j < MAX_SAN; j++) {
+      r->certificates[i].san[j] = NULL;
+    }
+  }
 }
 
 /* free data associated with TLS */
 void tls_record_delete(struct tls_information *r) {
-  int i;
+  int i,j;
+  if (r->certificate_buffer) {
+    free(r->certificate_buffer);
+  }
   for (i=0; i<r->num_tls_extensions; i++) {
     if (r->tls_extensions[i].data) {
       free(r->tls_extensions[i].data);
@@ -107,6 +125,58 @@ void tls_record_delete(struct tls_information *r) {
   for (i=0; i<r->num_server_tls_extensions; i++) {
     if (r->server_tls_extensions[i].data) {
       free(r->server_tls_extensions[i].data);
+    }
+  }
+  for (i = 0; i < r->num_certificates; i++) {
+    if (r->certificates[i].signature) {
+      free(r->certificates[i].signature);
+    }
+    if (r->certificates[i].serial_number) {
+      free(r->certificates[i].serial_number);
+    }
+    for (j = 0; j < MAX_RDN; j++) {
+      if (r->certificates[i].issuer_id[j]) {
+	free(r->certificates[i].issuer_id[j]);
+      }
+    }
+    for (j = 0; j < MAX_RDN; j++) {
+      if (r->certificates[i].issuer_string[j]) {
+	free(r->certificates[i].issuer_string[j]);
+      }
+    }
+    if (r->certificates[i].validity_not_before) {
+      free(r->certificates[i].validity_not_before);
+    }
+    if (r->certificates[i].validity_not_after) {
+      free(r->certificates[i].validity_not_after);
+    }
+    for (j = 0; j < MAX_RDN; j++) {
+      if (r->certificates[i].subject_id[j]) {
+	free(r->certificates[i].subject_id[j]);
+      }
+    }
+    for (j = 0; j < MAX_RDN; j++) {
+      if (r->certificates[i].subject_string[j]) {
+	free(r->certificates[i].subject_string[j]);
+      }
+    }
+    if (r->certificates[i].subject_public_key_algorithm) {
+      free(r->certificates[i].subject_public_key_algorithm);
+    }
+    for (j = 0; j < MAX_EXTENSIONS; j++) {
+      if (r->certificates[i].ext_id[j]) {
+	free(r->certificates[i].ext_id[j]);
+      }
+    }
+    for (j = 0; j < MAX_EXTENSIONS; j++) {
+      if (r->certificates[i].ext_data[j]) {
+	free(r->certificates[i].ext_data[j]);
+      }
+    }
+    for (j = 0; j < MAX_SAN; j++) {
+      if (r->certificates[i].san[j]) {
+	free(r->certificates[i].san[j]);
+      }
     }
   }
 }
@@ -121,44 +191,6 @@ unsigned short raw_to_unsigned_short(const void *x) {
   y += z[1];
   return y;
 }
-
-/*
-void TLSClientKeyExchange_get_key_length(const void *x, int len, int version,
-					 struct tls_information *r) {
-  const unsigned char *y = x;
-
-  if (r->tls_op > 1 || len < 32) {
-    return ;
-  }
-  // SPDY was somehow getting here and causing havoc
-  if (r->tls_client_key_length > 0) {
-    return ;
-  }
-  // check for random encrypted handshake messages, not the best check
-  //if (r->twin != NULL && r->twin->tls_client_key_length > 0) {
-  //  return ;
-  //}
-
-  // SSL 3.0 uses a slightly different format
-  //if (version == 2) {
-  //  if (htons(*(const unsigned short *)(y-2))*8 < 8193) {
-  //    r->tls_client_key_length = htons(*(const unsigned short *)(y-2))*8;
-  //  }
-  //  return ;
-  //}
-
-  // there must be a better check, but DH/EC sometimes uses 1/2 byte(s) for len
-  if (len > 256 || ((int)*(const char *)y) <= 0) {
-    if (htons(*(const unsigned short *)y)*8 < 8193) {
-      r->tls_client_key_length = htons(*(const unsigned short *)y)*8;
-    }
-  } else {
-    if (*(const char *)y*8 < 8193) {
-      r->tls_client_key_length = *(const char *)y*8;
-    }
-  }
-}
-*/
 
 void TLSClientHello_get_ciphersuites(const void *x, int len, 
 				     struct tls_information *r) {
@@ -279,6 +311,344 @@ void TLSClientHello_get_extensions(const void *x, int len,
     len -= raw_to_unsigned_short(y+2);
     y += 4 + raw_to_unsigned_short(y+2);
   }
+}
+
+
+void TLSServerCertificate_parse(const void *x, unsigned int len,
+				    struct tls_information *r) {
+
+  const unsigned char *y = x;
+  short certs_len, cert_len, tmp_len, tmp_len2, cur_cert, cur_rdn, issuer_len, subject_len,
+    rdn_seq_len, ext_len, cur_ext;
+  unsigned char lo, mid, hi;
+  certs_len = raw_to_unsigned_short(y+1);
+  //printf("certificates_length: %i\n",(unsigned int)certs_len);
+  y += 3;
+  certs_len -= 3;
+  
+  while (certs_len > 0) {
+    cur_cert = r->num_certificates;
+    r->num_certificates += 1;
+    cert_len = raw_to_unsigned_short(y+1);
+    //printf("\tcert_length: %i\n",(unsigned int)cert_len);
+    r->certificates[cur_cert].length = (unsigned short)cert_len;
+    
+    y += 3; // skip over single certificate length
+    certs_len -= 3;
+    
+    y += 14; // skip over lengths
+    certs_len -= 14;
+    
+    // parse serial number
+    tmp_len = (*y);
+    r->certificates[cur_cert].serial_number = malloc(tmp_len);
+    memcpy(r->certificates[cur_cert].serial_number, y+1, tmp_len);
+    r->certificates[cur_cert].serial_number_length = tmp_len;
+    //printf("\tserial_number: ");
+    //printf_raw_as_hex_tls(r->certificates[cur_cert].serial_number, tmp_len);
+    //printf("\n");
+    y += tmp_len+1;
+    certs_len -= tmp_len+1;
+    y += 2;
+    certs_len -= 2;
+
+    // parse signature
+    tmp_len = *(y+1);
+    y += 2;
+    certs_len -= 2;
+    r->certificates[cur_cert].signature = malloc(tmp_len);
+    memcpy(r->certificates[cur_cert].signature, y, tmp_len); 
+    r->certificates[cur_cert].signature_length = tmp_len;
+    //printf("\tsignature_algorithm: ");
+    //printf_raw_as_hex_tls(r->certificates[cur_cert].signature, tmp_len);
+    //printf("\n");
+    y += tmp_len;
+    certs_len -= tmp_len;
+    y += 2;
+    certs_len -= 2;
+
+    // parse issuer
+    cur_rdn = 0;
+    issuer_len = *(y+1);
+    if (issuer_len == 129) {
+      issuer_len = *(y+2);
+      y += 5;
+      certs_len -= 5;
+    } else if (issuer_len == 130) {
+      issuer_len = raw_to_unsigned_short(y+2);
+      y += 6;
+      certs_len -= 6;
+    } else {
+      y += 4;
+      certs_len -= 4;
+    }
+    while (issuer_len > 0) {
+      if (cur_rdn >= MAX_RDN) {
+	break;
+      }
+      rdn_seq_len = *(y+1);
+      y += 2;
+      certs_len -= 2;
+      issuer_len -= 2;
+      
+      tmp_len = *(y+1);
+      r->certificates[cur_cert].issuer_id[cur_rdn] = malloc(tmp_len);
+      memcpy(r->certificates[cur_cert].issuer_id[cur_rdn], y+2, tmp_len);
+      r->certificates[cur_cert].issuer_id_length[cur_rdn] = tmp_len;
+      //printf("\tissuer_id: ");
+      //printf_raw_as_hex_tls(r->certificates[cur_cert].issuer_id[cur_rdn], tmp_len);
+      //printf("\n");
+      
+      tmp_len2 = *(y+tmp_len+2+1);
+      r->certificates[cur_cert].issuer_string[cur_rdn] = malloc(tmp_len2+1);
+      memset(r->certificates[cur_cert].issuer_string[cur_rdn], 0, tmp_len2+1);
+      memcpy(r->certificates[cur_cert].issuer_string[cur_rdn], y+tmp_len+2+2, tmp_len2);
+      //r->certificates[cur_cert].issuer_string_length[cur_rdn] = tmp_len2;
+      //printf("\tissuer_string: \"%s\"\n", (char*)r->certificates[cur_cert].issuer_string[cur_rdn]);
+
+      y += 2;
+      certs_len -= 2;
+      issuer_len -= 2;
+      y += rdn_seq_len;
+      certs_len -= rdn_seq_len;
+      issuer_len -= rdn_seq_len;
+      cur_rdn++;
+      r->certificates[cur_cert].num_issuer = cur_rdn;
+    }
+    
+    // validity_not_before
+    //	  tmp_len = *(y+1);
+    
+    //y += 2;
+    //certs_len -= 2;
+    tmp_len = *(y+1);
+    y += 2;
+    certs_len -= 2;
+    r->certificates[cur_cert].validity_not_before = malloc(tmp_len+1);
+    memset(r->certificates[cur_cert].validity_not_before, 0, tmp_len+1);
+    memcpy(r->certificates[cur_cert].validity_not_before, y, tmp_len); 
+    //printf("\tvalidity_not_before: \"%s\"\n", (char *)r->certificates[cur_cert].validity_not_before);
+    y += tmp_len;
+    certs_len -= tmp_len;
+    // validity_not_after
+    tmp_len = *(y+1);
+    y += 2;
+    certs_len -= 2;
+    r->certificates[cur_cert].validity_not_after = malloc(tmp_len+1);
+    memset(r->certificates[cur_cert].validity_not_after, 0, tmp_len+1);
+    memcpy(r->certificates[cur_cert].validity_not_after, y, tmp_len); 
+    //printf("\tvalidity_not_after: \"%s\"\n", (char *)r->certificates[cur_cert].validity_not_after);
+    y += tmp_len;
+    certs_len -= tmp_len;
+
+    // parse subject
+    cur_rdn = 0;
+    subject_len = *(y+1);
+    if (subject_len == 129) {
+      subject_len = *(y+2);
+      y += 5;
+      certs_len -= 5;
+    } else if (subject_len == 130) {
+      subject_len = raw_to_unsigned_short(y+2);
+      y += 6;
+      certs_len -= 6;
+    } else {
+      y += 4;
+      certs_len -= 4;
+    }
+    
+    while (subject_len > 0) {
+      if (cur_rdn >= MAX_RDN) {
+	break;
+      }
+      rdn_seq_len = *(y+1);
+      y += 2;
+      certs_len -= 2;
+      subject_len -= 2;
+      
+      tmp_len = *(y+1);
+      r->certificates[cur_cert].subject_id[cur_rdn] = malloc(tmp_len);
+      memcpy(r->certificates[cur_cert].subject_id[cur_rdn], y+2, tmp_len);
+      r->certificates[cur_cert].subject_id_length[cur_rdn] = tmp_len;
+      //printf("\tsubject_id: ");
+      //printf_raw_as_hex_tls(r->certificates[cur_cert].subject_id[cur_rdn], tmp_len);
+      //printf("\n");
+      
+      tmp_len2 = *(y+tmp_len+2+1);
+      r->certificates[cur_cert].subject_string[cur_rdn] = malloc(tmp_len2+1);
+      memset(r->certificates[cur_cert].subject_string[cur_rdn], 0, tmp_len2+1);
+      memcpy(r->certificates[cur_cert].subject_string[cur_rdn], y+tmp_len+2+2, tmp_len2);
+      //printf("\tsubject_string: \"%s\"\n", (char*)r->certificates[cur_cert].subject_string[cur_rdn]);
+
+      y += 2;
+      certs_len -= 2;
+      subject_len -= 2;
+      y += rdn_seq_len;
+      certs_len -= rdn_seq_len;
+      subject_len -= rdn_seq_len;
+      cur_rdn++;
+      r->certificates[cur_cert].num_subject = cur_rdn;
+    }
+    
+    //printf("\tNext Three Bytes: ");
+    //printf_raw_as_hex_tls(y, 3);
+    //printf("\n");
+    
+    // parse subject public key info
+    if (*(y+1) == 48) {
+      y += 3;
+      certs_len -= 3;
+    } else {
+      y += 4;
+      certs_len -= 4;
+    }
+    tmp_len = *(y+1);
+    y += 2;
+    certs_len -= 2;
+    r->certificates[cur_cert].subject_public_key_algorithm = malloc(tmp_len);
+    memcpy(r->certificates[cur_cert].subject_public_key_algorithm, y, tmp_len); 
+    r->certificates[cur_cert].subject_public_key_algorithm_length = tmp_len;
+    //printf("\tsubject_public_key_algorithm: ");
+    //printf_raw_as_hex_tls(r->certificates[cur_cert].subject_public_key_algorithm, tmp_len);
+    //printf("\n");
+    y += tmp_len;
+    certs_len -= tmp_len;
+    y += 2;
+    certs_len -= 2;
+    
+    if (*(y+1) == 129) {
+      tmp_len = *(y+2);
+      r->certificates[cur_cert].subject_public_key_size = (tmp_len-13)*8;
+      //printf("\tsubject_public_key_size: %i\n", (tmp_len-13)*8);
+      //tmp_len -= 13;
+      y += tmp_len+3;
+      certs_len -= tmp_len+3;
+    } else if (*(y+1) == 130) {
+      tmp_len = raw_to_unsigned_short(y+2);
+      r->certificates[cur_cert].subject_public_key_size = (tmp_len-15)*8;
+      //printf("\tsubject_public_key_size: %i\n", (tmp_len-15)*8);
+      //tmp_len -= 15;
+      y += tmp_len+4;
+      certs_len -= tmp_len+4;	    
+    } else {
+      break ;
+    }
+    
+    
+    // optional: parse extensions
+    if (*y == 163 && *(y+1) == 130) {
+      y += 5;
+      certs_len -= 5;
+      
+      if (*y == 130) {
+	ext_len = raw_to_unsigned_short(y+1);
+	y += 3;
+	certs_len -= 3;
+      } else {
+	ext_len = *y;
+	y += 2;
+	certs_len -= 2;
+      }
+      cur_ext = 0;
+      while (ext_len > 0) {
+	tmp_len2 = *(y+1);
+	if (tmp_len2 == 130) {
+	  tmp_len2 = raw_to_unsigned_short(y+2);
+	  y += 4;
+	  certs_len -= 4;
+	  ext_len -= 4;		
+	} else {
+	  y += 2;
+	  certs_len -= 2;
+	  ext_len -= 2;
+	}
+	
+	// check for extension-specific parsing
+	hi = *(y+2);
+	mid = *(y+3);
+	lo = *(y+4);
+	if ((hi == 85) && (mid == 29) && (lo == 17)) { // parse SAN
+	  tmp_len = *(y+1);
+	  tmp_len2 = tmp_len2-tmp_len-2;
+	  
+	  parse_san(y+tmp_len+2+4, tmp_len2-4, &r->certificates[cur_cert]);
+	  
+	  y += tmp_len2+tmp_len+2;
+	  certs_len -= tmp_len2+tmp_len+2;
+	  ext_len -= tmp_len2+tmp_len+2;
+	} else { // general purpose ext parsing
+	  tmp_len = *(y+1);
+	  r->certificates[cur_cert].ext_id[cur_ext] = malloc(tmp_len);
+	  memcpy(r->certificates[cur_cert].ext_id[cur_ext], y+2, tmp_len);
+	  r->certificates[cur_cert].ext_id_length[cur_ext] = tmp_len;
+	  //printf("\text_id: ");
+	  //printf_raw_as_hex_tls(r->certificates[cur_cert].ext_id[cur_ext], tmp_len);
+	  //printf("\n");
+	  
+	  tmp_len2 = tmp_len2-tmp_len-2;
+	  r->certificates[cur_cert].ext_data[cur_ext] = malloc(tmp_len2);
+	  //memset(r->certificates[cur_cert].ext_data[cur_ext], 0, tmp_len2);
+	  memcpy(r->certificates[cur_cert].ext_data[cur_ext], y+tmp_len+2, tmp_len2);
+	  r->certificates[cur_cert].ext_data_length[cur_ext] = tmp_len2;
+	  //printf("\text_data: ");
+	  //printf_raw_as_hex_tls(r->certificates[cur_cert].ext_data[cur_ext], tmp_len2);
+	  //printf("\n");
+	  
+	  cur_ext++;
+	  r->certificates[cur_cert].num_ext = cur_ext;
+	  y += tmp_len2+tmp_len+2;
+	  certs_len -= tmp_len2+tmp_len+2;
+	  ext_len -= tmp_len2+tmp_len+2;
+	}
+      }	    
+    }
+    
+    // parse signature key size
+    tmp_len = *(y+1);
+    y += tmp_len+2;
+    certs_len -= tmp_len+2;
+    
+    if (*(y+1) == 129) {
+      tmp_len = *(y+2);
+      r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
+      //printf("\tsignature_key_size: %i\n", (tmp_len-1)*8);
+      y += tmp_len+3;
+      certs_len -= tmp_len+3;
+    } else if (*(y+1) == 130) {
+      tmp_len = raw_to_unsigned_short(y+2);
+      r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
+      //printf("\tsignature_key_size: %i\n", (tmp_len-1)*8);
+      y += tmp_len+4;
+      certs_len -= tmp_len+4;	    
+    } else {
+      break ;
+    }
+    
+    //certs_len -= cert_len;
+    //printf("\n");
+    //break;
+  }
+  
+  
+  //printf("\n");
+}
+
+void parse_san(const void *x, int len, struct tls_certificate *r) {
+  unsigned short num_san = 0;
+  unsigned short tmp_len;
+  const unsigned char *y = x;
+
+  while (len > 0) {
+    tmp_len = *(y+1);
+    r->san[num_san] = malloc(tmp_len+1);
+    memset(r->san[num_san], 0, tmp_len+1);
+    memcpy(r->san[num_san], y+2, tmp_len);
+
+    num_san += 1;
+    y += tmp_len+2;
+    len -= tmp_len+2;
+  }
+  r->num_san = num_san;
 }
 
 void TLSServerHello_get_ciphersuite(const void *x, unsigned int len,
@@ -466,12 +836,64 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
   const struct tls_header *tls;
   unsigned int tls_len;
   unsigned int levels = 0;
+  //unsigned char end_cert = 0;
 
   /* currently skipping SSLv2 */
+
+  tls = start;
+  if (tls->ContentType == handshake && tls->Handshake.HandshakeType == server_hello) {
+    if (r->start_cert == 0) {
+      // create buffer to store the server certificate
+      r->certificate_buffer = malloc(MAX_CERTIFICATE_BUFFER);
+    
+      //memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
+      memcpy(r->certificate_buffer, tls, len);
+      //r->certificate_offset += tls_len;
+      r->certificate_offset += len;
+      
+      r->start_cert = 1;
+    } else {
+      if (r->certificate_offset + len > MAX_CERTIFICATE_BUFFER) {
+      } else {
+	//memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
+	memcpy(r->certificate_buffer+r->certificate_offset, tls, len);
+	//r->certificate_offset += tls_len;
+	r->certificate_offset += len;
+      }
+    }
+
+  } else if (r->start_cert) {
+    if (r->certificate_offset + len > MAX_CERTIFICATE_BUFFER) {
+    } else {
+      //memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
+      memcpy(r->certificate_buffer+r->certificate_offset, tls, len);
+      //r->certificate_offset += tls_len;
+      r->certificate_offset += len;
+    }
+  }
 
   while (len > 0) {
     tls = start;
     tls_len = tls_header_get_length(tls);
+
+    //if (start_cert) {
+    //  memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
+    //  r->certificate_offset += tls_len;
+    //}
+
+    // process certificate
+    if (r->start_cert && ((tls->ContentType == application_data) ||
+		       (r->certificate_offset >= 4000) ||
+		       (tls->Handshake.HandshakeType == server_hello_done))) {
+      //TLSServerCertificate_parse(r->certificate_buffer, tls_len, r);
+      process_certificate(r->certificate_buffer, r->certificate_offset, r);
+      if (r->certificate_buffer) {
+	free(r->certificate_buffer);
+	r->certificate_buffer = NULL;
+      }
+      r->start_cert = 0;
+    }
+
     if (tls->ContentType == application_data) {
       levels++;
 
@@ -546,6 +968,51 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
   }
 
   return NULL;
+}
+
+struct tls_information *
+process_certificate(const void *start, int len, struct tls_information *r) {
+  const struct tls_header *tls;
+  unsigned int tls_len;
+
+  while (len > 0) {
+    tls = start;
+    tls_len = tls_header_get_length(tls);
+
+    //printf("%i\n",tls->ContentType);
+    //printf("%i\n",tls->Handshake.HandshakeType);
+    if (tls->ContentType == handshake) {
+      if (tls->Handshake.HandshakeType == certificate) {
+
+	TLSServerCertificate_parse(&tls->Handshake.body, tls_len, r);
+
+      }
+    }
+    tls_len += 5; /* advance over header */
+    start += tls_len;
+    len -= tls_len;
+    //printf("%i\n",len);
+  }
+
+  return NULL;
+}
+
+void printf_raw_as_hex_tls(const void *data, unsigned int len) {
+  const unsigned char *x = data;
+  const unsigned char *end = data + len;
+
+  if (data == NULL) { /* special case for nfv9 TLS export */
+    printf("\"");   /* quotes needed for JSON */
+    printf("\"");
+    return ;
+  }
+  
+  printf("\"");   /* quotes needed for JSON */
+  while (x < end) {
+    printf("%02x", *x++);
+  }
+  printf("\"");
+
 }
 
 void zprintf_raw_as_hex_tls(zfile f, const void *data, unsigned int len) {
@@ -793,7 +1260,25 @@ void tls_printf(const struct tls_information *data, const struct tls_information
     zprintf_raw_as_hex_tls(f, data_twin->server_tls_extensions[i].data, data_twin->server_tls_extensions[i].length);
     zprintf(f, "}]");
   }
-  
+
+  if (data->num_certificates) {
+    zprintf(f, ",\"server_cert\":[");
+    for (i = 0; i < data->num_certificates-1; i++) {
+      certificate_printf(&data->certificates[i], f);
+      zprintf(f, "},");
+    }
+    certificate_printf(&data->certificates[i], f);    
+    zprintf(f, "}]");
+  }
+  if (data_twin && data_twin->num_certificates) {
+    zprintf(f, ",\"server_cert\":[");
+    for (i = 0; i < data_twin->num_certificates-1; i++) {
+      certificate_printf(&data_twin->certificates[i], f);
+      zprintf(f, "},");
+    }
+    certificate_printf(&data_twin->certificates[i], f);    
+    zprintf(f, "}]");
+  }  
     /* print out TLS application data lengths and times, if any */
 
     if (data->tls_op) {
@@ -810,4 +1295,84 @@ void tls_printf(const struct tls_information *data, const struct tls_information
     }
  
   zprintf(f, "}");
+}
+
+void certificate_printf(const struct tls_certificate *data, zfile f) {
+  int j;
+
+    zprintf(f, "{\"length\":%i,", data->length);
+    zprintf(f, "\"serial_number\":");
+    zprintf_raw_as_hex_tls(f, data->serial_number, data->serial_number_length);
+    
+    if (data->signature_length) {
+      zprintf(f, ",\"signature\":");
+      zprintf_raw_as_hex_tls(f, data->signature, data->signature_length);
+    }
+    if (data->signature_key_size) {
+      zprintf(f, ",\"signature_key_size\":%i", data->signature_key_size);
+    }
+    
+    if (data->num_issuer) {
+      zprintf(f, ",\"issuer\":[");
+      for (j = 0; j < data->num_issuer-1; j++) {
+	zprintf(f, "{\"issuer_id\":");
+	zprintf_raw_as_hex_tls(f, data->issuer_id[j], data->issuer_id_length[j]);
+	zprintf(f, ",\"issuer_string\":\"%s\"},", data->issuer_string[j]);
+      }
+      zprintf(f, "{\"issuer_id\":");
+      zprintf_raw_as_hex_tls(f, data->issuer_id[j], data->issuer_id_length[j]);
+      zprintf(f, ",\"issuer_string\":\"%s\"}]", data->issuer_string[j]);
+    }
+    
+    if (data->validity_not_before) {
+      zprintf(f, ",\"validity_not_before\":\"%s\"", data->validity_not_before);
+    }
+    if (data->validity_not_after) {
+      zprintf(f, ",\"validity_not_after\":\"%s\"", data->validity_not_after);
+    }
+    
+    if (data->num_subject) {
+      zprintf(f, ",\"subject\":[");
+      for (j = 0; j < data->num_subject-1; j++) {
+	zprintf(f, "{\"subject_id\":");
+	zprintf_raw_as_hex_tls(f, data->subject_id[j], data->subject_id_length[j]);
+	zprintf(f, ",\"subject_string\":\"%s\"},", data->subject_string[j]);
+      }
+      zprintf(f, "{\"subject_id\":");
+      zprintf_raw_as_hex_tls(f, data->subject_id[j], data->subject_id_length[j]);
+      zprintf(f, ",\"subject_string\":\"%s\"}]", data->subject_string[j]);
+    }
+    
+    if (data->subject_public_key_algorithm_length) {
+      zprintf(f, ",\"subject_public_key_algorithm\":");
+      zprintf_raw_as_hex_tls(f, data->subject_public_key_algorithm, data->subject_public_key_algorithm_length);
+    }
+    
+    if (data->subject_public_key_size) {
+      zprintf(f, ",\"subject_public_key_size\":%i", data->subject_public_key_size);
+    }
+    
+    if (data->num_san) {
+      zprintf(f, ",\"SAN\":[");
+      for (j = 0; j < data->num_san-1; j++) {
+	zprintf(f, "\"%s\",", data->san[j]);
+      }
+      zprintf(f, "\"%s\"]", data->san[j]);
+    }
+    
+    if (data->num_ext) {
+      zprintf(f, ",\"extensions\":[");
+      for (j = 0; j < data->num_ext-1; j++) {
+	zprintf(f, "{\"ext_id\":");
+	zprintf_raw_as_hex_tls(f, data->ext_id[j], data->ext_id_length[j]);
+	zprintf(f, ",\"ext_data\":");
+	zprintf_raw_as_hex_tls(f, data->ext_data[j], data->ext_data_length[j]);
+	zprintf(f, "},");
+      }
+      zprintf(f, "{\"ext_id\":");
+      zprintf_raw_as_hex_tls(f, data->ext_id[j], data->ext_id_length[j]);
+      zprintf(f, ",\"ext_data\":");
+      zprintf_raw_as_hex_tls(f, data->ext_data[j], data->ext_data_length[j]);
+      zprintf(f, "}]");
+    } 
 }
