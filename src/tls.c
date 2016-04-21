@@ -183,12 +183,12 @@ void tls_record_delete(struct tls_information *r) {
     if (r->certificates[i].subject_public_key_algorithm) {
       free(r->certificates[i].subject_public_key_algorithm);
     }
-    for (j = 0; j < MAX_EXTENSIONS; j++) {
+    for (j = 0; j < MAX_CERT_EXTENSIONS; j++) {
       if (r->certificates[i].ext_id[j]) {
 	free(r->certificates[i].ext_id[j]);
       }
     }
-    for (j = 0; j < MAX_EXTENSIONS; j++) {
+    for (j = 0; j < MAX_CERT_EXTENSIONS; j++) {
       if (r->certificates[i].ext_data[j]) {
 	free(r->certificates[i].ext_data[j]);
       }
@@ -588,6 +588,9 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
       }
       cur_ext = 0;
       while (ext_len > 0) {
+	if (cur_ext >= MAX_CERT_EXTENSIONS) {
+	  return ;
+	}
 	if (certs_len <= 10) {
 	  break;
 	}
@@ -723,6 +726,9 @@ void parse_san(const void *x, int len, struct tls_certificate *r) {
   int i;
 
   while (len > 10) {
+    if (num_san >= MAX_SAN) {
+      break;
+    }
     tmp_len = *(y+1);
 
     if (tmp_len == 0) {
