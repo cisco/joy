@@ -687,19 +687,25 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     
     if (*(y+1) == 129) {
       tmp_len = *(y+2);
-      r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
       //printf("\tsignature_key_size: %i\n", (tmp_len-1)*8);
       y += tmp_len+3;
       certs_len -= tmp_len+3;
     } else if (*(y+1) == 130) {
       tmp_len = raw_to_unsigned_short(y+2);
-      r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
+      //r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
       //printf("\tsignature_key_size: %i\n", (tmp_len-1)*8);
       y += tmp_len+4;
       certs_len -= tmp_len+4;	    
     } else {
       break ;
     }
+
+    // still not parsing unique identifiers
+    if ((tmp_len-1)*8 != 1024 || (tmp_len-1)*8 != 2048 || (tmp_len-1)*8 != 512) {
+      break;
+    }
+
+    r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
     
     //certs_len -= cert_len;
     //printf("\n");
@@ -1089,10 +1095,18 @@ process_certificate(const void *start, int len, struct tls_information *r) {
   while (len > 200) {
     tls = start;
 
-    tls_len = tls_header_get_length(tls);
-
     //printf("%i\n",tls->ContentType);
     //printf("%i\n",tls->Handshake.HandshakeType);
+
+    //printf("%i\n\n",tls_len);
+
+    if (tls->ContentType != 22) {
+      break;
+    }
+
+    tls_len = tls_header_get_length(tls);
+
+
     if (tls->ContentType == handshake) {
       if (tls->Handshake.HandshakeType == certificate) {
 
