@@ -347,6 +347,9 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
   certs_len -= 3;
   
   while (certs_len > 0) {
+    if (r->num_certificates >= MAX_CERTIFICATES) {
+      return;
+    }
     cur_cert = r->num_certificates;
     r->num_certificates += 1;
     cert_len = raw_to_unsigned_short(y+1);
