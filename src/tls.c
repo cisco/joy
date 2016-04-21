@@ -85,7 +85,7 @@ void tls_record_init(struct tls_information *r) {
   r->tls_sid_len = 0;
   r->tls_v = 0;
   r->tls_client_key_length = 0;
-  r->certificate_buffer = NULL;
+  r->certificate_buffer = 0;
   r->certificate_offset = 0;
   r->start_cert = 0;
 
@@ -99,15 +99,35 @@ void tls_record_init(struct tls_information *r) {
   memset(r->tls_random, 0, sizeof(r->tls_random));
 
   r->num_certificates = 0;
-  int i, j;
+  int i;
   for (i = 0; i < MAX_CERTIFICATES; i++) {
-    r->certificates[i].signature = NULL;
+    r->certificates[i].signature = 0;
     r->certificates[i].subject_public_key_size = 0;
     r->certificates[i].signature_key_size = 0;
+    r->certificates[i].length = 0;
+    r->certificates[i].serial_number = 0;
+    r->certificates[i].serial_number_length = 0;
+    r->certificates[i].signature_length = 0;
+    r->certificates[i].num_issuer = 0;
+    r->certificates[i].validity_not_before = 0;
+    r->certificates[i].validity_not_after = 0;
+    r->certificates[i].num_subject = 0;
+    r->certificates[i].subject_public_key_algorithm = 0;
+    r->certificates[i].subject_public_key_algorithm_length = 0;
+    r->certificates[i].num_ext = 0;
+    r->certificates[i].num_san = 0;
 
-    for (j = 0; j < MAX_SAN; j++) {
-      r->certificates[i].san[j] = NULL;
-    }
+    memset(r->certificates[i].issuer_id, 0, sizeof(r->certificates[i].issuer_id));
+    memset(r->certificates[i].issuer_id_length, 0, sizeof(r->certificates[i].issuer_id_length));
+    memset(r->certificates[i].issuer_string, 0, sizeof(r->certificates[i].issuer_string));
+    memset(r->certificates[i].subject_id, 0, sizeof(r->certificates[i].subject_id));
+    memset(r->certificates[i].subject_id_length, 0, sizeof(r->certificates[i].subject_id_length));
+    memset(r->certificates[i].subject_string, 0, sizeof(r->certificates[i].subject_string));
+    memset(r->certificates[i].ext_id, 0, sizeof(r->certificates[i].ext_id));
+    memset(r->certificates[i].ext_id_length, 0, sizeof(r->certificates[i].ext_id_length));
+    memset(r->certificates[i].ext_data, 0, sizeof(r->certificates[i].ext_data));
+    memset(r->certificates[i].ext_data_length, 0, sizeof(r->certificates[i].ext_data_length));
+    memset(r->certificates[i].san, 0, sizeof(r->certificates[i].san));
   }
 }
 
@@ -349,6 +369,7 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
 
     // parse serial number
     tmp_len = (*y);
+    if (tmp_len > 50) {return;}
     r->certificates[cur_cert].serial_number = malloc(tmp_len);
     memcpy(r->certificates[cur_cert].serial_number, y+1, tmp_len);
     r->certificates[cur_cert].serial_number_length = tmp_len;
@@ -362,6 +383,7 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
 
     // parse signature
     tmp_len = *(y+1);
+    if (tmp_len > 50) {return;}
     y += 2;
     certs_len -= 2;
     r->certificates[cur_cert].signature = malloc(tmp_len);
@@ -400,6 +422,7 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
       issuer_len -= 2;
       
       tmp_len = *(y+1);
+      if (tmp_len > 50) {return;}
       r->certificates[cur_cert].issuer_id[cur_rdn] = malloc(tmp_len);
       memcpy(r->certificates[cur_cert].issuer_id[cur_rdn], y+2, tmp_len);
       r->certificates[cur_cert].issuer_id_length[cur_rdn] = tmp_len;
@@ -408,8 +431,9 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
       //printf("\n");
       
       tmp_len2 = *(y+tmp_len+2+1);
+      if (tmp_len2 > 50) {return;}
       r->certificates[cur_cert].issuer_string[cur_rdn] = malloc(tmp_len2+1);
-      memset(r->certificates[cur_cert].issuer_string[cur_rdn], 0, tmp_len2+1);
+      memset(r->certificates[cur_cert].issuer_string[cur_rdn], '\0', tmp_len2+1);
       memcpy(r->certificates[cur_cert].issuer_string[cur_rdn], y+tmp_len+2+2, tmp_len2);
       //r->certificates[cur_cert].issuer_string_length[cur_rdn] = tmp_len2;
       //printf("\tissuer_string: \"%s\"\n", (char*)r->certificates[cur_cert].issuer_string[cur_rdn]);
@@ -432,8 +456,9 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     tmp_len = *(y+1);
     y += 2;
     certs_len -= 2;
+    if (tmp_len > 50) {return;}
     r->certificates[cur_cert].validity_not_before = malloc(tmp_len+1);
-    memset(r->certificates[cur_cert].validity_not_before, 0, tmp_len+1);
+    memset(r->certificates[cur_cert].validity_not_before, '\0', tmp_len+1);
     memcpy(r->certificates[cur_cert].validity_not_before, y, tmp_len); 
     //printf("\tvalidity_not_before: \"%s\"\n", (char *)r->certificates[cur_cert].validity_not_before);
     y += tmp_len;
@@ -442,8 +467,9 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     tmp_len = *(y+1);
     y += 2;
     certs_len -= 2;
+    if (tmp_len > 50) {return;}
     r->certificates[cur_cert].validity_not_after = malloc(tmp_len+1);
-    memset(r->certificates[cur_cert].validity_not_after, 0, tmp_len+1);
+    memset(r->certificates[cur_cert].validity_not_after, '\0', tmp_len+1);
     memcpy(r->certificates[cur_cert].validity_not_after, y, tmp_len); 
     //printf("\tvalidity_not_after: \"%s\"\n", (char *)r->certificates[cur_cert].validity_not_after);
     y += tmp_len;
@@ -475,6 +501,7 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
       subject_len -= 2;
       
       tmp_len = *(y+1);
+      if (tmp_len > 50) {return;}
       r->certificates[cur_cert].subject_id[cur_rdn] = malloc(tmp_len);
       memcpy(r->certificates[cur_cert].subject_id[cur_rdn], y+2, tmp_len);
       r->certificates[cur_cert].subject_id_length[cur_rdn] = tmp_len;
@@ -483,8 +510,9 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
       //printf("\n");
       
       tmp_len2 = *(y+tmp_len+2+1);
+      if (tmp_len2 > 50) {return;}
       r->certificates[cur_cert].subject_string[cur_rdn] = malloc(tmp_len2+1);
-      memset(r->certificates[cur_cert].subject_string[cur_rdn], 0, tmp_len2+1);
+      memset(r->certificates[cur_cert].subject_string[cur_rdn], '\0', tmp_len2+1);
       memcpy(r->certificates[cur_cert].subject_string[cur_rdn], y+tmp_len+2+2, tmp_len2);
       //printf("\tsubject_string: \"%s\"\n", (char*)r->certificates[cur_cert].subject_string[cur_rdn]);
 
@@ -513,6 +541,7 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     tmp_len = *(y+1);
     y += 2;
     certs_len -= 2;
+    if (tmp_len > 50) {return;}
     r->certificates[cur_cert].subject_public_key_algorithm = malloc(tmp_len);
     memcpy(r->certificates[cur_cert].subject_public_key_algorithm, y, tmp_len); 
     r->certificates[cur_cert].subject_public_key_algorithm_length = tmp_len;
@@ -559,6 +588,9 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
       }
       cur_ext = 0;
       while (ext_len > 0) {
+	if (certs_len <= 10) {
+	  break;
+	}
 	tmp_len2 = *(y+1);
 	if (tmp_len2 == 130) {
 	  tmp_len2 = raw_to_unsigned_short(y+2);
@@ -595,14 +627,42 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
 	  ext_len -= tmp_len2+tmp_len+2;
 	} else { // general purpose ext parsing
 	  tmp_len = *(y+1);
+
+	  if (tmp_len == 130) {
+	    //tmp_len = *(y+2);
+	    tmp_len = raw_to_unsigned_short(y+2);
+	    y += 2;
+	    certs_len -= 2;
+	    ext_len -= 2;		
+	  } else if (tmp_len == 129) {
+	    tmp_len = *(y+2);
+	    y += 1;
+	    certs_len -= 1;
+	    ext_len -= 1;
+	  } else {
+	  }
+	  
+	  if (tmp_len > 20 || tmp_len < 3 || tmp_len2-tmp_len-2 <= 0) {
+	    break;
+	  }
+
+	  if (tmp_len > 50) {return;}
 	  r->certificates[cur_cert].ext_id[cur_ext] = malloc(tmp_len);
 	  memcpy(r->certificates[cur_cert].ext_id[cur_ext], y+2, tmp_len);
 	  r->certificates[cur_cert].ext_id_length[cur_ext] = tmp_len;
+
 	  //printf("\text_id: ");
 	  //printf_raw_as_hex_tls(r->certificates[cur_cert].ext_id[cur_ext], tmp_len);
 	  //printf("\n");
 	  
+	  //printf("%i\n",tmp_len);
+	  //printf("%i\n",tmp_len2);
+	  //printf("%i\n",certs_len);
+	  //printf("%i\n",ext_len);
+	  //printf("\n");
+
 	  tmp_len2 = tmp_len2-tmp_len-2;
+	  if (tmp_len2 > 50) {return;}
 	  r->certificates[cur_cert].ext_data[cur_ext] = malloc(tmp_len2);
 	  //memset(r->certificates[cur_cert].ext_data[cur_ext], 0, tmp_len2);
 	  memcpy(r->certificates[cur_cert].ext_data[cur_ext], y+tmp_len+2, tmp_len2);
@@ -656,18 +716,37 @@ void parse_san(const void *x, int len, struct tls_certificate *r) {
   const unsigned char *y = x;
   int i;
 
-  while (len > 0) {
+  while (len > 10) {
     tmp_len = *(y+1);
 
+    if (tmp_len == 0) {
+      break;
+    }
+
+    if (tmp_len > 50) {
+      break;
+    }
+
     r->san[num_san] = malloc(tmp_len+1);
-    memset(r->san[num_san], 0, tmp_len+1);
+    memset(r->san[num_san], '\0', tmp_len+1);
+    //((char *)r->san[num_san])[tmp_len] = '\0';
     memcpy(r->san[num_san], y+2, tmp_len);
 
+    //printf("%s\n",r->san[num_san]);
+    //printf("%i\n",tmp_len);
+
     for (i = 0; i < tmp_len; i++) {
-      if (*(char *)(r->san[num_san]+i) < 48 || *(char *)(r->san[num_san]+i) > 126) {
+      if (*(char *)(r->san[num_san]+i) < 48 || *(char *)(r->san[num_san]+i) > 126 ||
+	  (*(char *)(r->san[num_san]+i) > 90 && *(char *)(r->san[num_san]+i) < 97) ||
+	  (*(char *)(r->san[num_san]+i) > 57 && *(char *)(r->san[num_san]+i) < 65) ) {
+	if (*(char *)(r->san[num_san]+i) == 42) {
+	  continue;
+	}
 	memset(r->san[num_san]+i, '.', 1);
       }
     }
+
+    //printf("%s\n\n",r->san[num_san]);
 
     num_san += 1;
     y += tmp_len+2;
@@ -911,10 +990,17 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
 		       (r->certificate_offset >= 4000) ||
 		       (tls->Handshake.HandshakeType == server_hello_done))) {
       //TLSServerCertificate_parse(r->certificate_buffer, tls_len, r);
-      process_certificate(r->certificate_buffer, r->certificate_offset, r);
-      if (r->certificate_buffer) {
-	free(r->certificate_buffer);
-	r->certificate_buffer = NULL;
+      if (r->certificate_offset > 200) {
+	process_certificate(r->certificate_buffer, r->certificate_offset, r);
+	if (r->certificate_buffer) {
+	  free(r->certificate_buffer);
+	  r->certificate_buffer = NULL;
+	}
+      } else {
+	if (r->certificate_buffer) {
+	  free(r->certificate_buffer);
+	  r->certificate_buffer = NULL;
+	}
       }
       r->start_cert = 0;
     }
@@ -1000,7 +1086,7 @@ process_certificate(const void *start, int len, struct tls_information *r) {
   const struct tls_header *tls;
   unsigned int tls_len;
 
-  while (len > 0) {
+  while (len > 200) {
     tls = start;
 
     tls_len = tls_header_get_length(tls);
