@@ -699,7 +699,7 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     tmp_len = *(y+1);
     y += tmp_len+2;
     certs_len -= tmp_len+2;
-    
+
     if (*(y+1) == 129) {
       tmp_len = *(y+2);
       //printf("\tsignature_key_size: %i\n", (tmp_len-1)*8);
@@ -969,9 +969,9 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
   /* currently skipping SSLv2 */
 
   /* currently skipping jumbo frames */
-  if (len > 1600) {
-    return NULL;
-  }
+  //if (len > 1600) {
+  //  return NULL;
+  //}
 
   tls = start;
   if (tls->ContentType == handshake && tls->Handshake.HandshakeType == server_hello) {
@@ -993,9 +993,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
   } else if (r->start_cert) {
     if (r->certificate_offset + len > MAX_CERTIFICATE_BUFFER) {
     } else {
-      //memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
       memcpy(r->certificate_buffer+r->certificate_offset, tls, len);
-      //r->certificate_offset += tls_len;
       r->certificate_offset += len;
     }
   }
@@ -1010,9 +1008,12 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
     //}
 
     // process certificate
-    if (r->certificate_offset && r->start_cert && ((tls->ContentType == application_data) ||
-		       (r->certificate_offset >= 4000) ||
-		       (tls->Handshake.HandshakeType == server_hello_done))) {
+    //    if (r->certificate_offset && r->start_cert && ((tls->ContentType == application_data) ||
+    //		       (r->certificate_offset >= 4000) ||
+    //		       (tls->Handshake.HandshakeType == server_hello_done))) {
+    if (r->certificate_offset && r->start_cert && 
+	((tls->ContentType == application_data && tls->Handshake.HandshakeType == 0) ||
+	 (r->certificate_offset >= 4000))) {
       //TLSServerCertificate_parse(r->certificate_buffer, tls_len, r);
       if (r->certificate_offset > 200) {
 	process_certificate(r->certificate_buffer, r->certificate_offset, r);
