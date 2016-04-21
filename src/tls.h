@@ -57,6 +57,7 @@
 #define MAX_CERTIFICATES 4
 #define MAX_RDN 12
 #define MAX_SAN 12
+#define MAX_CERT_EXTENSIONS 12
 #define MAX_CERTIFICATE_BUFFER 6000
 
 /* structure for TLS awareness */
@@ -149,10 +150,10 @@ struct tls_certificate {
   void *subject_public_key_algorithm;
   unsigned short subject_public_key_algorithm_length;
   unsigned short subject_public_key_size;
-  void *ext_id[MAX_EXTENSIONS];
-  unsigned short ext_id_length[MAX_EXTENSIONS];
-  void *ext_data[MAX_EXTENSIONS];
-  unsigned short ext_data_length[MAX_EXTENSIONS];
+  void *ext_id[MAX_CERT_EXTENSIONS];
+  unsigned short ext_id_length[MAX_CERT_EXTENSIONS];
+  void *ext_data[MAX_CERT_EXTENSIONS];
+  unsigned short ext_data_length[MAX_CERT_EXTENSIONS];
   unsigned short num_ext;
   unsigned short signature_key_size;
   void *san[MAX_SAN];
