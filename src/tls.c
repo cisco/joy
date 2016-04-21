@@ -576,14 +576,23 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     
     
     // optional: parse extensions
-    if (*y == 163 && *(y+1) == 130) {
-      y += 5;
-      certs_len -= 5;
+    if (*y == 163) {
+      if (*(y+1) == 130) {
+	y += 5;
+	certs_len -= 5;
+      } else if (*(y+1) == 129) {
+	y += 4;
+	certs_len -= 4;
+      }
       
       if (*y == 130) {
 	ext_len = raw_to_unsigned_short(y+1);
 	y += 3;
 	certs_len -= 3;
+      } else if (*y == 129) {
+	ext_len = *(y+1);
+	y += 2;
+	certs_len -= 2;
       } else {
 	ext_len = *y;
 	y += 2;
