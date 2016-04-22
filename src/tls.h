@@ -58,7 +58,7 @@
 #define MAX_RDN 12
 #define MAX_SAN 12
 #define MAX_CERT_EXTENSIONS 12
-#define MAX_CERTIFICATE_BUFFER 6000
+#define MAX_CERTIFICATE_BUFFER 11000
 
 /* structure for TLS awareness */
 /*
