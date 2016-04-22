@@ -1015,6 +1015,8 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
     if (r->certificate_offset && r->start_cert == 1 && 
 	//	((tls->ContentType == application_data && tls->Handshake.HandshakeType == 0) ||
 	((tls->ContentType == application_data) ||
+	 (tls->ContentType == change_cipher_spec) ||
+	 (tls->ContentType == alert) ||
 	 (r->certificate_offset >= 4000))) {
       //TLSServerCertificate_parse(r->certificate_buffer, tls_len, r);
       if (r->certificate_offset > 200) {
@@ -1024,7 +1026,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
 	  r->certificate_buffer = 0;
 	}
       } else {
-	printf("%i\n",r->certificate_offset);
+	//printf("%i\n",r->certificate_offset);
 	if (r->certificate_buffer) {
 	  free(r->certificate_buffer);
 	  r->certificate_buffer = 0;
