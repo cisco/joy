@@ -44,6 +44,7 @@
 #include "radix_trie.h"
 #include "wht.h"
 #include "p2f.h"
+#include "dns.h"
 
 /*
  * use the "info" output stream to represent secondary output - it is
@@ -66,6 +67,7 @@ int main(int argc, char *argv[]) {
 
   wht_unit_test();
   flow_record_list_unit_test();
-  
+  dns_unit_test();
+
   return 0;
 }
