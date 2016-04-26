@@ -436,6 +436,7 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   unsigned int payload_len;
   const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
   struct flow_record *record = NULL;
+  unsigned int cur_itr = 0;
   
   if (output_level > none) {
     fprintf(output, "   protocol: TCP\n");
@@ -517,7 +518,12 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
     }
 
     // parse TCP options
+    cur_itr = 0;
     while (offset < tcp_hdr_len) { // while there are TCP options present
+      cur_itr += 1;
+      if (cur_itr > 20) {
+	break;
+      }
       if ((unsigned int)*(const unsigned char *)(tcp_start+offset) <= 0) { // EOL
 	break ;
       }
