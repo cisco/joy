@@ -318,10 +318,13 @@ void flow_record_list_unit_test();
  * Non-alphanumeric characters are converted to "." (a period).  This
  * function is useful only to ensure that strings that one expects to
  * be printable, such as DNS names, don't cause encoding errors when
- * they are actually not non-printable, non-JSON-safe strings.
+ * they are actually not non-printable, non-JSON-safe strings.  
+ *
+ * RETURN VALUE: a pointer to the location immediately after the
+ * NULL-terminated string
  */ 
 
-void convert_string_to_printable(char *s, unsigned int len);
+void *convert_string_to_printable(char *s, unsigned int len);
 
 
 /*

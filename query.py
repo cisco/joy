@@ -476,7 +476,7 @@ def flowPrint(f):
       listPrint(f, "bd")
       listPrint(f, "compact_bd")
       elementPrint(f, "bd_mean", "bd_std", "be", "tbe", "i_probable_os", "o_probable_os")
-      listPrintObject(f, "dns", "qn", "rn")
+      listPrintObject(f, "dns", "qn", "rn", "a", "soa", "ttl", "rc", "type", "class")
       elementPrint(f,  )
       listPrint(f, "cs", 1)
       elementPrint(f, "scs")
@@ -808,7 +808,6 @@ def processFileOld(f, ff, fp):
 
 def processLine(line):
    if line.strip == '{' or 'metadata' in line:
-      self.legacy_format = True
       print "warning: legacy JSON format"
       return
    try:

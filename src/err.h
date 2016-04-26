@@ -55,6 +55,10 @@ enum status {
 
 extern FILE *info; 
 
+#define hexdata(d) (d[0], d[1], d[2], d[3])
+
+#define zprintf_debug(...) zprintf(output, ",\"DEBUG\": \""  __VA_ARGS__);
+
 #define P2F_DEBUG 0
 
 #if P2F_DEBUG

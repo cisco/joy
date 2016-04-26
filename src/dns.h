@@ -57,4 +57,7 @@ void dns_printf(char * const dns_name[], const unsigned short pkt_len[],
 		char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
 		unsigned int count, zfile output);
 
+
+void dns_unit_test();
+
 #endif /* DNS_H */

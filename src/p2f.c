@@ -1820,15 +1820,16 @@ int upload_file(const char *filename, const char *servername, const char *key, u
  * they are actually not non-printable, non-JSON-safe strings.
  */ 
 
-void convert_string_to_printable(char *s, unsigned int len) {
+void *convert_string_to_printable(char *s, unsigned int len) {
   unsigned int i;
 
   for (i=0; i<len; i++) {
     if (s[i] == 0) {
-      break;
+      return s + i + 1;
     } else if (!isprint(s[i])) {
       s[i] = '.';
     }
   }
   s[len-1] = 0;  /* NULL termination */
+  return s + i;
 }
