@@ -159,6 +159,7 @@ def update_malware():
 flows = {}
 data = []
 metadata = []
+flow_data = {}
 
 @route('/advancedInfo/<key>')
 @view('advancedInfo')
@@ -397,14 +398,14 @@ def results():
     total_flows = 0
     for f in file_names:
 
-        try: # just a robustness check
-            parser = DataParser(f)
-            tmpBD = parser.getByteDistribution()
-            tmpIPT = parser.getIndividualFlowIPTs()
-            tmpPL = parser.getIndividualFlowPacketLengths()
-            tmp,tmp_m = parser.getIndividualFlowMetadata()
-        except:
-            continue
+#        try: # just a robustness check
+        parser = DataParser(f)
+        tmpBD = parser.getByteDistribution()
+        tmpIPT = parser.getIndividualFlowIPTs()
+        tmpPL = parser.getIndividualFlowPacketLengths()
+        tmp,tmp_m = parser.getIndividualFlowMetadata()
+#        except:
+#            continue
 #        flows += parser.advancedInfo
         if parser.advancedInfo == None:
             continue
@@ -482,6 +483,226 @@ def results():
 
     return template('results',results=tmp,num_flows=len(results),t=end_time,classifier_names=classifier_names,
                     to_display_names=to_display_names)
+
+@route('/high_entropy',method='POST')
+@route('/high_entropy')
+@view('high_entropy')
+def high_entropy():
+#def results(data={}):
+    global flows
+    global data
+    global metadata
+    global count_flocap
+    global classifiers_to_display
+    global classifier_names
+    global flow_data
+        
+    classifiers_to_display = []
+    classifier_names = []
+    display_fields = OrderedDict({})
+    display_fields[0] = ('sa','Source Address')
+    display_fields[1] = ('da','Dest. Address')
+    display_fields[2] = ('sp','Source Port')
+    display_fields[3] = ('dp','Dest. Port')
+    display_fields[8] = ('pr','Protocol')
+#    display_fields[0] = ('be','Entropy')
+
+    tmp_metadata = []
+    tmp_be = []
+
+    tmp = []
+    to_display_names = [('be','Entropy')]
+    for key in display_fields:
+        to_display_names.append(display_fields[key])
+
+    for i in range(len(metadata)):
+        if metadata[i][2] == 443 or metadata[i][3] == 443:
+            continue
+
+        tmp_key = metadata[i][0].replace('.','')+metadata[i][1].replace('.','')+\
+              str(int(metadata[i][2]))+str(int(metadata[i][3]))+\
+              str(metadata[i][6]+metadata[i][7])
+
+
+        tmp_to_display = []
+        for key in display_fields:
+            tmp_to_display.append(metadata[i][key])
+
+        tmp.append((flow_data[tmp_key]['be'],metadata[i][0],metadata[i][1],metadata[i][2],metadata[i][3],metadata[i][4],metadata[i][5],metadata[i][6],metadata[i][7],metadata[i][8],tmp_to_display))
+    tmp = sorted(tmp,key=lambda x: x[0])
+    tmp.reverse()
+
+    return template('high_entropy',results=tmp,num_flows=len(tmp),
+                    to_display_names=to_display_names)
+
+@route('/scs/<level>')
+@view('scs')
+def scs(level):
+#def results(data={}):
+    global flows
+    global data
+    global metadata
+    global count_flocap
+    global classifiers_to_display
+    global classifier_names
+    global flow_data
+        
+    classifiers_to_display = []
+    classifier_names = []
+    display_fields = OrderedDict({})
+    display_fields[0] = ('sa','Source Address')
+    display_fields[1] = ('da','Dest. Address')
+    display_fields[2] = ('sp','Source Port')
+    display_fields[3] = ('dp','Dest. Port')
+    display_fields[8] = ('pr','Protocol')
+#    display_fields[0] = ('be','Entropy')
+
+    tmp_metadata = []
+    tmp_be = []
+
+    tmp = []
+    to_display_names = [('scs','Selected Ciphersuite')]
+    for key in display_fields:
+        to_display_names.append(display_fields[key])
+
+    for i in range(len(metadata)):
+        tmp_key = metadata[i][0].replace('.','')+metadata[i][1].replace('.','')+\
+              str(int(metadata[i][2]))+str(int(metadata[i][3]))+\
+              str(metadata[i][6]+metadata[i][7])
+
+        if 'tls' not in flow_data[tmp_key]:
+            continue
+        if 'scs' not in flow_data[tmp_key]['tls']:
+            continue
+        if flow_data[tmp_key]['tls']['scs'] not in ciphers:
+            continue
+        (cipher_name, tmp_level) = ciphers[flow_data[tmp_key]['tls']['scs']]
+        if level != tmp_level:
+            continue
+
+        tmp_to_display = []
+        for key in display_fields:
+            tmp_to_display.append(metadata[i][key])
+
+        tmp.append((cipher_name,metadata[i][0],metadata[i][1],metadata[i][2],metadata[i][3],metadata[i][4],metadata[i][5],metadata[i][6],metadata[i][7],metadata[i][8],tmp_to_display))
+    tmp = sorted(tmp,key=lambda x: x[0])
+    tmp.reverse()
+
+    return template('high_entropy',results=tmp,num_flows=len(tmp),
+                    to_display_names=to_display_names)
+
+@route('/crypto_dashboard',method='POST')
+@route('/crypto_dashboard')
+@view('crypto_dashboard')
+def crypto_dashboard():
+#def results(data={}):
+    global flows
+    global flow_data
+    global data
+    global metadata
+    global count_flocap
+    global classifiers_to_display
+    global classifier_names
+        
+    file_names = []
+    is_upload = False
+    if request.files.get('upload') != None:
+#    if False:
+        upload = request.files.get('upload')
+
+        dir_name = tempfile.mkdtemp()
+        upload.save(dir_name + 'temp.json')
+
+        file_names.append(dir_name+'temp.json')
+        is_upload = True
+    else:
+        tmp_files = get_files_by_time(out_dir)
+        tmp_files.reverse()
+        if len(tmp_files) > 0:
+            file_names.append(out_dir+tmp_files[0])
+        if len(tmp_files) > 1:
+            file_names.append(out_dir+tmp_files[1])
+        if len(tmp_files) > 2:
+            file_names.append(out_dir+tmp_files[2])
+        if len(tmp_files) > 3:
+            file_names.append(out_dir+tmp_files[3])
+        if len(tmp_files) > 4:
+            file_names.append(out_dir+tmp_files[4])
+        if len(tmp_files) > 5:
+            file_names.append(out_dir+tmp_files[5])
+
+    start_time = time.time()
+    data = []
+    metadata = []
+    #tls_flow_data = {}
+    total_flows = 0
+    flow_data = {}
+    non_tls_high_entropy = 0
+    non_tls_low_entropy = 0
+
+    rec_scs = 0
+    leg_scs = 0
+    avo_scs = 0
+
+    for f in file_names:
+        parser = DataParser(f)
+        tmp,tmp_m = parser.getIndividualFlowMetadata()
+
+        if parser.advancedInfo == None:
+            continue
+        for k in parser.advancedInfo:
+            flows[k] = parser.advancedInfo[k]
+        for k in parser.all_flows:
+            flow_data[k] = parser.all_flows[k]
+            # find number of high entropy flows
+            if 'tls' not in flow_data[k] and 'be' in flow_data[k]:
+                if flow_data[k]['be'] >= 6.0:
+                    non_tls_high_entropy += 1
+                else:
+                    non_tls_low_entropy += 1
+            # find % of scs
+            # ciphers[tok[0]] = (tok[1],tok[2])
+            if 'tls' in flow_data[k] and 'scs' in flow_data[k]['tls']:
+                if flow_data[k]['tls']['scs'] in ciphers:
+                    (cipher_name, level) = ciphers[flow_data[k]['tls']['scs']]
+                    if level == 'RECOMMENDED':
+                        rec_scs += 1
+                    elif level == 'LEGACY':
+                        leg_scs += 1
+                    elif level == 'AVOID':
+                        avo_scs += 1
+                    
+
+
+        if tmp != None:
+            for i in range(len(tmp)):
+                metadata.append(tmp_m[len(tmp)-i-1])
+                total_flows += 1
+
+                if total_flows == count_flocap*2 and not is_upload:
+                    break
+        if total_flows == count_flocap*2 and not is_upload:
+            break
+
+    if request.files.get('upload') != None:
+        os.removedirs(dir_name)
+
+    perc_non_tls_high_be = float(non_tls_high_entropy)/(non_tls_high_entropy+non_tls_low_entropy)
+    perc_non_tls_high_be = "%.02f%%" % (perc_non_tls_high_be*100)
+
+    if (rec_scs+leg_scs+avo_scs) > 0:
+        perc_rec_scs = float(rec_scs)/(rec_scs+leg_scs+avo_scs)
+        perc_rec_scs = "%.02f%%" % (perc_rec_scs*100)
+        perc_leg_scs = float(leg_scs)/(rec_scs+leg_scs+avo_scs)
+        perc_leg_scs = "%.02f%%" % (perc_leg_scs*100)
+        perc_avo_scs = float(avo_scs)/(rec_scs+leg_scs+avo_scs)
+        perc_avo_scs = "%.02f%%" % (perc_avo_scs*100)
+    else:
+        perc_rec_scs = ""
+        perc_leg_scs = ""
+        perc_avo_scs = ""
+
+    return template('crypto_dashboard',be_perc=perc_non_tls_high_be,perc_rec_scs=perc_rec_scs,perc_leg_scs=perc_leg_scs,perc_avo_scs=perc_avo_scs)
 
 @route('/devices',method='POST')
 @route('/devices')
@@ -574,12 +795,16 @@ def devices():
 #                   not parser.flows['appflows'][i]['flow']['da'].startswith(subnet):
 #                    continue
                 tmp_id = ''
-                if tmp_m[len(tmp)-i-1][0].startswith(subnet):
+#                if tmp_m[len(tmp)-i-1][0].startswith(subnet):
+#                    tmp_id = tmp_m[len(tmp)-i-1][0]
+#                elif tmp_m[len(tmp)-i-1][1].startswith(subnet):
+#                    tmp_id = tmp_m[len(tmp)-i-1][1]
+#                else:
+#                    continue
+                if '.' not in tmp_m[len(tmp)-i-1][0]:
                     tmp_id = tmp_m[len(tmp)-i-1][0]
-                elif tmp_m[len(tmp)-i-1][1].startswith(subnet):
-                    tmp_id = tmp_m[len(tmp)-i-1][1]
                 else:
-                    continue
+                    tmp_id = tmp_m[len(tmp)-i-1][1]
 
                 tmp_data = []
                 tmp_data.extend(tmp[len(tmp)-i-1])
@@ -612,12 +837,16 @@ def devices():
             color.append(get_color(results[i][j]))
 
         tmp_id = ''
-        if metadata[i][0].startswith(subnet):
+#        if metadata[i][0].startswith(subnet):
+#            tmp_id = metadata[i][0]
+#        elif metadata[i][1].startswith(subnet):
+#            tmp_id = metadata[i][1]
+#        else:
+#            continue
+        if '.' not in metadata[i][0]:
             tmp_id = metadata[i][0]
-        elif metadata[i][1].startswith(subnet):
-            tmp_id = metadata[i][1]
         else:
-            continue
+            tmp_id = metadata[i][1]
 
         tmp_to_display = []
         for key in display_fields:

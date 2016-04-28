@@ -55,13 +55,15 @@ class DataParser:
         self.legacy_format = False
         self.flows = []
         self.advancedInfo = {}
+        self.all_flows = {}
 
         with gzip.open(json_file,'r') as fp:
             try: # for incomplete gzip files
                 for line in fp:
-                    if line.strip == '{' or 'metadata' in line:
-                        self.legacy_format = True
-                        break
+#                    if line.strip == '{' or 'metadata' in line:
+#                    if 'metadata' in line:
+#                        self.legacy_format = True
+#                        break
 
                     try:
                         tmp = json.loads(line)
@@ -436,6 +438,7 @@ class DataParser:
                 if 'bd' in flow:
                     bd = flow['bd']
                 self.advancedInfo[key] = (flow['sa'],flow['da'],flow['sp'],flow['dp'],flow['packets'],bd)
+                self.all_flows[key] = flow
                 tmp_m.append(flow['sa']) # source port
                 tmp_m.append(flow['da']) # destination port
                 tmp_m.append(flow['sp']) # source port
