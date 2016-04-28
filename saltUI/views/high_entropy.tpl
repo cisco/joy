@@ -55,7 +55,7 @@ $('body').on('hidden.bs.modal', '.modal', function () {
 });
 </script>
 
-<a href="/crypto_dashboard">Back</a>
+<a href="/crypto_dashboard/False">Back</a>
 <br/>
 
 <div class="col-md-14">

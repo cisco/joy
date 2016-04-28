@@ -35,7 +35,7 @@
 '''
 
 from bottle import route, view, run, request, response, template
-from data_parser import DataParser
+from data_parser import *
 from collections import OrderedDict
 import cPickle as pickle
 import operator
@@ -47,6 +47,7 @@ import shutil
 import json
 import math
 import time
+import ast
 import os
 
 import subprocess
@@ -77,6 +78,30 @@ for line in fp:
     tok = line.split()
     ciphers[tok[0]] = (tok[1],tok[2])
 fp.close()
+
+openssl = {}
+# read in openssl information
+with open('results_cs_tls_ext_full.txt','r') as fp:
+    count = 0
+    while True:
+        line = fp.readline()
+        if count > 2:
+            break
+        if line == '':
+            count += 1
+        if not line.startswith('o'):
+            continue
+        count = 0
+        tmp_name = line.strip()
+        line = fp.readline()
+        cs = ast.literal_eval(line)
+        tmp = fp.readline().strip()
+        ext = []
+        if tmp != '':
+            t_ext = ast.literal_eval(tmp)
+            for tmp_s in t_ext:
+                ext.append(tmp_s)
+        openssl[tmp_name] = getTLSVersionVector(cs, ext)
 
 def getOrgName(ip):
     p = subprocess.Popen(['whois', ip], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -591,10 +616,23 @@ def scs(level):
     return template('high_entropy',results=tmp,num_flows=len(tmp),
                     to_display_names=to_display_names)
 
-@route('/crypto_dashboard',method='POST')
+total_flows = 0
+flow_data = {}
+non_tls_high_entropy = 0
+non_tls_low_entropy = 0
+rec_scs = 0
+leg_scs = 0
+avo_scs = 0
+perc_non_tls_high_be = ""
+perc_rec_scs = ""
+perc_leg_scs = ""
+perc_avo_scs = ""
+
+#@route('/crypto_dashboard',method='POST')
+@route('/crypto_dashboard/<parse>')
 @route('/crypto_dashboard')
 @view('crypto_dashboard')
-def crypto_dashboard():
+def crypto_dashboard(parse=True):
 #def results(data={}):
     global flows
     global flow_data
@@ -603,104 +641,118 @@ def crypto_dashboard():
     global count_flocap
     global classifiers_to_display
     global classifier_names
+    global total_flows
+    global flow_data
+    global non_tls_high_entropy
+    global non_tls_low_entropy
+    global rec_scs
+    global leg_scs
+    global avo_scs
+    global perc_non_tls_high_be
+    global perc_rec_scs
+    global perc_leg_scs
+    global perc_avo_scs
+
+    if parse == 'False':
+        parse = False
+
+    if parse:
+        file_names = []
+        is_upload = False
+        if request.files.get('upload') != None:
+            upload = request.files.get('upload')
+
+            dir_name = tempfile.mkdtemp()
+            upload.save(dir_name + 'temp.json')
+
+            file_names.append(dir_name+'temp.json')
+            is_upload = True
+        else:
+            tmp_files = get_files_by_time(out_dir)
+            tmp_files.reverse()
+            if len(tmp_files) > 0:
+                file_names.append(out_dir+tmp_files[0])
+            if len(tmp_files) > 1:
+                file_names.append(out_dir+tmp_files[1])
+            if len(tmp_files) > 2:
+                file_names.append(out_dir+tmp_files[2])
+            if len(tmp_files) > 3:
+                file_names.append(out_dir+tmp_files[3])
+            if len(tmp_files) > 4:
+                file_names.append(out_dir+tmp_files[4])
+            if len(tmp_files) > 5:
+                file_names.append(out_dir+tmp_files[5])
+
+        data = []
+        metadata = []
+        #tls_flow_data = {}
+        total_flows = 0
+        flow_data = {}
+        non_tls_high_entropy = 0
+        non_tls_low_entropy = 0
         
-    file_names = []
-    is_upload = False
-    if request.files.get('upload') != None:
-#    if False:
-        upload = request.files.get('upload')
+        rec_scs = 0
+        leg_scs = 0
+        avo_scs = 0
 
-        dir_name = tempfile.mkdtemp()
-        upload.save(dir_name + 'temp.json')
+        for f in file_names:
+            parser = DataParser(f)
+            tmp,tmp_m = parser.getIndividualFlowMetadata()
 
-        file_names.append(dir_name+'temp.json')
-        is_upload = True
-    else:
-        tmp_files = get_files_by_time(out_dir)
-        tmp_files.reverse()
-        if len(tmp_files) > 0:
-            file_names.append(out_dir+tmp_files[0])
-        if len(tmp_files) > 1:
-            file_names.append(out_dir+tmp_files[1])
-        if len(tmp_files) > 2:
-            file_names.append(out_dir+tmp_files[2])
-        if len(tmp_files) > 3:
-            file_names.append(out_dir+tmp_files[3])
-        if len(tmp_files) > 4:
-            file_names.append(out_dir+tmp_files[4])
-        if len(tmp_files) > 5:
-            file_names.append(out_dir+tmp_files[5])
+            if parser.advancedInfo == None:
+                continue
+            for k in parser.advancedInfo:
+                flows[k] = parser.advancedInfo[k]
+            for k in parser.all_flows:
+                flow_data[k] = parser.all_flows[k]
+                # find number of high entropy flows
+                if 'tls' not in flow_data[k] and 'be' in flow_data[k]:
+                    if flow_data[k]['be'] >= 6.0:
+                        non_tls_high_entropy += 1
+                    else:
+                        non_tls_low_entropy += 1
+                # find % of scs
+                # ciphers[tok[0]] = (tok[1],tok[2])
+                if 'tls' in flow_data[k] and 'scs' in flow_data[k]['tls']:
+                    if flow_data[k]['tls']['scs'] in ciphers:
+                        (cipher_name, level) = ciphers[flow_data[k]['tls']['scs']]
+                        if level == 'RECOMMENDED':
+                            rec_scs += 1
+                        elif level == 'LEGACY':
+                            leg_scs += 1
+                        elif level == 'AVOID':
+                            avo_scs += 1
 
-    start_time = time.time()
-    data = []
-    metadata = []
-    #tls_flow_data = {}
-    total_flows = 0
-    flow_data = {}
-    non_tls_high_entropy = 0
-    non_tls_low_entropy = 0
-
-    rec_scs = 0
-    leg_scs = 0
-    avo_scs = 0
-
-    for f in file_names:
-        parser = DataParser(f)
-        tmp,tmp_m = parser.getIndividualFlowMetadata()
-
-        if parser.advancedInfo == None:
-            continue
-        for k in parser.advancedInfo:
-            flows[k] = parser.advancedInfo[k]
-        for k in parser.all_flows:
-            flow_data[k] = parser.all_flows[k]
-            # find number of high entropy flows
-            if 'tls' not in flow_data[k] and 'be' in flow_data[k]:
-                if flow_data[k]['be'] >= 6.0:
-                    non_tls_high_entropy += 1
-                else:
-                    non_tls_low_entropy += 1
-            # find % of scs
-            # ciphers[tok[0]] = (tok[1],tok[2])
-            if 'tls' in flow_data[k] and 'scs' in flow_data[k]['tls']:
-                if flow_data[k]['tls']['scs'] in ciphers:
-                    (cipher_name, level) = ciphers[flow_data[k]['tls']['scs']]
-                    if level == 'RECOMMENDED':
-                        rec_scs += 1
-                    elif level == 'LEGACY':
-                        leg_scs += 1
-                    elif level == 'AVOID':
-                        avo_scs += 1
-                    
+                # find # of different clients
 
 
-        if tmp != None:
-            for i in range(len(tmp)):
-                metadata.append(tmp_m[len(tmp)-i-1])
-                total_flows += 1
+            if tmp != None:
+                for i in range(len(tmp)):
+                    metadata.append(tmp_m[len(tmp)-i-1])
+                    total_flows += 1
 
-                if total_flows == count_flocap*2 and not is_upload:
-                    break
-        if total_flows == count_flocap*2 and not is_upload:
-            break
+                    if total_flows == count_flocap*2 and not is_upload:
+                        break
+            if total_flows == count_flocap*2 and not is_upload:
+                break
 
-    if request.files.get('upload') != None:
-        os.removedirs(dir_name)
+        if request.files.get('upload') != None:
+            os.removedirs(dir_name)
 
-    perc_non_tls_high_be = float(non_tls_high_entropy)/(non_tls_high_entropy+non_tls_low_entropy)
-    perc_non_tls_high_be = "%.02f%%" % (perc_non_tls_high_be*100)
+        perc_non_tls_high_be = float(non_tls_high_entropy)/(non_tls_high_entropy+non_tls_low_entropy)
+        perc_non_tls_high_be = "%.02f%%" % (perc_non_tls_high_be*100)
 
-    if (rec_scs+leg_scs+avo_scs) > 0:
-        perc_rec_scs = float(rec_scs)/(rec_scs+leg_scs+avo_scs)
-        perc_rec_scs = "%.02f%%" % (perc_rec_scs*100)
-        perc_leg_scs = float(leg_scs)/(rec_scs+leg_scs+avo_scs)
-        perc_leg_scs = "%.02f%%" % (perc_leg_scs*100)
-        perc_avo_scs = float(avo_scs)/(rec_scs+leg_scs+avo_scs)
-        perc_avo_scs = "%.02f%%" % (perc_avo_scs*100)
-    else:
-        perc_rec_scs = ""
-        perc_leg_scs = ""
-        perc_avo_scs = ""
+        if (rec_scs+leg_scs+avo_scs) > 0:
+            perc_rec_scs = float(rec_scs)/(rec_scs+leg_scs+avo_scs)
+            perc_rec_scs = "%.02f%%" % (perc_rec_scs*100)
+            perc_leg_scs = float(leg_scs)/(rec_scs+leg_scs+avo_scs)
+            perc_leg_scs = "%.02f%%" % (perc_leg_scs*100)
+            perc_avo_scs = float(avo_scs)/(rec_scs+leg_scs+avo_scs)
+            perc_avo_scs = "%.02f%%" % (perc_avo_scs*100)
+        else:
+            perc_rec_scs = ""
+            perc_leg_scs = ""
+            perc_avo_scs = ""
 
     return template('crypto_dashboard',be_perc=perc_non_tls_high_be,perc_rec_scs=perc_rec_scs,perc_leg_scs=perc_leg_scs,perc_avo_scs=perc_avo_scs)
 
