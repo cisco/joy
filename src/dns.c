@@ -260,7 +260,8 @@ enum dns_err {
   dns_err_bad_rdlength    = 6,
   dns_err_unprintable     = 7,
   dns_err_too_many        = 8,
-  dns_err_unterminated    = 9
+  dns_err_unterminated    = 9,
+  dns_err_rdata_too_long  = 10
 };
 
 enum dns_err data_advance(void **data, int *len, unsigned int size) {
@@ -282,11 +283,15 @@ enum dns_err dns_question_parse(const struct dns_question **q, void **data, int 
   return dns_ok;
 }
 
-enum dns_err dns_rr_parse(const struct dns_rr **r, void **data, int *len) {
+enum dns_err dns_rr_parse(const struct dns_rr **r, void **data, int *len, int *rdlength) {
   if (*len < sizeof(struct dns_rr)) {
     return dns_err_malformed;
   } 
   *r = *data;
+  if (*len < ntohs((*r)->rdlength)) {
+    return dns_err_rdata_too_long;
+  }
+  *rdlength = ntohs((*r)->rdlength);
   *data += sizeof(struct dns_rr);  
   *len -= sizeof(struct dns_rr);  
   return dns_ok;
@@ -305,6 +310,16 @@ enum dns_err dns_addr_parse(const struct in_addr **a, void **data, int *len, uns
   return dns_ok;
 }
 
+enum dns_err uint16_parse(uint16_t **x, void **data, int *len) {
+  if (*len < sizeof(uint16_t)) {
+    return dns_err_malformed;
+  } 
+  *x = *data;
+  *data += sizeof(uint16_t);  
+  *len -= sizeof(uint16_t);  
+  return dns_ok;
+}
+
 int string_is_not_printable(char *s, unsigned int len) {
   int i;
 
@@ -316,9 +331,21 @@ int string_is_not_printable(char *s, unsigned int len) {
   return 0;
 }
 
-enum dns_err dns_header_parse_name(const struct dns_hdr *hdr, void **name, int *len) {
+inline char printable(char c) {
+  if (isprint(c)) {
+    return c;
+  }
+  return '*';
+}
+
+enum dns_err dns_header_parse_name(const struct dns_hdr *hdr, void **name, int *len, char *outname, unsigned int outname_len) {
+  char *terminus = outname + outname_len;
   char *c = *name;
   unsigned char jump;
+  int i;
+  int offsetlen = (*name - (const void *)hdr) + *len; /* num bytes available after offset pointer */
+  const void *offsetname;
+  enum dns_err err;
 
   /*
    * A DNS name is a sequence of zero or more labels, possibly
@@ -328,36 +355,48 @@ enum dns_err dns_header_parse_name(const struct dns_hdr *hdr, void **name, int *
    * either a sequence of two or more labels, with the last label
    * being NULL (L=0), or a sequence of one or more labels followed by
    * an offset, or just an offset.
+   *
+   * An offset is a pointer to (part of) a second name in another
+   * location of the same DNS packet.  Importantly, note that there
+   * may be an offset in the second name; this function must follow
+   * each offset that appears and copy the names to outputname.
    */
-  while (*len > 0) {
+  outname[1] = 0;         /* set output to "", in case of error */
+  while (*len > 0 && outname < terminus) {
     if (char_is_label(*c)) {
       if (*c < 64 && *len > *c) {
 	if (*c == 0) {
 	  *name = c+1; 
+	  *outname = 0;
 	  return dns_ok;  /* got NULL label       */
 	}
 	jump = *c + 1;
-	*c = '.';
-	/*
-	 * string following label must be printable
+	/* 
+	 * make (printable) copy of string
 	 */
-	if (string_is_not_printable(c, jump)) {
-	  return dns_err_unprintable;
+	*outname++ = '.';
+	for (i=1; i<jump; i++) {
+	  *outname++ = printable(c[i]);
 	}
+	/* advance pointers, decrease lengths */
+	outname_len -= jump;
 	*len -= jump;
 	c += jump;
+	*name += jump;
       } else {
 	return dns_err_label_too_long;
       }
     } else if (char_is_offset(*c)) {
-      if (*len > 2) {	
-	*len -= 2;
-	*name = c+2;
-	*c = 0;           /* hack! offset <- NULL */
-	return dns_ok;    /* got offset           */
-      } else {
-	return dns_err_offset_too_long; 
+      uint16_t *offset;
+
+      err = uint16_parse(&offset, name, len);
+      if (err != dns_ok) {
+	return dns_err_offset_too_long;
       }
+      offsetname = (const void *)hdr + (ntohs(*offset) & 0x3FFF);
+      offsetlen -= (ntohs(*offset) & 0x3FFF);
+      return dns_header_parse_name(hdr, (void *)&offsetname, &offsetlen, outname, outname_len);
+
     } else {
       return dns_err_label_malformed;
     }
@@ -366,13 +405,23 @@ enum dns_err dns_header_parse_name(const struct dns_hdr *hdr, void **name, int *
   return dns_err_unterminated;
 }
 
+/*
+ * dns_rdata_print(rh, rr, r, len, output) prints the RDATA field at
+ * location *r
+ *
+ * note: if this function returns a value other than dns_ok, then it
+ * has not printed any output; this fact is important to ensure
+ * correct JSON formatting
+ */
 enum dns_err
 dns_rdata_print(const struct dns_hdr *rh, const struct dns_rr *rr, void **r, int *len, zfile output) {
   enum dns_err err;
+  uint16_t class = ntohs(rr->class);
+  uint16_t type = ntohs(rr->type);
+  char name[256];
 
-  if (ntohs(rr->class) == class_IN) {
-    
-    if (ntohs(rr->type) == type_A) {
+  if (class == class_IN) {    
+    if (type == type_A) {
       const struct in_addr *addr;;
       
       err = dns_addr_parse(&addr, r, len, ntohs(rr->rdlength));
@@ -384,28 +433,50 @@ dns_rdata_print(const struct dns_hdr *rh, const struct dns_rr *rr, void **r, int
       } else {
 	zprintf(output, "\"a\":\"%s\"", inet_ntoa(*addr));
       }
-    } else if (ntohs(rr->type) == type_SOA) {
-      const char *mname = *r;
-      
-      err = dns_header_parse_name(rh, r, len); /* note: does not check rdlength */
+    } else if (type == type_SOA  || type == type_PTR || type == type_CNAME) {
+      char *typename;
+
+      err = dns_header_parse_name(rh, r, len, name, sizeof(name)); /* note: does not check rdlength */
       if (err != dns_ok) { 
 	return err; 
       }
-      zprintf(output, "\"soa\":\"%s\"", mname + 1);
+      switch (type) {
+      case type_SOA:
+	typename = "soa";
+	break;
+      case type_PTR:
+	typename = "ptr";
+	break;
+      case type_CNAME:
+	typename = "cname";
+	break;
+      default:
+	typename = "unknown";
+      }
+      zprintf(output, "\"%s\":\"%s\"", typename, name + 1);
       
-    } else if (ntohs(rr->type) == type_TXT) {
+    } else if (type == type_TXT) {
       zprintf(output, "\"txt\":\"%s\"", "NYI");
+
     } else {
-      zprintf(output, "\"type\":\"%x\",\"class\":\"%x\"", ntohs(rr->type), ntohs(rr->class));
+      err = data_advance(r, len, ntohs(rr->rdlength));
+      if (err != dns_ok) {
+	return err;
+      }
+      zprintf(output, "\"type\":\"%x\",\"class\":\"%x\",\"rdlength\":%u", type, class, rr->rdlength);
+      
+      /*
+       * several DNS types are not explicitly supported here, and more
+       * types may be added in the future, if deemed important.  see
+       * http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
+       */
     }
   } else {
-    zprintf(output, "\"type\":\"%x\",\"class\":\"%x\"", ntohs(rr->type), ntohs(rr->class));
-    *r += ntohs(rr->rdlength);
-    *len -= ntohs(rr->rdlength);
-    // err = data_advance(r, len, ntohs(rr->rdlength));
-    // if (err != dns_ok) {
-    //  return err;
-    // }
+    err = data_advance(r, len, ntohs(rr->rdlength));
+    if (err != dns_ok) {
+      return err;
+    }
+    zprintf(output, "\"type\":\"%x\",\"class\":\"%x\",\"rdlength\":%u", type, class, rr->rdlength);
   }
 
   return dns_ok;
@@ -440,7 +511,7 @@ enum status process_dns(const struct pcap_pkthdr *h, const void *start, int len,
 
 
 void dns_print_packet(char *dns_name, unsigned int pkt_len, zfile output) {
-  char *qname;
+  char name[256];
   enum dns_err err;
   void *r;
   const struct dns_hdr *rh;
@@ -449,26 +520,21 @@ void dns_print_packet(char *dns_name, unsigned int pkt_len, zfile output) {
   int len;
   char qr;
   uint16_t qdcount, ancount;
+  int rdlength;
   unsigned comma = 0;
   
   /*
    * DNS packet format:
    * 
-   *   struct dns_hdr
-   *   (question) name 
-   *   struct dns_question 
-   *   (resource record) name
-   *   struct dns_rr
-   *   rr_data   
-   *   ... etc ...
+   *   one struct dns_hdr
+   *   one (question) name 
+   *   one struct dns_question 
+   *   zero or more (resource record) name
+   *                struct dns_rr
+   *                rr_data   
    */
   zprintf(output, "{");
-  
-  /* zprintf(output, "\"r\":"); */
-  /* zprintf_raw_as_hex(output, r, 8); */
-  /* zprintf(output, "\"question\":"); */
-  /* zprintf_raw_as_hex(output, question, 8); */
-  
+    
   len = pkt_len;
   r = dns_name;
   rh = r;
@@ -490,8 +556,7 @@ void dns_print_packet(char *dns_name, unsigned int pkt_len, zfile output) {
   }
   while (qdcount-- > 0) {
     /* parse question name and struct */
-    qname = r;
-    err = dns_header_parse_name(rh, &r, &len);
+    err = dns_header_parse_name(rh, &r, &len, name, sizeof(name));
     if (err != dns_ok) { 
       zprintf(output, "\"malformed\":%d", len);
       zprintf_debug("question name err=%u; len=%u\"}]}", err, len);
@@ -503,21 +568,19 @@ void dns_print_packet(char *dns_name, unsigned int pkt_len, zfile output) {
       zprintf_debug("question err=%u; len=%u\"]}]", err, len);
       return;
     }
-    zprintf(output, "\"%cn\":\"%s\"", qr, qname + 1);
+    zprintf(output, "\"%cn\":\"%s\"", qr, name + 1);
   }
   zprintf(output, ",\"rc\":%u,\"rr\":[", rh->rcode);
 
   ancount = ntohs(rh->ancount); 
   comma = 0;
   while (ancount-- > 0) {
-    char *name;
     if (comma++) {
       zprintf(output, ",");
     }
     zprintf(output, "{");
     /* parse rr name, struct, and rdata */
-    name = r;
-    err = dns_header_parse_name(rh, &r, &len);
+    err = dns_header_parse_name(rh, &r, &len, name, sizeof(name));
     if (err != dns_ok) { 
       unsigned char *d = r;
       zprintf(output, "\"malformed\":%d", len);
@@ -525,17 +588,18 @@ void dns_print_packet(char *dns_name, unsigned int pkt_len, zfile output) {
       return;
     }
     // zprintf(output, "\"name\":\"%s\"", name);
-    err = dns_rr_parse(&rr, &r, &len);
+    err = dns_rr_parse(&rr, &r, &len, &rdlength);
     if (err) {
       zprintf(output, "\"malformed\":%d", len);
       zprintf_debug("rr ancount=%u; err=%u; len=%u\"}]}", ancount, err, len);
       return;
     }
-    err = dns_rdata_print(rh, rr, &r, &len, output);
+    err = dns_rdata_print(rh, rr, &r, &rdlength, output);
     if (err) {
       zprintf(output, "\"malformed\":%d}]}", len);
       return;
     }
+    len -= rdlength;
     zprintf(output, ",\"ttl\":%u}", ntohl(rr->ttl));
   }
   zprintf(output, "]}");
@@ -593,6 +657,7 @@ void dns_unit_test() {
     0x03, 0x77, 0x77, 0x77, 0x06, 0x6F, 0x72, 0x77, 
     0x65, 0x6C, 0x6C, 0x02, 0x72, 0x75, 0x00
   };
+  char name2[MAX_DNS_NAME_LEN];
   void *c = &name;
   int len = 15;
 
@@ -600,7 +665,7 @@ void dns_unit_test() {
   assert(sizeof(struct dns_question) == 4);
   assert(sizeof(struct dns_rr) == 10);
   
-  err = dns_header_parse_name(&hdr, &c, &len);
+  err = dns_header_parse_name(&hdr, &c, &len, name2, sizeof(name2));
 
-  printf("name: %s\tlen: %u\terr: %u\n", name, len, err);
+  printf("name: %s\tlen: %u\terr: %u\n", name2, len, err);
 }
