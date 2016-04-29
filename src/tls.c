@@ -88,6 +88,8 @@ void tls_record_init(struct tls_information *r) {
   r->certificate_buffer = 0;
   r->certificate_offset = 0;
   r->start_cert = 0;
+  r->sni = 0;
+  r->sni_length = 0;
 
   memset(r->tls_len, 0, sizeof(r->tls_len));
   memset(r->tls_time, 0, sizeof(r->tls_time));
@@ -134,6 +136,9 @@ void tls_record_init(struct tls_information *r) {
 /* free data associated with TLS */
 void tls_record_delete(struct tls_information *r) {
   int i,j;
+  if (r->sni) {
+    free(r->sni);
+  }
   if (r->certificate_buffer) {
     free(r->certificate_buffer);
   }
@@ -318,6 +323,18 @@ void TLSClientHello_get_extensions(const void *x, int len,
 
   i = 0;
   while (len > 0) {
+    if (raw_to_unsigned_short(y) == 0) {
+      r->sni_length = raw_to_unsigned_short(y+7);
+      r->sni = malloc(r->sni_length);
+      memcpy(r->sni, y+9, r->sni_length);
+
+      len -= 4;
+      len -= raw_to_unsigned_short(y+2);
+      y += 4 + raw_to_unsigned_short(y+2);
+      
+      continue;
+    }
+
     r->tls_extensions[i].type = raw_to_unsigned_short(y);
     r->tls_extensions[i].length = raw_to_unsigned_short(y+2);
     // should check if length is reasonable?
@@ -537,10 +554,17 @@ void TLSServerCertificate_parse(const void *x, unsigned int len,
     if (*(y+1) == 48) {
       y += 3;
       certs_len -= 3;
+      //} else if (*y == 48) {
+      //  y += 2;
+      //   certs_len -= 2;
     } else {
       y += 4;
       certs_len -= 4;
     }
+    //} else {
+    //  y += 4;
+    //  certs_len -= 4;
+    //}
     tmp_len = *(y+1);
     y += 2;
     certs_len -= 2;
@@ -969,7 +993,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
   /* currently skipping SSLv2 */
 
   /* currently skipping jumbo frames */
-  if (len > 1600) {
+  if (len > 3000) {
     return NULL;
   }
 
@@ -1333,6 +1357,16 @@ void tls_printf(const struct tls_information *data, const struct tls_information
     zprintf(f, ",\"tls_isid\":");
     zprintf_raw_as_hex_tls(f, data_twin->tls_sid, data_twin->tls_sid_len);
   }
+
+
+
+  if (data->sni_length) {
+    zprintf(f, ",\"SNI\":[\"%s\"]",data->sni);
+  }
+  if (data_twin && data_twin->sni_length) {
+    zprintf(f, ",\"SNI\":[\"%s\"]",data_twin->sni);
+  }
+
 
   if (data->num_ciphersuites) {
     if (data->num_ciphersuites == 1) {
