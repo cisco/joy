@@ -324,9 +324,10 @@ void TLSClientHello_get_extensions(const void *x, int len,
   i = 0;
   while (len > 0) {
     if (raw_to_unsigned_short(y) == 0) {
-      r->sni_length = raw_to_unsigned_short(y+7);
+      r->sni_length = raw_to_unsigned_short(y+7)+1;
       r->sni = malloc(r->sni_length);
-      memcpy(r->sni, y+9, r->sni_length);
+      memset(r->sni, '\0', r->sni_length);
+      memcpy(r->sni, y+9, r->sni_length-1);
 
       len -= 4;
       len -= raw_to_unsigned_short(y+2);

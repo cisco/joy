@@ -268,6 +268,7 @@ void sig_close(int signal_arg) {
    * not expired
    */
   flow_record_list_print_json(NULL);
+  zclose(output);  
   fprintf(info, "got signal %d, shutting down\n", signal_arg); 
   exit(EXIT_SUCCESS);
 }
@@ -840,7 +841,6 @@ int main(int argc, char **argv) {
 	 */
 	fflush(info);
       }
-
       // fflush(output);
     }
 
