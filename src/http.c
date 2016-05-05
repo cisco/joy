@@ -486,7 +486,7 @@ void http_header_print_as_object(zfile f, char *header, char *string, unsigned l
     zprintf(f, "\"uri\":\"");
     if (usernames_ctx) {
       str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
-      anon_print_uri(f, &matches, token2);
+      anon_print_uri_pseudonym(f, &matches, token2);
     } else {
       zprintf(f, "%s", token2);
     }

@@ -109,6 +109,8 @@ void anon_print_uri(zfile f, struct matches *matches, char *text);
 
 int email_special_chars(char *ptr);
 
+int is_special(char *ptr);
+
 typedef int (*char_selector)(char *ptr);
 
 void anon_print_string(zfile f, 
@@ -121,5 +123,8 @@ void anon_print_string(zfile f,
 enum status anon_string(const char *s, unsigned int len, char *hex, unsigned int outlen);
 
 enum status deanon_string(const char *hexinput, unsigned int len, char *s, unsigned int outlen);
+
+
+void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text);
 
 #endif /* ANON_H */

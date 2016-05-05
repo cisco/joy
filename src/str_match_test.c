@@ -64,6 +64,8 @@ void str_match_test(str_match_ctx ctx, char *search) {
   zprintf(output, "\n");
   zprintf(output, "anonymized uri string: ");
   anon_print_uri(output, &matches, (char *)search);
+  zprintf(output, "anonymized string: ");
+  anon_print_uri_pseudonym(output, &matches, (char *)search);
   zprintf(output, "\n");
 }
 
@@ -95,6 +97,10 @@ int main() {
   
   info = mallinfo();
   printf ("allocated space after loading context:  %d bytes\n", info.uordblks);
+
+  if (key_init(ANON_KEYFILE_DEFAULT) != ok) {
+    fprintf(stderr, "error: could not init anonymization key\n");
+  }
 
   str_match_test(ctx, text);
   str_match_test(ctx, text2);

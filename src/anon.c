@@ -600,4 +600,9 @@ void anon_print_string(zfile f, struct matches *matches, char *text, char_select
 }
 
 
+void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text) {
+  return anon_print_string(f, matches, text, is_special, anon_string);
+}
+
+
 /* END http anonymization */
