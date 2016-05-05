@@ -179,6 +179,8 @@ struct tls_information {
   struct tls_certificate certificates[MAX_CERTIFICATES];
   unsigned char num_certificates;
   unsigned char start_cert;
+  void *sni;
+  unsigned short int sni_length;
   void *certificate_buffer;
   unsigned short certificate_offset;
 };

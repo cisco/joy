@@ -36,16 +36,31 @@
 
 % rebase('base.tpl', title='Page Title')
 
+<br />
+
 <script>
 document.getElementById("navbar_home").className = "active";
 </script>
 
-<!-- Main jumbotron for a primary marketing message or call to action -->
-<h1 class="page-header">Local Analytics User Interface, 0.2a</h1>
+<div class="col-md-14">
+  <h4>Percentage of TLS flows with a RECOMMENDED selected ciphersuite: 
+<a href="/scs/RECOMMENDED">{{perc_rec_scs}}</a></h4>
+</div>
 
+<div class="col-md-14">
+  <h4>Percentage of TLS flows with a LEGACY selected ciphersuite: 
+<a href="/scs/LEGACY">{{perc_leg_scs}}</a></h4>
+</div>
 
-For the most recent results, <a href="/results">Click Here</a>.
-<br /><br />
-For a device centric view, <a href="/devices">Click Here</a>.
-<br /><br />
-For a cryptographic audit, <a href="/crypto_dashboard">Click Here</a>.
+<div class="col-md-14">
+  <h4>Percentage of TLS flows with an AVOID selected ciphersuite: 
+<a href="/scs/AVOID">{{perc_avo_scs}}</a></h4>
+</div>
+
+<br />
+<br />
+
+<div class="col-md-14">
+  <h4>Percentage of non-TLS flows with high entropy: 
+<a href="/high_entropy">{{be_perc}}</a></h4>
+</div>

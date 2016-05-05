@@ -74,7 +74,7 @@
           <span class="icon-bar"></span>
           <span class="icon-bar"></span>
         </button>
-        <a class="navbar-brand" href="home">LAUI 0.2a</a>
+        <a class="navbar-brand" href="/home">LAUI 0.2a</a>
       </div>
       <div id="navbar" class="navbar-collapse collapse">
         <ul class="nav navbar-nav">

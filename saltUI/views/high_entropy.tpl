@@ -36,16 +36,59 @@
 
 % rebase('base.tpl', title='Page Title')
 
+<style>
+.box {   
+    float: left;
+    width: 15px;
+    height: 15px;
+    margin: 3px 3px 3px 3px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: rgba(0,0,0,.2);
+}
+</style>
+
+
 <script>
-document.getElementById("navbar_home").className = "active";
+$('body').on('hidden.bs.modal', '.modal', function () {
+  $(this).removeData('bs.modal');
+});
 </script>
 
-<!-- Main jumbotron for a primary marketing message or call to action -->
-<h1 class="page-header">Local Analytics User Interface, 0.2a</h1>
+<a href="/crypto_dashboard/False">Back</a>
+<br/>
 
+<div class="col-md-14">
+  <h4>Number of flows: {{num_flows}}</h4>
+  <br />
 
-For the most recent results, <a href="/results">Click Here</a>.
-<br /><br />
-For a device centric view, <a href="/devices">Click Here</a>.
-<br /><br />
-For a cryptographic audit, <a href="/crypto_dashboard">Click Here</a>.
+  <table data-toggle="table" id="table" class="table table-striped" data-sort-name="p_mal" data-sort-order="desc">
+    <thead>
+      <tr>
+	% for (abbrev, name) in to_display_names:
+          <th data-field="{{abbrev}}" data-sortable="true">{{name}}</th>
+	% end
+      </tr>
+    </thead>
+    <tbody>
+    % for i in range(len(results)):
+      % item = results[i]
+      <tr>
+        <td><a id="{{item[0]}}" data-toggle="modal" data-target="#basicModal" href="/advancedInfo/{{item[1].replace('.','')+item[2].replace('.','')+str(item[3])+str(item[4])+str(item[7]+item[8])}}">{{item[0]}}</a></td>
+	% for x in item[10]:
+          <td>{{x}}</td>
+	% end
+      </tr>
+    % end
+    </tbody>
+  </table>
+
+</div>
+
+<div class="modal fade" id="basicModal" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        </div>
+    </div>
+  </div>
+</div>
