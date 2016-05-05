@@ -84,10 +84,10 @@ unit_test: unit_test.c Makefile VERSION $(PCAP2FLOW_FILES)
 	gcc $(CFLAGS) $(CDEFS) -o unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBS) 
 
 str_match_test: str_match_test.c Makefile VERSION $(PCAP2FLOW_FILES)
-	gcc $(CFLAGS) $(CDEFS) -o str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) -DCOMPRESSED_OUTPUT=0 -o str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBS) 
 
-jfd-anon: jfd-anon.c anon.c addr.c Makefile
-	gcc $(CFLAGS) $(CDEFS) -o jfd-anon $(INCLUDEDIR) jfd-anon.c anon.c addr.c str_match.c acsm.c $(LIBS)
+jfd-anon: jfd-anon.c anon.c addr.c str_match.c acsm.c Makefile
+	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o jfd-anon $(INCLUDEDIR) jfd-anon.c anon.c addr.c str_match.c acsm.c $(LIBS)
 
 jfd-analysis: jfd-analysis.c 
 	gcc $(CFLAGS) $(CDEFS) jfd-analysis.c -o jfd-analysis $(LIBS)

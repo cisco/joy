@@ -9,9 +9,9 @@ frogers2
 velmad
 vdinkey
 dinkey
-prefix
-middle
-suffix
-prefixmiddle
-middlesuffix
-prefixmiddlesuffix
+prfx
+mddl
+sffx
+prfxmddl
+mddlsffx
+prfxmddlsffx

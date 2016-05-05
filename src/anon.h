@@ -60,6 +60,16 @@
 #include "err.h"
 #include "output.h"
 
+
+enum anon_mode {
+  null_mode        = 0,
+  mode_anonymize   = 1,
+  mode_check       = 2,
+  mode_deanonymize = 3
+};
+
+#define ANON_KEYFILE_DEFAULT "pcap2flow.bin"
+
 //struct subnet {
 //  struct in_addr addr;
 //  struct in_addr mask;
@@ -85,14 +95,31 @@ unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 
 /* END address anonymization  */
 
+// enum status anon_string(char *s, unsigned int len, char hex[33]);
+
 #include "str_match.h"
 
-enum status anon_http_init(const char *pathname, FILE *logfile);
+enum status anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, char *anon_keyfile);
 
 void zprintf_anon_nbytes(zfile f, char *s, size_t len);
 
 void zprintf_nbytes(zfile f, char *s, size_t len);
 
 void anon_print_uri(zfile f, struct matches *matches, char *text);
+
+int email_special_chars(char *ptr);
+
+typedef int (*char_selector)(char *ptr);
+
+void anon_print_string(zfile f, 
+		       struct matches *matches, 
+		       char *text, 
+		       char_selector selector, 
+		       string_transform transform);
+
+
+enum status anon_string(const char *s, unsigned int len, char *hex, unsigned int outlen);
+
+enum status deanon_string(const char *hexinput, unsigned int len, char *s, unsigned int outlen);
 
 #endif /* ANON_H */

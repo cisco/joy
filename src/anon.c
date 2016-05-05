@@ -66,16 +66,15 @@ FILE *anon_info;
 #define MAX_KEY_SIZE 16
 
 struct anon_aes_128_ipv4_key {
-  AES_KEY key;
+  AES_KEY enc_key;
+  AES_KEY dec_key;
 };
 
 struct anon_aes_128_ipv4_key key;
 
-#define ANON_KEYFILE "pcap2flow.bin"
-
 unsigned int anonymize = 0;
 
-enum status key_init() {
+enum status key_init(char *ANON_KEYFILE) {
   int fd;
   ssize_t bytes;
   unsigned char buf[MAX_KEY_SIZE];
@@ -130,7 +129,8 @@ enum status key_init() {
       }
     } 
   } 
-  AES_set_encrypt_key(buf, 128, &key.key);    
+  AES_set_encrypt_key(buf, 128, &key.enc_key);    
+  AES_set_decrypt_key(buf, 128, &key.dec_key);    
   anonymize = 1;
 
   return ok; 
@@ -337,7 +337,7 @@ enum status anon_init(const char *pathname, FILE *logfile) {
     fclose(fp);
   } 
 
-  s = key_init();
+  s = key_init(ANON_KEYFILE_DEFAULT);
 
   return s;
 }
@@ -349,7 +349,7 @@ char *addr_get_anon_hexstring(const struct in_addr *a) {
   unsigned char c[16];
 
   memcpy(pt, a, sizeof(struct in_addr));
-  AES_encrypt(pt, c, &key.key);
+  AES_encrypt(pt, c, &key.enc_key);
   snprintf(hexout, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
 	   c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
 	   c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
@@ -389,10 +389,86 @@ int anon_unit_test() {
 
 #include "str_match.h"
 
+enum status anon_string(const char *s, unsigned int len, char *outhex, unsigned int outlen) {
+  unsigned char pt[16] = { 
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+  };
+  unsigned char c[16];
+
+  if (len > 16 || outlen < 33) {
+    return failure;
+  }
+  memcpy(pt, s, len);
+  AES_encrypt(pt, c, &key.enc_key);
+
+  snprintf(outhex, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
+	   c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
+	   c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
+  outhex[32] = 0; /* null termination */
+  
+ return ok;
+}
+
+enum status deanon_string(const char *hexinput, unsigned int len, char *s, unsigned int outlen) {
+  unsigned char *pt = (unsigned char *)s;
+  unsigned char c[16];
+  int i;
+
+  if (len != 32 || outlen < 16) {
+    return failure;
+  }
+  //  printf("input: %s\n", hexinput);
+
+  if (16 != sscanf(hexinput, "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx", 
+	   &c[0], &c[1], &c[2], &c[3], &c[4], &c[5], &c[6], &c[7], 
+		   &c[8], &c[9], &c[10], &c[11], &c[12], &c[13], &c[14], &c[15])) {
+    return failure;
+  }
+
+  AES_decrypt(c, pt, &key.dec_key);
+
+  for (i=0; i<16; i++) {
+    if (!isprint(pt[i])) {
+      break;
+    }
+  }
+  for (  ; i<16; i++) {
+    if (pt[i] != 0xff) {
+      return failure;
+    }
+    pt[i] = 0;
+  }
+  //  printf("pt: %s\n", pt);
+  
+ return ok;
+}
+
+enum status zprint_anon_string(zfile f, char *input, unsigned int len) {
+  enum status err;
+  char hex[33];
+  
+  err = anon_string(input, len, hex, sizeof(hex));
+  if (err != ok) {
+    return err;
+  }
+  zprintf(f, "%s", hex);
+
+  return ok;
+}
+
 str_match_ctx usernames_ctx = NULL;
 
-enum status anon_http_init(const char *pathname, FILE *logfile) {
+enum status anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, char *ANON_KEYFILE) {
   enum status s;
+  string_transform transform = NULL;
+
+  /* make sure that key is initialized */
+  s = key_init(ANON_KEYFILE);
+
+  if (mode == mode_deanonymize) {
+    transform = anon_string;
+  }
 
   if (logfile != NULL) {
     anon_info = logfile;
@@ -405,13 +481,10 @@ enum status anon_http_init(const char *pathname, FILE *logfile) {
     fprintf(stderr, "error: could not allocate string matching context\n");
     return -1;
   }
-  if (str_match_ctx_init_from_file(usernames_ctx, pathname) != 0) {
+  if (str_match_ctx_init_from_file(usernames_ctx, pathname, transform) != 0) {
     fprintf(stderr, "error: could not init string matching context from file\n");
     exit(EXIT_FAILURE);
   }
-
-  /* make sure that key is initialized */
-  s = key_init();
 
   return s;
 }
@@ -448,7 +521,7 @@ void zprintf_anon_nbytes(zfile f, char *s, size_t len) {
 int is_special(char *ptr) {
   char c = *ptr;
   // printf("\nc='%c'\n", c); 
-  return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.')||(c=='=')||(c==';')||(c==0);
+  return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.')||(c=='=')||(c==';')||(c==0); // ||(c==' ')||(c=='@')||(c=='.');
 }
 
 void anon_print_uri(zfile f, struct matches *matches, char *text) {
@@ -464,6 +537,57 @@ void anon_print_uri(zfile f, struct matches *matches, char *text) {
 
     if ((matches->start[i] == 0 || is_special(text + matches->start[i] - 1)) && is_special(text + matches->stop[i] + 1)) {
       zprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching and special */
+    } else {
+      zprintf_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching, not special */
+    }
+    if (i < matches->count-1) {
+      zprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
+    } else {
+      zprintf(f, "%s", text + matches->stop[i] + 1);  /* nonmatching */
+    }
+  }
+}
+
+
+int email_special_chars(char *ptr) {
+  char c = *ptr;
+  // printf("\nc='%c'\n", c); 
+  return (c==0)||(c==' ')||(c=='@')||(c==',')||(c=='\t')||(c=='"')||(c=='\'');
+}
+
+typedef int (*char_selector)(char *ptr);
+
+void anon_print_string(zfile f, struct matches *matches, char *text, char_selector selector, string_transform transform) {
+  unsigned int i;
+  enum status err;
+  char hex[33];
+
+  if (matches->count == 0) {
+    zprintf(f, "%s", text);
+    return;
+  }
+
+  zprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
+  for (i=0; i < matches->count; i++) {
+
+    if ((matches->start[i] == 0 || selector(text + matches->start[i] - 1)) && selector(text + matches->stop[i] + 1)) {
+      /* 
+       * matching and special 
+       */
+      void *start = text + matches->start[i];
+      size_t len = matches->stop[i] - matches->start[i] + 1;
+
+      if (transform) {
+	err = transform(start, len, hex, sizeof(hex));
+	if (err == ok) {
+	  zprintf(f, "%s", hex);
+	} else {
+	  zprintf_anon_nbytes(f, start, len);  
+	}
+      } else {
+	zprintf_nbytes(f, start, len);  
+      }
+
     } else {
       zprintf_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching, not special */
     }

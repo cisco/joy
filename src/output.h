@@ -55,8 +55,9 @@
  * to read the files, and gunzip can be used to convert them to normal
  * files.  
  */
+#ifndef COMPRESSED_OUTPUT
 #define COMPRESSED_OUTPUT 1
-
+#endif
 
 #if (COMPRESSED_OUTPUT == 0)
 /*

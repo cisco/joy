@@ -41,6 +41,7 @@
  */
 
 #include "str_match.h"
+#include "anon.h"
 
 void matches_add(struct matches *matches, size_t stop, size_t length) {
   int i;
@@ -127,13 +128,14 @@ void strip_newline(char *line) {
   }
 }
 
-int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename) {
+int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename, string_transform transform) {
   // acsm_pattern_t *pattern;
   FILE *fp;
   char *line = NULL;
   size_t len = 0;
   ssize_t read;
-
+  enum status err;
+  
   fp = fopen(filename, "r");
   if (fp == NULL) {
     fprintf(stderr, "error: count not open file %s\n", filename);
@@ -142,11 +144,29 @@ int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename) {
 
   while ((read = getline(&line, &len, fp)) != -1) {
     strip_newline(line);
-    // printf("adding pattern \"%s\"\n", line);
-    if (acsm_add_pattern(ctx, (unsigned char *)line, acsm_strlen(line)) != 0) {
-      fprintf(stderr, "acsm_add_pattern() with pattern \"%s\" error.\n", line);
-      return -1;
-    }  
+    if (*line == 0) {
+      fprintf(stderr, "warning: ignoring zero length line in file %s\n", filename);
+    } else {
+      /*
+       * add line to string matching context
+       */
+      char hexout[33];
+      char *string = line;
+
+      if (transform != NULL) {
+	err = transform(line, acsm_strlen(line), hexout, sizeof(hexout));
+	if (err != ok) {
+	  return err;
+	}
+	string = hexout;
+      }
+      
+      // printf("adding pattern \"%s\"\n", string);
+      if (acsm_add_pattern(ctx, (unsigned char *)string, acsm_strlen(string)) != 0) {
+	fprintf(stderr, "acsm_add_pattern() with pattern \"%s\" error.\n", line);
+	return -1;
+      }  
+    }
   }
   free(line);
   

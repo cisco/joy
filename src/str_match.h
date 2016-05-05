@@ -67,7 +67,13 @@ void str_match_ctx_find_all_longest(const str_match_ctx ctx,
 				    size_t len, 
 				    struct matches *matches);
 
-int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename);
+
+typedef enum status (*string_transform)(const char *input, 
+					unsigned int inlen, 
+					char *output,
+					unsigned int outlen);
+
+int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename, string_transform transform);
 
 #define str_match_ctx_alloc() acsm_alloc(NO_CASE)
 

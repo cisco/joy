@@ -38,6 +38,13 @@
  * jfd-anon
  * 
  * json flow data anonymization tool
+ *
+ * anon [ -c | -r ] datafile [ -k <keyfile> ] [ -u <userfile> ] [ -s <subnetfile> ]
+ *
+ *   datafile is the data to be (de)anonymized
+ *   <keyfile> is the key to be used in (de)anonymization
+ *   <userfile> is the set of usernames to be anonymized
+ *   <subnetfile> is the set of subnets to be anonymized
  */
 
 
@@ -45,6 +52,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <unistd.h>       /* for getopt()  */
 #include "anon.h"
 #include "radix_trie.h"   /* for rt_test() */
 
@@ -52,6 +60,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+extern str_match_ctx  usernames_ctx;
 
 char *address_string_anonymize(char *addr_string) {
   struct in_addr addr;
@@ -118,16 +127,51 @@ void check_anon_addresses(char *line) {
 }
 
 
+void matches_print(struct matches *matches, char *text) {
+  unsigned int i;
+  char tmp[1024];
+
+  // printf("matches->count: %d\n", matches->count);
+  for (i=0; i < matches->count; i++) {
+    size_t len = matches->stop[i] - matches->start[i] + 1;
+    if (len > 1024) {
+      return;
+    }
+    memcpy(tmp, text + matches->start[i], len);
+    tmp[len] = 0;
+    printf("\tmatch %d: %s\n", i, tmp);
+  }
+}
+
+
 int usage(char *name) {
-  fprintf(stderr, "usage: %s [-c] [ anonfile ]\n", name);
-  fprintf(stderr, "   reads JSON Flow Data from stdin, and anonymizes the subnets in anonfile\n");
+  fprintf(stderr, "usage:\n%s [-c|-r] [<dfile>][-u <ufile>][-s <sfile>][-k <kfile>]\n", name);
+  fprintf(stderr, "where:\n"
+	  "   <dfile> contains the data to be (de)anonymized; if omitted,\n"
+	  "   the data will be read from stdin\n\n"
+	  "   <ufile> contains the set of usernames to be (de)anonymized,\n"
+	  "   one username per line of the file\n\n"
+	  "   <sfile> contains the set of subnets to be anonymized, one\n"
+	  "   subnet per line in CIDR (W.X.Y.Z/M) notation\n\n"
+	  "   <kfile> contains the key to be used in (de)anonymization; if\n"
+	  "   omitted, the file %s will be used\n\n" 
+	  "   -r causes anonymization to be removed\n\n"
+	  "   -c checks to see if anonymization is needed (but does not perform it)\n\n",
+	  ANON_KEYFILE_DEFAULT);
   return 1;
 }
 
-enum mode {
-  translate = 0,
-  check = 1
+enum type {
+  null_type = 0,
+  addresses = 1,
+  strings   = 2
 };
+
+/*
+ * getopt() external variables
+ */
+extern char *optarg;
+extern int optind, opterr, optopt;
 
 
 int main(int argc, char *argv[]) {
@@ -135,39 +179,89 @@ int main(int argc, char *argv[]) {
   size_t len;
   char *line = NULL;  
   enum status err;
-  char *anonfile = NULL;
-  enum mode mode = translate;
+  char *keyfile = ANON_KEYFILE_DEFAULT;
+  char *userfile = NULL;
+  char *subnetfile = NULL;
+  char *datafile = NULL;
+  FILE *input;
+  enum anon_mode mode = mode_anonymize;
+  enum type type = null_type;
+  int opt;
+  unsigned int linenum = 0;
 
-  // rt_test();
-  // exit(1);
-
-  if (argc == 1) {
-    mode = translate;   /* this option just copies stdin to stdout */
-  } else if (argc == 2) {
-    anonfile = argv[1];
-  } else if (argc == 3) {
-    if (strcmp(argv[1], "-c")) {
-      usage(argv[0]);
+  /*
+   * obtain options from command line
+   */
+  while ((opt = getopt(argc, argv, "crk:u:s:")) != -1) {
+    switch (opt) {
+    case 'c':
+      mode = mode_check;
+      break;
+    case 'r':
+      mode = mode_deanonymize;
+      break;
+    case 'k':
+      keyfile = optarg;
+      break;
+    case 'u':
+      userfile = optarg;
+      type = strings;
+      break;
+    case 's':
+      subnetfile = optarg;
+      type = addresses;
+      break;
+    default: 
+      return usage(argv[0]);
     }
-    mode = check;
-    anonfile = argv[2];
-  } else {    
+  }
+
+  if (mode == null_mode || type == null_type) {
     return usage(argv[0]);
   }
-  if (anonfile) {
-    err = anon_init(anonfile, stderr);
+
+  if (argc > optind + 1) {
+    fprintf(stderr, "error: too many non-option arguments\n");
+    return usage(argv[0]);
+  }
+  if (optind < argc) {
+    datafile = argv[optind];
+  }
+
+  if (subnetfile) {
+    err = anon_init(subnetfile, stderr);
     if (err) {
-      fprintf(stderr, "error: could not initialize anonymization from file %s\n",
-	      argv[1]);
+      fprintf(stderr, "error: could not initialize address anonymization from file %s\n",
+	      subnetfile);
       return EXIT_FAILURE;
     }
   }
+
+  if (userfile) {
+    err = anon_http_init(userfile, stderr, mode, keyfile);
+    if (err) {
+      fprintf(stderr, "error: could not initialize username anonymization from file %s\n",
+	      userfile);
+      return EXIT_FAILURE;
+    }
+  }
+
+  if (datafile) {
+    input = fopen(datafile, "r");
+    if (input == NULL) {
+      fprintf(stderr, "error: could not read from file %s\n", datafile);
+      return EXIT_FAILURE;
+    }
+  } else {
+    input = stdin;
+  }
+
   //  printf("mode: %u\n", mode);
 
   /*
    * read and then process each line of input
    */
-  while ((bytes_read = getline(&line, &len, stdin)) != -1) {
+  while ((bytes_read = getline(&line, &len, input)) != -1) {
 
 #if 0
     unsigned int i;
@@ -198,15 +292,37 @@ int main(int argc, char *argv[]) {
     }
 
 #else 
-    
-    if (mode == translate) {
-      anon_addresses(line);
-    } else {
-      /* mode == check */
-      check_anon_addresses(line);
+
+    if (type == addresses) {
+      if (mode == mode_anonymize) {
+	anon_addresses(line);
+      } else {
+	/* mode == check */
+	check_anon_addresses(line);
+      }
+    } else if (type == strings) {
+      struct matches matches;
+
+      if (mode == mode_anonymize) {
+	str_match_ctx_find_all_longest(usernames_ctx, (unsigned char *)line, strlen(line), &matches);      	
+	anon_print_string(stdout, &matches, line, email_special_chars, anon_string);
+      
+      } else if (mode == mode_check) {
+	str_match_ctx_find_all_longest(usernames_ctx, (unsigned char *)line, strlen(line), &matches);      
+	if (matches.count > 0) {
+	  printf("username match(es) at line %u:\n", linenum);
+	  matches_print(&matches, line);
+	}
+
+      } else if (mode == mode_deanonymize) {
+	str_match_ctx_find_all_longest(usernames_ctx, (unsigned char *)line, strlen(line), &matches);      
+	anon_print_string(stdout, &matches, line, email_special_chars, deanon_string);	
+
+      }
     }
 #endif    
 
+    linenum++;
 
   }
       
@@ -214,3 +330,4 @@ int main(int argc, char *argv[]) {
  
   return 0;
 }
+
