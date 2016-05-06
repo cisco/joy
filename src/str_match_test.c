@@ -66,9 +66,9 @@ void str_match_test(str_match_ctx ctx, char *search) {
   zprintf(output, "anonymized string: ");
   anon_print_uri_pseudonym(output, &matches, (char *)search);
   zprintf(output, "\n");
-  zprintf_usernames(output, &matches, (char *)search, NULL);
+  zprintf_usernames(output, &matches, (char *)search, is_special, NULL);
   zprintf(output, "\n");
-  zprintf_usernames(output, &matches, (char *)search, anon_string);
+  zprintf_usernames(output, &matches, (char *)search, is_special, anon_string);
   zprintf(output, "\n");
 }
 

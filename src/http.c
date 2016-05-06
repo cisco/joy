@@ -463,7 +463,7 @@ int http_header_select(char *h) {
   return 1;
 }
 
-#define PRINT_USERNAMES 0
+#define PRINT_USERNAMES 1
 
 void http_header_print_as_object(zfile f, char *header, char *string, unsigned length) {
   char *token1, *token2, *token3, *saveptr;  
@@ -500,7 +500,7 @@ void http_header_print_as_object(zfile f, char *header, char *string, unsigned l
      * print out (anonymized) usernames found in URI
      */
     if (usernames_ctx) {
-      zprintf_usernames(f, &matches, token2, anon_string);
+      zprintf_usernames(f, &matches, token2, is_special, anon_string);
     }
 #endif
 

@@ -127,6 +127,8 @@ enum status deanon_string(const char *hexinput, unsigned int len, char *s, unsig
 
 void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text);
 
-void zprintf_usernames(zfile f, struct matches *matches, char *text, string_transform transform);
+void zprintf_usernames(zfile f, struct matches *matches, char *text, char_selector selector, string_transform transform);
+
+enum status key_init(char *ANON_KEYFILE);
 
 #endif /* ANON_H */

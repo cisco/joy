@@ -605,32 +605,35 @@ void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text) {
 }
 
 
-void zprintf_usernames(zfile f, struct matches *matches, char *text, string_transform transform) {
+void zprintf_usernames(zfile f, struct matches *matches, char *text, char_selector selector, string_transform transform) {
   unsigned int i;
   char tmp[1024];
   enum status err;
   char hex[33];
+  unsigned int count = 0;
 
   zprintf(f, "\"usernames\":[");
   for (i=0; i < matches->count; i++) {
     size_t len = matches->stop[i] - matches->start[i] + 1;
     if (len > 1024) {
-      return;
+      break; /* error state */
     }
-    memcpy(tmp, text + matches->start[i], len);
-    tmp[len] = 0;
-    if (i) {
-      zprintf(f, ",");
-    }
-    if (transform) {
-      err = transform(tmp, len, hex, sizeof(hex));
-      if (err == ok) {
-	zprintf(f, "\"%s\"", hex);	
-      } else {	  
-	//zprintf_anon_nbytes(f, start, len);  
+    if ((matches->start[i] == 0 || selector(text + matches->start[i] - 1)) && selector(text + matches->stop[i] + 1)) {
+      memcpy(tmp, text + matches->start[i], len);
+      tmp[len] = 0;
+      if (count++) {
+	zprintf(f, ",");
       }
-    } else {
-      zprintf(f, "\"%s\"", tmp);
+      if (transform) {
+	err = transform(tmp, len, hex, sizeof(hex));
+	if (err == ok) {
+	  zprintf(f, "\"%s\"", hex);	
+	} else {	  
+	  //zprintf_anon_nbytes(f, start, len);  
+	}
+      } else {
+	zprintf(f, "\"%s\"", tmp);
+      }
     }
   }
   zprintf(f, "]");
