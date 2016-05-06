@@ -463,6 +463,8 @@ int http_header_select(char *h) {
   return 1;
 }
 
+#define PRINT_USERNAMES 1
+
 void http_header_print_as_object(zfile f, char *header, char *string, unsigned length) {
   char *token1, *token2, *token3, *saveptr;  
   unsigned int not_first_header = 0;
@@ -491,7 +493,16 @@ void http_header_print_as_object(zfile f, char *header, char *string, unsigned l
       zprintf(f, "%s", token2);
     }
     zprintf(f, "\",");
-    zprintf(f, "\"v\":\"%s\"", token3);
+    zprintf(f, "\"v\":\"%s\",", token3);
+
+#if PRINT_USERNAMES
+    /*
+     * print out (anonymized) usernames found in URI
+     */
+    if (usernames_ctx) {
+      zprintf_usernames(f, &matches, token2, anon_string);
+    }
+#endif
 
     not_first_header = 1;
   } else if (type == http_status_line) {    

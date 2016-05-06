@@ -605,4 +605,36 @@ void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text) {
 }
 
 
+void zprintf_usernames(zfile f, struct matches *matches, char *text, string_transform transform) {
+  unsigned int i;
+  char tmp[1024];
+  enum status err;
+  char hex[33];
+
+  zprintf(f, "\"usernames\":[");
+  for (i=0; i < matches->count; i++) {
+    size_t len = matches->stop[i] - matches->start[i] + 1;
+    if (len > 1024) {
+      return;
+    }
+    memcpy(tmp, text + matches->start[i], len);
+    tmp[len] = 0;
+    if (i) {
+      zprintf(f, ",");
+    }
+    if (transform) {
+      err = transform(tmp, len, hex, sizeof(hex));
+      if (err == ok) {
+	zprintf(f, "\"%s\"", hex);	
+      } else {	  
+	//zprintf_anon_nbytes(f, start, len);  
+      }
+    } else {
+      zprintf(f, "\"%s\"", tmp);
+    }
+  }
+  zprintf(f, "]");
+}
+
+
 /* END http anonymization */
