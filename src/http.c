@@ -463,7 +463,7 @@ int http_header_select(char *h) {
   return 1;
 }
 
-#define PRINT_USERNAMES 1
+#define PRINT_USERNAMES 0
 
 void http_header_print_as_object(zfile f, char *header, char *string, unsigned length) {
   char *token1, *token2, *token3, *saveptr;  
