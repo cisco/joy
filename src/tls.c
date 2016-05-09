@@ -1362,10 +1362,10 @@ void tls_printf(const struct tls_information *data, const struct tls_information
 
 
   if (data->sni_length) {
-    zprintf(f, ",\"SNI\":[\"%s\"]",data->sni);
+    zprintf(f, ",\"SNI\":[\"%s\"]",(char *)data->sni);
   }
   if (data_twin && data_twin->sni_length) {
-    zprintf(f, ",\"SNI\":[\"%s\"]",data_twin->sni);
+    zprintf(f, ",\"SNI\":[\"%s\"]",(char *)data_twin->sni);
   }
 
 
@@ -1502,18 +1502,18 @@ void certificate_printf(const struct tls_certificate *data, zfile f) {
       for (j = 0; j < data->num_issuer-1; j++) {
 	zprintf(f, "{\"issuer_id\":");
 	zprintf_raw_as_hex_tls(f, data->issuer_id[j], data->issuer_id_length[j]);
-	zprintf(f, ",\"issuer_string\":\"%s\"},", data->issuer_string[j]);
+	zprintf(f, ",\"issuer_string\":\"%s\"},", (char *)data->issuer_string[j]);
       }
       zprintf(f, "{\"issuer_id\":");
       zprintf_raw_as_hex_tls(f, data->issuer_id[j], data->issuer_id_length[j]);
-      zprintf(f, ",\"issuer_string\":\"%s\"}]", data->issuer_string[j]);
+      zprintf(f, ",\"issuer_string\":\"%s\"}]", (char *)data->issuer_string[j]);
     }
     
     if (data->validity_not_before) {
-      zprintf(f, ",\"validity_not_before\":\"%s\"", data->validity_not_before);
+      zprintf(f, ",\"validity_not_before\":\"%s\"", (char *)data->validity_not_before);
     }
     if (data->validity_not_after) {
-      zprintf(f, ",\"validity_not_after\":\"%s\"", data->validity_not_after);
+      zprintf(f, ",\"validity_not_after\":\"%s\"", (char *)data->validity_not_after);
     }
     
     if (data->num_subject) {
@@ -1521,11 +1521,11 @@ void certificate_printf(const struct tls_certificate *data, zfile f) {
       for (j = 0; j < data->num_subject-1; j++) {
 	zprintf(f, "{\"subject_id\":");
 	zprintf_raw_as_hex_tls(f, data->subject_id[j], data->subject_id_length[j]);
-	zprintf(f, ",\"subject_string\":\"%s\"},", data->subject_string[j]);
+	zprintf(f, ",\"subject_string\":\"%s\"},", (char *)data->subject_string[j]);
       }
       zprintf(f, "{\"subject_id\":");
       zprintf_raw_as_hex_tls(f, data->subject_id[j], data->subject_id_length[j]);
-      zprintf(f, ",\"subject_string\":\"%s\"}]", data->subject_string[j]);
+      zprintf(f, ",\"subject_string\":\"%s\"}]", (char *)data->subject_string[j]);
     }
     
     if (data->subject_public_key_algorithm_length) {
@@ -1540,9 +1540,9 @@ void certificate_printf(const struct tls_certificate *data, zfile f) {
     if (data->num_san) {
       zprintf(f, ",\"SAN\":[");
       for (j = 0; j < data->num_san-1; j++) {
-	zprintf(f, "\"%s\",", data->san[j]);
+	zprintf(f, "\"%s\",", (char *)data->san[j]);
       }
-      zprintf(f, "\"%s\"]", data->san[j]);
+      zprintf(f, "\"%s\"]", (char *)data->san[j]);
     }
     
     if (data->num_ext) {
