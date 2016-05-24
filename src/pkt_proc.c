@@ -547,6 +547,10 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
 	record->tcp_option_tstamp = 1;
 
 	offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
+      } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 34) { // TCP FAST OPEN
+	record->tcp_option_fastopen = 1;
+
+	offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
       } else { // if all TCP options are being correctly parsed, this else should not be called
 	offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
       }

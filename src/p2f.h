@@ -112,6 +112,7 @@ struct flow_record {
   unsigned int tcp_option_mss;
   unsigned int tcp_option_wscale;
   unsigned char tcp_option_sack;
+  unsigned char tcp_option_fastopen;
   unsigned char tcp_option_tstamp;
   unsigned short tcp_initial_window_size;
   unsigned int tcp_syn_size;

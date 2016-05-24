@@ -406,6 +406,7 @@ void flow_record_init(/* @out@ */ struct flow_record *record,
   record->tcp_option_mss = 0;
   record->tcp_option_wscale = 0;
   record->tcp_option_sack = 0;
+  record->tcp_option_fastopen = 0;
   record->tcp_option_tstamp = 0;
   record->tcp_initial_window_size = 0;
   record->tcp_syn_size = 0;
@@ -1222,6 +1223,15 @@ void flow_record_print_json(const struct flow_record *record) {
   if (rec->twin != NULL) {
     if (rec->twin->tcp_option_sack) {
       zprintf(output, "\"itcp_sack\":%u,", rec->twin->tcp_option_sack);
+    }
+  }
+
+  if (rec->tcp_option_fastopen) {
+    zprintf(output, "\"otcp_fastopen\":%u,", rec->tcp_option_fastopen);
+  }
+  if (rec->twin != NULL) {
+    if (rec->twin->tcp_option_fastopen) {
+      zprintf(output, "\"itcp_fastopen\":%u,", rec->twin->tcp_option_fastopen);
     }
   }
 
