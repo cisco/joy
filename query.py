@@ -231,6 +231,8 @@ class flowFilter:
       # remove whitespace
       string = string.replace(" ", "")         
 
+      # print "string: " + string
+
       for op in [ '=', '>', '<' ]: 
          if op in string:
             (self.field, self.value) = string.split(op, 2)
@@ -271,9 +273,15 @@ class flowFilter:
                (self.field, self.field2) = self.field.split(".", 2)
             else:
                self.field2 = None
-         
-            if self.value.isdigit():
+            
+            # convert to int or float as needed
+            try:
                self.value = int(self.value)
+            except ValueError:
+               try:
+                  self.value = float(self.value)
+               except:
+                  pass
 
             if op == '=':
                if self.value is '*':
@@ -289,17 +297,17 @@ class flowFilter:
 
 
    def matchElement(self, filter):
-      # print "this is my filter: " + str(filter)
+      # print "this is my filter: " + str(filter) + " and value: " + str(self.value) 
       # print "type: " + str(self.type) + " : " + str(matchType.list_all)
       if self.type is matchType.base:
-         # print self.func(self.selectField(filter)),
+         # print "func(): " + self.func(self.selectField(filter)),
          # print self.operator,
          # print self.value,
          # print type(self.value),
          # print " = ",
          # print self.operator(self.func(self.selectField(filter)), float(self.value))
          # print "------"
-         if self.operator(self.func(self.selectField(filter)), float(self.value)):
+         if self.operator(self.func(self.selectField(filter)), self.value):   
             return True
          else:
             return False
