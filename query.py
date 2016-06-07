@@ -574,6 +574,13 @@ def printable(s):
    else:
       return str(s)
 
+def raw2output(raw):
+   if type(raw) is float:
+      return "{:.3f}".format(raw) 
+   if type(raw) is int:
+      return str(raw)
+   return "\"" + str(raw) + "\""
+
 class printSelectedElements:
    def __init__(self, field):
       self.func = identity
@@ -628,7 +635,7 @@ class printSelectedElements:
                print  "\n\t{ ",
             else:
                print ", ",
-            print "\"" + name + "\": " + str(self.func(filter)), 
+            print "\"" + name + "\": " + raw2output(self.func(filter)), 
          else:
             if type(filter) is list:
                for a in filter:
@@ -655,7 +662,9 @@ class printSelectedElements:
                      else:
                         self.firstFlow = False
                      print  "\n\t{ ",
-                  print "\"" + str(self.field2) + "\": " + str(filter2),
+                  else:
+                     print ", ",
+                  print "\"" + str(self.field2) + "\": " + raw2output(filter2),
       # print "   }",
       return first
 
