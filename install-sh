@@ -217,7 +217,7 @@ if [ "$sysname" == "Darwin" ]; then
 
     if [ -f /etc/p2f/macosx.cfg ]; then
 	echo "warning: file /etc/p2f/macosx.cfg exists; renaming that file to macosx.cfg.bak"
-	mv /etc/p2f/linux.cfg /etc/p2f/linux.cfg.bak 
+	mv /etc/p2f/macosx.cfg /etc/p2f/macosx.cfg.bak 
     else
 	cp ${MACOSX_CONFIGFILE} /etc/p2f/macosx.cfg
 	retval=$?
@@ -294,10 +294,10 @@ elif [ "$sysname" == "Linux" ]; then
     echo "stopping service (this might take some time)" 
     service pcap2flow stop 
 
-    cp pcap2flow /usr/sbin/
+    cp pcap2flow /usr/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not copy to /usr/sbin/"
+	echo "error: could not copy to /usr/bin/"
 	exit
     fi
 
@@ -401,7 +401,34 @@ elif [ "$sysname" == "Linux" ]; then
 	# exit
     fi
 
-    ls -l /usr/sbin/pcap2flow
+    # install query
+    cp query.py /usr/bin/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy to /usr/bin/"
+	exit
+    fi
+
+    if [ ! -d "/usr/share/joy" ]; then
+	mkdir /usr/share/joy
+    else
+	echo "directory /usr/share/joy already exists"
+    fi
+    if [ ! -d "/usr/share/joy/data" ]; then
+	mkdir /usr/share/joy/data
+    else
+	echo "directory /usr/share/joy/data already exists"
+    fi
+    cp data/* /usr/share/joy/data
+    retval=$?
+    if [ $retval -ne "0" ]; then
+	echo "error: could not copy data files into directory /usr/share/joy/data"
+	exit
+    fi    
+
+    ls -l /usr/bin/pcap2flow
+    ls -l /usr/bin/query.py
+    ls -l /usr/share/joy/data/*
     ls -l /etc/p2f/linux.cfg
     ls -l /etc/p2f/${ANONFILE}
     ls -l /etc/p2f/${KEYFILE}
