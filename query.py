@@ -122,6 +122,390 @@ class conjunctionFilter(filter):
          tval = tval and f.match(flow)
       return tval
 
+
+
+# START TLS FUNCTIONS
+
+class seclevel:
+   unknown = 255
+   recommended = 1
+   acceptable = 2
+   legacy = 3
+   avoid = 4
+
+def seclevel2string(s):
+   switch = {
+      seclevel.recommended: "recommended",
+      seclevel.acceptable: "accpetable",
+      seclevel.legacy: "legacy",
+      seclevel.avoid: "avoid"
+      }
+   return switch.get(s, "unknown")
+
+def keylen_seclevel(keylen):
+    switch = {
+       520: seclevel.recommended,
+       528: seclevel.recommended,
+       2048: seclevel.acceptable,
+       1024: seclevel.avoid, 
+       4096: seclevel.recommended,
+       776:  seclevel.avoid,
+       512:  seclevel.avoid,
+    }
+    return switch.get(keylen, seclevel.unknown)
+
+def signature_keylen_seclevel(keylen):
+    switch = {
+       1024: seclevel.avoid, 
+       2048: seclevel.acceptable,
+       3072: seclevel.recommended,
+       4096: seclevel.recommended,
+    }
+    return switch.get(keylen, seclevel.unknown)
+
+def ciphersuite_seclevel(cs):
+   switch = {
+      "0000": seclevel.avoid,
+      "0001": seclevel.avoid,
+      "0002": seclevel.avoid,
+      "0003": seclevel.avoid,
+      "0004": seclevel.avoid,
+      "0005": seclevel.avoid,
+      "0006": seclevel.avoid,
+      "0007": seclevel.legacy,
+      "0008": seclevel.avoid,
+      "0009": seclevel.avoid,
+      "000a": seclevel.legacy,
+      "000b": seclevel.avoid,
+      "000c": seclevel.avoid,
+      "000d": seclevel.legacy,
+      "000e": seclevel.avoid,
+      "000f": seclevel.avoid,
+      "0010": seclevel.legacy,
+      "0011": seclevel.avoid,
+      "0012": seclevel.avoid,
+      "0013": seclevel.legacy,
+      "0014": seclevel.avoid,
+      "0015": seclevel.avoid,
+      "0016": seclevel.legacy,
+      "0017": seclevel.avoid,
+      "0018": seclevel.avoid,
+      "0019": seclevel.avoid,
+      "001a": seclevel.avoid,
+      "001b": seclevel.avoid,
+      "001e": seclevel.avoid,
+      "001f": seclevel.legacy,
+      "0020": seclevel.avoid,
+      "0021": seclevel.legacy,
+      "0022": seclevel.avoid,
+      "0023": seclevel.avoid,
+      "0024": seclevel.avoid,
+      "0025": seclevel.avoid,
+      "0026": seclevel.avoid,
+      "0027": seclevel.avoid,
+      "0028": seclevel.avoid,
+      "0029": seclevel.avoid,
+      "002a": seclevel.avoid,
+      "002b": seclevel.avoid,
+      "002c": seclevel.avoid,
+      "002d": seclevel.avoid,
+      "002e": seclevel.avoid,
+      "002f": seclevel.recommended,
+      "0030": seclevel.legacy,
+      "0031": seclevel.legacy,
+      "0032": seclevel.recommended,
+      "0033": seclevel.recommended,
+      "0034": seclevel.avoid,
+      "0035": seclevel.recommended,
+      "0036": seclevel.legacy,
+      "0037": seclevel.legacy,
+      "0038": seclevel.recommended,
+      "0039": seclevel.recommended,
+      "003a": seclevel.avoid,
+      "003b": seclevel.avoid,
+      "003c": seclevel.recommended,
+      "003d": seclevel.recommended,
+      "003e": seclevel.legacy,
+      "003f": seclevel.legacy,
+      "0040": seclevel.recommended,
+      "0041": seclevel.recommended,
+      "0042": seclevel.legacy,
+      "0043": seclevel.legacy,
+      "0044": seclevel.recommended,
+      "0045": seclevel.recommended,
+      "0046": seclevel.avoid,
+      "0067": seclevel.recommended,
+      "0068": seclevel.legacy,
+      "0069": seclevel.legacy,
+      "006a": seclevel.recommended,
+      "006b": seclevel.recommended,
+      "006c": seclevel.avoid,
+      "006d": seclevel.avoid,
+      "0084": seclevel.recommended,
+      "0085": seclevel.legacy,
+      "0086": seclevel.legacy,
+      "0087": seclevel.recommended,
+      "0088": seclevel.recommended,
+      "0089": seclevel.avoid,
+      "008a": seclevel.avoid,
+      "008b": seclevel.legacy,
+      "008c": seclevel.recommended,
+      "008d": seclevel.recommended,
+      "008e": seclevel.avoid,
+      "008f": seclevel.legacy,
+      "0090": seclevel.recommended,
+      "0091": seclevel.recommended,
+      "0092": seclevel.avoid,
+      "0093": seclevel.legacy,
+      "0094": seclevel.recommended,
+      "0095": seclevel.recommended,
+      "0096": seclevel.recommended,
+      "0097": seclevel.legacy,
+      "0098": seclevel.legacy,
+      "0099": seclevel.recommended,
+      "009a": seclevel.recommended,
+      "009b": seclevel.avoid,
+      "009c": seclevel.recommended,
+      "009d": seclevel.recommended,
+      "009e": seclevel.recommended,
+      "009f": seclevel.recommended,
+      "00a0": seclevel.legacy,
+      "00a1": seclevel.legacy,
+      "00a2": seclevel.recommended,
+      "00a3": seclevel.recommended,
+      "00a4": seclevel.legacy,
+      "00a5": seclevel.legacy,
+      "00a6": seclevel.avoid,
+      "00a7": seclevel.avoid,
+      "00a8": seclevel.recommended,
+      "00a9": seclevel.recommended,
+      "00aa": seclevel.recommended,
+      "00ab": seclevel.recommended,
+      "00ac": seclevel.recommended,
+      "00ad": seclevel.recommended,
+      "00ae": seclevel.recommended,
+      "00af": seclevel.recommended,
+      "00b0": seclevel.avoid,
+      "00b1": seclevel.avoid,
+      "00b2": seclevel.recommended,
+      "00b3": seclevel.recommended,
+      "00b4": seclevel.avoid,
+      "00b5": seclevel.avoid,
+      "00b6": seclevel.recommended,
+      "00b7": seclevel.recommended,
+      "00b8": seclevel.avoid,
+      "00b9": seclevel.avoid,
+      "00ba": seclevel.recommended,
+      "00bb": seclevel.legacy,
+      "00bc": seclevel.legacy,
+      "00bd": seclevel.recommended,
+      "00be": seclevel.recommended,
+      "00bf": seclevel.avoid,
+      "00c0": seclevel.recommended,
+      "00c1": seclevel.legacy,
+      "00c2": seclevel.legacy,
+      "00c3": seclevel.recommended,
+      "00c4": seclevel.recommended,
+      "00c5": seclevel.avoid,
+      "c001": seclevel.avoid,
+      "c002": seclevel.avoid,
+      "c003": seclevel.legacy,
+      "c004": seclevel.recommended,
+      "c005": seclevel.recommended,
+      "c006": seclevel.avoid,
+      "c007": seclevel.avoid,
+      "c008": seclevel.legacy,
+      "c009": seclevel.recommended,
+      "c00a": seclevel.recommended,
+      "c00b": seclevel.avoid,
+      "c00c": seclevel.avoid,
+      "c00d": seclevel.legacy,
+      "c00e": seclevel.recommended,
+      "c00f": seclevel.recommended,
+      "c010": seclevel.avoid,
+      "c011": seclevel.avoid,
+      "c012": seclevel.legacy,
+      "c013": seclevel.recommended,
+      "c014": seclevel.recommended,
+      "c015": seclevel.avoid,
+      "c016": seclevel.avoid,
+      "c017": seclevel.avoid,
+      "c018": seclevel.avoid,
+      "c019": seclevel.avoid,
+      "c01a": seclevel.legacy,
+      "c01b": seclevel.legacy,
+      "c01c": seclevel.legacy,
+      "c01d": seclevel.recommended,
+      "c01e": seclevel.recommended,
+      "c01f": seclevel.recommended,
+      "c020": seclevel.recommended,
+      "c021": seclevel.recommended,
+      "c022": seclevel.recommended,
+      "c023": seclevel.recommended,
+      "c024": seclevel.recommended,
+      "c025": seclevel.recommended,
+      "c026": seclevel.recommended,
+      "c027": seclevel.recommended,
+      "c028": seclevel.recommended,
+      "c029": seclevel.recommended,
+      "c02a": seclevel.recommended,
+      "c02b": seclevel.recommended,
+      "c02c": seclevel.recommended,
+      "c02d": seclevel.recommended,
+      "c02e": seclevel.recommended,
+      "c02f": seclevel.recommended,
+      "c030": seclevel.recommended,
+      "c031": seclevel.recommended,
+      "c032": seclevel.recommended,
+      "c033": seclevel.avoid,
+      "c034": seclevel.legacy,
+      "c035": seclevel.recommended,
+      "c036": seclevel.recommended,
+      "c037": seclevel.recommended,
+      "c038": seclevel.recommended,
+      "c039": seclevel.avoid,
+      "c03a": seclevel.avoid,
+      "c03b": seclevel.avoid,
+      "c03c": seclevel.recommended,
+      "c03d": seclevel.recommended,
+      "c03e": seclevel.legacy,
+      "c03f": seclevel.legacy,
+      "c040": seclevel.legacy,
+      "c041": seclevel.legacy,
+      "c042": seclevel.recommended,
+      "c043": seclevel.recommended,
+      "c044": seclevel.recommended,
+      "c045": seclevel.recommended,
+      "c046": seclevel.avoid,
+      "c047": seclevel.avoid,
+      "c048": seclevel.recommended,
+      "c049": seclevel.recommended,
+      "c04a": seclevel.recommended,
+      "c04b": seclevel.recommended,
+      "c04c": seclevel.recommended,
+      "c04d": seclevel.recommended,
+      "c04e": seclevel.recommended,
+      "c04f": seclevel.recommended,
+      "c050": seclevel.recommended,
+      "c051": seclevel.recommended,
+      "c052": seclevel.recommended,
+      "c053": seclevel.recommended,
+      "c054": seclevel.legacy,
+      "c055": seclevel.legacy,
+      "c056": seclevel.recommended,
+      "c057": seclevel.recommended,
+      "c058": seclevel.legacy,
+      "c059": seclevel.legacy,
+      "c05a": seclevel.avoid,
+      "c05b": seclevel.avoid,
+      "c05c": seclevel.recommended,
+      "c05d": seclevel.recommended,
+      "c05e": seclevel.recommended,
+      "c05f": seclevel.recommended,
+      "c060": seclevel.recommended,
+      "c061": seclevel.recommended,
+      "c062": seclevel.recommended,
+      "c063": seclevel.recommended,
+      "c064": seclevel.recommended,
+      "c065": seclevel.recommended,
+      "c066": seclevel.recommended,
+      "c067": seclevel.recommended,
+      "c068": seclevel.recommended,
+      "c069": seclevel.recommended,
+      "c06a": seclevel.recommended,
+      "c06b": seclevel.recommended,
+      "c06c": seclevel.recommended,
+      "c06d": seclevel.recommended,
+      "c06e": seclevel.recommended,
+      "c06f": seclevel.recommended,
+      "c070": seclevel.recommended,
+      "c071": seclevel.recommended,
+      "c072": seclevel.recommended,
+      "c073": seclevel.recommended,
+      "c074": seclevel.recommended,
+      "c075": seclevel.recommended,
+      "c076": seclevel.recommended,
+      "c077": seclevel.recommended,
+      "c078": seclevel.recommended,
+      "c079": seclevel.recommended,
+      "c07a": seclevel.recommended,
+      "c07b": seclevel.recommended,
+      "c07c": seclevel.recommended,
+      "c07d": seclevel.recommended,
+      "c07e": seclevel.legacy,
+      "c07f": seclevel.legacy,
+      "c080": seclevel.recommended,
+      "c081": seclevel.recommended,
+      "c082": seclevel.legacy,
+      "c083": seclevel.legacy,
+      "c084": seclevel.avoid,
+      "c085": seclevel.avoid,
+      "c086": seclevel.recommended,
+      "c087": seclevel.recommended,
+      "c088": seclevel.recommended,
+      "c089": seclevel.recommended,
+      "c08a": seclevel.recommended,
+      "c08b": seclevel.recommended,
+      "c08c": seclevel.recommended,
+      "c08d": seclevel.recommended,
+      "c08e": seclevel.recommended,
+      "c08f": seclevel.recommended,
+      "c090": seclevel.recommended,
+      "c091": seclevel.recommended,
+      "c092": seclevel.recommended,
+      "c093": seclevel.recommended,
+      "c094": seclevel.recommended,
+      "c095": seclevel.recommended,
+      "c096": seclevel.recommended,
+      "c097": seclevel.recommended,
+      "c098": seclevel.recommended,
+      "c099": seclevel.recommended,
+      "c09a": seclevel.recommended,
+      "c09b": seclevel.recommended,
+      "c09c": seclevel.recommended,
+      "c09d": seclevel.recommended,
+      "c09e": seclevel.recommended,
+      "c09f": seclevel.recommended,
+      "c0a0": seclevel.recommended,
+      "c0a1": seclevel.recommended,
+      "c0a2": seclevel.recommended,
+      "c0a3": seclevel.recommended,
+      "c0a4": seclevel.recommended,
+      "c0a5": seclevel.recommended,
+      "c0a6": seclevel.recommended,
+      "c0a7": seclevel.recommended,
+      "c0a8": seclevel.recommended,
+      "c0a9": seclevel.recommended,
+      "c0aa": seclevel.recommended,
+      "c0ab": seclevel.recommended,
+      "c0ac": seclevel.recommended,
+      "c0ad": seclevel.recommended,
+      "c0ae": seclevel.recommended,
+      "c0af": seclevel.recommended,
+   }
+   return switch.get(str(cs), seclevel.unknown)
+
+def securityLevel(tls):
+   # print str(tls)
+   # print str(type(tls))
+   if type(tls) is not dict:
+      print "error: wrong type argument to seclevel function"
+      sys.exit()
+   seclevels = []
+   if "tls_client_key_length" in tls:
+      seclevels.append(keylen_seclevel(tls["tls_client_key_length"]))
+   if "scs" in tls:
+      seclevels.append(ciphersuite_seclevel(tls["scs"]))
+   if "server_cert" in tls:
+      if "signature_key_size" in tls["server_cert"]:
+         seclevels.append(signature_keylen_seclevel(tls["server_cert"]["signature_key_size"]))
+
+   if not seclevels:
+      return "\"unknown\""
+   return "\"" + seclevel2string(max(seclevels)) + "\""
+
+# END TLS FUNCTIONS
+
 def entropy(bd):
    if type(bd) is not list:
       print "error: wrong type argument to entropy function"
@@ -250,6 +634,8 @@ class flowFilter:
                      self.func = minentropy
                   elif funcname == "gini":
                      self.func = gini
+                  elif funcname == "seclevel":
+                     self.func == securityLevel
                   else:
                      print "error: unrecognized function " + funcname
                      sys.exit()
@@ -300,7 +686,7 @@ class flowFilter:
       # print "this is my filter: " + str(filter) + " and value: " + str(self.value) 
       # print "type: " + str(self.type) + " : " + str(matchType.list_all)
       if self.type is matchType.base:
-         # print "func(): " + self.func(self.selectField(filter)),
+         # print "func(): " + self.func(self.selectField(filter))
          # print self.operator,
          # print self.value,
          # print type(self.value),
@@ -351,7 +737,7 @@ class translator():
 
    def initialize(self):
       self.d = {}
-      with open("saltUI/ciphersuites.txt") as f:
+      with open("/usr/share/joy/data/ciphersuites.txt") as f:
          for line in f:
             (key, val, sec) = line.split()
             self.d[key] = val + " (" + sec + ")"
@@ -360,13 +746,13 @@ class translator():
          6: "TCP",
          17: "UDP"
          }
-      with open("data/ip.txt") as f:
+      with open("/usr/share/joy/data/ip.txt") as f:
          for line in f:
             (key, val) = line.split()
             self.pr[key] = val
 
       self.ports = {}
-      with open("data/ports.txt") as f:
+      with open("/usr/share/joy/data/ports.txt") as f:
          for line in f:
             try:
                (val, key) = line.split()
@@ -383,11 +769,18 @@ class translator():
 
 
    def translate(self, s, val):
-      if s is "scs" or s is "cs":
+      print "translating " + str(s) + " " + str(type(s))
+      print "compare to " + str(u"dp") + " " + str(type(u"dp"))
+
+      print "\"" + s + "\""
+      print "\"" + str(val) + "\""
+
+      if s is u"scs" or s is u"cs":
          return self.d.setdefault(val, "unknown")
-      elif s is "pr":
+      elif s is u"pr":
          return self.pr.setdefault(val, "unknown")
-      elif s is "dp" or s is "sp":
+      elif s is u"dp" or s is u"sp":
+         print "GOT HERE"
          z = self.ports.setdefault(val, None)
          if z is None:
             return val
@@ -494,6 +887,53 @@ def flowPrint(f):
       # OLD: print "\n      }"
       print "\n   }"
 
+def printItem(x, indentation):
+   if type(x) is unicode:
+      print indentation + "\"" + str(x) + "\"",
+   else:
+      print indentation + str(x),
+
+def stringifyItem(x):
+   if type(x) is unicode:
+      return "\"" + str(x) + "\""
+   else:
+      return str(x)
+
+def printObject(obj, indentation):
+   firstLine = True
+   for x, y in obj.iteritems():
+      if not firstLine:
+         print ",",
+      else:
+         firstLine = False
+      if type(y) is dict:
+         print indentation + "\"" + str(x) + "\": {",
+         printObject(y, indentation + "   ")
+         print indentation + "}", 
+      elif type(y) is list:
+         print indentation + "\"" + str(x) + "\": " + "[", 
+         firstInList = True
+         for z in y:
+            if not firstInList:
+               print ",",
+            firstInList = False
+            if type(z) is dict:
+               print indentation + "{",
+               printObject(z, indentation + "   ")
+               print indentation + "}", 
+            else:
+               print stringifyItem(z),
+               # print indentation + "   " + str(z),
+         print indentation + "]", 
+      else:
+         value = t.translate(x, y)
+         print indentation + "\"" + str(x) + "\": " + stringifyItem(value), 
+
+def flowPrintAlt(f):
+   print "{",
+   printObject(f, "\n   ")
+   print "\n}"
+   # print json.dumps(f, indent=3)   
 
 class flowProcessor:
    def __init__(self):
@@ -505,7 +945,7 @@ class flowProcessor:
       # OLD: else:
       # OLD:    self.firstFlow = 0
          # OLD: print "\"appflows\": ["
-      flowPrint(flow)
+      flowPrintAlt(flow)
 
    def processMetadata(self, metadata):
       # OLD: print "\"metadata\": ", 
@@ -575,11 +1015,17 @@ def printable(s):
       return str(s)
 
 def raw2output(raw):
+   # print "raw: " + str(raw) + " type: " + str(type(raw))
    if type(raw) is float:
       return "{:.3f}".format(raw) 
    if type(raw) is int:
       return str(raw)
-   return "\"" + str(raw) + "\""
+   if type(raw) is unicode:
+      return "\"" + raw + "\""
+   if type(raw) is dict:
+      return json.dumps(raw)  # indent=3 makes this legible
+   else:
+      return raw
 
 class printSelectedElements:
    def __init__(self, field):
@@ -606,6 +1052,8 @@ class printSelectedElements:
                self.func = minentropy
             elif self.funcname == "gini":
                self.func = gini
+            elif self.funcname == "seclevel":
+               self.func = securityLevel
             else:
                print "error: unrecognized function " + funcname
                sys.exit()
@@ -635,7 +1083,12 @@ class printSelectedElements:
                print  "\n\t{ ",
             else:
                print ", ",
-            print "\"" + name + "\": " + raw2output(self.func(filter)), 
+            if self.funcname is not None: 
+               print "\"" + name + "\": ", 
+               print raw2output(self.func(filter)), 
+            else:
+               print "\"" + name + "\": ",
+               print raw2output(filter), 
          else:
             if type(filter) is list:
                for a in filter:
@@ -896,7 +1349,7 @@ if __name__=='__main__':
    parser.add_option("--schema", action='store_true', dest="schema", help="print out schema")
 
    # check args
-   if len(sys.argv) < 2:
+   if len(sys.argv) < 1:
       parser.print_help()
       usage()
       sys.exit()
@@ -948,11 +1401,7 @@ if __name__=='__main__':
       try:
          processFile(x, ff, fp)
       except KeyboardInterrupt:
-         # quit
          sys.exit()      
-      # except:
-         # silently ignore failures, for now
-      #   pass
    fp.postProcess()
 
 
