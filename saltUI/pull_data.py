@@ -62,7 +62,7 @@ class Pull:
             elif t == 3 and self.bd_compact == 2:
                 self.num_params += 9
             elif t == 4:
-                self.num_params += 36+473+1
+                self.num_params += 198
 
 
         self.data = []
@@ -96,7 +96,8 @@ class Pull:
             tmpIPT = dParse.getIndividualFlowIPTs()
             tmpPL = dParse.getIndividualFlowPacketLengths()
             tmp, ignore = dParse.getIndividualFlowMetadata()
-            if tmp != None and tmpPL != None and tmpIPT != None and tmpBD != None:
+
+            if tmp != None and tmpPL != None and tmpIPT != None:
                 for i in range(len(tmp)):
                     if ignore[i] == 1 and label == 1.0:
                         continue

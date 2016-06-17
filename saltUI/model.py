@@ -142,8 +142,8 @@ def main():
             print '\tByte Distribution Mean/std\t(9)'
             num_params += 9
         elif t == 4:
-            print '\tTLS Information\t\t(510)'
-            num_params += 36+473+1
+            print '\tTLS Information\t\t(198)'
+            num_params += 198
     print 'Total Features:\t%i' % (num_params)
     print
 
