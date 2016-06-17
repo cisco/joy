@@ -52,7 +52,8 @@ def getTLSVersionVector(cs_list, ext):
     tls_info = np.zeros(len(cs.keys())+36)
 
     for c in cs_list:
-        tls_info[cs[c]] = 1
+        if c in cs:
+            tls_info[cs[c]] = 1
 
     for c in ext:
         if int(c['type'],16) < 36:
