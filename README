@@ -37,8 +37,13 @@ Overview
       * the sequence of lengths and arrival times of TLS records, 
 
       * other non-encrypted TLS data, such as the list of offered
-        ciphersuites, the selected ciphersuite, and the length of the
-        clientKeyExchange field,
+        ciphersuites, the selected ciphersuite, the length of the
+        clientKeyExchange field, and the server certificate strings,,
+
+      * DNS names, addresses, and TTLs,
+
+      * HTTP header elements and the first eight bytes of the HTTP
+        body, and
 
       * the name of the process associated with the flow, for flows
         originate or terminate on the host on which pcap is running.
@@ -75,9 +80,9 @@ Quick Start
 Building
 
    Joy has been successfully run and tested on Linux (Debian, Ubuntu,
-   and CentOS) and Mac OSX.  The system has been built with gcc and
-   GNU make, but it should work with other development environments as
-   well.
+   CentOS, and Raspbian) and Mac OSX.  The system has been built with
+   gcc and GNU make, but it should work with other development
+   environments as well.
 
    First, obtain the package from github, and change to the joy
    directory.
@@ -89,6 +94,14 @@ Building
    This will cause the programs to be compiled, linked, stripped, and
    copied into the main directory as appropriate.  It will also run a
    test script and a unit test program.
+
+   Mac OSX 10.11 has more dependancies than 10.10; the OpenSSL header
+   files are needed to build this package.  You can install these
+   header files via Mac Ports (https://www.macports.org/install.php)
+   using the command "sudo port install openssl".  Version 10.11 broke
+   the run-on-boot feature of pcap2flow (and many other programs that
+   relied on /System/Library/LaunchDaemons), so for now that program
+   can only perform live capture from the command line.
 
    Set COMPRESSED_OUTPUT (in src/output.h) to 1 for gzip-compressed
    JSON output.  This compile-time option is on by default.  If that
