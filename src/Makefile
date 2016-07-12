@@ -48,6 +48,7 @@ endif
 
 ifeq ($(sysname),DARWIN)
 	CFLAGS += -mmacosx-version-min=10.5
+	INCLUDEDIR += -I/opt/local/include/
 endif
 
 PCAP2FLOW_FILES = $(PCAP2FLOW_SRC) $(PCAP2FLOW_HDR)
