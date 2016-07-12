@@ -1,402 +1,142 @@
 
 {
-
     "$schema": "http://json-schema.org/draft-04/schema#",
 
-    "type" : "object",
+    "sa" : {"type" : "string",
+            "description" : "IP Source Address, as a string. It MAY be in dotted quad notation, e.g. \"10.0.2.15\", or it MAY be an arbitrary hexadecimal JSON string, which will be the case when anonymization is used."
+           },
 
-    "properties" : {
+    "da" : {"type" : "string",
+            "description" : "IP Destination Address, as a string. Its format is identical to the IP Source Address."
+           },
 
-        "appflows" : {
+    "x" : { "type" : "string",
+            "description" : "Timeout. a: active, i: inactive."
+          },
 
-            "type" : "array",
+    "pr" : {"type" : "number",
+            "description" : "IP Protocol number, as a JSON number. 6=tcp, 17=udp, and so on."
+           },
 
-            "items" : 
+    "sp" : {"type" : "number",
+            "description" : "TCP or UDP Source Port, as a JSON number."
+           },
 
-            {
+    "dp" : {"type" : "number",
+            "description" : "TCP or UDP Destination Port, as a JSON number."
+           },
 
-                "type" : "object",
+    "ob" : {"type" : "number",
+            "description" : "Number of bytes of outbound (source to destination) traffic, as a JSON number."
+           },
 
-                "properties" : {
+    "op" : {"type" : "number",
+            "description" : "Number of packets of outbound (source to destination) traffic, as a JSON number."
+           },
 
-                    "flow" : {"type" : "object",
+    "ib" : {"type" : "number",
+            "description" : "Number of bytes of inbound (destination to source) traffic, as a JSON number."
+           },
 
-                              "properties" : {
+    "ip" : {"type" : "number",
+            "description" : "Number of packets of inbound (destination to source) traffic, as a JSON number."
+           },
 
-                                  "sa" : {"type" : "string",
+    "ts" : {"type" : "number",
+            "description" : "Start time of the flow expressed as the number of seconds since the epoch (00:00:00 UTC, Thursday, 1 January 1970), as a JSON number. It SHOULD include a decimal part, and provide at least millisecond precision, e.g. 1411732528.590115"
+           },
 
-                                          "description" : "IP Source Address, as a string. It MAY be in dotted quad notation, e.g. \"10.0.2.15\", or it MAY be an arbitrary hexadecimal JSON string, which will be the case when anonymization is used."
+    "te" : {"type" : "number",
+            "description" : "End time of the flow expressed in the same way as the start time."
+           },
 
-                                         },
+    "be" : {"type" : "number",
+            "description" : "The empirical byte entropy estimate, expressed as a JSON number.  The number MUST be between 0.0 and 8.0."
+           },
 
-                                  "da" : {"type" : "string",
+    "ottl" : {"type" : "number",
+              "description" : "The smallest outbound (source to destination) IP Time To Live (TTL) value observed for all packets in a flow."
+             },
 
-                                          "description" : "IP Destination Address, as a string. Its format is identical to the IP Source Address."
+    "ittl" : {"type" : "number",
+              "description" : "The smallest inbound (destination to source) IP Time To Live (TTL) value observed for all packets in a flow."
+             },
 
-                                         },
+    "oidp" : {"type" : "string",
+              "description" : "The outbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string.  For example, \"iidp\": 450000300268000080019758ac1047ebac1001010000a8e214180000e8d27a99d108000000000000000000001090fdff."
+             },
 
-                                  "x" : {"type" : "string",
+    "oidp_len" : {"type" : "number",
+                  "description" : "The number of bytes in the outbound initial data packet."
+                 },
 
-                                         "description" : "Timeout. a: active, i: inactive."
+    "iidp" : {"type" : "string",
+              "description" : "The inbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string."
+             },
 
+    "iidp_len" : {"type" : "number",
+                  "description" : "The number of bytes in the inbound initial data packet."
+                 },
+
+    "o_probable_os" : {"type" : "string",
+                       "description" : "The operating system associated with the source address, as a JSON string."
+                      },
+
+    "i_probable_os" : {"type" : "string",
+                       "description" : "The operating system associated with the destination address, as a JSON string."
+                      },
+
+    "bd" : {"type" : "array",
+            "items" : {"type" : "number"},
+            "description" : "Byte Distribution"
+           },
+
+    "packets" : {"type" : "array",
+                 "items" : {"type" : "object",
+                            "properties" : {"b" : {"type" : "number"},
+                                            "dir" : {"type" : "string"},
+                                            "ipt" : {"type" : "number"}
+                                           }
+                           },
+                 "description" : "A JSON array of packet objects. Each packet object contains the number of bytes of data in the packet, expressed as the JSON number \"b\", the JSON string \"<\" or \">\" to indicate inbound or outbound directions, respectively, and the number of milliseconds between the arrival of this packet and the previous packet, expressed as the JSON number \"ipt\". An example of a packet object is {\"b\": 873, \"dir\": \">\", \"ipt\": 121 }.  The old name for this element is \"non_norm_stats\"."
+                },
+
+    "tls" : {"type" : "object",
+             "properties" : {"srlt" : {"type" : "array",
+                                       "items" : {"type" : "object",
+                                                  "properties" : {"b" : {"type" : "number"},
+                                                                  "dir" : {"type" : "string"},
+                                                                  "ipt" : {"type" : "number"},
+                                                                  "tp" : {"type" : "string"}
+                                                                 }
+							},
+                                       "description" : "The TLS records, expressed as a JSON array of TLS record objects. Those objects have a format that is similar to packet objects."
+                                      },
+
+                             "scs" : {"type" : "string",
+                                      "description" : "The selected ciphersuite from a TLS session, as four hexadecimal characters expressed as a JSON string, e.g. \"c00a\". This value is sent only by a TLS server."
+                                     },
+
+                             "cs" : {"type" : "array",
+                                     "items" : {"type" : "string"},
+                                     "description" : "The offered ciphersuites from a TLS session, expressed as a JSON array, each element of which is a JSON string containing four hexadecimal characters."
+                                    },
+
+                             "tls_osid" : {"type" : "string",
+                                           "description" : "The outbound TLS Session Identifier (SID)."
+                                          },
+
+                             "tls_isid" : {"type" : "string",
+                                           "description" : "The inbound TLS Session Identifier (SID)."
+                                          },
+
+                             "tls_iv" : {"type" : "number",
+                                         "description" : "Inbound TLS version, expressed as a JSON number, with the same mapping as the outbound TLS version."
                                         },
 
-                                  "scs" : {"type" : "string",
-
-                                           "description" : "The selected ciphersuite from a TLS session, as four hexadecimal characters expressed as a JSON string, e.g. \"c00a\". This value is sent only by a TLS server."
-
-                                          },
-
-                                  "pr" : {"type" : "number",
-
-                                          "description" : "IP Protocol number, as a JSON number. 6=tcp, 17=udp, and so on."
-
-                                         },
-
-                                  "sp" : {"type" : "number",
-
-                                          "description" : "TCP or UDP Source Port, as a JSON number."
-
-                                         },
-
-                                  "dp" : {"type" : "number",
-
-                                          "description" : "TCP or UDP Destination Port, as a JSON number."
-
-                                         },
-
-                                  "ob" : {"type" : "number",
-
-                                          "description" : "Number of bytes of outbound (source to destination) traffic, as a JSON number."
-
-                                         },
-
-                                  "op" : {"type" : "number",
-
-                                          "description" : "Number of packets of outbound (source to destination) traffic, as a JSON number."
-
-                                         },
-
-                                  "ib" : {"type" : "number",
-
-                                          "description" : "Number of bytes of inbound (destination to source) traffic, as a JSON number."
-
-                                         },
-
-                                  "ip" : {"type" : "number",
-
-                                          "description" : "Number of packets of inbound (destination to source) traffic, as a JSON number."
-
-                                         },
-
-                                  "ts" : {"type" : "number",
-
-                                          "description" : "Start time of the flow expressed as the number of seconds since the epoch (00:00:00 UTC, Thursday, 1 January 1970), as a JSON number. It SHOULD include a decimal part, and provide at least millisecond precision, e.g. 1411732528.590115"
-
-                                         },
-
-                                  "te" : {"type" : "number",
-
-                                          "description" : "End time of the flow expressed in the same way as the start time."
-
-                                         },
-
-                                  "be" : {"type" : "number",
-
-                                          "description" : "The empirical byte entropy estimate, expressed as a JSON number.  The number MUST be between 0.0 and 8.0."
-
-                                         },
-
-                                  "tls_iv" : {"type" : "number",
-
-                                              "description" : "Inbound TLS version, expressed as a JSON number, with the same mapping as the outbound TLS version."
-
-                                             },
-
-                                  "tls_ov" : {"type" : "number",
-
-                                              "description" : "Outbound TLS version, expressed as a JSON number. These numbers map onto SSL/TLS versions as follows: unknown = 0, SSLv2 = 1, SSLv3 = 2, TLS1.0 = 3, TLS1.1 = 4, TLS1.2 = 5."
-
-                                             },
-
-                                  "ottl" : {"type" : "number",
-
-                                            "description" : "The smallest outbound (source to destination) IP Time To Live (TTL) value observed for all packets in a flow."
-
-                                           },
-
-                                  "ittl" : {"type" : "number",
-
-                                            "description" : "The smallest inbound (destination to source) IP Time To Live (TTL) value observed for all packets in a flow."
-
-                                           },
-
-                                  "oidp" : {"type" : "string",
-
-                                            "description" : "The outbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string.  For example, \"iidp\": 450000300268000080019758ac1047ebac1001010000a8e214180000e8d27a99d108000000000000000000001090fdff."
-
-                                           },
-
-                                  "oidp_len" : {"type" : "number",
-
-						"description" : "The number of bytes in the outbound initial data packet."
-
-                                               },
-
-                                  "iidp" : {"type" : "string",
-
-                                            "description" : "The inbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string."
-
-                                           },
-
-                                  "iidp_len" : {"type" : "number",
-
-						"description" : "The number of bytes in the inbound initial data packet."
-
-                                               },
-
-                                  "sos" : {"type" : "string",
-
-                                           "description" : "The operating system associated with the source address, as a JSON string."
-
-                                          },
-
-                                  "dos" : {"type" : "string",
-
-                                           "description" : "The operating system associated with the destination address, as a JSON string."
-
-                                          },
-
-                                  "tls_osid" : {"type" : "string",
-
-						"description" : "The outbound TLS Session Identifier (SID)."
-
-                                               },
-
-                                  "tls_isid" : {"type" : "string",
-
-						"description" : "The inbound TLS Session Identifier (SID)."
-
-                                               },
-
-                                  "bd" : {"type" : "array",
-
-                                          "items" : {"type" : "number"},
-
-                                          "description" : "Byte Distribution"
-
-                                         },
-
-                                  "cs" : {"type" : "array",
-
-                                          "items" : {"type" : "string"},
-
-                                          "description" : "The offered ciphersuites from a TLS session, expressed as a JSON array, each element of which is a JSON string containing four hexadecimal characters."
-
-                                         },
-
-                                  "non_norm_stats" : {"type" : "array",
-
-                                                      "items" : {"type" : "object",
-
-                                                                 "properties" : {
-
-                                                                     "b" : {"type" : "number"},
-
-                                                                     "dir" : {"type" : "string"},
-
-                                                                     "ipt" : {"type" : "number"}
-
-                                                                 }
-
-                                                                },
-
-                                                      "description" : "A JSON array of packet objects. Each packet object contains the number of bytes of data in the packet, expressed as the JSON number \"b\", the JSON string \"<\" or \">\" to indicate inbound or outbound directions, respectively, and the number of milliseconds between the arrival of this packet and the previous packet, expressed as the JSON number \"ipt\". An example of a packet object is {\"b\": 873, \"dir\": \">\", \"ipt\": 121 }.  The old name for this element is \"non_norm_stats\"."
-
-                                                     },
-
-                                  "tls" : {"type" : "array",
-
-                                           "items" : {"type" : "object",
-
-                                                      "properties" : {
-
-                                                          "b" : {"type" : "number"},
-
-                                                          "dir" : {"type" : "string"},
-
-                                                          "ipt" : {"type" : "number"}
-
-                                                      }
-
-                                                     },
-
-                                           "description" : "The TLS records, expressed as a JSON array of TLS record objects. Those objects have a format that is similar to packet objects."
-
-                                          }
-
-                              },
-
-                              "additionalProperties":False
-
-                             }
-
-                }
-
+                             "tls_ov" : {"type" : "number",
+                                         "description" : "Outbound TLS version, expressed as a JSON number. These numbers map onto SSL/TLS versions as follows: unknown = 0, SSLv2 = 1, SSLv3 = 2, TLS1.0 = 3, TLS1.1 = 4, TLS1.2 = 5."
+                                        }
+                            }
             }
-
-            
-
-        },
-
-        "metadata" : {"type" : "object",
-
-                      "properties" : {
-
-                          "userid" : {"type" : "string",
-
-                                      "description" : "Identifier for the user collecting the flows."
-
-				     },
-
-                          "mac_address" : {"type" : "string",
-
-					   "description" : "MAC address for the device collecting the flows."
-
-					  },
-
-                          "date" : {"type" : "number",
-
-                                    "description" : "Date the flows were collected. In Unix time (seconds since January 1, 1970)."
-
-				   },
-
-                          "version" : {"type" : "string",
-
-                                       "description" : "Version number of pcap2flow used to collect the flows."
-
-				      },
-
-                          "config_options" : {"type" : "object",
-
-                                              "properties" : {
-
-                                                  "b" : {"type" : "number",
-
-                                                         "description" : "1: merge unidirectional flows into bidirectional ones. 0: do not merge."
-
-							},
-
-                                                  "j" : {"type" : "number",
-
-                                                         "description" : "1: output flow data in JSON format. 0: do not output in JSON format."
-
-							},
-
-                                                  "d" : {"type" : "number",
-
-                                                         "description" : "1: include byte distribution array. 0: do not collect byte distribution."
-
-							},
-
-                                                  "e" : {"type" : "number",
-
-                                                         "description" : "1: include entropy. 0: do not collect entropy."
-
-							},
-
-                                                  "w" : {"type" : "number",
-
-                                                         "description" : "1: include tls data. 0: do not collect tls information."
-
-							},
-
-                                                  "l" : {"type" : "string",
-
-                                                         "description" : "read packets live from interface specified."
-
-							},
-
-                                                  "p" : {"type" : "number",
-
-                                                         "description" : "1: put interface into promiscuous mode."
-
-							},
-
-                                                  "o" : {"type" : "string",
-
-                                                         "description" : "write output to file specified (otherwise stdout is used)."
-
-							},
-
-                                                  "c" : {"type" : "number",
-
-                                                         "description" : "rotate output files so each has about C records."
-
-							},
-
-                                                  "u" : {"type" : "string",
-
-                                                         "description" : "upload to server S with rsync after file rotation."
-
-							},
-
-                                                  "i" : {"type" : "string",
-
-                                                         "description" : "read input from file specified (otherwise file list used)."
-
-							},
-
-                                                  "z" : {"type" : "number",
-
-                                                         "description" : "1: include zero-length data (e.g. ACKs) in packet list."
-
-							},
-
-                                                  "s" : {"type" : "string",
-
-                                                         "description" : "include OS information read from p0f socket <sock>."
-
-							},
-
-                                                  "f" : {"type" : "string",
-
-                                                         "description" : "use BPF expression <bpf> to filter packets."
-
-							},
-
-                                                  "v" : {"type" : "number",
-
-                                                         "description" : "0=quiet, 1=packet metadata, 2=packet payloads."
-
-							},
-
-                                                  "n" : {"type" : "number",
-
-                                                         "description" : "report on N packets per flow (0 <= N < 200)."
-
-							},
-
-                                                  "t" : {"type" : "number",
-
-                                                         "description" : "1=raw packet lengths, 2=aggregated, 3=defragmented."
-
-							},
-
-                                                  "a" : {"type" : "string",
-
-                                                         "description" : "anonymize addresses in the subnets listed in file."
-
-							}
-
-                                              }
-
-					     }
-
-                      }
-
-                     }
-
-    },
-    "required" : ["appflows"]
 }
