@@ -4,7 +4,9 @@
  * unit test for multiple string matching functions
  */
 #include <stdarg.h>
-#include <malloc.h>
+#ifndef DARWIN
+   #include <malloc.h>
+#endif
 #include "str_match.h"
 #include "anon.h"
 
@@ -83,10 +85,13 @@ char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400e76571f
 
 int main() {
   str_match_ctx ctx;
+
+#ifndef DARWIN
   struct mallinfo info;
 
   info = mallinfo();
   printf ("allocated space before loading context:  %d bytes\n", info.uordblks);
+#endif
   
   ctx = str_match_ctx_alloc();
   if (ctx == NULL) {
@@ -98,8 +103,10 @@ int main() {
     exit(EXIT_FAILURE);
   }
   
+#ifndef DARWIN
   info = mallinfo();
   printf ("allocated space after loading context:  %d bytes\n", info.uordblks);
+#endif
 
   if (key_init(ANON_KEYFILE_DEFAULT) != ok) {
     fprintf(stderr, "error: could not init anonymization key\n");
