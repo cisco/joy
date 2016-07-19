@@ -1,4 +1,3 @@
-
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
 
@@ -138,5 +137,107 @@
                                          "description" : "Outbound TLS version, expressed as a JSON number. These numbers map onto SSL/TLS versions as follows: unknown = 0, SSLv2 = 1, SSLv3 = 2, TLS1.0 = 3, TLS1.1 = 4, TLS1.2 = 5."
                                         }
                             }
-            }
+            },
+
+    "ohttp" : {"type": "object",
+               "title": "outbound HTTP headers.",
+               "description": "The HTTP headers from the first outbound HTTP packet of the flow.",
+               "properties": {"method": {"type": "string",
+	                      "title": "HTTP method",
+                              "description": "GET, POST, etc., or whatever string happenend to be in the packet, if the HTTP client is not adhering to the HTTP standard."
+                                        },
+
+                              "uri": {"type": "string",
+                                      "title": "Uniform Resource Identifier",
+                                      "description": "The URI that appeared in the packet, or whatever string happened to be in the packet, if the HTTP client is not adhering to the standard."
+                                     },
+
+                              "v": {"type": "string",
+                                    "title": "version",
+                                    "description": "HTTP/1.1, or whatever string happened to be in the packet, if the HTTP client did not adhere to the standard."
+                                   },
+
+                              "usernames": {"type": "array",
+                                            "title": "username array",
+                                            "description": "The (possibly anonymized) usernames (configured via the useranon option) that appeared in the HTTP headers.",
+                                            "items": {"type": "string",
+                                                      "title": "username",
+                                                      "description": "A (possibly anonymized) username that appeared in the HTTP headers."
+			                             }
+                                           },
+
+                              "body": {"type": "string",
+                                       "title": "Initial bytes of the HTTP body",
+                                       "description": "The first few bytes of the HTTP body, expressed as a hexadecimal string."
+                                      }
+                             },
+               "required": []
+              },
+
+    "ihttp": {"type": "object",
+              "title": "inbound HTTP headers.",
+              "description": "The HTTP headers from the first response message in a flow.",
+              "properties": {"v": {"type": "string",
+                                   "title": "version",
+                                   "description": "HTTP/1.1, or whatever string happened to be in the packet, if the HTTP client did not adhere to the standard."
+                                  },
+
+                             "code": {"type": "string",
+                                      "title": "response code",
+                                      "description": "The HTTP response code returned by the server."
+                                     },
+
+                             "reason": {"type": "string",
+                                        "title": "reason.",
+                                        "description": "The HTTP reason returned by the server."
+                                       },
+
+                             "body": {"type": "string",
+                                      "title": "Initial bytes of the HTTP body",
+                                      "description": "The first few bytes of the HTTP body, expressed as a hexadecimal string."
+                                     }
+                            },
+
+              "required": []
+             },
+
+    "dns": {"type": "array",
+            "title": "DNS data",
+            "description": "DNS name, address, and TTL information that appeared in this flow.",
+            "items": {"type": "object",
+                      "title": "DNS response",
+                      "description": "data from a particular DNS query/response",
+                      "properties": {"rn": {"type": "string",
+                                            "title": "response name",
+                                            "description": "DNS name"
+                                           },
+
+                                     "rc": {"type": "integer",
+                                            "title": "return code.",
+                                            "description": "The status code returned by the DNS server (0=no problem, other=error)."
+                                           },
+
+                                     "rr": {"type": "array",
+                                            "title": "response record.",
+                                            "description": "A DNS record.",
+                                            "items": {"type": "object",
+                                                      "title": "DNS record.",
+                                                      "description": "A record returned by the DNS server.",
+                                                      "properties": {"a": {"type": "string",
+                                                                           "title": "address.",
+                                                                           "description": "The IP address corresponding to the DNS name."
+                                                                          },
+
+                                                                     "ttl": {"type": "integer",
+                                                                             "title": "TTL",
+                                                                             "description": "Time To Live (TTL); the number of seconds that the address/name correspondence is to be considered valid."
+                                                                            }
+		                                                    }
+                                                     }
+                                           },
+
+                                     "required": []
+                                    }
+                     }
+           }
 }
