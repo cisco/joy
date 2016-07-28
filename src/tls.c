@@ -362,14 +362,14 @@ void TLSHandshake_get_clientKeyExchange(const struct TLSHandshake *h,
     byte_len = (unsigned int)h->lengthLo + 
       (unsigned int)h->lengthMid*256 + 
       (unsigned int)h->lengthHi*256*256;
-    r->tls_client_key_length = byte_len * 8;
+      r->tls_client_key_length = byte_len * 8;
+
     if (r->tls_client_key_length >= 8193) {
-      r->tls_client_key_length = 0;
+      return; /* too large; data is possibly corrupted */
+    } else {
+      memcpy(r->clientKeyExchange, y, byte_len); 
     }
   }
-    
-  /* record the 32-byte Random field */
-  memcpy(r->clientKeyExchange, y, byte_len); 
 
 }
 
