@@ -59,6 +59,7 @@
 #define MAX_SAN 12
 #define MAX_CERT_EXTENSIONS 12
 #define MAX_CERTIFICATE_BUFFER 11000
+#define MAX_CKE_LEN 1024
 
 /* structure for TLS awareness */
 /*
@@ -173,6 +174,7 @@ struct tls_information {
   struct tls_extension server_tls_extensions[MAX_EXTENSIONS];  /* array of extensions */
   unsigned char tls_v;                   /* TLS version                        */
   unsigned int tls_client_key_length;    /* client key exchange key length     */
+  unsigned char clientKeyExchange[MAX_CKE_LEN];  /* clientKeyExchange data     */
   unsigned char tls_sid_len;             /* TLS session ID length              */
   unsigned char tls_sid[MAX_SID_LEN];    /* TLS session ID                     */
   unsigned char tls_random[32];          /* TLS random field from hello        */ 

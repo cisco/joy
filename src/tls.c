@@ -352,6 +352,28 @@ void TLSClientHello_get_extensions(const void *x, int len,
 }
 
 
+void TLSHandshake_get_clientKeyExchange(const struct TLSHandshake *h, 
+				       int len, 
+				       struct tls_information *r) {
+  const unsigned char *y = &h->body;
+  unsigned int byte_len = 0;
+
+  if (r->tls_client_key_length == 0) {
+    byte_len = (unsigned int)h->lengthLo + 
+      (unsigned int)h->lengthMid*256 + 
+      (unsigned int)h->lengthHi*256*256;
+    r->tls_client_key_length = byte_len * 8;
+    if (r->tls_client_key_length >= 8193) {
+      r->tls_client_key_length = 0;
+    }
+  }
+    
+  /* record the 32-byte Random field */
+  memcpy(r->clientKeyExchange, y, byte_len); 
+
+}
+
+
 void TLSServerCertificate_parse(const void *x, unsigned int len,
 				    struct tls_information *r) {
 
@@ -1082,15 +1104,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
 
       } else if (tls->Handshake.HandshakeType == client_key_exchange) {
 
-	//	TLSClientKeyExchange_get_key_length(&tls->Handshake.body, tls_len, tls_version(&tls->ProtocolVersionMajor), r);
-	if (r->tls_client_key_length == 0) {
-	  r->tls_client_key_length = (unsigned int)tls->Handshake.lengthLo*8 + 
-	    (unsigned int)tls->Handshake.lengthMid*8*256 + 
-	    (unsigned int)tls->Handshake.lengthHi*8*256*256;
-	  if (r->tls_client_key_length > 8193) {
-	    r->tls_client_key_length = 0;
-	  }
-	}
+	TLSHandshake_get_clientKeyExchange(&tls->Handshake, tls_len, r);
 
       } if (((tls->Handshake.HandshakeType > 2) & 
 	     (tls->Handshake.HandshakeType < 11)) ||
@@ -1330,9 +1344,13 @@ void tls_printf(const struct tls_information *data, const struct tls_information
 
   if (data->tls_client_key_length) {
     zprintf(f, ",\"tls_client_key_length\":%u", data->tls_client_key_length);
+    zprintf(f, ",\"clientKeyExchange\":");
+    zprintf_raw_as_hex_tls(f, data->clientKeyExchange, data->tls_client_key_length/8);
   }
   if (data_twin && data_twin->tls_client_key_length) {
     zprintf(f, ",\"tls_client_key_length\":%u", data_twin->tls_client_key_length);
+    zprintf(f, ",\"clientKeyExchange\":");
+    zprintf_raw_as_hex_tls(f, data_twin->clientKeyExchange, data_twin->tls_client_key_length/8);
   }
 
   /*
