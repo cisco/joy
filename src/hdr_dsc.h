@@ -49,6 +49,7 @@
 #define HDR_DSC_LEN 32
 
 struct header_description {
+  unsigned char initial[HDR_DSC_LEN];
   unsigned char const_mask[HDR_DSC_LEN];
   unsigned char const_value[HDR_DSC_LEN];
   unsigned char seq_mask[HDR_DSC_LEN];

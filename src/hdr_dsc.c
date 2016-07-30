@@ -83,6 +83,7 @@ void header_description_init(struct header_description *hd) {
 
 void header_description_set_initial(struct header_description *hd, const void *packet, unsigned int len) {
 
+  memcpy(hd->initial, packet, len);
   memcpy(hd->const_value, packet, len);
   memset(hd->const_mask, 0xff, sizeof(hd->const_mask));
   hd->num_headers_seen = 1;
@@ -121,6 +122,8 @@ void header_description_set(struct header_description *hd, const void *packet, u
 
 #include "p2f.h"
 
+#define MAX_NUM_HDRS 10
+
 /*
  *
  */
@@ -130,7 +133,7 @@ inline void header_description_update(struct header_description *hd,
   if (report_hd) {
     if (hd->num_headers_seen == 0) {
       header_description_set_initial(hd, packet, report_hd);
-    } else if (hd->num_headers_seen < 10) {
+    } else if (hd->num_headers_seen < MAX_NUM_HDRS) {
       header_description_set(hd, packet, report_hd);
     }
     /*
@@ -176,6 +179,10 @@ void header_description_printf(const struct header_description *hd, zfile f, uns
   zprintf(f, "\",\"sm\":\"");
   for (i=0; i<len; i++) {
     zprintf(f, "%02x", hd->seq_mask[i]);
+  }
+  zprintf(f, "\",\"i\":\"");
+  for (i=0; i<len; i++) {
+    zprintf(f, "%02x", hd->initial[i]);
   }
   zprintf(f, "\"}");
 
