@@ -1348,13 +1348,10 @@ if __name__=='__main__':
    parser.add_option("--translate", action='store_true', dest="translate", help="translate numbers to acronyms ")
    parser.add_option("--schema", action='store_true', dest="schema", help="print out schema")
 
-   # check args
-   if len(sys.argv) < 1:
-      parser.print_help()
-      usage()
-      sys.exit()
-
+   # parse command line, and check arguments
    (opts, args) = parser.parse_args()
+   if not args:
+      args.append('-')   # no input files, so assume stdin 
 
    if opts.translate is True:
       t = translator()
