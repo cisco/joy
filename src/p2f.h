@@ -105,6 +105,7 @@ struct flow_record {
   unsigned int idp_len;
   unsigned int ack;
   unsigned int seq;
+  unsigned int initial_seq;
   unsigned int invalid;
   unsigned int retrans;
   char *exe_name;                       /* executable associated with flow    */ 

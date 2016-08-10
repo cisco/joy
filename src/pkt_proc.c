@@ -504,6 +504,11 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
       flow_record_process_packet_length_and_time_ack(record, payload_len, &h->ts, tcp);
   }
 
+  // if initial SYN packet, get TCP sequence number
+  if (tcp->tcp_flags == 2 && record->initial_seq == 0) { // SYN==2
+    record->initial_seq = ntohl(tcp->tcp_seq);
+  }
+
   // if initial SYN/ACK packet, parse TCP options
   unsigned int offset = 20;
   if (tcp->tcp_flags == 2 || tcp->tcp_flags == 18) { // SYN==2, SYN/ACK==18

@@ -388,6 +388,7 @@ void flow_record_init(/* @out@ */ struct flow_record *record,
   record->num_bytes = 0;
   record->bd_mean = 0.0;
   record->bd_variance = 0.0;
+  record->initial_seq = 0;
   record->seq = 0;
   record->ack = 0;
   record->invalid = 0;
@@ -1170,6 +1171,15 @@ void flow_record_print_json(const struct flow_record *record) {
   zprintf(output, "\"ottl\":%u,", rec->ttl);
   if (rec->twin != NULL) {
     zprintf(output, "\"ittl\":%u,", rec->twin->ttl);
+  }
+
+  if (rec->initial_seq) {
+    zprintf(output, "\"initial_seq\":%u,", rec->initial_seq);
+  }
+  if (rec->twin != NULL) {
+    if (!rec->initial_seq && rec->twin->initial_seq) {
+      zprintf(output, "\"initial_seq\":%u,", rec->twin->initial_seq);
+    }
   }
 
   if (rec->tcp_initial_window_size) {
