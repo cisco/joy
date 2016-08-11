@@ -505,8 +505,10 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   }
 
   // if initial SYN packet, get TCP sequence number
-  if (tcp->tcp_flags == 2 && record->initial_seq == 0) { // SYN==2
-    record->initial_seq = ntohl(tcp->tcp_seq);
+  if (payload_len > 0) {
+    if (tcp->tcp_flags == 2 && record->initial_seq == 0) { // SYN==2
+      record->initial_seq = ntohl(tcp->tcp_seq);
+    }
   }
 
   // if initial SYN/ACK packet, parse TCP options
