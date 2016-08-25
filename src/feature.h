@@ -63,7 +63,7 @@
 #include <stdio.h>   /* for FILE* */
 #include "output.h"
 #include "err.h"
-
+#include "nfv9.h"
 
 /*
  * feature_ptr is a pointer to the memory location of the
@@ -110,9 +110,9 @@ enum packet_status {
  * 
  * this function is called in flow_record_update()
  */
-typedef enum packet_status (*feature_update_func)(feature_ptr feature_ptr, 
-						       const void *data, 
-						       unsigned int len);
+typedef enum packet_status (*feature_update_func)(feature_ptr feature, 
+						  const void *data, 
+						  unsigned int len);
 
 
 /*
@@ -129,24 +129,85 @@ typedef enum packet_status (*feature_update_func)(feature_ptr feature_ptr,
  * 
  * this function is called in flow_record_print_json()
  */
-typedef void (*feature_print_json_func)(const feature_ptr feature_ptr, 
+typedef void (*feature_print_json_func)(const feature_ptr feature, 
 					const struct flow_record *record,
-					const feature_ptr twin_feature_ptr, 
+					const feature_ptr twin_feature, 
 					const struct flow_record *twin_record, 
 					zfile f);
 
+/*
+ * nfv9_t is a handle to an Netflow v9 context
+ */
+typedef void *nfv9_t;
 
-typedef void (*feature_print_config_func)(FILE *f); 
+/*
+ * feature_encode_nfv9_func(feature, record, twin_feature,
+ * twin_record) creates a NFv9 representation of the data feature.
+ * The twin_feature and twin_record pointers should be set to NULL if
+ * a record is unidirectional, and set to the flow's twin otherwise.
+ * 
+ * The record and twin_record pointers are present in order to make it
+ * possible for a data record to make use of the basic flow record
+ * information, e.g. addresses and byte count.
+ * 
+ * return value: void
+ * 
+ * this function is called in flow_record_print_json()
+ */
+typedef void (*feature_encode_nfv9_json_func)(const feature_ptr feature, 
+					      const struct flow_record *record,
+					      const feature_ptr twin_feature, 
+					      const struct flow_record *twin_record, 
+					      nfv9_t nfv9_handle);
+
+/*
+ * feature_decode_nfv9_func(feature, record, twin_feature,
+ * twin_record) creates a NFv9 representation of the data feature.
+ * The twin_feature and twin_record pointers should be set to NULL if
+ * a record is unidirectional, and set to the flow's twin otherwise.
+ * 
+ * The record and twin_record pointers are present in order to make it
+ * possible for a data record to make use of the basic flow record
+ * information, e.g. addresses and byte count.
+ * 
+ * return value: void
+ * 
+ * this function is called in nfv9_process_flow_record()
+ */
+typedef void (*feature_decode_nfv9_json_func)(const feature_ptr feature, 
+					      const struct flow_record *record,
+					      nfv9_template template,
+					      const void *nfv9_data, 
+					      int record_num);
+
+
+/*
+ * when feature_delete_func(ptr) is invoked on a feature_ptr, it frees all
+ * memory that is allocated by feature_init()
+ *
+ * return value: void
+ * 
+ * this function is called in flow_record_delete()
+ */
+typedef void (*feature_delete_func)(feature_ptr *ptr);
+
 
 /*
  * struct feature_class is the metaobject for the class of objects
  * pointed to by feature_ptr, in object-oriented terms
+ *
+ * init_func, update_func, and delete_func MUST NOT be NULL
+ *
+ * print_json_func, encode_nfv9_func, and decode_nfv9_func MAY be NULL
+ * 
  */
-
 struct feature_class {
-  feature_init_func init_func;
-  feature_update_func update_func;
-  feature_print_json_func print_json_func;
+  feature_init_func        init_func;
+  feature_update_func      update_func;
+  feature_print_json_func  print_json_func;
+  feature_delete_func      delete_func;
+  feature_encode_nfv9_func encode_nfv9_func;
+  feature_decode_nfv9_func decode_nfv9_func;
 };
 
 /*
@@ -164,12 +225,17 @@ enum status feature_register(const struct feature_class *fc);
  * function, which can set and read (or print) configuration variables
  */
 
+typedef void (*feature_print_config_func)(FILE *f); 
+
 /*
  * The feature_unit_test function is called by the unit_test()
  * function, which appears in a test-specific program - it is not
  * intended to be used in any production code, and it may rely on the
  * presence of external files that are only available in the source
  * code package.
+ *
+ * This function is invoked by the unit_test program
+ * (src/unit_test.c).
  *
  */
 typedef void (*feature_unit_test)();
@@ -188,8 +254,7 @@ enum status register_feature_unit_test(feature_unit_test fut);
  * as defined below.  
  *
  */
-  
-struct feature {
+  struct feature {
   feature_ptr ptr;
   feature_update_func update_func;
 };
