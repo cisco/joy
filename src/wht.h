@@ -46,23 +46,24 @@
 
 #include <stdio.h>   /* for FILE* */
 #include "output.h"
+//#include "feature.h"
 
-struct wht {
-  int32_t spectrum[4];
-};
+#define wht_usage "  wht=1                      include walsh-hadamard transform\n"
+
+typedef struct wht {
+  uint32_t b;           /* byte count */
+  int32_t spectrum[4];  /* spectrum   */
+} wht_t;
 
 void wht_init(struct wht *wht);
 
 void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned int report_wht);
 
-void wht_printf(const struct wht *wht, zfile f);
+void wht_print_json(const struct wht *w1, 
+		    const struct wht *w2,
+		    zfile f);
 
-void wht_printf_scaled(const struct wht *wht, zfile f, unsigned int num_bytes);
-
-void wht_printf_scaled_bidir(const struct wht *w1, unsigned int b1,
-			     const struct wht *w2, unsigned int b2,
-			     zfile f);
-
+void wht_delete(struct wht *wht);
 
 void wht_unit_test();
   

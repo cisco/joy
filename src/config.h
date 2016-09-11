@@ -39,6 +39,7 @@
 
 #include "output.h"
 #include "radix_trie.h"
+#include "feature.h"
 
 #define LINEMAX 256
 
@@ -50,7 +51,7 @@ struct configuration {
   unsigned int include_zeroes;
   unsigned int byte_distribution;
   unsigned int report_entropy;
-  unsigned int report_wht;
+  //unsigned int report_wht;
   unsigned int report_hd;
   unsigned int report_exe;
   unsigned int include_tls;
@@ -67,6 +68,9 @@ struct configuration {
   unsigned int output_level;
   unsigned int nfv9_capture_port;
   unsigned int flow_key_match_method;
+  
+  declare_all_features_config_uint(feature_list);
+  
   char *compact_byte_distribution;
   char *interface;
   char *filename;              /* output file, if not NULL */

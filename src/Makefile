@@ -39,7 +39,7 @@ NFV9_FILES = exporter.c nfv9.c nfv9.h Makefile
 TLS_FILES = tls.c tls.h
 CLASSIFY_FILES = classify.c classify.h
 
-PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c
+PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c
 PCAP2FLOW_HDR = osdetect.h anon.h p2f.h pkt.h tls.h pkt_proc.h radix_trie.h classify.h hdr_dsc.h addr_attr.h addr.h err.h dns.h
 
 ifeq ($(sysname),LINUX)

@@ -69,7 +69,6 @@
 #include "anon.h"     /* address anonymization           */
 #include "tls.h"      /* TLS awareness                   */
 #include "classify.h" /* inline classification           */
-#include "wht.h"      /* walsh-hadamard transform        */
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "output.h"     /* compressed output             */
@@ -82,7 +81,7 @@ enum operating_mode {
 
 /* some globals defined in p2f.c */
 
-enum SALT_algorithm salt_algo;
+extern enum SALT_algorithm salt_algo;
 
 extern enum print_level output_level;
 
@@ -110,8 +109,6 @@ extern char *compact_byte_distribution;
 
 extern unsigned int report_entropy;
 
-extern unsigned int report_wht;
-
 extern unsigned int report_idp;
 
 extern unsigned int report_hd;
@@ -129,6 +126,8 @@ extern zfile output;
 extern FILE *info;
 
 extern unsigned int records_in_file;
+
+define_all_features_config_extern_uint(feature_list);
 
 /*
  * config is the global configuration 
@@ -321,7 +320,7 @@ int usage(char *s) {
          "  model=F1:F2                change classifier parameters, SPLT in file F1 and SPLT+BD in file F2\n"
          "  dns=1                      include dns names\n" 
          "  hd=1                       include header description\n" 
-         "  wht=1                      include walsh-hadamard transform\n", 
+	 get_usage_all_features(feature_list),
 	 MAX_NUM_PKT_LEN); 
   printf("RETURN VALUE                 0 if no errors; nonzero otherwise\n"); 
   return -1;
@@ -450,7 +449,6 @@ int main(int argc, char **argv) {
     byte_distribution = config.byte_distribution;
     compact_byte_distribution = config.compact_byte_distribution;
     report_entropy = config.report_entropy;
-    report_wht = config.report_wht;
     report_hd = config.report_hd;
     include_tls = config.include_tls;
     include_classifier = config.include_classifier;
@@ -459,6 +457,9 @@ int main(int argc, char **argv) {
     report_dns = config.dns;
     salt_algo = config.type;
     nfv9_capture_port = config.nfv9_capture_port;
+
+    set_config_all_features(feature_list);
+
     if (config.bpf_filter_exp) {
       filter_exp = config.bpf_filter_exp;
     }

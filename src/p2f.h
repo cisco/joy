@@ -53,8 +53,9 @@
 #include "tls.h"          /* provides TLS awareness        */
 #include "pkt_proc.h"     /* for struct tls_type_code      */
 #include "hdr_dsc.h"      /* header description (proto id) */
-#include "wht.h"          /* walsh-hadamard transform      */
 #include "http.h"         /* http header data              */
+#include "modules.h"      
+#include "feature.h"
 
 enum print_level { 
   none = 0, 
@@ -96,7 +97,6 @@ struct flow_record {
   unsigned long int num_bytes;
   double bd_mean;
   double bd_variance;
-  struct wht wht;                       /* walsh hadamard transform            */
   struct header_description hd;         /* header description (proto ident)    */
   struct tls_information tls_info;      /* TLS awareness                       */
   struct http_data http_data;           /* HTTP header information             */
@@ -119,6 +119,9 @@ struct flow_record {
   unsigned int tcp_syn_size;
   unsigned char exp_type;
   unsigned char first_switched_found;   /* hack to make sure we only correct once */
+
+  define_all_features(feature_list);    /* define all features listed in feature.h */
+
   struct flow_record *twin;             /* other half of bidirectional flow    */
   struct flow_record *next;             /* next record in flow_record_list     */
   struct flow_record *prev;             /* previous record in flow_record_list */

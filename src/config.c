@@ -117,7 +117,12 @@ int parse_string_multiple(char **s, char *arg, int num_arg, unsigned int string_
   return parse_string(&s[string_num], arg, num_arg);
 }
 
-#define parse_check(s) if ((s)) { fprintf(info, "error in command %s\n", command); return failure; }
+#define parse_check(s) if ((s)) {                   \
+   fprintf(info, "error in command %s\n", command); \
+   return failure;                                  \
+  } else {                                          \
+  return ok;                                        \
+}
 
 int config_parse_command(struct configuration *config, 
 			 const char *command, char *arg, int num) {  
@@ -185,9 +190,6 @@ int config_parse_command(struct configuration *config,
   } else if (match(command, "entropy")) {
     parse_check(parse_bool(&config->report_entropy, arg, num));
 
-  } else if (match(command, "wht")) {
-    parse_check(parse_bool(&config->report_wht, arg, num));
-
   } else if (match(command, "hd")) {
     parse_check(parse_int(&config->report_hd, arg, num, 0, HDR_DSC_LEN));
 
@@ -236,11 +238,11 @@ int config_parse_command(struct configuration *config,
   } else if (match(command, "exe")) {
     parse_check(parse_bool(&config->report_exe, arg, num));
 
-  } else {
-    return failure;
   }
 
-  return ok;
+  config_all_features_bool(feature_list);
+
+  return failure;
 }
 
 void config_set_defaults(struct configuration *config) {
@@ -403,7 +405,6 @@ void config_print(FILE *f, const struct configuration *c) {
   fprintf(f, "dist = %u\n", c->byte_distribution);
   fprintf(f, "cdist = %s\n", val(c->compact_byte_distribution));
   fprintf(f, "entropy = %u\n", c->report_entropy);
-  fprintf(f, "wht = %u\n", c->report_wht);
   fprintf(f, "hd = %u\n", c->report_hd);
   fprintf(f, "tls = %u\n", c->include_tls);
   fprintf(f, "classify = %u\n", c->include_classifier);
@@ -415,6 +416,8 @@ void config_print(FILE *f, const struct configuration *c) {
   fprintf(f, "bpf = %s\n", val(c->bpf_filter_exp));
   fprintf(f, "verbosity = %u\n", c->output_level);
 
+  config_print_all_features_bool(feature_list);
+  
   /* note: anon_print_subnets is silent when no subnets are configured */
   anon_print_subnets(f);
 
@@ -444,7 +447,6 @@ void config_print_json(zfile f, const struct configuration *c) {
   zprintf(f, "\"dist\":%u,", c->byte_distribution);
   zprintf(f, "\"cdist\":\"%s\",", val(c->compact_byte_distribution));
   zprintf(f, "\"entropy\":%u,", c->report_entropy);
-  zprintf(f, "\"wht\":%u,", c->report_wht);
   zprintf(f, "\"hd\":%u,", c->report_hd);
   zprintf(f, "\"tls\":%u,", c->include_tls);
   zprintf(f, "\"classify\":%u,", c->include_classifier);
@@ -455,5 +457,8 @@ void config_print_json(zfile f, const struct configuration *c) {
   zprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
   zprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
   zprintf(f, "\"verbosity\":%u", c->output_level);
+
+  config_print_json_all_features_bool(feature_list);
+
   zprintf(f, "}\n");  
 }

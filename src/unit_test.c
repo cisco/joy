@@ -42,7 +42,7 @@
 
 #include <stdio.h>
 #include "radix_trie.h"
-#include "wht.h"
+#include "modules.h"
 #include "p2f.h"
 #include "dns.h"
 
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     printf("radix_trie tests passed\n");
   }
 
-  wht_unit_test();
+  unit_test_all_features(feature_list);
   flow_record_list_unit_test();
   dns_unit_test();
 

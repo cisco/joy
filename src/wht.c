@@ -47,6 +47,7 @@
 #include "wht.h"     
 
 inline void wht_init(struct wht *wht) {
+  wht->b = 0;
   wht->spectrum[0] = 0;
   wht->spectrum[1] = 0;
   wht->spectrum[2] = 0;
@@ -70,13 +71,14 @@ void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned in
   const uint8_t *d = data;
 
   if (report_wht) {
+    wht->b += len;
     while (len > 4) {
       wht_process_four_bytes(wht, d);
       d += 4;
       len -= 4;
     }
     if (len > 0) {
-      uint8_t buffer[4];
+      uint8_t buffer[4] = { 0, 0, 0, 0 };
       
       memcpy(buffer, d, len);
       wht_process_four_bytes(wht, buffer);
@@ -91,7 +93,8 @@ void wht_printf(const struct wht *wht, zfile f) {
   
 }
 
-void wht_printf_scaled(const struct wht *wht, zfile f, unsigned int num_bytes) {
+void wht_printf_scaled(const struct wht *wht, zfile f) {
+  unsigned int num_bytes = wht->b;
 
   if (num_bytes == 0) {
     return;
@@ -105,12 +108,15 @@ void wht_printf_scaled(const struct wht *wht, zfile f, unsigned int num_bytes) {
   
 }
 
-void wht_printf_scaled_bidir(const struct wht *w1, unsigned int b1,
-			     const struct wht *w2, unsigned int b2,
-			     zfile f) {
+void wht_print_json(const struct wht *w1, const struct wht *w2, zfile f) {
   int64_t s[4];
-  uint64_t n = b1 + b2;
+  uint64_t n;
 
+  if (w2 == NULL) {
+    return wht_printf_scaled(w1, f);
+  }
+  
+  n = w1->b + w2->b;
   if (n == 0) {
     return;    /* there was no data, so there is no WHT to print */
   }
@@ -140,6 +146,9 @@ void wht_printf_scaled_bidir(const struct wht *w1, unsigned int b1,
 #endif 
 }
 
+void wht_delete(struct wht *wht) { 
+}
+
 
 void wht_unit_test() {
   struct wht wht, wht2;
@@ -165,21 +174,21 @@ void wht_unit_test() {
 
   wht_init(&wht);
   wht_update(&wht, buffer1, sizeof(buffer1), 1);
-  wht_printf_scaled(&wht, output, sizeof(buffer1));
+  wht_printf_scaled(&wht, output);
 
   wht_init(&wht);
   wht_update(&wht, buffer2, sizeof(buffer2), 1);
-  wht_printf_scaled(&wht, output, sizeof(buffer2));
+  wht_printf_scaled(&wht, output);
 
   wht_init(&wht);
   wht_update(&wht, buffer3, sizeof(buffer3), 1);
-  wht_printf_scaled(&wht, output, sizeof(buffer3));
+  wht_printf_scaled(&wht, output);
 
   wht_init(&wht);
   wht_init(&wht2);
   wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
   wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
   wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
-  wht_printf_scaled_bidir(&wht, 3, &wht2, 0, output);
+  wht_print_json(&wht, &wht2, output);
 
 } 

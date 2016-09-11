@@ -65,13 +65,14 @@ extern unsigned int include_zeroes;
 extern unsigned int include_tls;
 extern unsigned int report_dns;
 extern unsigned int report_idp;
-extern unsigned int report_wht;
 extern unsigned int report_hd;
 extern unsigned int nfv9_capture_port;
 extern enum SALT_algorithm salt_algo;
 extern enum print_level output_level;
 extern struct flocap_stats stats;
 extern struct configuration config;
+
+define_all_features_config_extern_uint(feature_list);
 
 /* START packet processing */
 #define MAX_TEMPLATES 100
@@ -433,7 +434,7 @@ struct flow_record *
 process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, struct flow_key *key) {
   unsigned int tcp_hdr_len;
   const unsigned char *payload;
-  unsigned int payload_len;
+  unsigned int size_payload;
   const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
   struct flow_record *record = NULL;
   unsigned int cur_itr = 0;
@@ -453,12 +454,12 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   payload = (unsigned char *)(tcp_start + tcp_hdr_len);
   
   /* compute tcp payload (segment) size */
-  payload_len = tcp_len - tcp_hdr_len;
+  size_payload = tcp_len - tcp_hdr_len;
 
   if (output_level > none) {
     fprintf(output, "   src port: %d\n", ntohs(tcp->src_port));
     fprintf(output, "   dst port: %d\n", ntohs(tcp->dst_port));
-    fprintf(output, "payload len: %u\n", payload_len);
+    fprintf(output, "payload len: %u\n", size_payload);
     fprintf(output, "    tcp len: %u\n", tcp_len);
     fprintf(output, "tcp hdr len: %u\n", tcp_hdr_len);
     fprintf(output, "      flags:");
@@ -473,9 +474,9 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
     fprintf(output, "\n");
 
     if (output_level > packet_summary) {
-      if (payload_len > 0) {
+      if (size_payload > 0) {
 	fprintf(output, "    payload:\n");
-	print_payload(payload, payload_len);
+	print_payload(payload, size_payload);
       }
     }
   }
@@ -494,18 +495,18 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
     // fprintf(output, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
   }
 
-  if (payload_len > 0) {
+  if (size_payload > 0) {
     if (ntohl(tcp->tcp_seq) < record->seq) {
       // fprintf(info, "retransmission detected\n");
       record->retrans++;
     } 
   }
-  if (include_zeroes || payload_len > 0) {
-      flow_record_process_packet_length_and_time_ack(record, payload_len, &h->ts, tcp);
+  if (include_zeroes || size_payload > 0) {
+      flow_record_process_packet_length_and_time_ack(record, size_payload, &h->ts, tcp);
   }
 
   // if initial SYN packet, get TCP sequence number
-  if (payload_len > 0) {
+  if (size_payload > 0) {
     if (tcp->tcp_flags == 2 && record->initial_seq == 0) { // SYN==2
       record->initial_seq = ntohl(tcp->tcp_seq);
     }
@@ -564,27 +565,27 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
     }
   }
 
-  record->ob += payload_len; 
+  record->ob += size_payload; 
   
-  flow_record_update_byte_count(record, payload, payload_len);
-  flow_record_update_compact_byte_count(record, payload, payload_len);
-  flow_record_update_byte_dist_mean_var(record, payload, payload_len);
-  wht_update(&record->wht, payload, payload_len, report_wht);
+  flow_record_update_byte_count(record, payload, size_payload);
+  flow_record_update_compact_byte_count(record, payload, size_payload);
+  flow_record_update_byte_dist_mean_var(record, payload, size_payload);
+  update_all_features(feature_list);
   
   /* if packet has port 443 and nonzero data length, process it as TLS */
-  if (include_tls && payload_len && (key->sp == 443 || key->dp == 443)) {
-    process_tls(h, payload, payload_len, &record->tls_info);
+  if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
+    process_tls(h, payload, size_payload, &record->tls_info);
   }
 
   /* if packet has port 80 and nonzero data length, process it as HTTP */
-  if (config.http && payload_len && (key->sp == 80 || key->dp == 80)) {
-    http_update(&record->http_data, payload, payload_len, config.http);
+  if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+    http_update(&record->http_data, payload, size_payload, config.http);
   }
 
   /*
    * update header description
    */
-  if (payload_len >= report_hd) {
+  if (size_payload >= report_hd) {
     header_description_update(&record->hd, payload, report_hd);
   }
 
@@ -651,7 +652,7 @@ process_udp(const struct pcap_pkthdr *h, const void *udp_start, int udp_len, str
   flow_record_update_byte_count(record, payload, size_payload);
   flow_record_update_compact_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
-  wht_update(&record->wht, payload, size_payload, report_wht);
+  update_all_features(feature_list);
 
   if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
     process_nfv9(h, payload, size_payload, record);
@@ -721,7 +722,7 @@ process_icmp(const struct pcap_pkthdr *h, const void *start, int len, struct flo
   flow_record_update_byte_count(record, payload, size_payload);
   flow_record_update_compact_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
-  wht_update(&record->wht, payload, size_payload, report_wht);
+  update_all_features(feature_list);
   
   return record;
 }
@@ -771,7 +772,7 @@ process_ip(const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struct
   flow_record_update_byte_count(record, payload, size_payload);
   flow_record_update_compact_byte_count(record, payload, size_payload);
   flow_record_update_byte_dist_mean_var(record, payload, size_payload);
-  wht_update(&record->wht, payload, size_payload, report_wht);
+  update_all_features(feature_list);
 
   return record;
 }

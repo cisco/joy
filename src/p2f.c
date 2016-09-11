@@ -55,7 +55,6 @@
 #include "tls.h"      /* TLS awareness                   */
 #include "dns.h"      /* DNS awareness                   */
 #include "classify.h" /* inline classification           */
-#include "wht.h"      /* walsh-hadamard transform        */
 #include "http.h"     /* http header data                */
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
@@ -159,6 +158,8 @@ void flocap_stats_timer_init() {
 
 /* configuration state */
 
+define_all_features_config_uint(feature_list);
+
 unsigned int bidir = 0;
 
 unsigned int include_zeroes = 0;
@@ -168,8 +169,6 @@ unsigned int byte_distribution = 0;
 char *compact_byte_distribution = NULL;
 
 unsigned int report_entropy = 0;
-
-unsigned int report_wht = 0;
 
 unsigned int report_idp = 0;
 
@@ -426,7 +425,7 @@ void flow_record_init(/* @out@ */ struct flow_record *record,
   tls_record_init(&record->tls_info);
 
   http_init(&record->http_data);
-  wht_init(&record->wht);
+  init_all_features(feature_list);
 
   header_description_init(&record->hd);
 
@@ -776,6 +775,9 @@ void flow_record_delete(struct flow_record *r) {
   if (r->exe_name) {
     free(r->exe_name);
   }
+
+  delete_all_features(feature_list);
+
   /*
    * zeroize memory (this is defensive coding; pointers to deleted
    * records will result in crashes rather than silent errors)
@@ -1464,13 +1466,7 @@ void flow_record_print_json(const struct flow_record *record) {
     zprintf(output, ",\"p_malware\":%f", score);
   }
 
-  if (report_wht) { 
-    if (rec->twin) {
-      wht_printf_scaled_bidir(&rec->wht, rec->ob, &rec->twin->wht, rec->twin->ob, output);
-    } else {
-      wht_printf_scaled(&rec->wht, output, rec->ob);
-    }
-  }
+  print_all_features(feature_list);
 
   if (report_hd) {
     /*
