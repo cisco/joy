@@ -113,8 +113,6 @@ extern unsigned int report_idp;
 
 extern unsigned int report_hd;
 
-extern unsigned int report_dns;
-
 extern unsigned int include_tls;
 
 extern unsigned int include_classifier;
@@ -318,7 +316,6 @@ int usage(char *s) {
          "  idp=N                      report N bytes of the initial data packet of each flow\n"
          "  label=L:F                  add label L to addresses that match the subnets in file F\n"
          "  model=F1:F2                change classifier parameters, SPLT in file F1 and SPLT+BD in file F2\n"
-         "  dns=1                      include dns names\n" 
          "  hd=1                       include header description\n" 
 	 get_usage_all_features(feature_list),
 	 MAX_NUM_PKT_LEN); 
@@ -454,7 +451,6 @@ int main(int argc, char **argv) {
     include_classifier = config.include_classifier;
     output_level = config.output_level;
     report_idp = config.idp;
-    report_dns = config.dns;
     salt_algo = config.type;
     nfv9_capture_port = config.nfv9_capture_port;
 

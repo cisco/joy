@@ -174,7 +174,7 @@ unsigned int report_idp = 0;
 
 unsigned int report_hd = 0;
 
-unsigned int report_dns = 0;
+// unsigned int report_dns = 0;
 
 unsigned int include_tls = 0;
 
@@ -410,7 +410,8 @@ void flow_record_init(/* @out@ */ struct flow_record *record,
   record->tcp_option_tstamp = 0;
   record->tcp_initial_window_size = 0;
   record->tcp_syn_size = 0;
-  memset(record->dns_name, 0, sizeof(record->dns_name));
+  //  memset(record->dns.dns_name, 0, sizeof(record->dns.dns_name));
+  // dns_init(&record->dns);
   record->idp = NULL;
   record->idp_len = 0;
   record->exp_type = 0;
@@ -748,7 +749,6 @@ struct flow_record *flow_key_get_record(const struct flow_key *key,
 } 
 
 void flow_record_delete(struct flow_record *r) {
-  unsigned int i;
 
   //  hash_key = flow_key_hash(&r->key);
   if (flow_record_list_remove(&flow_record_list_array[flow_key_hash(&r->key)], r) != 0) {
@@ -761,11 +761,7 @@ void flow_record_delete(struct flow_record *r) {
   /*
    * free the memory allocated inside of flow record
    */
-  for (i=0; i<MAX_NUM_PKT_LEN; i++) {
-    if (r->dns_name[i]) {
-      free(r->dns_name[i]);
-    }
-  }
+  // dns_delete(&r->dns);
   if (r->idp) {
     free(r->idp);
   }
@@ -1516,18 +1512,21 @@ void flow_record_print_json(const struct flow_record *record) {
   }
 
   if (report_dns && (rec->key.sp == 53 || rec->key.dp == 53)) {
-    unsigned int count;
-    char **twin_dns_name = NULL;
-    unsigned short *twin_pkt_len = NULL;
-    
-    count = rec->op > MAX_NUM_PKT_LEN ? MAX_NUM_PKT_LEN : rec->op;
-    if (rec->twin) {
-      count = rec->twin->op > count ? rec->twin->op : count;
-      twin_dns_name = rec->twin->dns_name;
-      twin_pkt_len = rec->twin->pkt_len;
-    }
+    //    unsigned int count;
+    //    char **twin_dns_name = NULL;
+    //unsigned short *twin_pkt_len = NULL;
+    //
+    //count = rec->op > MAX_NUM_PKT_LEN ? MAX_NUM_PKT_LEN : rec->op;
+    //if (rec->twin) {
+    //  count = rec->twin->op > count ? rec->twin->op : count;
+    //  twin_dns_name = rec->twin->dns.dns_name;
+    //  twin_pkt_len = rec->twin->pkt_len;
+    // }
+    //
+    //    dns_printf(rec->dns.dns_name, rec->pkt_len, twin_dns_name, twin_pkt_len, count, output);
 
-    dns_printf(rec->dns_name, rec->pkt_len, twin_dns_name, twin_pkt_len, count, output);
+    dns_print_json(&rec->dns, rec->twin ? &rec->twin->dns : NULL, output);
+
   }
   
   { 

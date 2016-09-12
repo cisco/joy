@@ -57,7 +57,7 @@ struct configuration {
   unsigned int include_tls;
   unsigned int include_classifier;
   unsigned int idp;
-  unsigned int dns;
+  // unsigned int dns;
   unsigned int http;
   unsigned int promisc;
   unsigned int daemon;

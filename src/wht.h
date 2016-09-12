@@ -66,5 +66,7 @@ void wht_print_json(const struct wht *w1,
 void wht_delete(struct wht *wht);
 
 void wht_unit_test();
+
+#define wht_filter(key) 1
   
 #endif /* WHT_H */

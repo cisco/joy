@@ -71,5 +71,7 @@ void example_print_json(const struct example *w1,
 void example_delete(struct example *example);
 
 void example_unit_test();
+
+#define example_filter(key) 1
   
 #endif /* EXAMPLE_H */

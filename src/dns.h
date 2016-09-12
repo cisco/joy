@@ -41,22 +41,27 @@
 #define DNS_H
 
 #include <pcap.h>
-#include "p2f.h"
-#include "err.h"
+#include "output.h"   /* for zfile */
 
-struct dns_data {
-  char *dns_name[MAX_NUM_PKT_LEN];  /* array of DNS names */
-};
+#define dns_usage "  dns=1                      report DNS response information\n"
 
-enum status process_dns(const struct pcap_pkthdr *h, 
-			const void *start, 
-			int len, 
-			struct flow_record *r);
+#define dns_filter(key) ((key->prot == 17) && (key->dp == 53 || key->sp == 53))
 
-void dns_printf(char * const dns_name[], const unsigned short pkt_len[], 
-		char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
-		unsigned int count, zfile output);
+#define MAX_NUM_DNS_PKT 200
 
+typedef struct dns {
+  unsigned int pkt_count;                      /* packet count       */
+  char *dns_name[MAX_NUM_DNS_PKT];             /* DNS packets        */
+  unsigned short int pkt_len[MAX_NUM_DNS_PKT]; /* DNS packet lengths */
+} dns_t;
+
+void dns_init(struct dns *dns);
+
+void dns_update(struct dns *dns, const void *data, unsigned int len, unsigned int report_dns);
+
+void dns_print_json(const struct dns *dns1, const struct dns *dns2, zfile f);
+
+void dns_delete(struct dns *dns);
 
 void dns_unit_test();
 

@@ -49,7 +49,6 @@
 #include "pkt.h"
 #include "err.h"
 #include "tls.h"
-#include "dns.h"
 #include "nfv9.h"
 #include "config.h"
 
@@ -63,7 +62,6 @@ extern unsigned int num_pkt_len;
 extern unsigned int output_level;
 extern unsigned int include_zeroes;
 extern unsigned int include_tls;
-extern unsigned int report_dns;
 extern unsigned int report_idp;
 extern unsigned int report_hd;
 extern unsigned int nfv9_capture_port;
@@ -638,9 +636,6 @@ process_udp(const struct pcap_pkthdr *h, const void *udp_start, int udp_len, str
     return NULL;
   }
   if (record->op < num_pkt_len) {
-    if (report_dns && (key->dp == 53 || key->sp == 53)) {
-      process_dns(h, payload, size_payload, record);
-    } 
     if (include_zeroes || (size_payload != 0)) {
       record->pkt_len[record->op] = size_payload;
       record->pkt_time[record->op] = h->ts;

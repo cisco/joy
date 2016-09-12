@@ -223,9 +223,6 @@ int config_parse_command(struct configuration *config,
   } else if (match(command, "nat")) {
     parse_check(parse_bool(&config->flow_key_match_method, arg, num));
 
-  } else if (match(command, "dns")) {
-    parse_check(parse_bool(&config->dns, arg, num));
-
   } else if (match(command, "http")) {
     parse_check(parse_bool(&config->http, arg, num));
 
@@ -409,7 +406,6 @@ void config_print(FILE *f, const struct configuration *c) {
   fprintf(f, "tls = %u\n", c->include_tls);
   fprintf(f, "classify = %u\n", c->include_classifier);
   fprintf(f, "idp = %u\n", c->idp);
-  fprintf(f, "dns = %u\n", c->dns);
   fprintf(f, "exe = %u\n", c->report_exe);
   fprintf(f, "anon = %s\n", val(c->anon_addrs_file));
   fprintf(f, "useranon = %s\n", val(c->anon_http_file));
@@ -451,14 +447,14 @@ void config_print_json(zfile f, const struct configuration *c) {
   zprintf(f, "\"tls\":%u,", c->include_tls);
   zprintf(f, "\"classify\":%u,", c->include_classifier);
   zprintf(f, "\"idp\":%u,", c->idp);
-  zprintf(f, "\"dns\":%u,", c->dns);
   zprintf(f, "\"exe\":%u,", c->report_exe);
   zprintf(f, "\"anon\":\"%s\",", val(c->anon_addrs_file));
   zprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
   zprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
-  zprintf(f, "\"verbosity\":%u", c->output_level);
 
   config_print_json_all_features_bool(feature_list);
+
+  zprintf(f, "\"verbosity\":%u", c->output_level);
 
   zprintf(f, "}\n");  
 }

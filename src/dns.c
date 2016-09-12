@@ -45,6 +45,7 @@
 #include "dns.h"
 #include "anon.h"
 #include "err.h"
+#include "p2f.h"
 
 /*
  * implementation strategy: store and print out DNS responses,
@@ -496,13 +497,13 @@ enum status process_dns(const struct pcap_pkthdr *h, const void *start, int len,
   }
 
   // printf("dns len: %u name: %s qr: %u rcode: %u\n", len-14, name, qr, rcode);
-  if (!r->dns_name[r->op]) {
-    r->dns_name[r->op] = malloc(len);
-    if (r->dns_name[r->op] == NULL) {
+  if (!r->dns.dns_name[r->op]) {
+    r->dns.dns_name[r->op] = malloc(len);
+    if (r->dns.dns_name[r->op] == NULL) {
       return failure;
     }
     // strncpy(r->dns_name[r->op], name, len-13);
-    memcpy(r->dns_name[r->op], start, len);
+    memcpy(r->dns.dns_name[r->op], start, len);
     // dns_query_to_string(r->dns_name[r->op] + 13, len-13);
   }
 
@@ -646,6 +647,11 @@ void dns_printf(char * const dns_name[], const unsigned short pkt_len[],
   zprintf(output, "]");
 }
 
+/*
+ * START of dns feature functions
+ */
+
+
 #define MAX_DNS_NAME_LEN 256
 
 #include <assert.h>
@@ -669,3 +675,77 @@ void dns_unit_test() {
 
   printf("name: %s\tlen: %u\terr: %u\n", name2, len, err);
 }
+
+
+void dns_init(struct dns *dns) {
+  memset(dns->dns_name, 0, sizeof(dns->dns_name));
+  memset(dns->pkt_len, 0, sizeof(dns->pkt_len));
+  dns->pkt_count = 0;
+}
+
+void dns_delete(struct dns *dns) {
+  unsigned int i;
+
+  for (i=0; i<dns->pkt_count; i++) {
+    if (dns->dns_name[i]) {
+      free(dns->dns_name[i]);
+    }
+  }
+}
+
+void dns_update(struct dns *dns, const void *start, unsigned int len, unsigned int report_dns) {
+  // const char *name = start + 13;
+  // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
+  // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
+
+  if (report_dns == 0) {
+    return;  /* we are not configured to report DNS information */
+  }
+
+  if (dns->pkt_count >= num_pkt_len) {
+    return;  /* no more room */
+  }  
+
+  if (len < 13) {
+    return;  /* not long enough to be a proper DNS packet */
+  }
+
+  // printf("dns len: %u name: %s qr: %u rcode: %u\n", len-14, name, qr, rcode);
+  if (!dns->dns_name[dns->pkt_count]) {
+    dns->dns_name[dns->pkt_count] = malloc(len);
+    if (dns->dns_name[dns->pkt_count] == NULL) {
+      return; /* failure */
+    }
+    // strncpy(r->dns_name[dns->pkt_count], name, len-13);
+    memcpy(dns->dns_name[dns->pkt_count], start, len);
+    dns->pkt_len[dns->pkt_count] = len;
+    dns->pkt_count++;
+    // dns_query_to_string(r->dns_name[dns->pkt_count] + 13, len-13);
+  }
+
+  return;  /* ok */
+}
+
+void dns_print_json(const struct dns *dns1, const struct dns *dns2, zfile f) {
+  unsigned int count;
+  char * const *twin_dns_name = NULL;
+  const unsigned short *twin_pkt_len = NULL;
+  
+  count = dns1->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns1->pkt_count;
+  if (dns2) {
+    count = dns2->pkt_count > count ? dns2->pkt_count : count;
+    twin_dns_name = dns2->dns_name;
+    twin_pkt_len = dns2->pkt_len;
+  }
+
+  if (count == 0) {
+    return;  /* no DNS data to report */
+  }
+ 
+  dns_printf(dns1->dns_name, dns1->pkt_len, twin_dns_name, twin_pkt_len, count, f);  
+}
+
+
+/*
+ * END of dns feature functions
+ */
