@@ -40,6 +40,12 @@ test: unit_test pcap2flow pcap2flow_test.sh
 	./unit_test
 	./pcap2flow_test.sh
 
+# cscope
+#
+cscope:
+	find . -name *.[ch] > cscope.files
+	cscope -b
+
 # DOCUMENTATION
 #
 man: pcap2flow.1
