@@ -632,9 +632,7 @@ void flow_record_chrono_list_append(struct flow_record *record) {
   }
 }
 
-inline unsigned int flow_record_is_in_chrono_list(const struct flow_record *record) {
-  return record->time_next || record->time_prev;
-}
+extern unsigned int flow_record_is_in_chrono_list(const struct flow_record *);
 
 void flow_record_chrono_list_remove(struct flow_record *record) {
   extern struct flow_record *flow_record_chrono_first;

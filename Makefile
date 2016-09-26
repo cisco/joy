@@ -22,10 +22,14 @@ version = $(shell cat VERSION)
 #
 sysname = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
 
+# Include the variables defined from the config script to esnure our
+# compile and linkage runs smoothly.
+include config.vars
+
 # main executable and unit test program
 #
 pcap2flow: FORCE
-	cd src; $(MAKE)
+	cd src; $(MAKE) $(MAKEFLAGS)
 	cp src/pcap2flow .
 
 FORCE:
@@ -57,6 +61,7 @@ man: pcap2flow.1
 # housekeeping
 #
 clean: 
+	rm -f cscope.out cscope.files
 	cd src; $(MAKE) clean
 	rm -f pcap2flow unit_test 
 	for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;

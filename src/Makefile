@@ -29,7 +29,17 @@ LIBS += -lm      # math library; logf() used in entropy computation
 LIBS += -lcrypto # openSSL crypto library; used in anonymization
 LIBS += -lz
 
-INCLUDEDIR = 
+ifndef SSLPATH
+INCLUDEDIR =
+else
+INCLUDEDIR = $(SSLPATH)
+endif
+
+ifndef LIBPATH
+LIBRARYPATH =
+else
+LIBRARYPATH = $(LIBPATH)
+endif
 
 CDEFS     = -D$(sysname)=1 -DVERSION=\"$(version)\"
 
@@ -77,24 +87,24 @@ classify: classify.c classify.h Makefile
 	gcc $(CFLAGS) -o classify classify.c
 
 pcap2flow: $(PCAP2FLOW_FILES) Makefile VERSION
-	gcc $(CFLAGS) $(CDEFS) -o pcap2flow $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) -o pcap2flow $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS)  
 #	strip pcap2flow
 	cp pcap2flow ./..
 
 unit_test: unit_test.c Makefile VERSION $(PCAP2FLOW_FILES)
-	gcc $(CFLAGS) $(CDEFS) -o unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) -o unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
 
 str_match_test: str_match_test.c Makefile VERSION $(PCAP2FLOW_FILES)
-	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
 
 jfd-anon: jfd-anon.c anon.c addr.c str_match.c acsm.c Makefile
-	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o jfd-anon $(INCLUDEDIR) jfd-anon.c anon.c addr.c str_match.c acsm.c $(LIBS)
+	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o jfd-anon $(INCLUDEDIR) jfd-anon.c anon.c addr.c str_match.c acsm.c $(LIBRARYPATH) $(LIBS)
 
 jfd-analysis: jfd-analysis.c 
-	gcc $(CFLAGS) $(CDEFS) jfd-analysis.c -o jfd-analysis $(LIBS)
+	gcc $(CFLAGS) $(CDEFS) jfd-analysis.c -o jfd-analysis $(LIBRARYPATH) $(LIBS)
 
 huffman: huffman.c Makefile
-	gcc $(CFLAGS) $(CDEFS) -o huffman $(INCLUDEDIR) huffman.c $(LIBS)
+	gcc $(CFLAGS) $(CDEFS) -o huffman $(INCLUDEDIR) huffman.c $(LIBRARYPATH) $(LIBS)
 
 # STATIC ANALYSIS
 
@@ -105,7 +115,7 @@ SPLINT_OPT += -unqualifiedtrans -fixedformalarray +charint
 SPLINT_OPT += -I/usr/include/x86_64-linux-gnu # +posixlib 
 
 splint: $(PCAP2FLOW_FILES) Makefile VERSION
-	splint $(SPLINT_OPT) $(PCAP2FLOW_FILES) $(INCLUDEDIR) # $(CFLAGS) $(CDEFS)  $(LIBS) 
+	splint $(SPLINT_OPT) $(PCAP2FLOW_FILES) $(INCLUDEDIR) # $(CFLAGS) $(CDEFS)  $(LIBRARYPATH) $(LIBS) 
 
 # DOCUMENTATION
 
