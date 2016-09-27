@@ -62,11 +62,11 @@ unsigned int timeval_to_milliseconds_c(struct timeval ts) {
   return result;
 }
 
-inline unsigned int timer_lt_c(const struct timeval *a, const struct timeval *b) {
+static inline unsigned int timer_lt_c(const struct timeval *a, const struct timeval *b) {
   return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
 }
 
-inline void timer_sub_c(const struct timeval *a, const struct timeval *b, struct timeval *result)  {  
+static inline void timer_sub_c(const struct timeval *a, const struct timeval *b, struct timeval *result)  {
   result->tv_sec = a->tv_sec - b->tv_sec;        
   result->tv_usec = a->tv_usec - b->tv_usec;     
   if (result->tv_usec < 0) {                         

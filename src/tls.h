@@ -283,7 +283,7 @@ unsigned int tls_header_get_length(const struct tls_header *H);
 char *tls_version_get_string(enum tls_version v);
 unsigned char tls_version(const void *x);
 unsigned int packet_is_sslv2_hello(const void *data);
-struct tls_information *process_tls(const struct pcap_pkthdr *h, const void *start,
+struct tls_information *process_tls(const struct timeval ts, const void *start,
 				int len, struct tls_information *r);
 struct tls_information *process_certificate(const void *start,
 				int len, struct tls_information *r);

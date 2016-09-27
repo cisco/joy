@@ -332,7 +332,7 @@ int string_is_not_printable(char *s, unsigned int len) {
   return 0;
 }
 
-inline char printable(char c) {
+static inline char printable(char c) {
   if (isprint(c)) {
     return c;
   }

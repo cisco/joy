@@ -48,7 +48,16 @@
 #include "nfv9.h"
 #include "pkt.h"
 #include "http.h"
+#include "tls.h"
 #include "config.h"
+
+
+/*
+ * External objects, defined in pcap2flow
+ */
+extern unsigned int include_tls;
+extern struct configuration config;
+define_all_features_config_extern_uint(feature_list);
 
 
 /*
@@ -58,12 +67,6 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
                                  const unsigned char *flow_data,
                                  const unsigned char **payload,
                                  unsigned int *size_payload);
-
-/*
- * External objects
- */
-extern struct configuration config;
-define_all_features_config_extern_uint(feature_list);
 
 
 struct nfv9_field_type nfv9_fields[] = {                                 
@@ -986,12 +989,13 @@ void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_t
 
       /* Get the start of IDP packet payload */
       nfv9_skip_idp_header(nf_record, flow_data, &payload, &size_payload);
-#if 0
+
       /* if packet has port 443 and nonzero data length, process it as TLS */
       if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-        process_tls(pkt_header, payload, size_payload, &record->tls_info);
+        struct timeval ts = {0}; /* Zeroize temporary timestamp */
+        process_tls(ts, payload, size_payload, &record->tls_info);
       }
-#endif
+
       /* if packet has port 80 and nonzero data length, process it as HTTP */
       if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
         http_update(&record->http_data, payload, size_payload, config.http);

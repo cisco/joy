@@ -50,15 +50,15 @@
 #include "tls.h"
 
 
-inline unsigned int timer_gt_tls(const struct timeval *a, const struct timeval *b) {
+static inline unsigned int timer_gt_tls(const struct timeval *a, const struct timeval *b) {
   return (a->tv_sec == b->tv_sec) ? (a->tv_usec > b->tv_usec) : (a->tv_sec > b->tv_sec);
 }
 
-inline unsigned int timer_lt_tls(const struct timeval *a, const struct timeval *b) {
+static inline unsigned int timer_lt_tls(const struct timeval *a, const struct timeval *b) {
   return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
 }
 
-inline void timer_sub_tls(const struct timeval *a, const struct timeval *b, struct timeval *result)  {  
+static inline void timer_sub_tls(const struct timeval *a, const struct timeval *b, struct timeval *result)  {
   result->tv_sec = a->tv_sec - b->tv_sec;        
   result->tv_usec = a->tv_usec - b->tv_usec;     
   if (result->tv_usec < 0) {                         
@@ -67,9 +67,29 @@ inline void timer_sub_tls(const struct timeval *a, const struct timeval *b, stru
   }                                                    
 }
 
-inline void timer_clear_tls(struct timeval *a) { 
+static inline void timer_clear_tls(struct timeval *a) {
   a->tv_sec = a->tv_usec = 0; 
 }
+
+
+/*
+ * @brief Get the TLS version out of the header, and write it into the record.
+ *
+ * @param tls_into tls_information structure that is attached
+ *        to a parent flow_record.
+ * @param tls_hdr tls_header structure that holds version.
+ * @return 1 for success, 0 for failure
+ */
+static int tls_version_capture(struct tls_information *tls_info,
+                               const struct tls_header *tls_hdr) {
+  if ((tls_hdr->ProtocolVersionMajor != 3)
+      || (tls_hdr->ProtocolVersionMinor > 3)) {
+    return 0;
+  }
+  tls_info->tls_v = tls_version(&tls_hdr->ProtocolVersionMajor);
+  return 1;
+}
+
 
 unsigned int timeval_to_milliseconds_tls(struct timeval ts) {
   unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
@@ -1008,7 +1028,7 @@ unsigned int packet_is_sslv2_hello(const void *data) {
 }
 
 struct tls_information *
-process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_information *r) {
+process_tls(const struct timeval ts, const void *start, int len, struct tls_information *r) {
   const struct tls_header *tls;
   unsigned int tls_len;
   unsigned int levels = 0;
@@ -1085,27 +1105,36 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
 
     if (tls->ContentType == application_data) {
       levels++;
-
-      /* sanity check version number */
-      if ((tls->ProtocolVersionMajor != 3) || (tls->ProtocolVersionMinor > 3)) {
-	return NULL;
+      if (!r->tls_v) {
+        /* Write the TLS version to record if empty */
+        if (!tls_version_capture(r, tls)) {
+          /* TLS version sanity check failed */
+          return NULL;
+        }
       }
-      r->tls_v = tls_version(&tls->ProtocolVersionMajor);
-
     } else if (tls->ContentType == handshake) {
       if (tls->Handshake.HandshakeType == client_hello) {
-	
-	TLSClientHello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
-	TLSClientHello_get_extensions(&tls->Handshake.body, tls_len, r);
-
+        if (!r->tls_v) {
+          /* Write the TLS version to record if empty */
+          if (!tls_version_capture(r, tls)) {
+            /* TLS version sanity check failed */
+            return NULL;
+          }
+        }
+        TLSClientHello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
+        TLSClientHello_get_extensions(&tls->Handshake.body, tls_len, r);
       } else if (tls->Handshake.HandshakeType == server_hello) {
-
-	TLSServerHello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
-	TLSServerHello_get_extensions(&tls->Handshake.body, (int)tls_len, r);
-
+        if (!r->tls_v) {
+          /* Write the TLS version to record if empty */
+          if (!tls_version_capture(r, tls)) {
+            /* TLS version sanity check failed */
+            return NULL;
+          }
+        }
+        TLSServerHello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
+        TLSServerHello_get_extensions(&tls->Handshake.body, (int)tls_len, r);
       } else if (tls->Handshake.HandshakeType == client_key_exchange) {
-
-	TLSHandshake_get_clientKeyExchange(&tls->Handshake, tls_len, r);
+        TLSHandshake_get_clientKeyExchange(&tls->Handshake, tls_len, r);
 
       } if (((tls->Handshake.HandshakeType > 2) & 
 	     (tls->Handshake.HandshakeType < 11)) ||
@@ -1137,7 +1166,7 @@ process_tls(const struct pcap_pkthdr *h, const void *start, int len, struct tls_
     if (r->tls_op < MAX_NUM_RCD_LEN) {
       r->tls_type[r->tls_op].content = tls->ContentType;
       r->tls_len[r->tls_op] = tls_len;
-      r->tls_time[r->tls_op] = h->ts;
+      r->tls_time[r->tls_op] = ts;
     }
 
     /* increment TLS record count in tls_information */
