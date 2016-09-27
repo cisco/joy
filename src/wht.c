@@ -54,7 +54,7 @@ inline void wht_init(struct wht *wht) {
   wht->spectrum[3] = 0;
 }
 
-inline void wht_process_four_bytes(struct wht *wht, const uint8_t *d) {
+static inline void wht_process_four_bytes(struct wht *wht, const uint8_t *d) {
   int16_t x[4];
   
   x[0] = d[0] + d[2];

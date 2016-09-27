@@ -91,7 +91,7 @@
  */
 static unsigned int rt_mem_usage = 0; /* bytes alloced by radix_trie(s) */
 
-inline void *rt_malloc(size_t s) {
+static inline void *rt_malloc(size_t s) {
   debug_printf("rt_malloc of %zu bytes\n", s);
   rt_mem_usage += s;
   return malloc(s);
