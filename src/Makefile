@@ -1,74 +1,73 @@
-# makefile for pcap2flow 
+# Makefile for joy binaries 
+#
+# Builds binary files for joy open source modules. 
 #
 # Copyright (c) 2016 Cisco Systems 
 
+##
 # variables 
-#
+##
 
+##
 # CWD is the name of the current directory
-#
+##
 TMP = $(shell pwd)
 CWD = $(shell basename $(TMP))
 
-# The version variable identifies the version number of the source
-# code (and not the version of the protocol).
-#
-version = $(shell cat VERSION)
-
-# The sysname variable identifies the system by kernel name, and is
-# used to define a C preprocessor symbol (in the CFLAGS variable) that
-# indicates the operating system type.  Note that it does *not* affect
-# the endianness choice, which is picked up from <sys/types.h>.
-#
-sysname = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
-
+##
 # required libraries for pcap2flow
-#
+##
 LIBS = -lpcap    # packet capture library; hard requirement
 LIBS += -lm      # math library; logf() used in entropy computation
 LIBS += -lcrypto # openSSL crypto library; used in anonymization
 LIBS += -lz
 
+##
+# check for additional paths to use searching for header files
+##
 ifndef SSLPATH
-INCLUDEDIR =
+INCLUDEDIR = -I ./include
 else
-INCLUDEDIR = $(SSLPATH)
+INCLUDEDIR = -I ./include $(SSLPATH)
 endif
 
+##
+# check for additional paths to use searching for library files
+##
 ifndef LIBPATH
-LIBRARYPATH =
+LIBRARYPATH = 
 else
 LIBRARYPATH = $(LIBPATH)
 endif
 
-CDEFS     = -D$(sysname)=1 -DVERSION=\"$(version)\"
-
+##
+# compiler directives
+##
+CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
 CFLAGS = -Wall -Wno-deprecated-declarations -g -O3  # -pg # -g # -fstack-protector-all 
 
-NFV9_FILES = exporter.c nfv9.c nfv9.h Makefile
-TLS_FILES = tls.c tls.h
-CLASSIFY_FILES = classify.c classify.h
-
+##
+# variables to make source file handling easier
+##
 PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c
-PCAP2FLOW_HDR = osdetect.h anon.h p2f.h pkt.h tls.h pkt_proc.h radix_trie.h classify.h hdr_dsc.h addr_attr.h addr.h err.h dns.h
+JFDANON_SRC = anon.c addr.c str_match.c acsm.c
+ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h
+ALL_FILES = pcap2flow.c jfd-anon.c unit_test.c str_match_test.c $(PCAP2FLOW_SRC) $(JFDANON_SRC) $(ALL_HEADER_FILES)
 
+##
+# additional CFLAG options
+##
 ifeq ($(sysname),LINUX)
 	CFLAGS += # -Wno-maybe-uninitialized 
 endif
-
 ifeq ($(sysname),DARWIN)
 	CFLAGS += -mmacosx-version-min=10.5
 	INCLUDEDIR += -I/opt/local/include/
 endif
 
-PCAP2FLOW_FILES = $(PCAP2FLOW_SRC) $(PCAP2FLOW_HDR)
-
-CFGFILES = addr.cfg macosx.cfg flocap.cfg VERSION 
-
-FILES = $(NFV9_FILES) $(TLS_FILES) $(CLASSIFY_FILES) $(PCAP2FLOW_FILES) $(CFGFILES) 
-
+##
 # targets
-#
+##
 
 .PHONY: print
 
@@ -76,58 +75,39 @@ all:	print pcap2flow jfd-anon unit_test str_match_test
 
 print:
 	@echo "Makefile variables:"
-	@echo "sysname="$(sysname)
-	@echo "version="$(version)
-	@echo "CWD="$(CWD)
+	@echo "buildroot="$(ROOT_DIR)
+	@echo "sysname="$(SYS_NAME)
+	@echo "version="$(JOY_VERSION)
+	@echo "cwd="$(CWD)
 
-tls: tls.c tls.h Makefile
-	gcc $(CFLAGS) -o tls tls.c
-
-classify: classify.c classify.h Makefile
-	gcc $(CFLAGS) -o classify classify.c
-
-pcap2flow: $(PCAP2FLOW_FILES) Makefile VERSION
-	gcc $(CFLAGS) $(CDEFS) -o pcap2flow $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS)  
+pcap2flow: pcap2flow.c $(PCAP2FLOW_SRC)
+	gcc $(CFLAGS) $(CDEFS) -o $(BINDIR)/pcap2flow $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS)  
 #	strip pcap2flow
-	cp pcap2flow ./..
 
-unit_test: unit_test.c Makefile VERSION $(PCAP2FLOW_FILES)
-	gcc $(CFLAGS) $(CDEFS) -o unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
+jfd-anon: jfd-anon.c $(JFDANON_SRC)
+	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o $(BINDIR)/jfd-anon $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
-str_match_test: str_match_test.c Makefile VERSION $(PCAP2FLOW_FILES)
-	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
+unit_test: unit_test.c $(PCAP2FLOW_SRC)
+	gcc $(CFLAGS) $(CDEFS) -o $(BINDIR)/unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
 
-jfd-anon: jfd-anon.c anon.c addr.c str_match.c acsm.c Makefile
-	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o jfd-anon $(INCLUDEDIR) jfd-anon.c anon.c addr.c str_match.c acsm.c $(LIBRARYPATH) $(LIBS)
+str_match_test: str_match_test.c $(PCAP2FLOW_SRC)
+	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o $(BINDIR)/str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
 
-jfd-analysis: jfd-analysis.c 
-	gcc $(CFLAGS) $(CDEFS) jfd-analysis.c -o jfd-analysis $(LIBRARYPATH) $(LIBS)
 
-huffman: huffman.c Makefile
-	gcc $(CFLAGS) $(CDEFS) -o huffman $(INCLUDEDIR) huffman.c $(LIBRARYPATH) $(LIBS)
-
+##
 # STATIC ANALYSIS
-
+##
 SPLINT_OPT =  -nestcomment -warnposixheaders -retvalother -retvalint -nullassign 
 SPLINT_OPT += -initallelements -fullinitblock -type -boolops -predboolint -predboolothers
 SPLINT_OPT += -globstate -mustfreeonly -nullstate -nullret +charindex -kepttrans -onlytrans
 SPLINT_OPT += -unqualifiedtrans -fixedformalarray +charint
 SPLINT_OPT += -I/usr/include/x86_64-linux-gnu # +posixlib 
 
-splint: $(PCAP2FLOW_FILES) Makefile VERSION
-	splint $(SPLINT_OPT) $(PCAP2FLOW_FILES) $(INCLUDEDIR) # $(CFLAGS) $(CDEFS)  $(LIBRARYPATH) $(LIBS) 
-
-# DOCUMENTATION
-
-man: pcap2flow.1
-	man ./pcap2flow.1 > pcap2flow.txt 
-	man -Tdvi ./pcap2flow.1 > pcap2flow.dvi 
-	dvipdf pcap2flow.dvi
-	rm -f pcap2flow.dvi
+splint: $(ALL_FILES)
+	splint $(SPLINT_OPT) $(ALL_FILES) $(INCLUDEDIR) # $(CFLAGS) $(CDEFS)  $(LIBRARYPATH) $(LIBS) 
 
 clean: 
-	rm -f tls classify pcap2flow pcap2flow.pdf pcap2flow.dvi pcap2flow.txt jfd-anon jfd-analysis unit_test str_match_test
-	for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
-
+	rm -rf $(BINDIR)/*
+	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 
 # EOF

@@ -4,6 +4,8 @@
 #
 # test driver for pcap2flow program
 
+BINDIR=bin
+
 # if you have a set of interesting or varied pcap files, you can set
 # this variable to refer to them, to improve test coverage
 # 
@@ -52,7 +54,7 @@ for args in "output=tmpfile"                                     \
             "output=tmpfile bidir=1 bpf=tcp"                     \
             "output=tmpfile bidir=1 type=1"; do
     echo -n "testing pcap2flow with arguments" $args "... "
-    if ./pcap2flow $args $data; then
+    if ./$BINDIR/pcap2flow $args $data; then
 	if ./query.py tmpfile > tmpfile2; then
 	    echo "passed"
 	else

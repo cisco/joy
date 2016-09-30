@@ -71,9 +71,9 @@ Overview
 
 Credits
 
-   This package was written by David McGrew and Blake Anderson
-   {mcgrew,blaander}@cisco.com of Cisco Systems Advanced Security
-   Research Group (ASRG).
+   This package was written by David McGrew, Blake Anderson, Philip Perricone
+   and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
+   Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
 Quick Start
 
@@ -87,13 +87,24 @@ Building
    First, obtain the package from github, and change to the joy
    directory.
 
+   To configure the package, run "./config" in the main driectory:
+
+      [joy]$ ./config
+
+   resolve any dependencies that were not automatically found. Once
+   resolved, re-run "./config" to ensure all dependecies were discovered.
+
    To build the package, run "make" in the main directoroy:
 
       [joy]$ make 
 
    This will cause the programs to be compiled, linked, stripped, and
-   copied into the main directory as appropriate.  It will also run a
-   test script and a unit test program.
+   copied into the 'bin' directory as appropriate. 
+   
+   To build and execute the unit test programs, run "make test" in the main
+   directory:
+
+      [joy]$ make test
 
    Mac OSX 10.11 has more dependancies than 10.10; the OpenSSL header
    files are needed to build this package.  You can install these
@@ -122,17 +133,17 @@ Running and Configuration
    configuration files (linux.cfg or macosx.cfg).  To process a pcap
    file in offline mode, run
 
-      [joy]$ ./pcap2flow [ OPTIONS ] filename [ filename2 ... ]
+      [joy]$ bin/pcap2flow [ OPTIONS ] filename [ filename2 ... ]
 
    For instance, 
    
-      [joy]$ ./pcap2flow bidir=1 output=data.json filename
+      [joy]$ bin/pcap2flow bidir=1 output=data.json filename
 
    To run the packet capture in online mode, use the same command
    form, but have OPTIONS include an interface=<value> command, and
    omit the filename(s) from the command line.  For instance,
 
-      [joy]$ sudo ./pcap2flow interface=eth0 bidir=1 output=data.json
+      [joy]$ sudo bin/pcap2flow interface=eth0 bidir=1 output=data.json
 
    There are many command line options, so instead of typing them all
    onto the command line, you may want to have the program read a
@@ -188,7 +199,7 @@ Documentation
 
 Testing
 
-   Run the script ./pcap2flow_test.sh and the utility src/unit_test to
+   Run the script ./pcap2flow_test.sh and the utility bin/unit_test to
    test the programs.  These programs will indicate success or failure
    on the command line.
 

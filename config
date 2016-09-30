@@ -204,5 +204,5 @@ else
 fi
 echo "export SSLPATH= -I $ssl_crypto_path" >> config.vars
 
-echo "All dependencies found. Issue 'make' to build the code"
+echo "All dependencies found. Issue 'make clean;make' to build the code"
 
