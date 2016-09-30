@@ -41,11 +41,13 @@ export DOCDIR = $(ROOT_PATH)/doc
 # main executable and unit test program
 ##
 pcap2flow: FORCE
+	if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
 FORCE:
 
 unit_test:
+	if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
 ##
