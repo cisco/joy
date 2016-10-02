@@ -161,7 +161,14 @@ struct tls_certificate {
   unsigned short num_san;
 };
 
+enum role {
+  role_unknown = 0,
+  role_client  = 1,
+  role_server  = 2
+};
+
 struct tls_information {
+  enum role role;
   unsigned int   tls_op;
   unsigned short tls_len[MAX_NUM_RCD_LEN];  /* array of TLS record lengths     */  
   struct timeval tls_time[MAX_NUM_RCD_LEN]; /* array of TLS arrival times      */

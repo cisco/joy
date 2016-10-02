@@ -98,6 +98,7 @@ unsigned int timeval_to_milliseconds_tls(struct timeval ts) {
 
 /* initialize data associated with TLS */
 void tls_record_init(struct tls_information *r) {
+  r->role = role_unknown;
   r->tls_op = 0;
   r->num_ciphersuites = 0;
   r->num_tls_extensions = 0;
@@ -1121,6 +1122,7 @@ process_tls(const struct timeval ts, const void *start, int len, struct tls_info
             return NULL;
           }
         }
+	r->role = role_client;
         TLSClientHello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
         TLSClientHello_get_extensions(&tls->Handshake.body, tls_len, r);
       } else if (tls->Handshake.HandshakeType == server_hello) {
@@ -1131,6 +1133,7 @@ process_tls(const struct timeval ts, const void *start, int len, struct tls_info
             return NULL;
           }
         }
+	r->role = role_server;
         TLSServerHello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
         TLSServerHello_get_extensions(&tls->Handshake.body, (int)tls_len, r);
       } else if (tls->Handshake.HandshakeType == client_key_exchange) {
@@ -1383,31 +1386,29 @@ void tls_printf(const struct tls_information *data, const struct tls_information
     zprintf_raw_as_hex_tls(f, data_twin->clientKeyExchange, data_twin->tls_client_key_length/8);
   }
 
-  /*
-   * print out TLS random, using the ciphersuite count as a way to
-   * determine whether or not we have seen a clientHello or a
-   * serverHello
-   */
-
-  if (data->num_ciphersuites) {
-    zprintf(f, ",\"tls_orandom\":");
+  if (data->role == role_client) {
+    zprintf(f, ",\"tls_crandom\":");
     zprintf_raw_as_hex_tls(f, data->tls_random, 32);
+    if (data_twin) {
+      if (data_twin->role == role_server) {
+        zprintf(f, ",\"tls_srandom\":");
+        zprintf_raw_as_hex_tls(f, data_twin->tls_random, 32);
+      } else if (data_twin->role == role_client) {
+        zprintf(f, ",\"error\":\"twin clients\"");  
+      }
+    }
+  } else if (data->role == role_server) {
+    zprintf(f, ",\"tls_srandom\":");
+    zprintf_raw_as_hex_tls(f, data->tls_random, 32);
+    if (data_twin) {
+      if (data_twin->role == role_client) {
+        zprintf(f, ",\"tls_crandom\":");
+        zprintf_raw_as_hex_tls(f, data_twin->tls_random, 32);
+      } else if (data_twin->role == role_server) {
+        zprintf(f, ",\"error\":\"twin servers\"");  
+      }
+    }
   }
-  if (data_twin && data_twin->num_ciphersuites) {
-    zprintf(f, ",\"tls_irandom\":");
-    zprintf_raw_as_hex_tls(f, data_twin->tls_random, 32);
-  }
-
-  if (data->tls_sid_len) {
-    zprintf(f, ",\"tls_osid\":");
-    zprintf_raw_as_hex_tls(f, data->tls_sid, data->tls_sid_len);
-  }
-  if (data_twin && data_twin->tls_sid_len) {
-    zprintf(f, ",\"tls_isid\":");
-    zprintf_raw_as_hex_tls(f, data_twin->tls_sid, data_twin->tls_sid_len);
-  }
-
-
 
   if (data->sni_length) {
     zprintf(f, ",\"SNI\":[\"%s\"]",(char *)data->sni);
