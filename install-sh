@@ -86,12 +86,12 @@ fi
 
 # check for the presence of required files
 #
-if [ ! -x ./pcap2flow ]; then
+if [ ! -x bin/pcap2flow ]; then
     echo "error: could not find executable file pcap2flow (please run \"make\")"
     exit
 fi
 
-if [ ! -f ./pcap2flow.1 ]; then
+if [ ! -f doc/pcap2flow.1 ]; then
     echo "error: could not find manual page pcap2flow.1"
     exit
 fi
@@ -186,7 +186,7 @@ if [ "$sysname" == "Darwin" ]; then
 
     echo "found $sysname (Mac OS X), installing pcap2flow ..."
 
-    cp pcap2flow /usr/libexec/
+    cp bin/pcap2flow /usr/libexec/
     retval=$?
     if [ $retval -ne "0" ]; then
 	echo "error: could not copy to /usr/libexec/"
@@ -262,7 +262,7 @@ if [ "$sysname" == "Darwin" ]; then
 	exit
     fi
 
-    cp pcap2flow.1 /usr/share/man/man1/
+    cp doc/pcap2flow.1 /usr/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
 	echo "error: could not copy to /usr/share/man/man1/ (man page will be unavailable)"
@@ -294,7 +294,7 @@ elif [ "$sysname" == "Linux" ]; then
     echo "stopping service (this might take some time)" 
     service pcap2flow stop 
 
-    cp pcap2flow /usr/bin/
+    cp bin/pcap2flow /usr/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
 	echo "error: could not copy to /usr/bin/"
@@ -388,7 +388,7 @@ elif [ "$sysname" == "Linux" ]; then
     # start service 
     service pcap2flow start
 
-    cp pcap2flow.1 /usr/share/man/man1/
+    cp doc/pcap2flow.1 /usr/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
 	echo "error: could not copy to /usr/share/man/man1/"

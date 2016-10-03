@@ -636,8 +636,6 @@ void flow_record_chrono_list_append(struct flow_record *record) {
   }
 }
 
-
-
 void flow_record_chrono_list_remove(struct flow_record *record) {
   extern struct flow_record *flow_record_chrono_first;
   extern struct flow_record *flow_record_chrono_last;

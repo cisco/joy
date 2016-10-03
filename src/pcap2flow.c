@@ -762,7 +762,10 @@ int main(int argc, char **argv) {
      * stdout, and without changing the working directory
      */
     if (config.daemon) {
-      daemon(1, 1);  
+      if (!daemon(1, 1)) {
+	fprintf(info, "error: could not start as a daemon\n");
+	return -5;
+      }  
     }
     
     /*
