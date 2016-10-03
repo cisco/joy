@@ -572,7 +572,7 @@ process_tcp(const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, str
   
   /* if packet has port 443 and nonzero data length, process it as TLS */
   if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-    process_tls(h, payload, size_payload, &record->tls_info);
+    process_tls(h->ts, payload, size_payload, &record->tls_info);
   }
 
   /* if packet has port 80 and nonzero data length, process it as HTTP */

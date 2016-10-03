@@ -61,12 +61,16 @@
 #include "config.h"     /* configuration                 */
 #include "output.h"     /* compressed output             */
 
+
+static inline unsigned int flow_record_is_in_chrono_list(const struct flow_record *record) {
+  return record->time_next || record->time_prev;
+}
+
 /*
  * for portability and static analysis, we define our own timer
  * comparison functions (rather than use non-standard
  * timercmp/timersub macros)
  */
-
 inline unsigned int timer_gt(const struct timeval *a, const struct timeval *b) {
   return (a->tv_sec == b->tv_sec) ? (a->tv_usec > b->tv_usec) : (a->tv_sec > b->tv_sec);
 }
@@ -631,8 +635,6 @@ void flow_record_chrono_list_append(struct flow_record *record) {
     // fprintf(info, "CHRONO last->time_next == %p\n", flow_record_chrono_last->time_next);
   }
 }
-
-extern unsigned int flow_record_is_in_chrono_list(const struct flow_record *);
 
 void flow_record_chrono_list_remove(struct flow_record *record) {
   extern struct flow_record *flow_record_chrono_first;

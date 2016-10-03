@@ -46,6 +46,26 @@
 #include <time.h>
 
 #include "nfv9.h"
+#include "pkt.h"
+#include "http.h"
+#include "tls.h"
+#include "config.h"
+
+
+/*
+ * External objects, defined in pcap2flow
+ */
+extern unsigned int include_tls;
+extern struct configuration config;
+define_all_features_config_extern_uint(feature_list);
+
+
+/*
+ * Local nfv9.c prototypes
+ */
+static void nfv9_skip_idp_header(struct flow_record *nf_record,
+                                 const unsigned char **payload,
+                                 unsigned int *size_payload);
 
 
 struct nfv9_field_type nfv9_fields[] = {                                 
@@ -793,10 +813,83 @@ void nfv9_flow_key_init(struct flow_key *key, const struct nfv9_template *cur_te
 }
 
 
+/*
+ * @brief Skip past L3/L4 header contained within the IDP flow data.
+ *
+ * @param nf_record NetFlow record being encoded, contains total IDP flow
+ *        data originating from exporter.
+ * @param payload Will be assigned address of payload data that comes
+ *        immediately after protocol headers.
+ * @param size_payload Handle for external unsigned integer
+ *        that will store length of the payload data.
+ */
+void nfv9_skip_idp_header(struct flow_record *nf_record,
+                          const unsigned char **payload,
+                          unsigned int *size_payload) {
+  unsigned char proto = 0;
+  const struct ip_hdr *ip;
+  unsigned int ip_hdr_len;
+  const unsigned char *flow_data = nf_record->idp;
+  unsigned int flow_len = nf_record->idp_len;
+
+  /* define/compute ip header offset */
+  ip = (struct ip_hdr*)(flow_data);
+  ip_hdr_len = ip_hdr_length(ip);
+  if (ip_hdr_len < 20) {
+    /*
+     * FIXME Does not handle packets with all 0s.
+     */
+    return;
+  }
+
+  if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > flow_len) {
+    /*
+     * TODO error log here
+     * IP packet is malformed (shorter than a complete IP header, or
+     * claims to be longer than the total IDP length).
+     */
+    return;
+  }
+
+  proto = nf_record->key.prot;
+
+  if (proto == IPPROTO_TCP) {
+    unsigned int tcp_hdr_len;
+    const struct tcp_hdr *tcp = (const struct tcp_hdr *)(flow_data + ip_hdr_len);
+    tcp_hdr_len = tcp_hdr_length(tcp);
+
+    if (tcp_hdr_len < 20 || tcp_hdr_len > (flow_len - ip_hdr_len)) {
+      /*
+       * TODO error log here
+       */
+      return;
+    }
+    /* define/compute tcp payload (segment) offset */
+    *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
+
+    /* compute tcp payload (segment) size */
+    *size_payload = flow_len - ip_hdr_len - tcp_hdr_len;
+  } else if (proto == IPPROTO_UDP) {
+    unsigned int udp_hdr_len = 8;
+
+    /* define/compute udp payload (segment) offset */
+    *payload = (unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
+
+    /* compute udp payload (segment) size */
+    *size_payload = flow_len - ip_hdr_len - udp_hdr_len;
+  }
+}
+
+
 void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_template *cur_template, const void *flow_data, int record_num) {
   struct timeval old_val_time;
   unsigned int total_ms;
+  const unsigned char *payload = NULL;
+  unsigned int size_payload = 0;
+  struct flow_record *record = nf_record;
+  struct flow_key *key = &nf_record->key;
   int i,j;
+
   for (i = 0; i < cur_template->hdr.FieldCount; i++) {
     switch (htons(cur_template->fields[i].FieldType)) {
     case IN_PKTS:
@@ -892,6 +985,23 @@ void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_t
       nf_record->idp_len = htons(cur_template->fields[i].FieldLength);
       nf_record->idp = malloc(nf_record->idp_len);
       memcpy(nf_record->idp, flow_data, nf_record->idp_len);
+
+      /* Get the start of IDP packet payload */
+      nfv9_skip_idp_header(nf_record, &payload, &size_payload);
+
+      /* if packet has port 443 and nonzero data length, process it as TLS */
+      if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
+        struct timeval ts = {0}; /* Zeroize temporary timestamp */
+        process_tls(ts, payload, size_payload, &record->tls_info);
+      }
+
+      /* if packet has port 80 and nonzero data length, process it as HTTP */
+      if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+        http_update(&record->http_data, payload, size_payload, config.http);
+      }
+
+      /* Update all enabled feature modules */
+      update_all_features(feature_list);
       flow_data += htons(cur_template->fields[i].FieldLength);
       break;
     case SPLT:

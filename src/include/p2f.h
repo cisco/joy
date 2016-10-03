@@ -221,11 +221,6 @@ void flow_record_delete(struct flow_record *r);
 
 void flow_record_print_and_delete(struct flow_record *record);
 
-inline unsigned int flow_record_is_in_chrono_list(const struct flow_record *record) {
-  return record->time_next || record->time_prev;
-}
-
-
 void flow_record_list_init();
 
 void flow_record_list_free(); 
