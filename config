@@ -42,7 +42,7 @@ string_has ()
 ##
 find_ssl_headers ()
 {
-    ssl_crypto=`find /usr -name "crypto.h" | grep "openssl" 2>/dev/null | head -1`
+    ssl_crypto=`find /usr -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -50,7 +50,7 @@ find_ssl_headers ()
         return
     fi
 
-    ssl_crypto=`find /include -name "crypto.h" 2>/dev/null | head -1`
+    ssl_crypto=`find /include -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -60,7 +60,7 @@ find_ssl_headers ()
     fi
 
     if [ $1 ]; then
-        ssl_crypto=`find $1 -name "crypto.h" 2>/dev/null | head -1`
+        ssl_crypto=`find $1 -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
         if [ "$ssl_crypto" != "" ]; then
            echo "Searching for OpenSSL headers...found"
            ## remove /openssl/crypto.h from the end of the path
