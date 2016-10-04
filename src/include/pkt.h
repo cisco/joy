@@ -73,17 +73,23 @@ struct ethernet_hdr {
 #define IP_DF    0x4000 /* Don't Fragment     */
 #define IP_MF    0x2000 /* More Fragments     */
 #define IP_FOFF  0x1fff /* Fragment Offset    */ 
+
+#define ip_is_fragment(ip) (htons((ip)->ip_flgoff) & (IP_MF | IP_FOFF))
+#define ip_fragment_offset(ip) (htons((ip)->ip_flgoff) & IP_FOFF)
+
 #else
+
 #define IP_RF    0x0080 /* Reserved           */
 #define IP_DF    0x0040 /* Don't Fragment     */
 #define IP_MF    0x0020 /* More Fragments     */
 #define IP_FOFF  0xff1f /* Fragment Offset    */
+
+#define ip_is_fragment(ip) (((ip)->ip_flgoff) & (IP_MF | IP_FOFF))
+#define ip_fragment_offset(ip) ((ip)->ip_flgoff & IP_FOFF)
 #endif
 
 #define ip_hdr_length(ip) ((((ip)->ip_vhl) & 0x0f)*4)
 #define ip_version(ip)    (((ip)->ip_vhl) >> 4)
-#define ip_is_fragment(ip)(((ip)->ip_flgoff) & (IP_MF | IP_FOFF))
-#define ip_fragment_offset(ip) htons(((ip)->ip_flgoff) & IP_FOFF)
 
 struct ip_hdr {
   unsigned char  ip_vhl;    /* version and hdr length */
