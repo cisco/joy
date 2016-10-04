@@ -32,7 +32,10 @@ export SYS_NAME = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
 # Include the variables defined from the config script to esnure our
 # compile and linkage runs smoothly.
 ##
-include config.vars
+-include config.vars
+ifndef SSLPATH
+$(error error is "Please run ./config first.")
+endif
 
 export BINDIR = $(ROOT_PATH)/bin
 export DOCDIR = $(ROOT_PATH)/doc
@@ -41,13 +44,13 @@ export DOCDIR = $(ROOT_PATH)/doc
 # main executable and unit test program
 ##
 pcap2flow: FORCE
-	if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
 FORCE:
 
 unit_test:
-	if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
 ##
