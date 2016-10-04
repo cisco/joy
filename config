@@ -59,6 +59,15 @@ find_ssl_headers ()
         return
     fi
 
+    ssl_crypto=`find /opt -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+    if [ "$ssl_crypto" != "" ]; then
+        echo "Searching for OpenSSL headers...found"
+        ## remove /openssl/crypto.h from the end of the path
+        ssl_crypto_path=${ssl_crypto::${#ssl_crypto}-17}
+        echo "export SSLPATH=$ssl_crypto_path" >> config.vars
+        return
+    fi
+
     if [ $1 ]; then
         ssl_crypto=`find $1 -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
         if [ "$ssl_crypto" != "" ]; then
