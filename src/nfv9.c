@@ -196,7 +196,7 @@ void nfv9_template_flowset_init(struct nfv9_template_flowset *fs) {
 }
 
 void nfv9_template_flowset_add_field(struct nfv9_template_flowset *fs, 
-				     struct nfv9_template_field f) {
+                                     struct nfv9_template_field f) {
   /* unsigned int index; */
 
   /* index = (fs->flowset_hdr.Length - sizeof(struct nfv9_flowset_hdr)); */
@@ -207,7 +207,10 @@ void nfv9_template_flowset_add_field(struct nfv9_template_flowset *fs,
 
 #define NFV9_PORT 2055
 
-void nfv9_template_key_init(struct nfv9_template_key *k, u_long addr, u_long id, u_short template_id) {
+void nfv9_template_key_init(struct nfv9_template_key *k,
+                            u_long addr,
+                            u_long id,
+                            u_short template_id) {
   k->src_addr.s_addr = addr;
   k->src_id = id;
   k->template_id = template_id;
@@ -220,7 +223,7 @@ void nfv9_exporter_init(struct nfv9_exporter *e, const char *hostname) {
 
   e->msg_count = 0;
   e->sysUpTime = time(NULL);
-  
+
   e->socket = socket(AF_INET, SOCK_DGRAM, 0);
   if (e->socket < 0) { 
     perror("cannot create socket"); 
@@ -232,8 +235,8 @@ void nfv9_exporter_init(struct nfv9_exporter *e, const char *hostname) {
   e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY); 
   e->exprt_addr.sin_port = htons(0); /* ANY */
   if (bind(e->socket, 
-	   (struct sockaddr *)&e->exprt_addr, 
-	   sizeof(e->exprt_addr)) < 0) { 
+          (struct sockaddr *)&e->exprt_addr,
+          sizeof(e->exprt_addr)) < 0) {
     perror("bind failed"); 
   }
 
@@ -247,7 +250,7 @@ void nfv9_exporter_init(struct nfv9_exporter *e, const char *hostname) {
   }
 
   memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
- 
+
   return;
 }
 
@@ -260,8 +263,7 @@ void nfv9_exporter_init(struct nfv9_exporter *e, const char *hostname) {
 void nfv9_exporter_send_msg(struct nfv9_exporter *e, struct nfv9_msg *msg) {
   /* send a message to the server */ 
   ssize_t bytes;
-  
- 
+
   msg->hdr.Count = 0;  /* number of flowsets */
 
   msg->hdr.VersionNumber = htons(9);
@@ -269,9 +271,9 @@ void nfv9_exporter_send_msg(struct nfv9_exporter *e, struct nfv9_msg *msg) {
   msg->hdr.UNIXSecs = time(NULL);
   msg->hdr.SequenceNumber = htonl(e->msg_count);
   msg->hdr.SourceID = htonl(SOURCE_ID);  
- 
+
   bytes = sendto(e->socket, msg, 0, 0, (struct sockaddr *)&e->clctr_addr, 
-		 sizeof(e->clctr_addr));
+                 sizeof(e->clctr_addr));
   if (bytes < 0) { 
     perror("nfv9 message could not be sent"); 
   }
@@ -293,59 +295,59 @@ void nfv9_template_add_field(struct nfv9_template *t, struct nfv9_template_field
 
 void encode_unsigned(const void *uint, unsigned int len, void *output) {
   switch(len) {
-  case 1:
-    ((u_char *)output)[0] = ((u_char *)uint)[0];
-    break;
-  case 2:
-    ((u_short *)output)[0] = htons(((u_short *)uint)[0]);
-    break;
-  case 4:
-    ((u_int *)output)[0] = htonl(((u_int *)uint)[0]);    
-    break;
-  default:
-    fprintf(stderr, "error - integer too large in encoding\n");
+    case 1:
+      ((u_char *)output)[0] = ((u_char *)uint)[0];
+      break;
+    case 2:
+      ((u_short *)output)[0] = htons(((u_short *)uint)[0]);
+      break;
+    case 4:
+      ((u_int *)output)[0] = htonl(((u_int *)uint)[0]);
+      break;
+    default:
+      fprintf(stderr, "error - integer too large in encoding\n");
   }
 }
 
 void decode_unsigned(const void *uint, unsigned int len, void *output) {
   switch(len) {
-  case 1:
-    ((u_char *)output)[0] = ((u_char *)uint)[0];
-    break;
-  case 2:
-    ((u_short *)output)[0] = ntohs(((u_short *)uint)[0]);
-    break;
-  case 4:
-    ((u_int *)output)[0] = ntohl(((u_int *)uint)[0]);    
-    break;
-  default:
-    fprintf(stderr, "error - integer too large in decoding\n");
+    case 1:
+      ((u_char *)output)[0] = ((u_char *)uint)[0];
+      break;
+    case 2:
+      ((u_short *)output)[0] = ntohs(((u_short *)uint)[0]);
+      break;
+    case 4:
+      ((u_int *)output)[0] = ntohl(((u_int *)uint)[0]);
+      break;
+    default:
+      fprintf(stderr, "error - integer too large in decoding\n");
   }
 }
 
 void print_unsigned(const void *uint, unsigned int len) {
   switch(len) {
-  case 1:
-    printf("%u\n", ((u_char *)uint)[0]); 
-    break;
-  case 2:
-    printf("%u\n", ((u_short *)uint)[0]); 
-    break;
-  case 4:
-    printf("%u\n", ((u_int *)uint)[0]); 
-    break;
-  default:
-    fprintf(stderr, "error - bad integer size in print_unsigned \n");
+    case 1:
+      printf("%u\n", ((u_char *)uint)[0]);
+      break;
+    case 2:
+      printf("%u\n", ((u_short *)uint)[0]);
+      break;
+    case 4:
+      printf("%u\n", ((u_int *)uint)[0]);
+      break;
+    default:
+      fprintf(stderr, "error - bad integer size in print_unsigned \n");
   }
 }
 
 
-int nfv9_flow_record_encode(const void *record, 
-			    const struct nfv9_template *template,
-			    void *output, 
-			    unsigned int output_len) {
+int nfv9_flow_record_encode(const void *record,
+                            const struct nfv9_template *template,
+                            void *output,
+                            unsigned int output_len) {
   unsigned int total_length = 0, element_length, i, num_elements;
-  
+
   num_elements = template->hdr.FieldCount;
   if (num_elements > NFV9_MAX_ELEMENTS) {
     fprintf(stderr, "error: too many elements in record\n");
@@ -366,11 +368,11 @@ int nfv9_flow_record_encode(const void *record,
 }
 
 int nfv9_flow_record_decode(const void *input, 
-			    const struct nfv9_template *template,
-			    void *record,  /* output */ 
-			    unsigned int output_len) {
+                            const struct nfv9_template *template,
+                            void *record,  /* output */
+                            unsigned int output_len) {
   unsigned int total_length = 0, element_length, i, num_elements;
-  
+
   num_elements = template->hdr.FieldCount;
   if (num_elements > NFV9_MAX_ELEMENTS) {
     fprintf(stderr, "error: too many elements in record\n");
@@ -391,14 +393,14 @@ int nfv9_flow_record_decode(const void *input,
 }
 
 void nfv9_data_flowset_encode_init(struct nfv9_data_flowset *fs,
-				   const struct nfv9_template *t) {
+                                   const struct nfv9_template *t) {
   fs->flowset_hdr.FlowSetID = htons(t->hdr.TemplateID);
   fs->flowset_hdr.Length = 4; /* length so far is just header */
 }
 
 void nfv9_data_flowset_encode_record(struct nfv9_data_flowset *fs,
-				     const void *record,
-				     const struct nfv9_template *template) {
+                                     const void *record,
+                                     const struct nfv9_template *template) {
   void *writehere = fs->flowset + (fs->flowset_hdr.Length - 4);
   unsigned int len = NFV9_MAX_LEN - fs->flowset_hdr.Length;
   int bytes_encoded;
@@ -421,9 +423,9 @@ void nfv9_data_flowset_encode_final(struct nfv9_data_flowset *fs) {
 }
 
 void nfv9_flow_record_print(const void *record,
-			    const struct nfv9_template *template) {  
+                            const struct nfv9_template *template) {
   unsigned int element_length, i, num_elements;
-  
+
   num_elements = template->hdr.FieldCount;
   if (num_elements > NFV9_MAX_ELEMENTS) {
     fprintf(stderr, "error: too many elements in record\n");
@@ -433,7 +435,7 @@ void nfv9_flow_record_print(const void *record,
   for (i=0; i<num_elements; i++) {
     element_length = template->fields[i].FieldLength;
     printf("%s: ", 
-	   get_nfv9_field_type(template->fields[i].FieldType)->FieldName);
+           get_nfv9_field_type(template->fields[i].FieldType)->FieldName);
     print_unsigned(record, element_length);
     record += element_length;
   }
@@ -479,7 +481,7 @@ void nfv9_template_print(const struct nfv9_template *template) {
 
   printf("TemplateID: %u\n", template->hdr.TemplateID);
   printf("FieldCount: %u\n", template->hdr.FieldCount);
-  
+
   num_elements = template->hdr.FieldCount;
   if (num_elements > NFV9_MAX_ELEMENTS) {
     fprintf(stderr, "error: too many elements in template\n");
@@ -490,8 +492,8 @@ void nfv9_template_print(const struct nfv9_template *template) {
     field_length = template->fields[i].FieldLength;
     field_type = template->fields[i].FieldType;
     printf("%s: \tlength: %u\n", 
-	   get_nfv9_field_type(field_type)->FieldName, 
-	   field_length);
+           get_nfv9_field_type(field_type)->FieldName,
+           field_length);
   }
 }
 
@@ -501,7 +503,7 @@ void nfv9_template_flowset_encode_init(struct nfv9_template_flowset *fs) {
 }
 
 void nfv9_template_flowset_encode_template(struct nfv9_template_flowset *fs,
-				      const struct nfv9_template *template) {
+                                           const struct nfv9_template *template) {
   void *writehere = fs->flowset + (fs->flowset_hdr.Length - 4);
   unsigned int len = NFV9_MAX_LEN - fs->flowset_hdr.Length;
   unsigned int i, num_elements, total_length = 0;
@@ -516,7 +518,7 @@ void nfv9_template_flowset_encode_template(struct nfv9_template_flowset *fs,
   writehere += 2;
   encode_unsigned(&template->hdr.FieldCount, 2, writehere);
   writehere += 2;
-   
+
   /* encode each field in template */
   for (i=0; i<num_elements; i++) {
     total_length += 2;
@@ -547,8 +549,8 @@ void nfv9_template_flowset_decode_init(struct nfv9_template_flowset *fs) {
 }
 
 void nfv9_template_decode(const void *input,
-			  struct nfv9_template *template,
-			  unsigned int template_len) {
+                          struct nfv9_template *template,
+                          unsigned int template_len) {
   unsigned int num_elements, total_length, i;
   const struct nfv9_template *input_template = input;
 
@@ -593,9 +595,9 @@ void template() {
    { "L4_SRC_PORT",                   7,   2  },   
    { "L4_DST_PORT",                  11,   2  },   
    { "PROTOCOL",                      4,   1  },    
- 
+
    */
-  
+
   nfv9_template_init(&t, 1);
   nfv9_template_add_field(&t, nfv9_template_field(23));
   nfv9_template_add_field(&t, nfv9_template_field(24));
@@ -612,7 +614,7 @@ unsigned int template_id_max = 256;
 
 unsigned int 
 nfv9_register_template_handler(const struct nfv9_template *template, 
-				    template_handler_func f) {
+                               template_handler_func f) {
   struct template_handler *h = malloc(sizeof(struct template_handler));
 
   if (h == NULL) {
@@ -624,7 +626,7 @@ nfv9_register_template_handler(const struct nfv9_template *template,
   memcpy(&h->template, template, sizeof(struct nfv9_template));
   h->next = template_handler_list;
   template_handler_list = h;
-  
+
   return h->template_id;
 }
 
@@ -649,8 +651,8 @@ struct template_handler *get_template_handler(unsigned int template_id) {
 
 #if 0
 void handle_data(unsigned int template_id,
-		 void *data,
-		 unsigned int len) {
+                 void *data,
+                 unsigned int len) {
   struct template_handler *h;
 
 
@@ -667,19 +669,23 @@ void handle_data(unsigned int template_id,
 #endif /* 0 */
 
 void nfv9_exporter_init_msg(struct nfv9_exporter *e,
-			    struct nfv9_msg *msg) {
+                            struct nfv9_msg *msg) {
 
   msg->hdr.VersionNumber = htons(9);
   msg->hdr.sysUpTime = e->sysUpTime;
   msg->hdr.UNIXSecs = time(NULL);
   msg->hdr.SequenceNumber = htonl(e->msg_count);
   msg->hdr.SourceID = htonl(SOURCE_ID);  
-  
+
   msg->hdr.Count = 0;  /* number of flowsets */
-  
+
 }
 
-void nfv9_process_times(struct flow_record *nf_record, const void *time_data, struct timeval *old_val_time, int max_length_array, int pkt_time_index) {
+void nfv9_process_times(struct flow_record *nf_record,
+                        const void *time_data,
+                        struct timeval *old_val_time,
+                        int max_length_array,
+                        int pkt_time_index) {
   short tmp_packet_time;
   int repeated_times;
   int j;
@@ -692,13 +698,13 @@ void nfv9_process_times(struct flow_record *nf_record, const void *time_data, st
     if (tmp_packet_length < 0 && tmp_packet_length != -32768) {
       int repeated_length = tmp_packet_length * -1 - 1;
       while (repeated_length > 0) {
-	if (pkt_time_index < MAX_NUM_PKT_LEN) {
-	  nf_record->pkt_time[pkt_time_index] = *old_val_time;
-	  pkt_time_index++;
-	} else {
-	  break;
-	}
-	repeated_length -= 1;
+        if (pkt_time_index < MAX_NUM_PKT_LEN) {
+          nf_record->pkt_time[pkt_time_index] = *old_val_time;
+          pkt_time_index++;
+        } else {
+          break;
+        }
+        repeated_length -= 1;
       }
     }
 
@@ -709,15 +715,15 @@ void nfv9_process_times(struct flow_record *nf_record, const void *time_data, st
 
       // make sure to check for wrap around, weirdness happens when usec >= 1000000
       if (old_val_time->tv_usec >= 1000000) {
-	old_val_time->tv_sec += (time_t)((int)(old_val_time->tv_usec / 1000000));
-	old_val_time->tv_usec %= 1000000;
+        old_val_time->tv_sec += (time_t)((int)(old_val_time->tv_usec / 1000000));
+        old_val_time->tv_usec %= 1000000;
       }
-      
+
       if (pkt_time_index < MAX_NUM_PKT_LEN) {
-	nf_record->pkt_time[pkt_time_index] = *old_val_time;
-	pkt_time_index++;
+        nf_record->pkt_time[pkt_time_index] = *old_val_time;
+        pkt_time_index++;
       } else {
-	break;
+        break;
       }
     }
     // value represents the number of packets that were observed that had an arrival time
@@ -726,18 +732,21 @@ void nfv9_process_times(struct flow_record *nf_record, const void *time_data, st
       repeated_times = tmp_packet_time * -1;
       int k;
       for (k = 0; k < repeated_times; k++) {
-	if (pkt_time_index < MAX_NUM_PKT_LEN) {
-	  nf_record->pkt_time[pkt_time_index] = *old_val_time;
-	  pkt_time_index++;
-	} else {
-	  break;
-	}
+        if (pkt_time_index < MAX_NUM_PKT_LEN) {
+          nf_record->pkt_time[pkt_time_index] = *old_val_time;
+          pkt_time_index++;
+        } else {
+          break;
+        }
       }
     }
   }
 }
 
-void nfv9_process_lengths(struct flow_record *nf_record, const void *length_data, int max_length_array, int pkt_len_index) {
+void nfv9_process_lengths(struct flow_record *nf_record,
+                          const void *length_data,
+                          int max_length_array,
+                          int pkt_len_index) {
   int old_val = 0;
   short tmp_packet_length;
   int repeated_length;
@@ -747,15 +756,15 @@ void nfv9_process_lengths(struct flow_record *nf_record, const void *length_data
     // value represents the length of the packet
     if (tmp_packet_length >= 0) {
       if (tmp_packet_length > 0) {
-	nf_record->op += 1;
+        nf_record->op += 1;
       }
       old_val = tmp_packet_length;
       if (pkt_len_index < MAX_NUM_PKT_LEN) {
-	nf_record->pkt_len[pkt_len_index] = tmp_packet_length;
-	nf_record->ob += tmp_packet_length;
-	pkt_len_index++;
+        nf_record->pkt_len[pkt_len_index] = tmp_packet_length;
+        nf_record->ob += tmp_packet_length;
+        pkt_len_index++;
       } else {
-	break;
+        break;
       }
     }
     // value represents the number of packets that were observed that had a length
@@ -763,51 +772,53 @@ void nfv9_process_lengths(struct flow_record *nf_record, const void *length_data
     else {
       // padding value, "8000", flow is done
       if (tmp_packet_length == -32768) {
-	break;
+        break;
       }
       repeated_length = tmp_packet_length * -1;
       nf_record->op += repeated_length;
       int k;
       for (k = 0; k < repeated_length; k++) {
-	if (pkt_len_index < MAX_NUM_PKT_LEN) {
-	  nf_record->pkt_len[pkt_len_index] = old_val;
-	  nf_record->ob += old_val;
-	  pkt_len_index++;
-	} else {
-	  break;
-	}
+        if (pkt_len_index < MAX_NUM_PKT_LEN) {
+          nf_record->pkt_len[pkt_len_index] = old_val;
+          nf_record->ob += old_val;
+          pkt_len_index++;
+        } else {
+          break;
+        }
       }
     }
   }
 }
 
-void nfv9_flow_key_init(struct flow_key *key, const struct nfv9_template *cur_template, const void *flow_data) {
+void nfv9_flow_key_init(struct flow_key *key,
+                        const struct nfv9_template *cur_template,
+                        const void *flow_data) {
   int i;
   for (i = 0; i < cur_template->hdr.FieldCount; i++) {
     switch (htons(cur_template->fields[i].FieldType)) {
-    case IPV4_SRC_ADDR:
-      key->sa.s_addr = *(const int *)flow_data;
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case IPV4_DST_ADDR:
-      key->da.s_addr = *(const int *)flow_data;
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case L4_SRC_PORT:
-      key->sp = htons(*(const short *)flow_data);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case L4_DST_PORT:
-      key->dp = htons(*(const short *)flow_data);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case PROTOCOL:
-      key->prot = *(const char *)flow_data;
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    default:
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
+      case IPV4_SRC_ADDR:
+        key->sa.s_addr = *(const int *)flow_data;
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+      case IPV4_DST_ADDR:
+        key->da.s_addr = *(const int *)flow_data;
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+      case L4_SRC_PORT:
+        key->sp = htons(*(const short *)flow_data);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+      case L4_DST_PORT:
+        key->dp = htons(*(const short *)flow_data);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+      case PROTOCOL:
+        key->prot = *(const char *)flow_data;
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+      default:
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
     }
   }
 }
@@ -881,7 +892,10 @@ void nfv9_skip_idp_header(struct flow_record *nf_record,
 }
 
 
-void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_template *cur_template, const void *flow_data, int record_num) {
+void nfv9_process_flow_record(struct flow_record *nf_record,
+                              const struct nfv9_template *cur_template,
+                              const void *flow_data,
+                              int record_num) {
   struct timeval old_val_time;
   unsigned int total_ms;
   const unsigned char *payload = NULL;
@@ -892,169 +906,182 @@ void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_t
 
   for (i = 0; i < cur_template->hdr.FieldCount; i++) {
     switch (htons(cur_template->fields[i].FieldType)) {
-    case IN_PKTS:
-      if (record_num == 0) {
-	if (htons(cur_template->fields[i].FieldLength) == 4) {
-	  nf_record->np += htonl(*(const int *)(flow_data));
-	} else {
-	  nf_record->np += __builtin_bswap64(*(const uint64_t *)(flow_data));
-	}
-      }
-      
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-      
-    case FIRST_SWITCHED:
-      if (nf_record->start.tv_sec + nf_record->start.tv_usec == 0) {
-	nf_record->start.tv_sec = (time_t)((int)(htonl(*(const unsigned int *)flow_data) / 1000));
-	nf_record->start.tv_usec = (time_t)((int)htonl(*(const unsigned int *)flow_data) % 1000)*1000;
-      }
+      case IN_PKTS:
+        if (record_num == 0) {
+          if (htons(cur_template->fields[i].FieldLength) == 4) {
+            nf_record->np += htonl(*(const int *)(flow_data));
+          } else {
+            nf_record->np += __builtin_bswap64(*(const uint64_t *)(flow_data));
+          }
+        }
 
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case LAST_SWITCHED:
-      if (nf_record->end.tv_sec + nf_record->end.tv_usec == 0) {
-	nf_record->end.tv_sec = (time_t)((int)(htonl(*(const int *)flow_data) / 1000));
-	nf_record->end.tv_usec = (time_t)((int)htonl(*(const int *)flow_data) % 1000)*1000;
-      }
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
 
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case TLS_SRLT:
-      total_ms = 0;
-      for (j = 0; j < 20; j++) {
-	if (htons(*(const short *)(flow_data+j*2)) == 0) {
-	  break;
-	}
+      case FIRST_SWITCHED:
+        if (nf_record->start.tv_sec + nf_record->start.tv_usec == 0) {
+          nf_record->start.tv_sec = (time_t)((int)(htonl(*(const unsigned int *)flow_data) / 1000));
+          nf_record->start.tv_usec = (time_t)((int)htonl(*(const unsigned int *)flow_data) % 1000)*1000;
+        }
 
-	nf_record->tls_info.tls_len[j] = htons(*(const unsigned short *)(flow_data+j*2));
-	nf_record->tls_info.tls_time[j].tv_sec = (total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)/1000;
-	nf_record->tls_info.tls_time[j].tv_usec = ((total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)%1000)*1000;
-	total_ms += htons(*(const unsigned short *)(flow_data+40+j*2));
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
 
-	nf_record->tls_info.tls_type[j].content = *(const unsigned char *)(flow_data+80+j);
-	nf_record->tls_info.tls_type[j].handshake = *(const unsigned char *)(flow_data+100+j);
-	nf_record->tls_info.tls_op += 1;
-      }
-      
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case TLS_CS:
-      for (j = 0; j < 125; j++) {
-	if (htons(*(const short *)(flow_data+j*2)) == 65535) {
-	  break;
-	}
-	nf_record->tls_info.ciphersuites[j] = htons(*(const unsigned short *)(flow_data+j*2));
-	nf_record->tls_info.num_ciphersuites += 1;
-      }
-      
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case TLS_EXT:
-      for (j = 0; j < 35; j++) {
-	if (htons(*(const short *)(flow_data+j*2)) == 0) {
-	  break;
-	}
-	nf_record->tls_info.tls_extensions[j].length = htons(*(const unsigned short *)(flow_data+j*2));
-	nf_record->tls_info.tls_extensions[j].type = htons(*(const unsigned short *)(flow_data+70+j*2));
-	nf_record->tls_info.tls_extensions[j].data = NULL;
-	nf_record->tls_info.num_tls_extensions += 1;
-      }
-      
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case TLS_VERSION:
-      nf_record->tls_info.tls_v = *(const char *)flow_data;
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case TLS_CLIENT_KEY_LENGTH:
-      nf_record->tls_info.tls_client_key_length = htons(*(const short *)flow_data);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case TLS_SESSION_ID:
-      nf_record->tls_info.tls_sid_len = htons(*(const short *)flow_data);
-      nf_record->tls_info.tls_sid_len = min(nf_record->tls_info.tls_sid_len,256);
-      memcpy(nf_record->tls_info.tls_sid, flow_data+2, nf_record->tls_info.tls_sid_len);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case TLS_HELLO_RANDOM:
-      memcpy(nf_record->tls_info.tls_random, flow_data, 32);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case IDP:
-      nf_record->idp_len = htons(cur_template->fields[i].FieldLength);
-      nf_record->idp = malloc(nf_record->idp_len);
-      memcpy(nf_record->idp, flow_data, nf_record->idp_len);
+      case LAST_SWITCHED:
+        if (nf_record->end.tv_sec + nf_record->end.tv_usec == 0) {
+          nf_record->end.tv_sec = (time_t)((int)(htonl(*(const int *)flow_data) / 1000));
+          nf_record->end.tv_usec = (time_t)((int)htonl(*(const int *)flow_data) % 1000)*1000;
+        }
 
-      /* Get the start of IDP packet payload */
-      nfv9_skip_idp_header(nf_record, &payload, &size_payload);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
 
-      /* if packet has port 443 and nonzero data length, process it as TLS */
-      if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-        struct timeval ts = {0}; /* Zeroize temporary timestamp */
-        process_tls(ts, payload, size_payload, &record->tls_info);
-      }
+      case TLS_SRLT:
+        total_ms = 0;
+        for (j = 0; j < 20; j++) {
+          if (htons(*(const short *)(flow_data+j*2)) == 0) {
+            break;
+          }
 
-      /* if packet has port 80 and nonzero data length, process it as HTTP */
-      if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
-        http_update(&record->http_data, payload, size_payload, config.http);
-      }
+          nf_record->tls_info.tls_len[j] = htons(*(const unsigned short *)(flow_data+j*2));
+          nf_record->tls_info.tls_time[j].tv_sec = (total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))
+                                                    +nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)/1000;
+          nf_record->tls_info.tls_time[j].tv_usec = ((total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))
+                                                      +nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)%1000)*1000;
+          total_ms += htons(*(const unsigned short *)(flow_data+40+j*2));
 
-      /* Update all enabled feature modules */
-      update_all_features(feature_list);
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case SPLT:
-    case SPLT_NGA: ;
-      int max_length_array = (int)htons(cur_template->fields[i].FieldLength)/2;
-      const void *length_data = flow_data;
-      const void *time_data = flow_data + max_length_array;
-      
-      int pkt_len_index = nf_record->op;
-      int pkt_time_index = nf_record->op;
+          nf_record->tls_info.tls_type[j].content = *(const unsigned char *)(flow_data+80+j);
+          nf_record->tls_info.tls_type[j].handshake = *(const unsigned char *)(flow_data+100+j);
+          nf_record->tls_info.tls_op += 1;
+        }
 
-      // process the lengths array in the SPLT data
-      nfv9_process_lengths(nf_record, length_data, max_length_array, pkt_len_index);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
 
-      // initialize the time <- this is where we should use the nfv9 timestamp
-      
-      if (pkt_time_index > 0) {
-	old_val_time.tv_sec = nf_record->pkt_time[pkt_time_index-1].tv_sec;
-	old_val_time.tv_usec = nf_record->pkt_time[pkt_time_index-1].tv_usec;
-      } else {
-	old_val_time.tv_sec = nf_record->start.tv_sec;
-	old_val_time.tv_usec = nf_record->start.tv_usec;
-      }
-      
+      case TLS_CS:
+        for (j = 0; j < 125; j++) {
+          if (htons(*(const short *)(flow_data+j*2)) == 65535) {
+            break;
+          }
+          nf_record->tls_info.ciphersuites[j] = htons(*(const unsigned short *)(flow_data+j*2));
+          nf_record->tls_info.num_ciphersuites += 1;
+        }
 
-      // process the times array in the SPLT data
-      nfv9_process_times(nf_record, time_data, &old_val_time, max_length_array, pkt_time_index);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
 
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    case BYTE_DISTRIBUTION: ;
-      int field_length = htons(cur_template->fields[i].FieldLength);
-      int bytes_per_val = field_length/256;
-      for (j = 0; j < 256; j++) { 
-	// 1 byte vals
-	if (bytes_per_val == 1) {
-	  nf_record->byte_count[j] = (int)*(const char *)(flow_data+j*bytes_per_val);
-	}
-	// 2 byte vals
-	else if (bytes_per_val == 2) {
-	  nf_record->byte_count[j] = htons(*(const short *)(flow_data+j*bytes_per_val));  
-	}
-	// 4 byte vals
-	else {
-	  nf_record->byte_count[j] = htonl(*(const int *)(flow_data+j*bytes_per_val));
-	}
-      }
+      case TLS_EXT:
+        for (j = 0; j < 35; j++) {
+          if (htons(*(const short *)(flow_data+j*2)) == 0) {
+            break;
+          }
+          nf_record->tls_info.tls_extensions[j].length = htons(*(const unsigned short *)(flow_data+j*2));
+          nf_record->tls_info.tls_extensions[j].type = htons(*(const unsigned short *)(flow_data+70+j*2));
+          nf_record->tls_info.tls_extensions[j].data = NULL;
+          nf_record->tls_info.num_tls_extensions += 1;
+        }
 
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
-    default:
-      flow_data += htons(cur_template->fields[i].FieldLength);
-      break;
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      case TLS_VERSION:
+        nf_record->tls_info.tls_v = *(const char *)flow_data;
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      case TLS_CLIENT_KEY_LENGTH:
+        nf_record->tls_info.tls_client_key_length = htons(*(const short *)flow_data);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      case TLS_SESSION_ID:
+        nf_record->tls_info.tls_sid_len = htons(*(const short *)flow_data);
+        nf_record->tls_info.tls_sid_len = min(nf_record->tls_info.tls_sid_len,256);
+        memcpy(nf_record->tls_info.tls_sid, flow_data+2, nf_record->tls_info.tls_sid_len);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      case TLS_HELLO_RANDOM:
+        memcpy(nf_record->tls_info.tls_random, flow_data, 32);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      case IDP:
+        nf_record->idp_len = htons(cur_template->fields[i].FieldLength);
+        nf_record->idp = malloc(nf_record->idp_len);
+        memcpy(nf_record->idp, flow_data, nf_record->idp_len);
+
+        /* Get the start of IDP packet payload */
+        nfv9_skip_idp_header(nf_record, &payload, &size_payload);
+
+        /* if packet has port 443 and nonzero data length, process it as TLS */
+        if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
+          struct timeval ts = {0}; /* Zeroize temporary timestamp */
+          process_tls(ts, payload, size_payload, &record->tls_info);
+        }
+
+        /* if packet has port 80 and nonzero data length, process it as HTTP */
+        if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+          http_update(&record->http_data, payload, size_payload, config.http);
+        }
+
+        /* Update all enabled feature modules */
+        update_all_features(feature_list);
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      case SPLT:
+      case SPLT_NGA: ;
+        int max_length_array = (int)htons(cur_template->fields[i].FieldLength)/2;
+        const void *length_data = flow_data;
+        const void *time_data = flow_data + max_length_array;
+
+        int pkt_len_index = nf_record->op;
+        int pkt_time_index = nf_record->op;
+
+        // process the lengths array in the SPLT data
+        nfv9_process_lengths(nf_record, length_data, max_length_array, pkt_len_index);
+
+        // initialize the time <- this is where we should use the nfv9 timestamp
+
+        if (pkt_time_index > 0) {
+          old_val_time.tv_sec = nf_record->pkt_time[pkt_time_index-1].tv_sec;
+          old_val_time.tv_usec = nf_record->pkt_time[pkt_time_index-1].tv_usec;
+        } else {
+          old_val_time.tv_sec = nf_record->start.tv_sec;
+          old_val_time.tv_usec = nf_record->start.tv_usec;
+        }
+
+        // process the times array in the SPLT data
+        nfv9_process_times(nf_record, time_data, &old_val_time, max_length_array, pkt_time_index);
+
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      case BYTE_DISTRIBUTION: ;
+        int field_length = htons(cur_template->fields[i].FieldLength);
+        int bytes_per_val = field_length/256;
+        for (j = 0; j < 256; j++) {
+          // 1 byte vals
+          if (bytes_per_val == 1) {
+            nf_record->byte_count[j] = (int)*(const char *)(flow_data+j*bytes_per_val);
+          }
+          // 2 byte vals
+          else if (bytes_per_val == 2) {
+            nf_record->byte_count[j] = htons(*(const short *)(flow_data+j*bytes_per_val));
+          }
+          // 4 byte vals
+          else {
+            nf_record->byte_count[j] = htonl(*(const int *)(flow_data+j*bytes_per_val));
+          }
+        }
+
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
+
+      default:
+        flow_data += htons(cur_template->fields[i].FieldLength);
+        break;
     }
   }
 }
