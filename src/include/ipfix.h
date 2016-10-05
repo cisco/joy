@@ -1,0 +1,323 @@
+/*
+ *
+ * Copyright (c) 2016 Cisco Systems, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ *   Redistributions in binary form must reproduce the above
+ *   copyright notice, this list of conditions and the following
+ *   disclaimer in the documentation and/or other materials provided
+ *   with the distribution.
+ *
+ *   Neither the name of the Cisco Systems, Inc. nor the names of its
+ *   contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+#ifndef IPFIX_H
+#define IPFIX_H
+
+#include <netinet/in.h>
+#include "p2f.h"
+
+
+/*
+  IPFIX (RFC7011)
+
+  The format of an IPFIX message header is as follows:
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |       Version Number         |            Length              |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                           Export Time                         |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                        Sequence Number                        |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                    Observation Domain ID                      |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  The format of the Template Set is as follows:
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |           Set ID = 2          |           Length              |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |       Template ID = 256       |       Field Count = N         |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |1| Information Element id. 1.1 |       Field Length 1.1        |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                     Enterprise Number 1.1                     |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |0| Information Element id. 1.2 |       Field Length 1.2        |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |             ...               |             ...               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |1| Information Element id. 1.N |       Field Length 1.N        |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                     Enterprise Number 1.N                     |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Template ID = 257         |       Field Count = M         |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |0| Information Element id. 2.1 |       Field Length 2.1        |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |1| Information Element id. 2.2 |       Field Length 2.2        |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                     Enterprise Number 2.2                     |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |             ...               |             ...               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |1| Information Element id. 2.M |       Field Length 2.M        |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                     Enterprise Number 2.M                     |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                         Padding (opt)                         |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  The format of the Options Template Set is as follows:
+
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |          Set ID = 3           |          Length               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |         Template ID = 258     |         Field Count = N + M   |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Scope Field Count = N     |0|  Scope 1 Infor. Element id. |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Scope 1 Field Length      |0|  Scope 2 Infor. Element id. |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Scope 2 Field Length      |             ...               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |            ...                |1|  Scope N Infor. Element id. |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Scope N Field Length      |   Scope N Enterprise Number  ...
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ ...  Scope N Enterprise Number   |1| Option 1 Infor. Element id. |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |    Option 1 Field Length      |  Option 1 Enterprise Number  ...
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ ... Option 1 Enterprise Number   |              ...              |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |             ...               |0| Option M Infor. Element id. |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |     Option M Field Length     |      Padding (optional)       |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+  The format of the Data Set is as follows:
+
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Set ID = Template ID        |          Length               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Record 1 - Field Value 1    |   Record 1 - Field Value 2    |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Record 1 - Field Value 3    |             ...               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Record 2 - Field Value 1    |   Record 2 - Field Value 2    |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Record 2 - Field Value 3    |             ...               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Record 3 - Field Value 1    |   Record 3 - Field Value 2    |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Record 3 - Field Value 3    |             ...               |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |              ...              |      Padding (optional)       |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+*/
+
+
+/*
+ * @brief Structure representing an IPFIX message header.
+ */
+struct ipfix_hdr {
+  unsigned short version_number;
+  unsigned short length;
+  unsigned long export_time;
+  unsigned long sequence_number;
+  unsigned long observe_dom_id;
+};
+
+
+/*
+ * @brief Structure representing a set header.
+ */
+struct ipfix_set_hdr {
+  unsigned short set_id;
+  unsigned short length;
+};
+
+
+/*
+ * @brief Structure representing a template header.
+ */
+struct ipfix_template_hdr {
+  unsigned short template_id;
+  unsigned short field_count;
+};
+
+
+/*
+ * @brief Structure representing an options header.
+ */
+struct ipfix_option_hdr {
+  unsigned short template_id;
+  unsigned short field_count;
+  unsigned short scope_field_count;
+};
+
+
+/*
+ * @brief Structure representing a template field specifier.
+ *
+ * This may not have the enterprise_num field populated with
+ * data depending on whether the leftmost bit of info_elem_id
+ * is set (big-endian).
+ *
+ * FIXME see if the enterprise_num memory can be dynamically chosen??
+ */
+struct ipfix_template_field {
+  unsigned short info_elem_id;
+  unsigned short field_length;
+  unsigned long enterprise_num;
+};
+
+
+#define IPFIX_MAX_LEN 1480 /* FIXME is this the right limit? */
+#define IPFIX_MAX_FIELDS (IPFIX_MAX_LEN/4)
+
+
+/*
+ * @brief Structure representing a Template key.
+ *
+ * Used by the Collector to track Templates as unique entities.
+ */
+struct ipfix_template_key {
+  struct in_addr src_addr;
+  unsigned long observe_dom_id;
+  unsigned short template_id;
+};
+
+
+/*
+ * @brief Structure representing a single Template entity.
+ *
+ * Stored by the collector to interpret subsequent related Data Sets.
+ */
+struct ipfix_template {
+  struct ipfix_template_key template_key;
+  struct ipfix_template_hdr hdr;
+  struct ipfix_template_field fields[IPFIX_MAX_FIELDS];
+};
+
+
+/*
+ * @brief Structure representing a Template Set.
+ */
+struct ipfix_template_set {
+  struct ipfix_set_hdr set_hdr;
+  struct ipfix_template_hdr template_hdr; /**< First template header is always needed */
+  unsigned char set[IPFIX_MAX_LEN]; /**< May contain more template headers */
+};
+
+
+/*
+ * @brief Structure representing an Options Set.
+ */
+struct ipfix_option_set {
+  struct ipfix_set_hdr set_hdr;
+  struct ipfix_option_hdr option_hdr; /**< First options header is always needed */
+  unsigned char set[IPFIX_MAX_LEN]; /**< May contain more options headers */
+};
+
+
+/*
+ * @brief Structure representing a Data Set.
+ */
+struct ipfix_data_set {
+  struct ipfix_set_hdr set_hdr;
+  unsigned char set[IPFIX_MAX_LEN];
+};
+
+
+/*
+ * @brief Structure representing an IPFIX message.
+ */
+struct ipfix_msg {
+  struct ipfix_hdr hdr;
+  union {
+    struct ipfix_template_set template_fs;
+    struct ipfix_data_set     data_fs;
+    struct ipfix_option_set   option_fs;
+  } set;
+};
+
+
+#define ipfix_template_key_cmp(a, b) memcmp(a, b, sizeof(struct ipfix_template_key))
+#define ipfix_field_enterprise_bit(a) (a & 0x80)
+
+
+void ipfix_flow_key_init(struct flow_key *key,
+                         const struct ipfix_template *cur_template,
+                         const void *flow_data)
+
+
+void ipfix_template_key_init(struct ipfix_template_key *k,
+                             unsigned long addr,
+                             unsigned long id,
+                             unsigned short template_id);
+
+
+void ipfix_process_flow_record(struct flow_record *ix_record,
+                               const struct ipfix_template *cur_template,
+                               const void *flow_data,
+                               int record_num);
+
+
+/*
+ * @brief Enumeration representing IANA IPFIX field entities.
+ *
+ */
+enum ipfix_entities {
+  IPFIX_RESERVED =                                  0,
+  IPFIX_OCTET_DELTA_COUNT =                         1,
+  IPFIX_PACKET_DELTA_COUNT =                        2,
+  IPFIX_DELTA_FLOW_COUNT =                          3,
+  IPFIX_PROTOCOL_IDENTIFIER =                       4,
+  IPFIX_IP_CLASS_OF_SERVICE =                       5,
+  IPFIX_TCP_CONTROL_BITS =                          6,
+  IPFIX_SOURCE_TRANSPORT_PORT =                     7,
+  IPFIX_SOURCE_IPV4_ADDRESS =                       8,
+  IPFIX_SOURCE_IPV4_PREFIX_LENGTH =                 9,
+  IPFIX_INGRESS_INTERFACE =                         10,
+  IPFIX_DESTINATION_TRANSPORT_PORT =                11,
+  IPFIX_DESTINATION_IPV4_ADDRESS =                  12,
+  IPFIX_DESTINATION_IPV4_PREFIX_LENGTH =            13,
+  IPFIX_EGRESS_INTERFACE =                          14,
+};
+
+#endif /* IPFIX_H */

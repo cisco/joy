@@ -119,6 +119,8 @@ extern unsigned int include_classifier;
 
 extern unsigned int nfv9_capture_port;
 
+extern unsigned int ipfix_capture_port;
+
 extern zfile output;
 
 extern FILE *info;
@@ -453,6 +455,7 @@ int main(int argc, char **argv) {
     report_idp = config.idp;
     salt_algo = config.type;
     nfv9_capture_port = config.nfv9_capture_port;
+    ipfix_capture_port = config.ipfix_capture_port;
 
     set_config_all_features(feature_list);
 

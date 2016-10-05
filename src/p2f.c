@@ -186,6 +186,8 @@ unsigned int include_classifier = 0;
 
 unsigned int nfv9_capture_port = 0;
 
+unsigned int ipfix_capture_port = 0;
+
 zfile output = NULL;
 
 FILE *info = NULL;
