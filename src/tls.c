@@ -50,9 +50,9 @@
 #include "tls.h"
 
 
-static inline unsigned int timer_gt_tls(const struct timeval *a, const struct timeval *b) {
-  return (a->tv_sec == b->tv_sec) ? (a->tv_usec > b->tv_usec) : (a->tv_sec > b->tv_sec);
-}
+//static inline unsigned int timer_gt_tls(const struct timeval *a, const struct timeval *b) {
+//  return (a->tv_sec == b->tv_sec) ? (a->tv_usec > b->tv_usec) : (a->tv_sec > b->tv_sec);
+//}
 
 static inline unsigned int timer_lt_tls(const struct timeval *a, const struct timeval *b) {
   return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
