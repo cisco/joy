@@ -41,6 +41,13 @@ LIBRARYPATH = $(LIBPATH)
 endif
 
 ##
+# make sure we have a definition for BINDIR
+##
+ifndef BINDIR
+BINDIR = ../bin
+endif
+
+##
 # compiler directives
 ##
 CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
