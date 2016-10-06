@@ -229,6 +229,9 @@ struct ipfix_template_key {
  * Stored by the collector to interpret subsequent related Data Sets.
  */
 struct ipfix_template {
+  int payload_length; /**< Keeps track of the actual template field payload length encountered,
+                           since all ipfix_template_fields have enterprise memory allocated,
+                           but that may not have been true for payload */
   struct ipfix_template_key template_key;
   struct ipfix_template_hdr hdr;
   struct ipfix_template_field fields[IPFIX_MAX_FIELDS];
@@ -283,13 +286,27 @@ struct ipfix_msg {
 
 void ipfix_flow_key_init(struct flow_key *key,
                          const struct ipfix_template *cur_template,
-                         const void *flow_data)
+                         const void *flow_data);
 
 
 void ipfix_template_key_init(struct ipfix_template_key *k,
                              unsigned long addr,
                              unsigned long id,
                              unsigned short template_id);
+
+
+int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
+                         const void *template_start,
+                         int template_set_len,
+                         const struct flow_key rec_key);
+
+
+int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
+                         const void *data_start,
+                         int data_set_len,
+                         unsigned short set_id,
+                         const struct flow_key rec_key,
+                         struct flow_key *prev_key);
 
 
 void ipfix_process_flow_record(struct flow_record *ix_record,

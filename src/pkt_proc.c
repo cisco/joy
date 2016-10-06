@@ -78,8 +78,6 @@ define_all_features_config_extern_uint(feature_list);
 #define MAX_TEMPLATES 100
 struct nfv9_template v9_templates[MAX_TEMPLATES];
 u_short num_templates = 0;
-struct ipfix_template ix_templates[MAX_TEMPLATES];
-unsigned short num_ipfix_templates = 0;
 
 #include <assert.h>
 
@@ -260,13 +258,14 @@ void flow_record_process_packet_length_and_time_ack(struct flow_record *record,
 }
 
 
-enum status process_ipfix(const struct pcap_pkthdr *h,
-                          const void *start,
+enum status process_ipfix(const void *start,
                           int len,
                           struct flow_record *r) {
-  struct flow_key prev_key;
+
   const struct ipfix_hdr *ipfix = start;
   const struct ipfix_set_hdr *ipfix_sh;
+  const struct flow_key rec_key = r->key;
+  struct flow_key prev_key;
   int set_num = 0;
 
   /* debugging output */
@@ -294,7 +293,6 @@ enum status process_ipfix(const struct pcap_pkthdr *h,
    * Parse IPFIX message for template, options, or data sets.
    */
   while (len > 0) {
-    set_num += 1;
     ipfix_sh = start;
     unsigned short set_id = htons(ipfix_sh->set_id);
 
@@ -308,107 +306,12 @@ enum status process_ipfix(const struct pcap_pkthdr *h,
      */
     if (set_id == 2) {
       /* Set template pointer to right after set header */
-      const void *template_ptr = start + 4;
-      int template_set_length = htons(ipfix_sh->length);
+      const void *template_start = start + 4;
+      int template_set_len = htons(ipfix_sh->length) - 4;
 
-      while (template_set_length > 0) {
-        struct ipfix_template tmp_template;
-// FIXME -4 */
-        const struct ipfix_template_hdr *template_hdr = template_ptr;
-// FIXME Does this need to account for padding offset??
-        struct ipfix_template_key template_key;
-        template_ptr += 4; /* Move past template header */
-        template_set_length -= 4;
-        unsigned short template_id = htons(template_hdr->template_id);
-        unsigned short field_count = htons(template_hdr->field_count);
-        int redundant_template = 0;
-        int i;
-
-        /*
-         * Define Template Set key:
-         * {source IP + observation domain ID + template ID}
-         */
-        ipfix_template_key_init(&template_key, r->key.sa.s_addr,
-                                htonl(ipfix->observe_dom_id), template_id);
-
-        /* Check to see if template already exists, if so, continue */
-        for (i = 0; i < num_ipfix_templates; i++) {
-          if (ipfix_template_key_cmp(&template_key,
-                                     &ix_templates[i].template_key) == 0) {
-            redundant_template = 1;
-            break;
-          }
-        }
-
-        /*
-         * The enterprise field may or may not exist for certain fields
-         * within the payload, so we need to walk the entire template to
-         * update the ptr before deciding whether the template is redundant.
-         */
-        for (i = 0; i < field_count; i++) {
-          int fld_size = 4;
-          const struct ipfix_template_field *tmp_field = template_ptr;
-
-          tmp_template.fields[i].info_elem_id = tmp_field->info_elem_id;
-          tmp_template.fields[i].field_length = tmp_field->field_length;
-          if (ipfix_field_enterprise_bit(tmp_field->info_elem_id)) {
-            /* The enterprise bit is set, so copy that too */
-            tmp_template.fields[i].enterprise_num = tmp_field->enterprise_num;
-            fld_size = 8;
-          }
-
-          template_ptr += fld_size;
-          template_set_length -= fld_size;
-        }
-
-        if (redundant_template) {
-          /* Template already exists */
-          continue;
-        }
-
-        /* The template is new, so save header info */
-        tmp_template.hdr.template_id = template_id;
-        tmp_template.hdr.field_count = field_count;
-
-        tmp_template.template_key = template_key;
-
-        /* Save template */
-        ix_templates[num_ipfix_templates] = tmp_template;
-        num_ipfix_templates += 1;
-        num_ipfix_templates %= MAX_TEMPLATES;
-#if 0
-        if (redundant_template) {
-          template_ptr += 4*field_count;
-          template_set_length -= 4*field_count;
-        } else {
-          // create list of fields for template
-          struct ipfix_template tmp_template;
-          tmp_template.hdr.template_id = template_id;
-          tmp_template.hdr.field_count = field_count;
-          for (i = 0; i < field_count; i++) {
-            int fld_size = 4;
-            const struct ipfix_template_field *tmp_field = template_ptr;
-
-            tmp_template.fields[i].info_elem_id = tmp_field->info_elem_id;
-            tmp_template.fields[i].field_length = tmp_field->field_length;
-            if (ipfix_field_enterprise_bit(tmp_field->info_elem_id)) {
-              /* The enterprise bit is set, so copy that too */
-              tmp_template.fields[i].enterprise_num = tmp_field->enterprise_num;
-              fld_size = 8;
-            }
-
-            template_ptr += fld_size;
-            template_set_length -= fld_size;
-          }
-          tmp_template.template_key = template_key;
-
-          // save template
-          ix_templates[num_ipfix_templates] = tmp_template;
-          num_ipfix_templates += 1;
-          num_ipfix_templates %= MAX_TEMPLATES;
-        }
-#endif
-      } /* while (template_set_length-4 > 0) */
+      /* Parse the template set */
+      ipfix_parse_template_set(ipfix, template_start,
+                               template_set_len, rec_key);
     }
     /*
      * Set ID is an Options Template Set
@@ -423,76 +326,16 @@ enum status process_ipfix(const struct pcap_pkthdr *h,
      * Set ID is a Data Set
      */
     else {
-      /* Define data template key:
-       * {source IP + observation domain ID + template ID}
-       */
-      unsigned short template_id = set_id;
-      struct ipfix_template_key template_key;
-      int i;
+      const void *data_start = start + 4;
+      int data_set_len = htons(ipfix_sh->length) - 4;
 
-      ipfix_template_key_init(&template_key, r->key.sa.s_addr,
-                              htonl(ipfix->observe_dom_id), template_id);
-
-      /* Construct key and look for templates */
-      const struct ipfix_template *cur_template = NULL;
-
-      for (i = 0; i < num_ipfix_templates; i++) {
-        if (template_key.observe_dom_id == ix_templates[i].template_key.observe_dom_id &&
-            template_key.template_id == ix_templates[i].template_key.template_id &&
-            template_key.src_addr.s_addr == ix_templates[i].template_key.src_addr.s_addr) {
-          cur_template = &ix_templates[i];
-          break;
-        }
-      }
-
-      /* Process data if we know the template */
-      if (cur_template != NULL) {
-	      /* Find length of data record corresponding to current template */
-/* FIXME need to account for variable lengths! */
-	      int data_record_size = 0;
-	      for (i = 0; i < cur_template->hdr.field_count; i++) {
-	        data_record_size += htons(cur_template->fields[i].field_length);
-	      }
-
-	      /* Process multiple flow records within a single data set */
-	      int flow_records_in_set;
-/* FIXME why -4 here? */
-	      for (flow_records_in_set = 0;
-             flow_records_in_set < (htons(ipfix_sh->length)-4)/data_record_size;
-             flow_records_in_set++) {
-
-	        struct flow_key key;
-	        struct flow_record *ix_record;
-/* FIXME why +4 here? */
-	        const void *flow_data = (start+(data_record_size*flow_records_in_set)) + 4;
-
-	        /* Init flow key */
-	        ipfix_flow_key_init(&key, cur_template, flow_data);
-
-	        /* Get a flow record related to ipfix data */
-	        ix_record = flow_key_get_record(&key, CREATE_RECORDS);
-
-	        /* Fill out record */
-          if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
-/* FIXME Need to implement ipfix version of function */
-            ipfix_process_flow_record(ix_record, cur_template, flow_data, 0);
-          } else {
-            ipfix_process_flow_record(ix_record, cur_template, flow_data, 1);
-          }
-          memcpy(&prev_key,&key,sizeof(struct flow_key));
-
-	        set_num += 1;
-
-	        /* print the record immediately to output */
-	        //flow_record_print_json(ix_record);
-	      }
-      } else {
-        printf("Current template is null\n");
-      }
+      ipfix_parse_data_set(ipfix, data_start, data_set_len,
+                           set_id, rec_key, &prev_key);
     }
 
     start += htons(ipfix_sh->length);
     len -= htons(ipfix_sh->length);
+    set_num += 1;
   }
 
   return ok;
