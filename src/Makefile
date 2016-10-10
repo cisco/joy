@@ -17,10 +17,11 @@ CWD = $(shell basename $(TMP))
 ##
 # required libraries for pcap2flow
 ##
-LIBS = -lpcap    # packet capture library; hard requirement
-LIBS += -lm      # math library; logf() used in entropy computation
-LIBS += -lcrypto # openSSL crypto library; used in anonymization
-LIBS += -lcurl   # curl library; used in updater thread
+LIBS = -lpcap     # packet capture library; hard requirement
+LIBS += -lm       # math library; logf() used in entropy computation
+LIBS += -lcrypto  # openSSL crypto library; used in anonymization
+LIBS += -lcurl    # curl library; used in updater thread
+LIBS += -lpthread # thread library; used in updater thread
 LIBS += -lz
 
 ##
