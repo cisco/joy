@@ -26,11 +26,7 @@ LIBS += -lz
 ##
 # check for additional paths to use searching for header files
 ##
-ifndef SSLPATH
-INCLUDEDIR = -I ./include
-else
-INCLUDEDIR = -I ./include $(SSLPATH)
-endif
+INCLUDEDIR = -I ./include $(SSLPATH) $(CURLPATH)
 
 ##
 # check for additional paths to use searching for library files

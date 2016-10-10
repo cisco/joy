@@ -33,7 +33,13 @@ export SYS_NAME = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
 # compile and linkage runs smoothly.
 ##
 -include config.vars
+ifndef LIBPATH
+$(error error is "Please run ./config first.")
+endif
 ifndef SSLPATH
+$(error error is "Please run ./config first.")
+endif
+ifndef CURLPATH
 $(error error is "Please run ./config first.")
 endif
 

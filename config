@@ -3,17 +3,19 @@
 ##
 # Usage Function - prints out how to use the command
 #    Valid options are:
-#         -h | --help		- Help screen
-#         -l | --lib-path	- specify the library path
-#         -s | --ssl-path	-speacify the OpenSSL header path
+#         -h | --help           - Help screen
+#         -l | --lib-path       - specify the library path
+#         -s | --ssl-path       - speacify the OpenSSL header path
+#         -c | --curl-path      - speacify the Curl header path
 ##
 print_usage ()
 {
-   echo "$0 [-h | --help] [-l <path> | --lib-path <path>] [-s <path> | --ssl-path <path>]"
+   echo "$0 [-h | --help] [-l <path> | --lib-path <path>] [-s <path> | --ssl-path <path>] [-c <path> | --curl-path <path>]"
    echo "examples:"
    echo "	$0 --help"
    echo "	$0 --lib-path /usr/local/lib/x86_64-linux-gnu"
    echo "	$0 --ssl-path /var/ssl/openssl/include"
+   echo "	$0 --curl-path /var/include"
 }
 
 ##
@@ -55,7 +57,6 @@ find_ssl_headers ()
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
         ssl_crypto_path=${ssl_crypto::${#ssl_crypto}-17}
-        echo "export SSLPATH=$ssl_crypto_path" >> config.vars
         return
     fi
 
@@ -64,31 +65,83 @@ find_ssl_headers ()
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
         ssl_crypto_path=${ssl_crypto::${#ssl_crypto}-17}
-        echo "export SSLPATH=$ssl_crypto_path" >> config.vars
         return
     fi
 
     if [ $1 ]; then
-        ssl_crypto=`find $1 -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+        ssl_crypto=`find "$1" -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
         if [ "$ssl_crypto" != "" ]; then
            echo "Searching for OpenSSL headers...found"
            ## remove /openssl/crypto.h from the end of the path
            ssl_crypto_path=${ssl_crypto::${#ssl_crypto}-17}
-           echo "export SSLPATH=$ssl_crypto_path" >> config.vars
            return
         fi
     fi
 
     if [ $1 ]; then
-        echo "Checked paths [/usr, /include, $1] for OpenSSL headers...missing!"
+        echo "Checked paths [/usr, /include, /opt, $1] for OpenSSL headers...missing!"
     else
-        echo "Checked paths [/usr, /include] for OpenSSL headers...missing!"
+        echo "Checked paths [/usr, /include, /opt] for OpenSSL headers...missing!"
     fi
     echo "Couldn't find OpenSSL Header files. Please install the header files"
     echo "or provide the location using the -s or --ssl-path option."
     echo "For intance, if OpenSSL headers were installed at /var/ssl/openssl/include:"
     echo "	$0 -s /var/ssl/openssl/include	or"
     echo "	$0 --ssl-path /var/ssl/openssl/include"
+    exit 1
+}
+
+##
+# Function that looks for the Curl header files. Typically they are
+# stored in the /usr or /include directory tree somewhere. We will search
+# there for the header files. 
+##
+find_curl_headers ()
+{
+    curl_header=`find /usr -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    if [ "$curl_header" != "" ]; then
+        echo "Searching for Curl headers...found"
+        ## remove /curl/curl.h from the end of the path
+        curl_header_path=$curl_header_path${curl_header::${#curl_header}-12}
+        return
+    fi
+
+    curl_header=`find /include -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    if [ "$curl_header" != "" ]; then
+        echo "Searching for Curl headers...found"
+        ## remove /curl/curl.h from the end of the path
+        curl_header_path=$curl_header_path${curl_header::${#curl_header}-12}
+        return
+    fi
+
+    curl_header=`find /opt -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    if [ "$curl_header" != "" ]; then
+        echo "Searching for Curl headers...found"
+        ## remove /curl/curl.h from the end of the path
+        curl_header_path=$curl_header_path${curl_header::${#curl_header}-12}
+        return
+    fi
+
+    if [ $1 ]; then
+        curl_header=`find "$1" -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+        if [ "$curl_header" != "" ]; then
+            echo "Searching for Curl headers...found"
+            ## remove /curl/curl.h from the end of the path
+            curl_header_path=$curl_header_path${curl_header::${#curl_header}-12}
+            return
+        fi
+    fi
+
+    if [ $1 ]; then
+        echo "Checked paths [/usr, /include, /opt, $1] for Curl headers...missing!"
+    else
+        echo "Checked paths [/usr, /include, /opt] for Curl headers...missing!"
+    fi
+    echo "Couldn't find Curl Header files. Please install the header files"
+    echo "or provide the location using the -c or --curl-path option."
+    echo "For intance, if Curl headers were installed at /var/include/curl :"
+    echo "	$0 -c /var/include	or"
+    echo "	$0 --curl-path /var/include"
     exit 1
 }
 
@@ -156,6 +209,7 @@ check_libraries ()
 rm -f config.vars
 LIBPATH=""
 SSLPATH=""
+CURLPATH=""
 if [ $# -eq 1 ]; then
     print_usage
     exit 2
@@ -171,6 +225,10 @@ case $key in
     ;;
     -s|--ssl-path)
     SSLPATH="$2"
+    shift # past argument
+    ;;
+    -c|--curl-path)
+    CURLPATH="$2"
     shift # past argument
     ;;
     -h|--help)
@@ -212,6 +270,17 @@ else
     find_ssl_headers 
 fi
 echo "export SSLPATH= -I \"$ssl_crypto_path\"" >> config.vars
+
+##
+# Try to find the curl header files
+##
+curl_header_path=""
+if [ "$CURLPATH" != ""  ]; then
+    find_curl_headers $CURLPATH
+else
+    find_curl_headers 
+fi
+echo "export CURLPATH= -I \"$curl_header_path\"" >> config.vars
 
 echo "All dependencies found. Issue 'make clean;make' to build the code"
 
