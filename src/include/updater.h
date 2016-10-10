@@ -60,7 +60,7 @@
 #include "radix_trie.h"
 
 /** Work interval defined for the updater main processing loop */
-#define UPDATER_WORK_INTERVAL (600) /* 10 minutes */
+#define UPDATER_WORK_INTERVAL (86400) /* (60*60*24) = 86400 mins, 24 hours */
 
 /** URL for the Talos malware feed */
 #define TALOS_URL "http://www.talosintelligence.com/feeds/ip-filter.blf"

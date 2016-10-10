@@ -312,7 +312,7 @@ void *updater_main (void *ptr)
             loginfo("error: Talos file download failed, no work to do\n");
         }
         pthread_mutex_unlock(&work_in_process);
-        sleep(20); // sleep (UPDATER_WORK_INTERVAL);
+        sleep (UPDATER_WORK_INTERVAL);
     }
 
     return NULL;
