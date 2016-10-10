@@ -81,7 +81,7 @@ man: $(DOCDIR)/pcap2flow.1
 ##
 clean: 
 	rm -f cscope.out cscope.files
-	rm -f $(DOCDIR)/pcap2flow.txt
+	rm -f "$(DOCDIR)/pcap2flow.txt"
 	@cd src; $(MAKE) clean
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 

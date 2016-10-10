@@ -103,7 +103,7 @@ check_libraries ()
        echo "Checking for $1...exists"
        string_has "$library_path" "/lib"
        if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L /lib"
+           library_path=$library_path" -L \"/lib\""
        fi
        return
     fi
@@ -112,7 +112,7 @@ check_libraries ()
        echo "Checking for $1...exists"
        string_has "$library_path" "/usr/lib"
        if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L /usr/lib"
+           library_path=$library_path" -L \"/usr/lib\""
        fi
        return
     fi
@@ -121,7 +121,7 @@ check_libraries ()
        echo "Checking for $1...exists"
        string_has "$library_path" "/usr/local/lib"
        if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L /usr/local/lib"
+           library_path=$library_path" -L \"/usr/local/lib\""
        fi
        return
     fi
@@ -131,7 +131,7 @@ check_libraries ()
            echo "Checking for $1...exists"
            string_has "$library_path" "$2"
            if [ $string_has_result -eq 0 ]; then
-               library_path=$library_path" -L $2"
+               library_path=$library_path" -L \"$2\""
            fi
            return
         fi
@@ -192,7 +192,7 @@ echo "Checking for required dependencies"
 # check for required libraries
 ##
 library_path=""
-for ck_lib in libpcap libcrypto libz 
+for ck_lib in libpcap libcrypto libz libcurl
 do
    if [ "$LIBPATH" != ""  ]; then
        check_libraries $ck_lib $LIBPATH
@@ -211,7 +211,7 @@ if [ "$SSLPATH" != ""  ]; then
 else
     find_ssl_headers 
 fi
-echo "export SSLPATH= -I $ssl_crypto_path" >> config.vars
+echo "export SSLPATH= -I \"$ssl_crypto_path\"" >> config.vars
 
 echo "All dependencies found. Issue 'make clean;make' to build the code"
 

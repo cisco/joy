@@ -61,6 +61,7 @@
 #include <limits.h>         /* for LONG_MAX  */
 #include <getopt.h>
 #include <unistd.h>         /* for daemon()  */
+#include <pthread.h>        /* for threading */
 
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* pcap2flow data structures       */
@@ -72,6 +73,7 @@
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "output.h"     /* compressed output             */
+#include "updater.h"    /* updater thread for classifer and label subnets */
 
 enum operating_mode {
   mode_none = 0,
@@ -247,7 +249,6 @@ char *raw_to_string(const void *raw, unsigned int len, char *outstr) {
 
 /* END utility functions */
 
-
 pcap_t *handle;		
 
 /*
@@ -361,6 +362,8 @@ int main(int argc, char **argv) {
   DIR *dir;
   struct dirent *ent;
   enum operating_mode mode = mode_none;
+  pthread_t upd_thread;
+  int upd_rc;
 
   /* sanity check sizeof() expectations */
   if (data_sanity_check() != ok) {
@@ -608,7 +611,7 @@ int main(int argc, char **argv) {
 	exit(1);
       }
     }
-    fprintf(info, "configured labeled subnets (radix_trie), using %u bytes of memory\n", get_rt_mem_usage());
+    fprintf(info, "configured labeled subnets (radix_trie)\n");
     
   }
 
@@ -768,6 +771,16 @@ int main(int argc, char **argv) {
       }  
     }
     
+    /*
+     * start up the updater thread
+     *   updater is only active during live capture runs
+     */
+     upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)NULL);
+     if (upd_rc) {
+	fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
+	return -6;
+     }
+
     /*
      * flush "info" output stream to ensure log file accuracy
      */
@@ -958,3 +971,4 @@ int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struc
 
   return 0;
 }
+
