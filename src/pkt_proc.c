@@ -258,6 +258,13 @@ void flow_record_process_packet_length_and_time_ack(struct flow_record *record,
 }
 
 
+/*
+ * @brief Process IPFIX message contents.
+ *
+ * @param start Beginning of IPFIX message data.
+ * @param len Total length of the data.
+ * @param r Flow record tracking the inbound network packet.
+ */
 enum status process_ipfix(const void *start,
                           int len,
                           struct flow_record *r) {
@@ -267,6 +274,12 @@ enum status process_ipfix(const void *start,
   const struct flow_key rec_key = r->key;
   struct flow_key prev_key;
   int set_num = 0;
+
+  if (ipfix->version_number != 10) {
+    if (output_level > none) {
+      fprintf(info, "ERROR: ipfix version number is invalid\n");
+    }
+  }
 
   /* debugging output */
   if (output_level > none) {
@@ -301,10 +314,16 @@ enum status process_ipfix(const void *start,
       fprintf(info,"Set Length: %i\n", htons(ipfix_sh->length));
     }
 
+    if ((set_id <= 1) || ((4 <= set_id) && (set_id <= 255))) {
+      /* The set_id is invalid, either Netflow or reserved */
+      if (output_level > none) {
+        fprintf(info, "ERROR: Set ID is invalid\n");
+      }
+    }
     /*
      * Set ID is a Template Set
      */
-    if (set_id == 2) {
+    else if (set_id == 2) {
       /* Set template pointer to right after set header */
       const void *template_start = start + 4;
       int template_set_len = htons(ipfix_sh->length) - 4;

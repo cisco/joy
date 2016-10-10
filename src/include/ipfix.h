@@ -202,7 +202,8 @@ struct ipfix_option_hdr {
  */
 struct ipfix_template_field {
   unsigned short info_elem_id;
-  unsigned short field_length;
+  unsigned short fixed_length; /* FIXME make this into union eventually? */
+  unsigned short variable_length;
   unsigned long enterprise_num;
 };
 
@@ -217,7 +218,7 @@ struct ipfix_template_field {
  * Used by the Collector to track Templates as unique entities.
  */
 struct ipfix_template_key {
-  struct in_addr src_addr;
+  struct in_addr exporter_addr;
   unsigned long observe_dom_id;
   unsigned short template_id;
 };

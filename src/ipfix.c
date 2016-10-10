@@ -43,46 +43,77 @@ struct ipfix_template ix_templates[MAX_IPFIX_TEMPLATES];
 unsigned short num_ipfix_templates = 0;
 
 
+/*
+ * @brief Construct a flow key corresponding to an IPFIX data record.
+ *
+ * Create a flow key that can be used to either lookup an existing
+ * flow record, or in the process of making a new flow record for
+ * storage of the IPFIX data. Note, usage of the function assumes
+ * that the \p cur_template contains variable lengths related to
+ * fields where necessary.
+ *
+ * @param key Flow key to be filled in with 5-tuple identifier.
+ * @param cur_template IPFIX template that corresponds to data record.
+ * @param flow_data IPFIX data record being parsed.
+ */
 void ipfix_flow_key_init(struct flow_key *key,
                          const struct ipfix_template *cur_template,
                          const void *flow_data) {
   int i;
   for (i = 0; i < cur_template->hdr.field_count; i++) {
+    unsigned short field_length = 0;
+
+    if (cur_template->fields[i].variable_length) {
+      field_length = cur_template->fields[i].variable_length;
+    } else {
+      field_length = cur_template->fields[i].fixed_length;
+    }
+
     switch (htons(cur_template->fields[i].info_elem_id)) {
       case IPFIX_SOURCE_IPV4_ADDRESS:
         key->sa.s_addr = *(const int *)flow_data;
-        flow_data += htons(cur_template->fields[i].field_length);
+        flow_data += htons(field_length);
         break;
       case IPFIX_DESTINATION_IPV4_ADDRESS:
         key->da.s_addr = *(const int *)flow_data;
-        flow_data += htons(cur_template->fields[i].field_length);
+        flow_data += htons(field_length);
         break;
       case IPFIX_SOURCE_TRANSPORT_PORT:
         key->sp = htons(*(const short *)flow_data);
-        flow_data += htons(cur_template->fields[i].field_length);
+        flow_data += htons(field_length);
         break;
       case IPFIX_DESTINATION_TRANSPORT_PORT:
         key->dp = htons(*(const short *)flow_data);
-        flow_data += htons(cur_template->fields[i].field_length);
+        flow_data += htons(field_length);
         break;
       case IPFIX_PROTOCOL_IDENTIFIER:
         key->prot = *(const char *)flow_data;
-        flow_data += htons(cur_template->fields[i].field_length);
+        flow_data += htons(field_length);
         break;
       default:
-/* FIXME need to account for variable length here */
-        flow_data += htons(cur_template->fields[i].field_length);
+        flow_data += htons(field_length);
         break;
     }
   }
 }
 
 
+/*
+ * @brief Initialize an IPFIX template key.
+ *
+ * The template key is used by the IPFIX Collector to uniquely
+ * identify templates that it encounters.
+ *
+ * @param k IPFIX template key structure that will be initialized.
+ * @param addr Exporter IP address.
+ * @param id Exporter observation domain id.
+ * @param template_id Template id contained in the template header.
+ */
 void ipfix_template_key_init(struct ipfix_template_key *k,
                              unsigned long addr,
                              unsigned long id,
                              unsigned short template_id) {
-  k->src_addr.s_addr = addr;
+  k->exporter_addr.s_addr = addr;
   k->observe_dom_id = id;
   k->template_id = template_id;
 }
@@ -90,6 +121,12 @@ void ipfix_template_key_init(struct ipfix_template_key *k,
 
 /*
  * @brief Parse through the contents of an IPFIX Template Set.
+ *
+ * @param ipfix The IPFIX message header.
+ * @param template_start Beginning of the template set.
+ * @param set_len Total length of the template set measured in octets. 
+ * @param rec_key Flow key generated upstream in process_packet()
+ *                corresponding to the packet capture.
  */
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
                              const void *template_start,
@@ -101,7 +138,6 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
 
   while (template_set_len > 0) {
     const struct ipfix_template_hdr *template_hdr = template_ptr;
-// FIXME Does this need to account for padding offset??
     template_ptr += 4; /* Move past template header */
     template_set_len -= 4;
     unsigned short template_id = htons(template_hdr->template_id);
@@ -134,7 +170,6 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
       /* Template already exists */
       template_ptr += redundant_template_pld_len;
       template_set_len -= redundant_template_pld_len;
-/* FIXME may need to account for padding here */
       continue;
     }
 
@@ -147,7 +182,7 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
       const struct ipfix_template_field *tmp_field = template_ptr;
 
       cur_template.fields[i].info_elem_id = tmp_field->info_elem_id;
-      cur_template.fields[i].field_length = tmp_field->field_length;
+      cur_template.fields[i].fixed_length = tmp_field->fixed_length;
       if (ipfix_field_enterprise_bit(tmp_field->info_elem_id)) {
         /* The enterprise bit is set, so copy that too */
         cur_template.fields[i].enterprise_num = tmp_field->enterprise_num;
@@ -158,8 +193,6 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
       template_set_len -= fld_size;
       cur_template_pld_len += fld_size;
     }
-
-/* FIXME may need to account for padding here */
 
     /* The template is new, so save info */
     cur_template.hdr.template_id = template_id;
@@ -178,7 +211,17 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
 
 
 /*
- * @brief Parse through the contents of an IPFIX Template Set.
+ * @brief Parse through the contents of an IPFIX Data Set.
+ *
+ * @param ipfix The IPFIX message header.
+ * @param template_start Beginning of the data set.
+ * @param set_len Total length of the data set measured in octets.
+ * @param set_id I.d. of Template to be used for interpreting data set.
+ * @param rec_key Flow key generated upstream in process_packet()
+ *                corresponding to the packet capture.
+ * @param prev_data_key Previous flow key that was created for preceding
+ *                      data record. This is a handle to the variable
+ *                      sitting on process_ipfix() stack memory.
  */
 int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          const void *data_start,
@@ -191,7 +234,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
   int data_set_len = set_len;
   unsigned short template_id = set_id;
   struct ipfix_template_key template_key;
-  const struct ipfix_template *cur_template = NULL;
+  struct ipfix_template *cur_template = NULL;
   int i;
 
   /* Define data template key:
@@ -204,7 +247,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
   for (i = 0; i < num_ipfix_templates; i++) {
     if (template_key.observe_dom_id == ix_templates[i].template_key.observe_dom_id &&
         template_key.template_id == ix_templates[i].template_key.template_id &&
-        template_key.src_addr.s_addr == ix_templates[i].template_key.src_addr.s_addr) {
+        template_key.exporter_addr.s_addr == ix_templates[i].template_key.exporter_addr.s_addr) {
       cur_template = &ix_templates[i];
       break;
     }
@@ -215,7 +258,6 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
     unsigned short data_field_count = cur_template->hdr.field_count;
     int data_record_size = 0;
     int data_records_in_set = 0;
-    int remaining_set_length = data_set_len;
     const unsigned char *flow_data = NULL;
     struct flow_key key;
     struct flow_record *ix_record;
@@ -226,18 +268,19 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
      */
     flow_data = data_ptr; /* Point to beginning of this record */
     for (i = 0; i < data_field_count; i++) {
-      /* FIXME may need to record the fields and their variable lengths in an array to pass further
-       * down in ipfix_process_flow_record
-       */
       unsigned short actual_fld_len = 0;
-      unsigned short cur_fld_len = cur_template->fields[i].field_length;
+      unsigned short cur_fld_len = cur_template->fields[i].fixed_length;
       if (cur_fld_len == 65535) {
         /* The current field is of variable length */
         unsigned char fld_len_flag = (unsigned char)*data_ptr; /* Get the first byte FIXME do we need htons? */
         if (fld_len_flag < 255) {
           actual_fld_len = (unsigned short) fld_len_flag;
+          /* Fill in the variable length field in global template list */
+          cur_template->fields[i].variable_length = actual_fld_len;
         } else if (fld_len_flag == 255) {
           actual_fld_len = (unsigned short) *(data_ptr + 1);
+          /* Fill in the variable length field in global template list */
+          cur_template->fields[i].variable_length = actual_fld_len;
         } else {
           /* Error, invalid variable length */
           printf("Error: bad variable length\n");
@@ -250,7 +293,6 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       data_ptr += actual_fld_len;
       data_record_size += actual_fld_len;
       data_field_count -= 1;
-      remaining_set_length -= actual_fld_len;
     }
 
     /* Reset the data pointer to beginning of first record */
@@ -260,7 +302,6 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
     for (data_records_in_set = 0;
          data_records_in_set < (data_set_len/data_record_size);
          data_records_in_set++){
-
       flow_data = data_ptr;
 
       /* Init flow key */
@@ -278,9 +319,10 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       memcpy(prev_data_key, &key, sizeof(struct flow_key));
 
       data_ptr += data_record_size;
-/* FIXME may need to account for padding here */
     }
   } else {
+    /* FIXME hold onto the data set for a certain amount of time since
+     * the template may come later... */
     printf("Error: current template is null, cannot parse the data set\n");
   }
 
