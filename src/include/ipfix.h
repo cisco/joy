@@ -34,6 +34,13 @@
  *
  */
 
+/**************************************************
+ * @file ipfix.h
+ *
+ * @brief Interface to IPFIX code which is used
+ *        to collect or export using the protocol.
+ **************************************************/
+
 #ifndef IPFIX_H
 #define IPFIX_H
 
@@ -155,8 +162,8 @@
  * @brief Structure representing an IPFIX message header.
  */
 struct ipfix_hdr {
-  unsigned short version_number;
-  unsigned short length;
+  uint16_t version_number;
+  uint16_t length;
   uint32_t export_time;
   uint32_t sequence_number;
   uint32_t observe_dom_id;
@@ -167,8 +174,8 @@ struct ipfix_hdr {
  * @brief Structure representing a set header.
  */
 struct ipfix_set_hdr {
-  unsigned short set_id;
-  unsigned short length;
+  uint16_t set_id;
+  uint16_t length;
 };
 
 
@@ -176,8 +183,8 @@ struct ipfix_set_hdr {
  * @brief Structure representing a template header.
  */
 struct ipfix_template_hdr {
-  unsigned short template_id;
-  unsigned short field_count;
+  uint16_t template_id;
+  uint16_t field_count;
 };
 
 
@@ -185,9 +192,9 @@ struct ipfix_template_hdr {
  * @brief Structure representing an options header.
  */
 struct ipfix_option_hdr {
-  unsigned short template_id;
-  unsigned short field_count;
-  unsigned short scope_field_count;
+  uint16_t template_id;
+  uint16_t field_count;
+  uint16_t scope_field_count;
 };
 
 
@@ -201,10 +208,10 @@ struct ipfix_option_hdr {
  * FIXME see if the enterprise_num memory can be dynamically chosen??
  */
 struct ipfix_template_field {
-  unsigned short info_elem_id;
-  unsigned short fixed_length; /* FIXME make this into union eventually? */
-  unsigned short variable_length;
-  unsigned long enterprise_num;
+  uint16_t info_elem_id;
+  uint16_t fixed_length; /* FIXME make this into union eventually? */
+  uint16_t variable_length;
+  uint32_t enterprise_num;
 };
 
 
@@ -219,8 +226,8 @@ struct ipfix_template_field {
  */
 struct ipfix_template_key {
   struct in_addr exporter_addr;
-  unsigned long observe_dom_id;
-  unsigned short template_id;
+  uint32_t observe_dom_id;
+  uint16_t template_id;
 };
 
 
@@ -284,17 +291,6 @@ struct ipfix_msg {
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
 
-void ipfix_flow_key_init(struct flow_key *key,
-                         const struct ipfix_template *cur_template,
-                         const void *flow_data);
-
-
-void ipfix_template_key_init(struct ipfix_template_key *k,
-                             unsigned long addr,
-                             unsigned long id,
-                             unsigned short template_id);
-
-
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
                          const void *template_start,
                          int template_set_len,
@@ -304,7 +300,7 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
 int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          const void *data_start,
                          int data_set_len,
-                         unsigned short set_id,
+                         uint16_t set_id,
                          const struct flow_key rec_key,
                          struct flow_key *prev_key);
 

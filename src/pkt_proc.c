@@ -307,7 +307,7 @@ enum status process_ipfix(const void *start,
    */
   while (len > 0) {
     ipfix_sh = start;
-    unsigned short set_id = ntohs(ipfix_sh->set_id);
+    uint16_t set_id = ntohs(ipfix_sh->set_id);
 
     if (output_level > none) {
       fprintf(info,"Set ID: %i\n", set_id);
