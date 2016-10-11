@@ -43,6 +43,18 @@ struct ipfix_template ix_templates[MAX_IPFIX_TEMPLATES];
 unsigned short num_ipfix_templates = 0;
 
 
+static inline int ipfix_template_key_cmp(const struct ipfix_template_key a,
+                                         const struct ipfix_template_key b) {
+  if (a.observe_dom_id == b.observe_dom_id &&
+      a.template_id == b.template_id &&
+      a.exporter_addr.s_addr == b.exporter_addr.s_addr) {
+    return 0;
+  } else {
+    return 1;
+  }
+}
+
+
 /*
  * @brief Construct a flow key corresponding to an IPFIX data record.
  *
@@ -69,29 +81,29 @@ void ipfix_flow_key_init(struct flow_key *key,
       field_length = cur_template->fields[i].fixed_length;
     }
 
-    switch (htons(cur_template->fields[i].info_elem_id)) {
+    switch (cur_template->fields[i].info_elem_id) {
       case IPFIX_SOURCE_IPV4_ADDRESS:
         key->sa.s_addr = *(const int *)flow_data;
-        flow_data += htons(field_length);
+        flow_data += field_length;
         break;
       case IPFIX_DESTINATION_IPV4_ADDRESS:
         key->da.s_addr = *(const int *)flow_data;
-        flow_data += htons(field_length);
+        flow_data += field_length;
         break;
       case IPFIX_SOURCE_TRANSPORT_PORT:
-        key->sp = htons(*(const short *)flow_data);
-        flow_data += htons(field_length);
+        key->sp = ntohs(*(const short *)flow_data);
+        flow_data += field_length;
         break;
       case IPFIX_DESTINATION_TRANSPORT_PORT:
-        key->dp = htons(*(const short *)flow_data);
-        flow_data += htons(field_length);
+        key->dp = ntohs(*(const short *)flow_data);
+        flow_data += field_length;
         break;
       case IPFIX_PROTOCOL_IDENTIFIER:
         key->prot = *(const char *)flow_data;
-        flow_data += htons(field_length);
+        flow_data += field_length;
         break;
       default:
-        flow_data += htons(field_length);
+        flow_data += field_length;
         break;
     }
   }
@@ -113,6 +125,7 @@ void ipfix_template_key_init(struct ipfix_template_key *k,
                              unsigned long addr,
                              unsigned long id,
                              unsigned short template_id) {
+  *k = (const struct ipfix_template_key){{0}, 0, 0};
   k->exporter_addr.s_addr = addr;
   k->observe_dom_id = id;
   k->template_id = template_id;
@@ -140,8 +153,8 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     const struct ipfix_template_hdr *template_hdr = template_ptr;
     template_ptr += 4; /* Move past template header */
     template_set_len -= 4;
-    unsigned short template_id = htons(template_hdr->template_id);
-    unsigned short field_count = htons(template_hdr->field_count);
+    unsigned short template_id = ntohs(template_hdr->template_id);
+    unsigned short field_count = ntohs(template_hdr->field_count);
     struct ipfix_template cur_template;
     struct ipfix_template_key template_key;
     int cur_template_pld_len = 0;
@@ -154,12 +167,12 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
      * {source IP + observation domain ID + template ID}
      */
     ipfix_template_key_init(&template_key, rec_key.sa.s_addr,
-                            htonl(ipfix->observe_dom_id), template_id);
+                            ntohl(ipfix->observe_dom_id), template_id);
 
     /* Check to see if template already exists, if so, continue */
     for (i = 0; i < num_ipfix_templates; i++) {
-      if (ipfix_template_key_cmp(&template_key,
-                                 &ix_templates[i].template_key) == 0) {
+      if (ipfix_template_key_cmp(template_key,
+                                 ix_templates[i].template_key) == 0) {
         redundant_template = 1;
         redundant_template_pld_len = ix_templates[i].payload_length;
         break;
@@ -180,14 +193,19 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     for (i = 0; i < field_count; i++) {
       int fld_size = 4;
       const struct ipfix_template_field *tmp_field = template_ptr;
+      const unsigned short host_info_elem_id = ntohs(tmp_field->info_elem_id);
+      const unsigned short host_fixed_length = ntohs(tmp_field->fixed_length);
 
-      cur_template.fields[i].info_elem_id = tmp_field->info_elem_id;
-      cur_template.fields[i].fixed_length = tmp_field->fixed_length;
-      if (ipfix_field_enterprise_bit(tmp_field->info_elem_id)) {
-        /* The enterprise bit is set, so copy that too */
-        cur_template.fields[i].enterprise_num = tmp_field->enterprise_num;
+      if (ipfix_field_enterprise_bit(host_info_elem_id)) {
+        /* The enterprise bit is set, remove from element id */
+        cur_template.fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
+        cur_template.fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
         fld_size = 8;
+      } else {
+        cur_template.fields[i].info_elem_id = host_info_elem_id;
       }
+
+      cur_template.fields[i].fixed_length = host_fixed_length;
 
       template_ptr += fld_size;
       template_set_len -= fld_size;
@@ -245,9 +263,8 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
 
   /* Look for template match */
   for (i = 0; i < num_ipfix_templates; i++) {
-    if (template_key.observe_dom_id == ix_templates[i].template_key.observe_dom_id &&
-        template_key.template_id == ix_templates[i].template_key.template_id &&
-        template_key.exporter_addr.s_addr == ix_templates[i].template_key.exporter_addr.s_addr) {
+    if (ipfix_template_key_cmp(template_key,
+                               ix_templates[i].template_key) == 0) {
       cur_template = &ix_templates[i];
       break;
     }
@@ -272,13 +289,13 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       unsigned short cur_fld_len = cur_template->fields[i].fixed_length;
       if (cur_fld_len == 65535) {
         /* The current field is of variable length */
-        unsigned char fld_len_flag = (unsigned char)*data_ptr; /* Get the first byte FIXME do we need htons? */
+        unsigned char fld_len_flag = (unsigned char)*data_ptr;
         if (fld_len_flag < 255) {
-          actual_fld_len = (unsigned short) fld_len_flag;
+          actual_fld_len = (unsigned short)fld_len_flag;
           /* Fill in the variable length field in global template list */
           cur_template->fields[i].variable_length = actual_fld_len;
         } else if (fld_len_flag == 255) {
-          actual_fld_len = (unsigned short) *(data_ptr + 1);
+          actual_fld_len = ntohs(*(unsigned short *)(data_ptr + 1));
           /* Fill in the variable length field in global template list */
           cur_template->fields[i].variable_length = actual_fld_len;
         } else {
@@ -292,7 +309,6 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       }
       data_ptr += actual_fld_len;
       data_record_size += actual_fld_len;
-      data_field_count -= 1;
     }
 
     /* Reset the data pointer to beginning of first record */
@@ -312,13 +328,14 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
 
       /* Fill out record */
       if (memcmp(&key, prev_data_key, sizeof(struct flow_key)) != 0) {
-        ipfix_process_flow_record(ix_record, cur_template, flow_data, 0);
+        //ipfix_process_flow_record(ix_record, cur_template, flow_data, 0);
       } else {
-        ipfix_process_flow_record(ix_record, cur_template, flow_data, 1);
+        //ipfix_process_flow_record(ix_record, cur_template, flow_data, 1);
       }
       memcpy(prev_data_key, &key, sizeof(struct flow_key));
 
       data_ptr += data_record_size;
+      printf("End of ipfix_parse_data_set :)\n");
     }
   } else {
     /* FIXME hold onto the data set for a certain amount of time since

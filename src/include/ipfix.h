@@ -157,9 +157,9 @@
 struct ipfix_hdr {
   unsigned short version_number;
   unsigned short length;
-  unsigned long export_time;
-  unsigned long sequence_number;
-  unsigned long observe_dom_id;
+  uint32_t export_time;
+  uint32_t sequence_number;
+  uint32_t observe_dom_id;
 };
 
 
@@ -281,8 +281,7 @@ struct ipfix_msg {
 };
 
 
-#define ipfix_template_key_cmp(a, b) memcmp(a, b, sizeof(struct ipfix_template_key))
-#define ipfix_field_enterprise_bit(a) (a & 0x80)
+#define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
 
 void ipfix_flow_key_init(struct flow_key *key,

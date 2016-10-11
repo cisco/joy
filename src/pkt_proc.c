@@ -271,11 +271,11 @@ enum status process_ipfix(const void *start,
 
   const struct ipfix_hdr *ipfix = start;
   const struct ipfix_set_hdr *ipfix_sh;
-  const struct flow_key rec_key = r->key;
   struct flow_key prev_key;
   int set_num = 0;
+  const struct flow_key rec_key = r->key;
 
-  if (ipfix->version_number != 10) {
+  if (ntohs(ipfix->version_number) != 10) {
     if (output_level > none) {
       fprintf(info, "ERROR: ipfix version number is invalid\n");
     }
@@ -307,11 +307,11 @@ enum status process_ipfix(const void *start,
    */
   while (len > 0) {
     ipfix_sh = start;
-    unsigned short set_id = htons(ipfix_sh->set_id);
+    unsigned short set_id = ntohs(ipfix_sh->set_id);
 
     if (output_level > none) {
       fprintf(info,"Set ID: %i\n", set_id);
-      fprintf(info,"Set Length: %i\n", htons(ipfix_sh->length));
+      fprintf(info,"Set Length: %i\n", ntohs(ipfix_sh->length));
     }
 
     if ((set_id <= 1) || ((4 <= set_id) && (set_id <= 255))) {
@@ -346,14 +346,14 @@ enum status process_ipfix(const void *start,
      */
     else {
       const void *data_start = start + 4;
-      int data_set_len = htons(ipfix_sh->length) - 4;
+      int data_set_len = ntohs(ipfix_sh->length) - 4;
 
       ipfix_parse_data_set(ipfix, data_start, data_set_len,
                            set_id, rec_key, &prev_key);
     }
 
-    start += htons(ipfix_sh->length);
-    len -= htons(ipfix_sh->length);
+    start += ntohs(ipfix_sh->length);
+    len -= ntohs(ipfix_sh->length);
     set_num += 1;
   }
 
@@ -757,6 +757,10 @@ process_udp(const struct pcap_pkthdr *h, const void *udp_start, int udp_len, str
 
   if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
     process_nfv9(h, payload, size_payload, record);
+  }
+
+  if (ipfix_capture_port && (key->dp == ipfix_capture_port)) {
+    process_ipfix(payload, size_payload, record);
   }
 
   return record;
