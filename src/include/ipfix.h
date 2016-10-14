@@ -210,8 +210,9 @@ struct ipfix_option_hdr {
 struct ipfix_template_field {
   uint16_t info_elem_id;
   uint16_t fixed_length; /* FIXME make this into union eventually? */
-  uint16_t variable_length;
   uint32_t enterprise_num;
+  uint16_t variable_length;
+  uint8_t var_hdr_length; /**< How many bytes the variable header consists of */
 };
 
 
@@ -312,7 +313,7 @@ void ipfix_process_flow_record(struct flow_record *ix_record,
 
 
 /*
- * @brief Enumeration representing IANA IPFIX field entities.
+ * @brief Enumeration representing IPFIX field entities.
  *
  */
 enum ipfix_entities {
@@ -331,6 +332,18 @@ enum ipfix_entities {
   IPFIX_DESTINATION_IPV4_ADDRESS =                  12,
   IPFIX_DESTINATION_IPV4_PREFIX_LENGTH =            13,
   IPFIX_EGRESS_INTERFACE =                          14,
+  IPFIX_IP_NEXT_HOP_IPV4_ADDRESS =                  15,
+  IPFIX_BGP_SOURCE_AS_NUMBER =                      16,
+  IPFIX_BGP_DESTINATION_AS_NUMBER =                 17,
+  IPFIX_BGP_NEXT_HOP_IPV4_ADDRESS =                 18,
+  IPFIX_POST_MCAST_PACKET_DELTA_COUNT =             19,
+  IPFIX_POST_MCAST_OCTET_DELTA_COUNT =              20,
+  IPFIX_FLOW_END_SYS_UP_TIME =                      21,
+  IPFIX_FLOW_START_SYS_UP_TIME =                    22,
+  IPFIX_BASIC_LIST =                                291,
+  IPFIX_IDP =                                       16386,
+  IPFIX_BYTE_DISTRIBUTION =                         16398,
 };
+
 
 #endif /* IPFIX_H */
