@@ -93,7 +93,8 @@ define_all_features_config_extern_uint(feature_list);
  * Local ipfix.c prototypes
  */
 static int ipfix_loop_data_fields(const unsigned char *data_ptr,
-                                  struct ipfix_template *cur_template);
+                                  struct ipfix_template *cur_template,
+                                  uint16_t *min_record_len);
 
 
 static void ipfix_flow_key_init(struct flow_key *key,
@@ -227,11 +228,11 @@ static void ipfix_template_key_init(struct ipfix_template_key *k,
  */
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
                              const void *template_start,
-                             int set_len,
+                             uint16_t set_len,
                              const struct flow_key rec_key) {
 
   const void *template_ptr = template_start;
-  int template_set_len = set_len;
+  uint16_t template_set_len = set_len;
 
   while (template_set_len > 0) {
     const struct ipfix_template_hdr *template_hdr = template_ptr;
@@ -327,13 +328,21 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
  * @return 0 for failure, >0 for success
  */
 static int ipfix_loop_data_fields(const unsigned char *data_ptr,
-                           struct ipfix_template *cur_template) {
+                                  struct ipfix_template *cur_template,
+                                  uint16_t *min_record_len) {
   int i;
+  int flag_min_record = 0;
   int data_record_size = 0;
   uint16_t data_field_count = cur_template->hdr.field_count;
+
+  if (*min_record_len == 0) {
+    flag_min_record = 1;
+  }
+
   for (i = 0; i < data_field_count; i++) {
     int variable_length_hdr = 0;
     uint16_t actual_fld_len = 0;
+    uint16_t min_field_len = 0;
     uint16_t cur_fld_len = cur_template->fields[i].fixed_length;
     if (cur_fld_len == 65535) {
       /* The current field is of variable length */
@@ -345,6 +354,7 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
         /* RFC 7011 section 7, Figure R. */
         cur_template->fields[i].var_hdr_length = 1;
         variable_length_hdr += 1;
+        min_field_len = 1;
       } else if (fld_len_flag == 255) {
         actual_fld_len = ntohs(*(unsigned short *)(data_ptr + 1));
         /* Fill in the variable length field in global template list */
@@ -352,6 +362,7 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
         /* RFC 7011 section 7, Figure S. */
         cur_template->fields[i].var_hdr_length = 3;
         variable_length_hdr += 3;
+        min_field_len = 3;
       } else {
         /* Error, invalid variable length */
         loginfo("error: bad variable length");
@@ -360,6 +371,11 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
     } else {
       /* Fixed length field */
       actual_fld_len = cur_fld_len;
+      min_field_len = actual_fld_len;
+    }
+
+    if (flag_min_record) {
+      *min_record_len += min_field_len;
     }
     data_ptr += actual_fld_len + variable_length_hdr;
     data_record_size += actual_fld_len + variable_length_hdr;
@@ -385,16 +401,17 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
  */
 int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          const void *data_start,
-                         int set_len,
+                         uint16_t set_len,
                          uint16_t set_id,
                          const struct flow_key rec_key,
                          struct flow_key *prev_data_key) {
 
   const unsigned char *data_ptr = data_start;
-  int data_set_len = set_len;
+  uint16_t data_set_len = set_len;
   uint16_t template_id = set_id;
   struct ipfix_template_key template_key;
   struct ipfix_template *cur_template = NULL;
+  uint16_t min_record_len = 0;
   int i;
 
   /* Define data template key:
@@ -418,13 +435,14 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
     struct flow_record *ix_record;
 
     /* Process all data records in set */
-    while (data_set_len > 0){
+    while (data_set_len > min_record_len){
       int data_record_size = 0;
       /*
        * Get the size of this data record, and store field variable lengths
        * in the current template.
        */
-      if(!(data_record_size = ipfix_loop_data_fields(data_ptr, cur_template))){
+      if(!(data_record_size = ipfix_loop_data_fields(data_ptr, cur_template,
+                                                     &min_record_len))){
         return 1;
       }
 
@@ -443,7 +461,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       memcpy(prev_data_key, &key, sizeof(struct flow_key));
 
       data_ptr += data_record_size;
-      data_set_len -= 1;
+      data_set_len -= data_record_size;
     }
   } else {
     /* FIXME hold onto the data set for a certain amount of time since
@@ -473,7 +491,7 @@ static int ipfix_skip_idp_header(struct flow_record *ix_record,
   unsigned char proto = 0;
   const struct ip_hdr *ip;
   unsigned int ip_hdr_len;
-  const unsigned char *flow_data = ix_record->idp;
+  const void *flow_data = ix_record->idp;
   unsigned int flow_len = ix_record->idp_len;
 
   /* define/compute ip header offset */
@@ -483,6 +501,7 @@ static int ipfix_skip_idp_header(struct flow_record *ix_record,
     /*
      * FIXME Does not handle packets with all 0s.
      */
+    loginfo("error: invalid ip header of len %d", ip_hdr_len);
     return 1;
   }
 
@@ -491,7 +510,8 @@ static int ipfix_skip_idp_header(struct flow_record *ix_record,
      * IP packet is malformed (shorter than a complete IP header, or
      * claims to be longer than the total IDP length).
      */
-    loginfo("error: ip packet malformed");
+    loginfo("error: ip packet malformed, ip_len: %d flow_len: %d",
+            ntohs(ip->ip_len), flow_len);
     return 1;
   }
 

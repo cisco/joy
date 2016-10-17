@@ -326,7 +326,7 @@ enum status process_ipfix(const void *start,
     else if (set_id == 2) {
       /* Set template pointer to right after set header */
       const void *template_start = start + 4;
-      int template_set_len = htons(ipfix_sh->length) - 4;
+      uint16_t template_set_len = htons(ipfix_sh->length) - 4;
 
       /* Parse the template set */
       ipfix_parse_template_set(ipfix, template_start,
@@ -346,7 +346,7 @@ enum status process_ipfix(const void *start,
      */
     else {
       const void *data_start = start + 4;
-      int data_set_len = ntohs(ipfix_sh->length) - 4;
+      uint16_t data_set_len = ntohs(ipfix_sh->length) - 4;
 
       ipfix_parse_data_set(ipfix, data_start, data_set_len,
                            set_id, rec_key, &prev_key);

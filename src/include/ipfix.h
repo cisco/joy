@@ -294,13 +294,13 @@ struct ipfix_msg {
 
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
                          const void *template_start,
-                         int template_set_len,
+                         uint16_t set_len,
                          const struct flow_key rec_key);
 
 
 int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          const void *data_start,
-                         int data_set_len,
+                         uint16_t set_len,
                          uint16_t set_id,
                          const struct flow_key rec_key,
                          struct flow_key *prev_key);
