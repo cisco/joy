@@ -72,12 +72,15 @@ struct host_flow {
 
 #ifdef LINUX 
 
+#if 0
 static void exe_name_get_hash (const char *exe_name, char *hash) {
     char buf[HASH_LEN] = "cafebabefacedbaddecaf"; /* for testing only */
 
     memcpy(hash, buf, HASH_LEN);
 }
+#endif
 
+#if 0
 static void host_flow_print (const struct host_flow *hf) {
     const struct flow_key *key = &hf->key;
 
@@ -93,6 +96,7 @@ static void host_flow_print (const struct host_flow *hf) {
 	     inet_ntoa(key->da), key->dp, 
 	     key->prot, hf->exe_name);
 }
+#endif
 
 #define host_flow_hash_mask 0x000000ff
 
@@ -108,6 +112,7 @@ static void host_flow_table_init () {
     memset(host_flow_table_array, 0, sizeof(host_flow_table_array));
 }
 
+#if 0
 static void host_flow_table_print () {
     unsigned int i;
     struct host_flow *record = NULL; 
@@ -120,6 +125,7 @@ static void host_flow_table_print () {
         }
     }
 }
+#endif
 
 #define CREATE_NEW 1
 #define DONT_CREATE_NEW 0
