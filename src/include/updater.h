@@ -46,16 +46,9 @@
 #define UPD_H
 
 #include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <errno.h>
-#include <pcap.h>
-#include <signal.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
-#include <errno.h>
 #include <pthread.h>
 #include "radix_trie.h"
 

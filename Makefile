@@ -49,15 +49,25 @@ export DOCDIR = $(ROOT_PATH)/doc
 ##
 # main executable and unit test program
 ##
-pcap2flow: FORCE
+all: 
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
-FORCE:
+pcap2flow:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) pcap2flow
 
 unit_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
-	@cd src; $(MAKE) $(MAKEFLAGS)
+	@cd src; $(MAKE) $(MAKEFLAGS) unit_test
+
+jfd-anon:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) jfd-anon
+
+str_match_test:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) str_match_test
 
 ##
 # testing

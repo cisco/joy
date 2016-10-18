@@ -34,10 +34,10 @@
  *
  */
 
-/*
- * unit_test.c
+/**
+ * \file unit_test.c
  *
- * unit tests for various functions
+ * \brief unit tests for various functions
  */
 
 #include <stdio.h>
@@ -52,22 +52,29 @@
  */
 FILE *info;
 
-int main(int argc, char *argv[]) {
+/**
+ * \fn int main (int argc, char *argv[]) 
+ * \brief main entry point for unit test execution
+ * \param argc command line argument count
+ * \param argv command line arguments
+ * \return 0
+ */
+int main (int argc, char *argv[]) {
 
-  /*
-   * use stderr for debug output 
-   */
-  info = stderr; 
+    /*
+     * use stderr for debug output 
+     */
+    info = stderr; 
 
-  if (radix_trie_unit_test() != 0) {
-    printf("error: radix_trie test failed\n");
-  } else {
-    printf("radix_trie tests passed\n");
-  }
+    if (radix_trie_unit_test() != 0) {
+        printf("error: radix_trie test failed\n");
+    } else {
+        printf("radix_trie tests passed\n");
+    }
 
-  unit_test_all_features(feature_list);
-  flow_record_list_unit_test();
-  dns_unit_test();
-
-  return 0;
+    unit_test_all_features(feature_list);
+    flow_record_list_unit_test();
+    dns_unit_test();
+  
+    return 0;
 }

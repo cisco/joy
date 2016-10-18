@@ -34,10 +34,10 @@
  *
  */
 
-/*
- * addr.h
+/**
+ * \file addr.h
  *
- * interface to network address functions (IPv4 only for now)
+ * \brief interface to network address functions (IPv4 only for now)
  */
 
 #ifndef ADDR_H
@@ -46,10 +46,10 @@
 #include <sys/socket.h>    
 #include <netinet/in.h>
 
-
+/** returns the ipv4 mask */
 unsigned int ipv4_mask(unsigned int masklen);
 
+/** returns the ipv4 address mask */
 unsigned int addr_mask(unsigned int addr, unsigned int masklen);
-
 
 #endif /* ADDR_H */

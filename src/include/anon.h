@@ -34,17 +34,12 @@
  *
  */
 
-/*
- * anon.h
+/**
+ * \file anon.h
  *
- * address anonymization
- */
-
-#ifndef ANON_H
-#define ANON_H 
-
-/*
- * The anonymization key is generated via calls to /dev/random, and is
+ * \brief address anonymization interface
+ *
+ ** The anonymization key is generated via calls to /dev/random, and is
  * stored in the file ANON_KEYFILE in encrypted form, with the
  * decryption key being stored inside the executable.  A user who can
  * access ANON_KEYFILE and the executable will be able to determine
@@ -52,15 +47,19 @@
  * control on ANON_KEYFILE in particular.
  */
 
-#include <stdio.h>          /* for FILE */
-#include <netinet/in.h>     /* for struct in_addr */
+#ifndef ANON_H
+#define ANON_H 
+
+#include <stdio.h> 
+#include <netinet/in.h> 
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <openssl/aes.h>
 #include "err.h"
 #include "output.h"
+#include "str_match.h"
 
-
+/** modes of anonymization */
 enum anon_mode {
   null_mode        = 0,
   mode_anonymize   = 1,
@@ -68,67 +67,77 @@ enum anon_mode {
   mode_deanonymize = 3
 };
 
+/** default key file name */
 #define ANON_KEYFILE_DEFAULT "pcap2flow.bin"
 
-//struct subnet {
-//  struct in_addr addr;
-//  struct in_addr mask;
-//};
-
+/** maximum number of subnets that can be anonymized */
 #define MAX_ANON_SUBNETS 256
 
-/*
- * anon_init(subnetfile, logfile) initializes anonymization using the
- * subnets in the file subnetfile and sets the secondary output to
- * logfile
+/** prototype for character operations */
+typedef int (*char_selector)(char *ptr);
+
+/** stucture used for anonimzed subnets */
+typedef struct {
+  struct in_addr addr;
+  struct in_addr mask;
+} anon_subnet_t;
+
+/**
+ * \brief initializes anonymization using the subnets in the
+ * file subnetfile and sets the secondary output to logfile
  */
 enum status anon_init(const char *pathname, FILE *logfile);
 
-enum status anon_subnet_add_from_string(char *addr);
-
+/** \brief prints the subnets that have been anonymized to output file */
 int anon_print_subnets(FILE *f);
 
+/** \brief converts an address into an anonymized string */
 char *addr_get_anon_hexstring(const struct in_addr *a);
 
+/** \brief determines if address is to be anonymized */
 unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 
-
-/* END address anonymization  */
-
-// enum status anon_string(char *s, unsigned int len, char hex[33]);
-
-#include "str_match.h"
-
+/** \brief initialize the http anonymization */
 enum status anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, char *anon_keyfile);
 
+/** \brief prints out '*' for length of the string */
 void zprintf_anon_nbytes(zfile f, char *s, size_t len);
 
+/** \brief prints out number of bytes specified */
 void zprintf_nbytes(zfile f, char *s, size_t len);
 
+/** \brief prints out URI with or without anonymization depending on URI status */
 void anon_print_uri(zfile f, struct matches *matches, char *text);
 
+/** \brief finds special characters in email addresses */
 int email_special_chars(char *ptr);
 
+/** \brief determines if characters are special or not */
 int is_special(char *ptr);
 
-typedef int (*char_selector)(char *ptr);
-
+/** \brief prints out a string with or without anonymization depending on matching criteria */
 void anon_print_string(zfile f, 
 		       struct matches *matches, 
 		       char *text, 
 		       char_selector selector, 
 		       string_transform transform);
 
-
+/** \brief anonumizes a string */
 enum status anon_string(const char *s, unsigned int len, char *hex, unsigned int outlen);
 
+/** \brief deanonymizes a string */
 enum status deanon_string(const char *hexinput, unsigned int len, char *s, unsigned int outlen);
 
-
+/** \brief prints a URI anonymized if applicable */
 void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text);
 
+/** \brief prints usersnames anonymized if applicable */
 void zprintf_usernames(zfile f, struct matches *matches, char *text, char_selector selector, string_transform transform);
 
+/** \brief initializes the key used for anonymization routines */
 enum status key_init(char *ANON_KEYFILE);
+
+/** \brief anonymization unit test main entry point */
+int anon_unit_test();
 
 #endif /* ANON_H */

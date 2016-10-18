@@ -34,10 +34,10 @@
  *
  */
 
-/*
- * classify.h
+/**
+ * \file classify.h
  *
- * header file for inline Classification functionality
+ * \brief header file for inline Classification functionality
  */
 
 #ifndef CLASSIFY_H
@@ -59,30 +59,19 @@ extern float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG];
 
 /* Classifier functions */
 float classify(const unsigned short *pkt_len, const struct timeval *pkt_time,
-	       const unsigned short *pkt_len_twin, const struct timeval *pkt_time_twin,
-	       struct timeval start_time, struct timeval start_time_twin, uint32_t max_num_pkt_len,
-	       uint16_t sp, uint16_t dp, uint32_t op, uint32_t ip, uint32_t np_o, uint32_t np_i,
-		 uint32_t ob, uint32_t ib, uint16_t use_bd, const uint32_t *bd, const uint32_t *bd_t);
+       const unsigned short *pkt_len_twin, const struct timeval *pkt_time_twin,
+       struct timeval start_time, struct timeval start_time_twin, uint32_t max_num_pkt_len,
+       uint16_t sp, uint16_t dp, uint32_t op, uint32_t ip, uint32_t np_o, uint32_t np_i,
+       uint32_t ob, uint32_t ib, uint16_t use_bd, const uint32_t *bd, const uint32_t *bd_t);
 
 void merge_splt_arrays(const uint16_t *pkt_len, const struct timeval *pkt_time, 
-		       const uint16_t *pkt_len_twin, const struct timeval *pkt_time_twin,
-		       struct timeval start_time, struct timeval start_time_twin,
-		       uint16_t s_idx, uint16_t r_idx,
-		       uint16_t *merged_lens, uint16_t *merged_times,
-		       uint32_t max_num_pkt_len, uint32_t max_merged_num_pkts);
-
-void get_mc_rep_lens(uint16_t *lens, float *mc_lens, uint16_t num_packets);
-
-void get_mc_rep_times(uint16_t *times, float *mc_times, uint16_t num_packets);
+       const uint16_t *pkt_len_twin, const struct timeval *pkt_time_twin,
+       struct timeval start_time, struct timeval start_time_twin,
+       uint16_t s_idx, uint16_t r_idx,
+       uint16_t *merged_lens, uint16_t *merged_times,
+       uint32_t max_num_pkt_len, uint32_t max_merged_num_pkts);
 
 void update_params(char *splt_params, char *bd_params);
 
 #endif /* CLASSIFY_H */
-
-
-
-
-
-
-
 

@@ -34,33 +34,26 @@
  *
  */
 
-/*
- * addr_attr.h 
+/**
+ * \file addr_attr.h 
  *
- * address attributes header file 
+ * \brief address attributes header file 
  */
 
 #ifndef ADDR_ATTR_H 
 #define ADDR_ATTR_H
 
-/*
- * attr_flags is a bitmask, each bit of which corresponds to an
- * attribute
- */
+/** attr_flags is a bitmask, each bit of which corresponds to an attribute */
 typedef unsigned int attr_flags;
 
 
-/*
- * attr_get_next_flag(aptr) finds the next flag that is true (set to
- * one) in the attr_flags value pointed to by aptr, changes that value
+/**
+ * \brief finds the next flag that is true (set to one) in the 
+ * attr_flags value pointed to by aptr, changes that value
  * by unsetting that flag (setting it to zero), then returns the
  * attr_flag that has only that flag set.  If the value *aptr is equal
  * to zero, then zero is returned.
  */
-
-attr_flags
-attr_get_next_flag(attr_flags *aptr);
-
-
+attr_flags attr_get_next_flag(attr_flags *aptr);
 
 #endif /* ADDR_ATTR_H */

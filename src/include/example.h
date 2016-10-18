@@ -34,44 +34,51 @@
  *
  */
 
-/*
- * example.h
+/**
+ * \file example.h
  *
- * An example of a data feature module that uses the C preprocessor
- * generic programming interface defined in feature.h.
+ * \brief example generic programming interface defined in feature.h.
  *
  */
-
 #ifndef EXAMPLE_H
 #define EXAMPLE_H
 
-#include <stdio.h>   /* for FILE* */
+#include <stdio.h> 
 #include "output.h"
 #include "feature.h"
 
+/** usage string */
 #define example_usage "  example=1                  include example feature\n"
 
+/** example filter key */
+#define example_filter(key) 1
+  
+/** example structure */
 typedef struct example {
   unsigned int counter;
 } example_t;
 
+
 declare_feature(example);
 
+/** initialization function */
 void example_init(struct example *example);
 
+/** update example */
 void example_update(struct example *example, 
 		    const void *data, 
 		    unsigned int len, 
 		    unsigned int report_example);
 
+/** JSON print example */
 void example_print_json(const struct example *w1, 
 		    const struct example *w2,
 		    zfile f);
 
+/** delete example */
 void example_delete(struct example *example);
 
+/** example unit test entry point */
 void example_unit_test();
 
-#define example_filter(key) 1
-  
 #endif /* EXAMPLE_H */

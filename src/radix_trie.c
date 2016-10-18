@@ -152,7 +152,6 @@ static inline void rt_free (void *p) {
 
 /**
  * \fn struct radix_trie *radix_trie_alloc()
- * \brief main entry for allocating a new radix trie structue
  * \params none
  * \return pointer to radix_trie structure
  */
@@ -198,7 +197,6 @@ static struct radix_trie_leaf *radix_trie_leaf_init (attr_flags value) {
 
 /**
  * \fn attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
- * \brief function to lookup an address in the radix trie
  * \param trie radix_trie pointer
  * \param addr address to lookup in the radix_trie
  * \return flags of the node found
@@ -275,7 +273,6 @@ static void radix_trie_node_add_flag_to_all_leaves (const struct radix_trie_node
 
 /**
  * \fn enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags)
- * \brief Function to add a subnet into the radix trie
  * \param trie radix_trie to use for the addition
  * \param addr address to add into the trie
  * \param netmasklen network mask length of the address to add
@@ -461,7 +458,6 @@ static void attr_flags_print_labels (const struct radix_trie *rt, attr_flags f) 
 
 /**
  * \fn void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, char *prefix, zfile file)
- * \brief function to print out labels in a trie in JSON format
  * \param rt radix_trie pointer
  * \param f attribute flags
  * \param prefix prefix to use for JSON output
@@ -493,7 +489,6 @@ void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, ch
 
 /**
  * \fn enum status radix_trie_init (struct radix_trie *rt)
- * \brief function to initialize the radix trie
  * \param rt radix_trie pointer to initialize
  * \return ok
  * \return failure
@@ -542,7 +537,6 @@ static enum status radix_trie_deep_free (const struct radix_trie_node *rt) {
 
 /**
  * \fn enum status radix_trie_free (struct radix_trie *r)
- * \brief main function entry to free up a radix trie and all its nodes
  * \param r radix_trie pointer to free up
  * \return ok
  */
@@ -624,7 +618,6 @@ static enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, cha
 
 /**
  * \fn enum status radix_trie_add_subnets_from_file (struct radix_trie *rt, const char *pathname, attr_flags attr, FILE *logfile)
- * \brief Function to add subnet to radix trie from a file
  * \param rt radix_trie pointer
  * \param pathname path and filename of the subnets file to be added
  * \param attr flags to be associated with the subnets
@@ -824,7 +817,6 @@ static int radix_trie_high_level_unit_test () {
 
 /** 
  * \fn int radix_trie_unit_test()
- * \brief Function to perform a rdix trie unit test
  * \params none
  * \return 0 on success
  * \return 1 on failure

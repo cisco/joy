@@ -68,7 +68,8 @@ static FILE *print_dest = NULL;
 #define loginfo(...) { \
       if (TO_SCREEN) print_dest = stderr; else print_dest = info; \
       fprintf(print_dest,"%s: ", __FUNCTION__); \
-      fprintf(print_dest, __VA_ARGS__); }
+      fprintf(print_dest, __VA_ARGS__); \
+      fprintf(print_dest, "\n"); }
 
 pthread_mutex_t radix_trie_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t work_in_process = PTHREAD_MUTEX_INITIALIZER;
@@ -277,7 +278,7 @@ static upd_return_codes_t update_radix_trie ()
 
 /**
  * \fn void *updater_main (void *ptr)
- * \brief Main Updater processing function and runs as a thread off of pcap2flow.
+ * \brief Runs as a thread off of pcap2flow.
  *        Updater is only active during live processing runs.
  *        Updater terminates automatically when pcap2flow exits due to the nature of
  *        how pthreads work.

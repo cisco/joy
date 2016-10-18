@@ -33,7 +33,12 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
+/**
+ * \file nfv9.h
+ *
+ * \brief netflow version 9 interface 
+ *
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -44,12 +49,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <time.h>
-
 #include "p2f.h"
 
-#define NFV9_MAX_ELEMENTS 10
-
-/*
+/**
+  \remarks \verbatim
   
   Netflow v9 (RFC 3959)
 
@@ -146,131 +149,132 @@
    |              ...              |            Padding            |
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
+  \endverbatim
 */
 
+/** maximum netflow v9 elements */
+#define NFV9_MAX_ELEMENTS 10
 
 enum nfv9_type {                                 
-  RESERVED =                       0,                         
-  IN_BYTES =                       1,       
-  IN_PKTS =                        2,      
-  FLOWS =                          3,      
-  PROTOCOL =                       4,      
-  TOS =                            5,      
-  //  TCP_FLAGS =                      6,     
-  L4_SRC_PORT =                    7,     
-  IPV4_SRC_ADDR =                  8,     
-  SRC_MASK =                       9,     
-  INPUT_SNMP =                    10,     
-  L4_DST_PORT =                   11,     
-  IPV4_DST_ADDR =                 12,     
-  DST_MASK =                      13,     
-  OUTPUT_SNMP =                   14,     
-  IPV4_NEXT_HOP =                 15,     
-  SRC_AS =                        16,     
-  DST_AS =                        17,     
-  BGP_IPV4_NEXT_HOP =             18,     
-  MUL_DST_PKTS =                  19,     
-  MUL_DST_BYTES =                 20,     
-  LAST_SWITCHED =                 21,     
-  FIRST_SWITCHED =                22,     
-  OUT_BYTES =                     23,     
-  OUT_PKTS =                      24,     
-  IPV6_SRC_ADDR =                 27,     
-  IPV6_DST_ADDR =                 28,     
-  IPV6_SRC_MASK =                 29,     
-  IPV6_DST_MASK =                 30,     
-  IPV6_FLOW_LABEL =               31,     
-  ICMP_TYPE =                     32,     
-  MUL_IGMP_TYPE =                 33,     
-  SAMPLING_INTERVAL =             34,     
-  SAMPLING_ALGORITHM =            35,     
-  FLOW_ACTIVE_TIMEOUT =           36,     
-  FLOW_INACTIVE_TIMEOUT =         37,     
-  ENGINE_TYPE =                   38,     
-  ENGINE_ID =                     39,     
-  TOTAL_BYTES_EXP =               40,     
-  TOTAL_PKTS_EXP =                41,     
-  TOTAL_FLOWS_EXP =               42,   
-  IPV4_SRC_PREFIX =               44,   
-  IPV4_DST_PREFIX =               45,   
-  MPLS_TOP_LABEL_TYPE =           46,   
-  MPLS_TOP_LABEL_IP_ADDR =        47,     
-  FLOW_SAMPLER_ID =               48,     
-  FLOW_SAMPLER_MODE =             49,     
-  FLOW_SAMPLER_RANDOM_INTERVAL =  50,   
-  MIN_TTL =                       52,   
-  MAX_TTL =                       53,   
-  IPV4_IDENT =                    54,   
-  DST_TOS =                       55,     
-  SRC_MAC =                       56,     
-  DST_MAC =                       57,     
-  SRC_VLAN =                      58,     
-  DST_VLAN =                      59,     
-  IP_PROTOCOL_VERSION =           60,     
-  DIRECTION =                     61,     
-  IPV6_NEXT_HOP =                 62,    
-  BGP_IPV6_NEXT_HOP =             63,    
-  IPV6_OPTION_HEADERS =           64,   
-  MPLS_LABEL_1 =                  70,     
-  MPLS_LABEL_2 =                  71,     
-  MPLS_LABEL_3 =                  72,     
-  MPLS_LABEL_4 =                  73,     
-  MPLS_LABEL_5 =                  74,     
-  MPLS_LABEL_6 =                  75,     
-  MPLS_LABEL_7 =                  76,     
-  MPLS_LABEL_8 =                  77,     
-  MPLS_LABEL_9 =                  78,     
-  MPLS_LABEL_10 =                 79,     
-  IN_DST_MAC =                    80,   
-  OUT_SRC_MAC =                   81,   
-  IF_NAME =                       82,   
-  IF_DESC =                       83,   
-  SAMPLER_NAME =                  84,   
-  IN_PERMANENT_BYTES =            85,   
-  IN_PERMANENT_PKTS =             86,   
-  FRAGMENT_OFFSET =               88,   
-  FORWARDING_STATUS =             89,   
-  MPLS_PAL_RD =                   90,   
-  MPLS_PREFIX_LEN =               91,   
-  SRC_TRAFFIC_INDEX =             92,   
-  DST_TRAFFIC_INDEX =             93,   
-  APPLICATION_DESCRIPTION =       94,   
-  APPLICATION_TAG =               95,   
-  APPLICATION_NAME =              96,   
-  postipDiffServCodePoint =       98,   
-  replication_factor =            99,   
-  layer2packetSectionOffset =    102,   
-  layer2packetSectionSize =      103,   
-  layer2packetSectionData =      104,   
-  IDP =                        16386,
-  SPLT =                       16387,
-  SALT =                       16388,
-  SPLT_NGA =                   16389,
-  BYTE_DISTRIBUTION =          16390,
-  TLS_SRLT =                   16391,
-  TLS_CS =                     16392,
-  TLS_EXT =                    16393,
-  TLS_VERSION =                16394,
-  TLS_CLIENT_KEY_LENGTH =      16395,
-  TLS_SESSION_ID =             16396,
-  TLS_HELLO_RANDOM =           16397
+    RESERVED =                       0,                         
+    IN_BYTES =                       1,       
+    IN_PKTS =                        2,      
+    FLOWS =                          3,      
+    PROTOCOL =                       4,      
+    TOS =                            5,      
+    //  TCP_FLAGS =                      6,     
+    L4_SRC_PORT =                    7,     
+    IPV4_SRC_ADDR =                  8,     
+    SRC_MASK =                       9,     
+    INPUT_SNMP =                    10,     
+    L4_DST_PORT =                   11,     
+    IPV4_DST_ADDR =                 12,     
+    DST_MASK =                      13,     
+    OUTPUT_SNMP =                   14,     
+    IPV4_NEXT_HOP =                 15,     
+    SRC_AS =                        16,     
+    DST_AS =                        17,     
+    BGP_IPV4_NEXT_HOP =             18,     
+    MUL_DST_PKTS =                  19,     
+    MUL_DST_BYTES =                 20,     
+    LAST_SWITCHED =                 21,     
+    FIRST_SWITCHED =                22,     
+    OUT_BYTES =                     23,     
+    OUT_PKTS =                      24,     
+    IPV6_SRC_ADDR =                 27,     
+    IPV6_DST_ADDR =                 28,     
+    IPV6_SRC_MASK =                 29,     
+    IPV6_DST_MASK =                 30,     
+    IPV6_FLOW_LABEL =               31,     
+    ICMP_TYPE =                     32,     
+    MUL_IGMP_TYPE =                 33,     
+    SAMPLING_INTERVAL =             34,     
+    SAMPLING_ALGORITHM =            35,     
+    FLOW_ACTIVE_TIMEOUT =           36,     
+    FLOW_INACTIVE_TIMEOUT =         37,     
+    ENGINE_TYPE =                   38,     
+    ENGINE_ID =                     39,     
+    TOTAL_BYTES_EXP =               40,     
+    TOTAL_PKTS_EXP =                41,     
+    TOTAL_FLOWS_EXP =               42,   
+    IPV4_SRC_PREFIX =               44,   
+    IPV4_DST_PREFIX =               45,   
+    MPLS_TOP_LABEL_TYPE =           46,   
+    MPLS_TOP_LABEL_IP_ADDR =        47,     
+    FLOW_SAMPLER_ID =               48,     
+    FLOW_SAMPLER_MODE =             49,     
+    FLOW_SAMPLER_RANDOM_INTERVAL =  50,   
+    MIN_TTL =                       52,   
+    MAX_TTL =                       53,   
+    IPV4_IDENT =                    54,   
+    DST_TOS =                       55,     
+    SRC_MAC =                       56,     
+    DST_MAC =                       57,     
+    SRC_VLAN =                      58,     
+    DST_VLAN =                      59,     
+    IP_PROTOCOL_VERSION =           60,     
+    DIRECTION =                     61,     
+    IPV6_NEXT_HOP =                 62,    
+    BGP_IPV6_NEXT_HOP =             63,    
+    IPV6_OPTION_HEADERS =           64,   
+    MPLS_LABEL_1 =                  70,     
+    MPLS_LABEL_2 =                  71,     
+    MPLS_LABEL_3 =                  72,     
+    MPLS_LABEL_4 =                  73,     
+    MPLS_LABEL_5 =                  74,     
+    MPLS_LABEL_6 =                  75,     
+    MPLS_LABEL_7 =                  76,     
+    MPLS_LABEL_8 =                  77,     
+    MPLS_LABEL_9 =                  78,     
+    MPLS_LABEL_10 =                 79,     
+    IN_DST_MAC =                    80,   
+    OUT_SRC_MAC =                   81,   
+    IF_NAME =                       82,   
+    IF_DESC =                       83,   
+    SAMPLER_NAME =                  84,   
+    IN_PERMANENT_BYTES =            85,   
+    IN_PERMANENT_PKTS =             86,   
+    FRAGMENT_OFFSET =               88,   
+    FORWARDING_STATUS =             89,   
+    MPLS_PAL_RD =                   90,   
+    MPLS_PREFIX_LEN =               91,   
+    SRC_TRAFFIC_INDEX =             92,   
+    DST_TRAFFIC_INDEX =             93,   
+    APPLICATION_DESCRIPTION =       94,   
+    APPLICATION_TAG =               95,   
+    APPLICATION_NAME =              96,   
+    postipDiffServCodePoint =       98,   
+    replication_factor =            99,   
+    layer2packetSectionOffset =    102,   
+    layer2packetSectionSize =      103,   
+    layer2packetSectionData =      104,   
+    IDP =                        16386,
+    SPLT =                       16387,
+    SALT =                       16388,
+    SPLT_NGA =                   16389,
+    BYTE_DISTRIBUTION =          16390,
+    TLS_SRLT =                   16391,
+    TLS_CS =                     16392,
+    TLS_EXT =                    16393,
+    TLS_VERSION =                16394,
+    TLS_CLIENT_KEY_LENGTH =      16395,
+    TLS_SESSION_ID =             16396,
+    TLS_HELLO_RANDOM =           16397
 };
 
 
 struct nfv9_field_type {
-  char *FieldName;
-  u_short Value;
-  u_short Length;
+    char *FieldName;
+    u_short Value;
+    u_short Length;
 };
 
 #define min(a,b) \
-  ({ __typeof__ (a) _a = (a); \
-  __typeof__ (b) _b = (b); \
-  _a < _b ? _a : _b; })
+    ({ __typeof__ (a) _a = (a); \
+    __typeof__ (b) _b = (b); \
+    _a < _b ? _a : _b; })
 
 #define MAX_TYPES 105
-
-struct nfv9_field_type *get_nfv9_field_type(u_short typecode);
 
 /* forwarding_status
 
@@ -309,152 +313,101 @@ Consumed
 */
 
 struct nfv9_hdr {
-  u_short VersionNumber;
-  u_short Count;
-  u_int sysUpTime;
-  u_int UNIXSecs;
-  u_int SequenceNumber;
-  u_int SourceID;
+    u_short VersionNumber;
+    u_short Count;
+    u_int sysUpTime;
+    u_int UNIXSecs;
+    u_int SequenceNumber;
+    u_int SourceID;
 };
 
 struct nfv9_flowset_hdr {
-  u_short FlowSetID;
-  u_short Length;
+    u_short FlowSetID;
+    u_short Length;
 };
 
 struct nfv9_template_hdr {
-  u_short TemplateID;
-  u_short FieldCount;
+    u_short TemplateID;
+    u_short FieldCount;
 };
 
 struct nfv9_template_field {
-  u_short FieldType;
-  u_short FieldLength;
+    u_short FieldType;
+    u_short FieldLength;
 };
 
 #define NFV9_MAX_LEN 1480
 #define NFV9_MAX_FIELDS (NFV9_MAX_LEN/4)
 
 struct nfv9_template_key {
-  struct in_addr src_addr;
-  u_long src_id;
-  u_short template_id;
+    struct in_addr src_addr;
+    u_long src_id;
+    u_short template_id;
 };
 
 struct nfv9_template {
-  struct nfv9_template_key template_key;
-  struct nfv9_template_hdr hdr;
-  struct nfv9_template_field fields[NFV9_MAX_FIELDS];
+    struct nfv9_template_key template_key;
+    struct nfv9_template_hdr hdr;
+    struct nfv9_template_field fields[NFV9_MAX_FIELDS];
 };
 
 struct nfv9_template_flowset {
-  struct nfv9_flowset_hdr flowset_hdr;
-  u_char flowset[NFV9_MAX_LEN];
+    struct nfv9_flowset_hdr flowset_hdr;
+    u_char flowset[NFV9_MAX_LEN];
 };
 
 struct nfv9_data_flowset {
-  struct nfv9_flowset_hdr flowset_hdr;
-  u_char flowset[NFV9_MAX_LEN];
+    struct nfv9_flowset_hdr flowset_hdr;
+    u_char flowset[NFV9_MAX_LEN];
 };
 
 struct nfv9_option_flowset {
-  struct nfv9_flowset_hdr flowset_hdr;
-  u_char flowset[NFV9_MAX_LEN];
+    struct nfv9_flowset_hdr flowset_hdr;
+    u_char flowset[NFV9_MAX_LEN];
 };
 
 struct nfv9_exporter {
-  struct sockaddr_in exprt_addr;  /* exporter address */
-  struct sockaddr_in clctr_addr;  /* collector address */
-  int socket;
-  time_t sysUpTime;
-  unsigned int msg_count;
-  struct nfv9_option_flowset option_flowset;
+    struct sockaddr_in exprt_addr;  /* exporter address */
+    struct sockaddr_in clctr_addr;  /* collector address */
+    int socket;
+    time_t sysUpTime;
+    unsigned int msg_count;
+    struct nfv9_option_flowset option_flowset;
 };
 
 struct nfv9_msg {
-  struct nfv9_hdr hdr;
-  union { 
-    struct nfv9_template_flowset template_fs;
-    struct nfv9_data_flowset     data_fs;
-    struct nfv9_option_flowset   option_fs;
-  } flowset;
+    struct nfv9_hdr hdr;
+    union { 
+        struct nfv9_template_flowset template_fs;
+        struct nfv9_data_flowset     data_fs;
+        struct nfv9_option_flowset   option_fs;
+    } flowset;
 };
 
 typedef void (*template_handler_func)(void *, unsigned int);
 
 struct template_handler {
-  u_short template_id;
-  struct nfv9_template template;
-  template_handler_func func;
-  struct template_handler *next; 
+    u_short template_id;
+    struct nfv9_template template;
+    template_handler_func func;
+    struct template_handler *next; 
 }x;
-
-struct template_handler *get_template_handler(unsigned int template_id);
 
 #define nfv9_template_field(a) ((struct nfv9_template_field) {a, 0})
 #define nfv9_template_field_len(a,b) ((struct nfv9_template_field) {a, b})
 #define nfv9_template_key_cmp(a, b) memcmp(a, b, sizeof(struct nfv9_template_key))
 
+/** netflow v9 template initialization */
 void nfv9_template_key_init(struct nfv9_template_key *k,
-			    u_long addr,
-			    u_long id,
-			    u_short template_id);
-
-void nfv9_exporter_init(struct nfv9_exporter *e, const char *hostname);
+             u_long addr, u_long id, u_short template_id);
 
 
-void nfv9_template_print(const struct nfv9_template *template);
+/** netflow v9 key initialization */
+void nfv9_flow_key_init(struct flow_key *key, 
+           const struct nfv9_template *cur_template, 
+           const void *flow_data);
 
-
-void 
-nfv9_template_flowset_encode_template(struct nfv9_template_flowset *fs,
-				      const struct nfv9_template *template);
-
-
-
-void nfv9_template_flowset_encode_init(struct nfv9_template_flowset *fs);
-
-
-void nfv9_data_flowset_encode_init(struct nfv9_data_flowset *fs,
-				   const struct nfv9_template *t);
-
-void nfv9_data_flowset_encode_record(struct nfv9_data_flowset *fs,
-				     const void *record,
-				     const struct nfv9_template *template);
-
-void nfv9_data_flowset_encode_final(struct nfv9_data_flowset *fs);
-
-void nfv9_template_flowset_encode_final(struct nfv9_template_flowset *fs);
-
-void nfv9_template_decode(const void *input,
-			  struct nfv9_template *template,
-			  unsigned int template_len);
-
-
-void nfv9_flow_record_print(const void *record,
-			    const struct nfv9_template *template);
-
-
-int nfv9_flow_record_decode(const void *input, 
-			    const struct nfv9_template *template,
-			    void *record,  /* output */ 
-			    unsigned int output_len);
-
-void nfv9_data_flowset_decode_and_handle(struct nfv9_data_flowset *fs);
-
-
-unsigned int nfv9_register_template_handler(const struct nfv9_template *t, 
-					    template_handler_func f);
-
-
-void nfv9_unregister_template_handler(unsigned int template_id);
-
-/* functions for parsing nfv9 packets */
-void nfv9_flow_key_init(struct flow_key *key, const struct nfv9_template *cur_template, const void *flow_data);
-
-void nfv9_process_flow_record(struct flow_record *nf_record, const struct nfv9_template *cur_template, const void *flow_data, int record_num);
-
-void nfv9_process_lengths(struct flow_record *nf_record, const void *length_data, int max_length_array, int pkt_len_index);
-
-void nfv9_process_times(struct flow_record *nf_record, const void *time_data, struct timeval *old_val_time, int max_length_array, int pkt_time_index);
-
+/** main function for parsing nfv9 packets */
+void nfv9_process_flow_record(struct flow_record *nf_record,
+           const struct nfv9_template *cur_template,
+           const void *flow_data, int record_num);

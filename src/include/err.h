@@ -34,31 +34,35 @@
  *
  */
 
-/*
- * err.h
+/**
+ * \file err.h
  *
- * error reporting
+ * \brief error reporting
+ *
  */
-
 #ifndef ERR_H
 #define ERR_H
 
-#include <stdio.h>    /* for FILE    */
+#include <stdio.h> 
 
 enum status {
-  ok = 0,
-  failure = 1
+    ok = 0,
+    failure = 1
 };
 
 
 /* START debug */
 
+/** output file pointer */
 extern FILE *info; 
 
+/** convert to hex data */
 #define hexdata(d) (d[0], d[1], d[2], d[3])
 
+/** printf debug macro */
 #define zprintf_debug(...) zprintf(output, ",\"DEBUG\": \""  __VA_ARGS__);
 
+/** debug flag */
 #define P2F_DEBUG 0
 
 #if P2F_DEBUG
@@ -68,6 +72,5 @@ extern FILE *info;
 #endif
 
 /* END debug */
-
 #endif /* ERR_H */
 

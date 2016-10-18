@@ -34,10 +34,10 @@
  *
  */
 
-/*
- * hdr_dsc.h
+/**
+ * \file hdr_dsc.h
  *
- * header description and protocol identification
+ * \brief header description and protocol identification interface
  */
 
 #ifndef HDR_DSC_H
@@ -46,26 +46,31 @@
 #include <stdio.h>   
 #include "output.h"
 
+/** Header description length */
 #define HDR_DSC_LEN 32
 
-struct header_description {
+/** header description structure */
+typedef struct {
   unsigned char initial[HDR_DSC_LEN];
   unsigned char const_mask[HDR_DSC_LEN];
   unsigned char const_value[HDR_DSC_LEN];
   unsigned char seq_mask[HDR_DSC_LEN];
   unsigned int num_headers_seen;
-};
+} header_description_t;
 
-void header_description_init(struct header_description *hd);
+/** initialize header description */
+void header_description_init(header_description_t *hd);
 
-void header_description_update(struct header_description *hd, 
+/** update the header descriptions */
+void header_description_update(header_description_t *hd, 
 			       const void *packet, 
 			       unsigned int report_hd);
 
-void header_description_printf(const struct header_description *hd, zfile f, unsigned int len);
+/** print out the header descriptions */
+void header_description_printf(const header_description_t *hd, zfile f, unsigned int len);
 
 
-/*
+/* 
  *  RTP header (from RFC 3550)
  *
  *   0                   1                   2                   3
@@ -83,7 +88,7 @@ void header_description_printf(const struct header_description *hd, zfile f, uns
  *
  */
 #if 0
-struct header_description rtp_header_description = {
+header_description_t rtp_header_description = {
   0xc000000000000000ffffffff00000000; /* constant mask  */
   0x80000000000000000000000000000000; /* constant value */
   0x0000ffff000000000000000000000000; /* counter mask   */
@@ -127,10 +132,10 @@ struct header_description rtp_header_description = {
    |                          options (variable)                   |
    +---------------------------------------------------------------+
 
- */
+ 
 
 
-/*
+
   DNS (from RFC 1305)
 
                                     1  1  1  1  1  1
@@ -148,11 +153,11 @@ struct header_description rtp_header_description = {
     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
     |                    ARCOUNT                    |
     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- */
+ 
 
 
 
-/*
+
 
   RADIUS (from RFC 2865)
   
@@ -180,10 +185,10 @@ struct header_description rtp_header_description = {
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-
 
 
- */
+ 
 
 
-/*
+
  
    IKE (from RFC 5996)
                          1                   2                   3

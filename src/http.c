@@ -34,90 +34,127 @@
  *
  */
 
-/*
- * http.c
+/**
+ * \file http.c
  *
- * http data extraction
+ * \brief http data extraction implementation
  */
-
 #include <ctype.h>
 #include "http.h"
-#include "p2f.h"       /* for fprintf_raw_as_hex() */
-#include "str_match.h" /* for str_match_ctx        */
+#include "p2f.h"      
+#include "str_match.h" 
 #include "anon.h"
-
-extern str_match_ctx  usernames_ctx;
-
-#define HTTP_LEN 2048
+#include <string.h> 
+#include <stdlib.h>   
+#include "p2f.h"
 
 /*
- * MAGIC determines the number of bytes of the HTTP message body that
+ * change this flag is you want hexadecimal output
+ */
+#define NO_HEX_OUTPUT 1
+
+/** user name match structure */
+extern str_match_ctx  usernames_ctx;
+
+/** max http length */
+#define HTTP_LEN 2048
+
+/** MAGIC determines the number of bytes of the HTTP message body that
  * will be grabbed off of the wire; the idea here is that the initial
  * bytes of that field may contain the file "magic number" that can
  * identify its type
  */
 #define MAGIC 16
 
-#include <string.h>   /* for memset()            */
-#include <stdlib.h>   /* for malloc() and free() */
-#include "p2f.h"
-
-
 /*
  * declarations of functions that are internal to this file
  */
-unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsigned int length);
+static unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsigned int length);
 
-void http_header_print_as_object(zfile f, char *header, char *string, unsigned length);
-
-void http_header_print_as_hex(zfile f, char *header, char *string, unsigned int len);
+#if NO_HEX_OUTPUT
+static void http_header_print_as_object(zfile f, char *header, char *string, unsigned length);
+#else
+static void http_header_print_as_hex(zfile f, char *header, char *string, unsigned int len);
+#endif
 
 /*
  * high level HTTP handling functions
  */
 
-void http_init(struct http_data *data) {
-  data->header = NULL;
-  data->header_length = 0;
+/**
+ * \fn void http_init (http_data_t *data)
+ * \param data http data structure pointer
+ * \return none
+ */
+void http_init (http_data_t *data) {
+    data->header = NULL;
+    data->header_length = 0;
 }
 
-void http_update(struct http_data *data,
+/**
+ * \fn void http_update (http_data_t *data,
+      const void *http_start, 
+      unsigned long bytes_in_msg,
+      unsigned int report_http)
+ * \param data pointer to http data structure
+ * \param http_start http start pointer
+ * \param bytes_in_msg number of bytes
+ * \param report_http determine whether or not to examine http packets
+ * \return none
+ */
+void http_update(http_data_t*data,
 			const void *http_start, 
 			unsigned long bytes_in_msg,
 			unsigned int report_http) {
   
-  if (report_http && (data->header == NULL)) {
-    unsigned int len = (bytes_in_msg + MAGIC) < HTTP_LEN ? (bytes_in_msg + MAGIC) : HTTP_LEN;
-    /*
-     * note: we leave room for null termination in the data buffer
-     */
+    if (report_http && (data->header == NULL)) {
+        unsigned int len = (bytes_in_msg + MAGIC) < HTTP_LEN ? (bytes_in_msg + MAGIC) : HTTP_LEN;
+        /*
+         * note: we leave room for null termination in the data buffer
+         */
 
-    data->header = malloc(len);
-    if (data->header == NULL) {
-      return; 
+        data->header = malloc(len);
+        if (data->header == NULL) {
+            return; 
+        }
+        data->header_length = memcpy_up_to_crlfcrlf_plus_magic(data->header, http_start, len);
     }
-    data->header_length = memcpy_up_to_crlfcrlf_plus_magic(data->header, http_start, len);
-  }
 } 
 
-
-void http_printf(const struct http_data *data, char *string, zfile f) {
-
-/*
- * change this flag is you want hexadecimal output
+/**
+ * \fn void http_printf (const http_data_t *data, char *string, zfile f) 
+ * \param data pointer to http data structure
+ * \param string label to use for output
+ * \param f file to send output to
+ * \return none
  */
-#if 1
-  if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
-    // fprintf(stdout, "data length: %u\n", data->header_length);
-    fflush(stdout);
-    http_header_print_as_object(f, data->header, string, data->header_length);
-  }
-#else
-  if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
-    http_header_print_as_hex(f, data->header, string, data->header_length);
-    // fprintf(f, ",\n\t\t\t\"%s\": \"%s\"", string, data->header);
-  }
+void http_printf (const http_data_t *data, char *string, zfile f) {
+
+#if NO_HEX_OUTPUT
+    if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
+          // fprintf(stdout, "data length: %u\n", data->header_length);
+          fflush(stdout);
+          http_header_print_as_object(f, data->header, string, data->header_length);
+    }
+
+#else 
+
+    if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
+          http_header_print_as_hex(f, data->header, string, data->header_length);
+          // fprintf(f, ",\n\t\t\t\"%s\": \"%s\"", string, data->header);
+    }
+
 #endif
+
+}
+
+/**
+ * \fn void http_delete (http_data_t *data)
+ * \param data pointer to the http data structure
+ * \return none
+ */
+void http_delete (http_data_t *data) {
+    free(data->header);
 }
 
 /*
@@ -200,69 +237,69 @@ void http_printf(const struct http_data *data, char *string, zfile f) {
  */
 
 enum parse_state {
-  non_crlf  = 0,
-  first_cr  = 1,
-  first_lf  = 2,
-  second_cr = 3,
-  second_lf = 4
+    non_crlf  = 0,
+    first_cr  = 1,
+    first_lf  = 2,
+    second_cr = 3,
+    second_lf = 4
 };
 
-unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsigned int length) {
-  unsigned int i;
-  enum parse_state state = non_crlf;
-  unsigned int body_bytes = 0; 
+static unsigned int memcpy_up_to_crlfcrlf_plus_magic (char *dst, const char *src, unsigned int length) {
+    unsigned int i;
+    enum parse_state state = non_crlf;
+    unsigned int body_bytes = 0; 
 
-  for (i=0; i<length; i++) {
-    dst[i] = src[i];
+    for (i=0; i<length; i++) {
+        dst[i] = src[i];
 
-    if (state != second_lf) {
-      /* still parsing HTTP headers */
+        if (state != second_lf) {
+            /* still parsing HTTP headers */
 
-      /*
-       * make string printable, by suppressing characters below SPACE
-       * (32) and above DEL (127), inclusive, except for \r and \n
-       */
-      if ((dst[i] < 32 || dst[i] > 126) && dst[i] != '\r' && dst[i] != '\n') {
-	dst[i] = '.';
-      }
-      /* avoid JSON confusion */
-      if (dst[i] == '"' || dst[i] == '\\') {
-	dst[i] = '.';
-      }
+            /*
+             * make string printable, by suppressing characters below SPACE
+             * (32) and above DEL (127), inclusive, except for \r and \n
+             */
+            if ((dst[i] < 32 || dst[i] > 126) && dst[i] != '\r' && dst[i] != '\n') {
+	              dst[i] = '.';
+            }
+            /* avoid JSON confusion */
+            if (dst[i] == '"' || dst[i] == '\\') {
+	              dst[i] = '.';
+            }
+        }
+
+        /* advance lexer state  */
+        if (src[i] == '\r') {
+            if (state == non_crlf) {
+	              state = first_cr;
+            } else if (state == first_lf) {
+	              state = second_cr;
+            } 
+        } else if (src[i] == '\n') {
+            if (state == first_cr) {
+	              state = first_lf;
+            } else if (state == second_cr) {
+	              state = second_lf;
+            }
+        } else {
+            if (state != second_lf) {
+	              state = non_crlf;
+            }
+        }
+
+        /*  found a CRLFCRLF; copy magic bytes of body then return */
+        if (state == second_lf) {
+            if (body_bytes < MAGIC) {
+	              // printf("body_bytes: %u\tMAGIC: %u\ti: %u\tlength: %u\n", body_bytes, MAGIC, i, length);
+	              body_bytes++;
+            } else {
+	              i++;
+	              break;
+            }
+        }
     }
-
-    /* advance lexer state  */
-    if (src[i] == '\r') {
-      if (state == non_crlf) {
-	state = first_cr;
-      } else if (state == first_lf) {
-	state = second_cr;
-      } 
-    } else if (src[i] == '\n') {
-      if (state == first_cr) {
-	state = first_lf;
-      } else if (state == second_cr) {
-	state = second_lf;
-      }
-    } else {
-      if (state != second_lf) {
-	state = non_crlf;
-      }
-    }
-
-    /*  found a CRLFCRLF; copy magic bytes of body then return */
-    if (state == second_lf) {
-      if (body_bytes < MAGIC) {
-	// printf("body_bytes: %u\tMAGIC: %u\ti: %u\tlength: %u\n", body_bytes, MAGIC, i, length);
-	body_bytes++;
-      } else {
-	i++;
-	break;
-      }
-    }
-  }
   
-  return i;
+    return i;
 }
 
 
@@ -273,300 +310,293 @@ unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsign
  */
 
 enum http_type {
-  http_done         = 0,
-  http_method       = 1,
-  http_header       = 2,
-  http_request_line = 3,
-  http_status_line  = 4,
-  http_malformed    = 5
+    http_done         = 0,
+    http_method       = 1,
+    http_header       = 2,
+    http_request_line = 3,
+    http_status_line  = 4,
+    http_malformed    = 5
 };
 
 enum header_state {
-  got_nothing = 0,
-  got_header  = 1,
-  got_value   = 2
+    got_nothing = 0,
+    got_header  = 1,
+    got_value   = 2
 };
 
-enum http_type http_get_next_line(char **saveptr,
-				  unsigned int *length, 
-				  char **token1, 
-				  char **token2) {
-  unsigned int i;
-  enum parse_state state = non_crlf;
-  enum header_state header_state = got_nothing;
-  char *src = *saveptr;
+#if NO_HEX_OUTPUT
 
-  if (src == NULL) {
-    return http_done;
-  }
+static enum http_type http_get_next_line (char **saveptr,
+				  unsigned int *length, char **token1, char **token2) {
+    unsigned int i;
+    enum parse_state state = non_crlf;
+    enum header_state header_state = got_nothing;
+    char *src = *saveptr;
 
-  *token1 = src;
-  *token2 = NULL;
-  for (i=0; i < *length; i++) {
+    if (src == NULL) {
+        return http_done;
+    }
+
+    *token1 = src;
+    *token2 = NULL;
+    for (i=0; i < *length; i++) {
       
-    /* advance lexer state  */
-    if (src[i] == '\r') {
-      if (state == non_crlf) {
-	state = first_cr;
-      } else if (state == first_lf) {
-	state = second_cr;
-      } 
-      src[i] = '.';  /* make printable, as a precaution */    
+        /* advance lexer state  */
+        if (src[i] == '\r') {
+            if (state == non_crlf) {
+	              state = first_cr;
+            } else if (state == first_lf) {
+	              state = second_cr;
+            } 
+            src[i] = '.';  /* make printable, as a precaution */    
 
-    } else if (src[i] == '\n') {
-      if (state == first_cr) {
-	state = first_lf;
-      } else if (state == second_cr) {
-	state = second_lf;
-      }
-      src[i] = '.';  /* make printable, as a precaution */    
+        } else if (src[i] == '\n') {
+            if (state == first_cr) {
+	              state = first_lf;
+            } else if (state == second_cr) {
+	              state = second_lf;
+            }
+            src[i] = '.';  /* make printable, as a precaution */    
 
-    } else if (src[i] == ':') {
-      if (header_state == got_nothing) {
-	src[i] = 0;      /* NULL terminate token */
-	header_state = got_header;
-      }
-      state = non_crlf;
-    } else if (src[i] == ' ') {
-      ;     /* ignore whitespace */
-    } else {
+        } else if (src[i] == ':') {
+            if (header_state == got_nothing) {
+	              src[i] = 0;      /* NULL terminate token */
+	              header_state = got_header;
+            }
+            state = non_crlf;
+        } else if (src[i] == ' ') {
+            ;     /* ignore whitespace */
+        } else {
 
-      if (state == first_lf) {
-	src[i-2] = 0;    /* NULL terminate token */
-	*length = *length - i;
-	*saveptr = &src[i];
-	return http_header;
-      }
+            if (state == first_lf) {
+	              src[i-2] = 0;    /* NULL terminate token */
+	              *length = *length - i;
+	              *saveptr = &src[i];
+	              return http_header;
+            }
 
-      if (header_state == got_header) {
-	*token2 = &src[i];	
-	header_state = got_value;
-      }
-      state = non_crlf;
+            if (header_state == got_header) {
+	              *token2 = &src[i];	
+	              header_state = got_value;
+            }
+            state = non_crlf;
+        }
+
+        if (state == second_lf) {
+            src[i-3] = 0;   /* NULL terminate token */
+            *length = *length - i;
+            *saveptr = &src[i];
+            return http_done;
+        }
     }
-
-    if (state == second_lf) {
-      src[i-3] = 0;   /* NULL terminate token */
-      *length = *length - i;
-      *saveptr = &src[i];
-      return http_done;
-    }
-  }
   
-  *saveptr = NULL;
-  return http_malformed;
+    *saveptr = NULL;
+    return http_malformed;
 }
 
 enum start_line_state {
-  got_none = 0,
-  got_first = 1,
-  started_second = 2,
-  got_second = 3,
-  started_third = 4,
-  got_third = 5
+    got_none = 0,
+    got_first = 1,
+    started_second = 2,
+    got_second = 3,
+    started_third = 4,
+    got_third = 5
 };
 
-enum http_type http_get_start_line(char **saveptr,
-				   unsigned int *length, 
-				   char **token1, 
-				   char **token2, 
-				   char **token3) {
-  unsigned int i;
-  enum parse_state state = non_crlf;
-  enum start_line_state start_state = got_none;
-  char last_char = 0;
-  enum http_type line_type = http_request_line;
-  char *src = *saveptr;
+static enum http_type http_get_start_line (char **saveptr,
+				   unsigned int *length, char **token1, 
+				   char **token2, char **token3) {
+    unsigned int i;
+    enum parse_state state = non_crlf;
+    enum start_line_state start_state = got_none;
+    char last_char = 0;
+    enum http_type line_type = http_request_line;
+    char *src = *saveptr;
 
-  if (src == NULL) {
-    return http_done;
-  }
-
-  *token1 = src;
-  *token2 = *token3 = NULL;
-  for (i=0; i < *length; i++) {
-      
-    /* advance lexer state  */
-    if (src[i] == '\r') {
-      if (state == non_crlf) {
-	state = first_cr;
-      } else if (state == first_lf) {
-	state = second_cr;
-      } 
-      src[i] = '.';  /* make printable, as a precaution */    
-
-    } else if (src[i] == '\n') {
-      if (state == first_cr) {
-	state = first_lf;
-      } else if (state == second_cr) {
-	state = second_lf;
-      } 
-      src[i] = '.';  /* make printable, as a precaution */    
-      
-    } else if (src[i] == ' ') {
-      if (start_state == got_none) {
-	start_state = got_first;
-      } else if (start_state == started_second) {
-	start_state = got_second;
-      } 
-      state = non_crlf;
-    } else {
-
-      if (state == first_lf) {
-	src[i-2] = 0;      /* NULL terminate token */
-	*length = *length - i;
-	*saveptr = &src[i];
-	if (start_state == started_third) {
-	  return line_type;  
-	} else {
-	  return http_malformed;
-	}
-      }
-
-      if (start_state == got_none) {
-	/*
-	 * check for string "HTTP", which indicates a status line (not a response line)
-	 */
-	if (last_char == 0 && src[i] == 'H') {
-	  last_char = 'H';
-	} else if ((last_char == 'H' || last_char == 'T') && src[i] == 'T') {
-	  last_char = 'T';
-	} else if (last_char == 'T' && src[i] == 'P') {
-	  line_type = http_status_line;
-	}
-      } else if (start_state == got_first) {
-	src[i-1] = 0;      /* NULL terminate token */
-	*token2 = &src[i];	
-	start_state = started_second;
-      } else if (start_state == got_second) {
-	src[i-1] = 0;      /* NULL terminate token */
-	*token3 = &src[i];
-	start_state = started_third;
-      }
-      state = non_crlf;
+    if (src == NULL) {
+        return http_done;
     }
 
-    if (state == second_lf) {
-      src[i-3] = 0;        /* NULL terminate token */
-      *length = *length - i;
-      *saveptr = &src[i];
-      return http_done;
+    *token1 = src;
+    *token2 = *token3 = NULL;
+    for (i=0; i < *length; i++) {
+      
+        /* advance lexer state  */
+        if (src[i] == '\r') {
+            if (state == non_crlf) {
+	              state = first_cr;
+            } else if (state == first_lf) {
+	              state = second_cr;
+            } 
+            src[i] = '.';  /* make printable, as a precaution */    
+
+        } else if (src[i] == '\n') {
+            if (state == first_cr) {
+	              state = first_lf;
+            } else if (state == second_cr) {
+	              state = second_lf;
+            } 
+            src[i] = '.';  /* make printable, as a precaution */    
+      
+        } else if (src[i] == ' ') {
+            if (start_state == got_none) {
+	              start_state = got_first;
+            } else if (start_state == started_second) {
+	              start_state = got_second;
+            } 
+            state = non_crlf;
+        } else {
+
+            if (state == first_lf) {
+	              src[i-2] = 0;      /* NULL terminate token */
+	              *length = *length - i;
+	              *saveptr = &src[i];
+	              if (start_state == started_third) {
+	                  return line_type;  
+	              } else {
+	                  return http_malformed;
+	              }
+            }
+
+            if (start_state == got_none) {
+	              /*
+	               * check for string "HTTP", which indicates a status line (not a response line)
+	               */
+	              if (last_char == 0 && src[i] == 'H') {
+	                  last_char = 'H';
+	              } else if ((last_char == 'H' || last_char == 'T') && src[i] == 'T') {
+	                  last_char = 'T';
+	              } else if (last_char == 'T' && src[i] == 'P') {
+	                  line_type = http_status_line;
+	              }
+            } else if (start_state == got_first) {
+	              src[i-1] = 0;      /* NULL terminate token */
+	              *token2 = &src[i];	
+	              start_state = started_second;
+            } else if (start_state == got_second) {
+	              src[i-1] = 0;      /* NULL terminate token */
+	              *token3 = &src[i];
+	              start_state = started_third;
+            }
+            state = non_crlf;
+        }
+
+        if (state == second_lf) {
+            src[i-3] = 0;        /* NULL terminate token */
+            *length = *length - i;
+            *saveptr = &src[i];
+            return http_done;
+        }
     }
-  }
   
-  *saveptr = NULL;
-  return http_malformed;
+    *saveptr = NULL;
+    return http_malformed;
 }
 
-int http_header_select(char *h) {
-
+static int http_header_select (char *h) {
   return 1;
 }
 
 #define PRINT_USERNAMES 1
 
-void http_header_print_as_object(zfile f, char *header, char *string, unsigned length) {
-  char *token1, *token2, *token3, *saveptr;  
-  unsigned int not_first_header = 0;
-  enum http_type type = http_done;  
-  struct matches matches;
+static void http_header_print_as_object (zfile f, char *header, char *string, unsigned length) {
+    char *token1, *token2, *token3, *saveptr;  
+    unsigned int not_first_header = 0;
+    enum http_type type = http_done;  
+    struct matches matches;
 
-  zprintf(f, ",\"%s\":{", string);
+    zprintf(f, ",\"%s\":{", string);
 
-  if (length < 4) {
-    goto bail;
-  }
-
-  /*
-   * parse start-line, and print as request/status as appropriate
-   */
-  saveptr = header;
-  type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
-  if (type == http_request_line) {    
-    
-    zprintf(f, "\"method\":\"%s\",", token1);
-    zprintf(f, "\"uri\":\"");
-    if (usernames_ctx) {
-      str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
-      anon_print_uri_pseudonym(f, &matches, token2);
-    } else {
-      zprintf(f, "%s", token2);
+    if (length < 4) {
+        goto bail;
     }
-    zprintf(f, "\",");
-    zprintf(f, "\"v\":\"%s\"", token3);
+
+    /*
+     * parse start-line, and print as request/status as appropriate
+     */
+    saveptr = header;
+    type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
+    if (type == http_request_line) {    
+    
+        zprintf(f, "\"method\":\"%s\",", token1);
+        zprintf(f, "\"uri\":\"");
+        if (usernames_ctx) {
+            str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
+            anon_print_uri_pseudonym(f, &matches, token2);
+        } else {
+            zprintf(f, "%s", token2);
+        }
+        zprintf(f, "\",");
+        zprintf(f, "\"v\":\"%s\"", token3);
 
 #if PRINT_USERNAMES
-    /*
-     * print out (anonymized) usernames found in URI
-     */
-    if (usernames_ctx) {
-      zprintf(f, ",");
-      zprintf_usernames(f, &matches, token2, is_special, anon_string);
-    }
+        /*
+         * print out (anonymized) usernames found in URI
+         */
+        if (usernames_ctx) {
+            zprintf(f, ",");
+            zprintf_usernames(f, &matches, token2, is_special, anon_string);
+        }
 #endif
 
-    not_first_header = 1;
-  } else if (type == http_status_line) {    
-    zprintf(f, 
-	    "\"v\":\"%s\","
-	    "\"code\":\"%s\","
-	    "\"reason\":\"%s\"", 
-	    token1, token2, token3);
-    not_first_header = 1;
-  }
+        not_first_header = 1;
+    } else if (type == http_status_line) {    
+        zprintf(f, "\"v\":\"%s\","
+	          "\"code\":\"%s\"," "\"reason\":\"%s\"", 
+	          token1, token2, token3);
+        not_first_header = 1;
+    }
 
-  if (type != http_malformed && type != http_done) {
+    if (type != http_malformed && type != http_done) {
+
+        /*
+         * parse and print headers
+         */ 
+        do { 
+            type = http_get_next_line(&saveptr, &length, &token1, &token2);
+            if (type != http_malformed && http_header_select(token1)) {
+	              if (not_first_header) {
+	                  zprintf(f, ",");
+	              } else {
+	                  not_first_header = 1;
+	              }
+	              zprintf(f, "\"%s\":\"%s\"", token1, token2);
+            }
+
+        } while (type == http_header);
+    }
 
     /*
-     * parse and print headers
-     */ 
-    do { 
-      type = http_get_next_line(&saveptr, &length, &token1, &token2);
-      if (type != http_malformed && http_header_select(token1)) {
-	if (not_first_header) {
-	  zprintf(f, ",");
-	} else {
-	  not_first_header = 1;
-	}
-	zprintf(f, "\"%s\":\"%s\"", token1, token2);
-      }
-
-    } while (type == http_header);
-  }
-
-  /*
-   * part or all of the header is malformed, so print out that fact
-   */
-  if (type == http_malformed) {
-     if (not_first_header) {
-      zprintf(f, ",");
-    } else {
-      not_first_header = 1;
+     * part or all of the header is malformed, so print out that fact
+     */
+    if (type == http_malformed) {
+        if (not_first_header) {
+           zprintf(f, ",");
+        } else {
+           not_first_header = 1;
+        }
+        zprintf(f, "\"malformed\":%u", length);
     }
-   zprintf(f, "\"malformed\":%u", length);
-  }
 
-  /*
-   * print out the initial bytes of the HTTP body
-   */
-  if (type == http_done && (MAGIC != 0) && (length != 0)) {
-    if (not_first_header) {
-      zprintf(f, ",");
-    } 
-    zprintf(f, "\"body\":");
-    zprintf_raw_as_hex(f, saveptr, length); 
-  }
+    /*
+     * print out the initial bytes of the HTTP body
+     */
+    if (type == http_done && (MAGIC != 0) && (length != 0)) {
+        if (not_first_header) {
+            zprintf(f, ",");
+        } 
+        zprintf(f, "\"body\":");
+        zprintf_raw_as_hex(f, saveptr, length); 
+    }
 
- bail:  zprintf(f, "}");
-
+    bail:  zprintf(f, "}");
 }
 
+#else
 
-void http_header_print_as_hex(zfile f, char *header, char *string, unsigned int len) {
-  zprintf(f, ",\"%s\":", string);
-  zprintf_raw_as_hex(f, header, len); 
+static void http_header_print_as_hex (zfile f, char *header, char *string, unsigned int len) {
+    zprintf(f, ",\"%s\":", string);
+    zprintf_raw_as_hex(f, header, len); 
 }
 
-void http_delete(struct http_data *data) {
-  free(data->header);
-}
+#endif

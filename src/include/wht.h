@@ -34,39 +34,44 @@
  *
  */
 
-/*
- * wht.h
+/**
+ * \file wht.h
  *
- * walsh-hadamard transform interface
+ * \brief walsh-hadamard transform interface
  *
  */
 
 #ifndef WHT_H
 #define WHT_H
 
-#include <stdio.h>   /* for FILE* */
+#include <stdio.h> 
 #include "output.h"
-//#include "feature.h"
 
+/** inclusion string */
 #define wht_usage "  wht=1                      include walsh-hadamard transform\n"
 
+/** walsh-hadamard filter key */
+#define wht_filter(key) 1
+
+/** walsh-hadamard structure */
 typedef struct wht {
-  uint32_t b;           /* byte count */
-  int32_t spectrum[4];  /* spectrum   */
+    uint32_t b;           /*!< byte count */
+    int32_t spectrum[4];  /*!< spectrum   */
 } wht_t;
 
+/** initializes a walsh-hadamard structure */
 void wht_init(struct wht *wht);
 
+/** updates the contents of walsh-hadamard structure */
 void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned int report_wht);
 
-void wht_print_json(const struct wht *w1, 
-		    const struct wht *w2,
-		    zfile f);
+/** prints out the walsh-hadamard structure in JSON format */
+void wht_print_json(const struct wht *w1, const struct wht *w2, zfile f);
 
+/** clear out the walsh-hadamard structure */
 void wht_delete(struct wht *wht);
 
+/** unit test entry point */
 void wht_unit_test();
-
-#define wht_filter(key) 1
   
 #endif /* WHT_H */

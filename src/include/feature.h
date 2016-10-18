@@ -34,11 +34,13 @@
  *
  */
 
-/*
- * feature.h
+/**
+ * \file feature.h
  *
- * pcap2flow internal interface for data feature modules
+ * \brief pcap2flow internal interface for data feature modules
  *
+ * \remarks
+ * \verbatim
  * Overview: this interface provides a way to implement a new feature
  * (that is, a new network data feature that will be captured and
  * reported on by the Joy package) without altering any of the core
@@ -87,18 +89,18 @@
  * NOTE: the only configuration option supported so far is a boolean;
  * other types may need to be supported in the future.
  *
+ * \endverbatim
  */
 
 #ifndef FEATURE_H
 #define FEATURE_H
 
-#include <stdio.h>   /* for FILE*       */
+#include <stdio.h> 
 #include "err.h"
 #include "output.h"
 #include "map.h"
 
-/*
- * The feature_list macro defines all of the features that will be
+/** The feature_list macro defines all of the features that will be
  * included in the flow_record.  To include/exclude a feature in a
  * build of pcap2flow, add/remove it from this list.
  */
@@ -116,16 +118,14 @@
 #define set_config_feature(F) report_##F = config.report_##F;
 #define set_config_all_features(flist) MAP(set_config_feature, flist)
 
-/*
- * The function feature_init(ptr) is invoked on a pointer to a data
+/** The function feature_init(ptr) is invoked on a pointer to a data
  * feature, it initializes an instance of the feature, possibly 
  * performing memory allocation as a side effect
- * 
  * This function is called in flow_record_init() in p2f.c.
  */
 #define declare_init(F) void F##_init(F##_t *f)
 
-/*
+/** \brief \verbatim
  * The function feature_update(feature, data, len) updates the data
  * feature context "feature" stored in a flow_record, based on the
  * packet located at "data", which has length "len", whenever
@@ -137,6 +137,7 @@
  * 
  * This function is called in process_tcp(), process_udp(),
  * process_ip(), and process_icmp(), in the file pkt_proc.c.
+ * \endverbatim
  */
 #define declare_update(F)               \
 void F##_update(F##_t *f,	        \
@@ -145,7 +146,7 @@ void F##_update(F##_t *f,	        \
 		unsigned int report_F); 
 
 
-/*
+/** \brief \verbatim
  * The function feature_print_json_func(feature, twin_feature, file)
  * prints out a JSON representation of the data feature.  The
  * twin_feature pointer MUST be set to NULL if a record is
@@ -155,6 +156,7 @@ void F##_update(F##_t *f,	        \
  * 
  * This function is called in flow_record_print_json() in the file
  * p2f.c.
+ * \endverbatim
  */
 #define declare_print_json(F)            \
 void F##_print_json(const F##_t *F,      \
@@ -162,17 +164,18 @@ void F##_print_json(const F##_t *F,      \
 		    zfile f);
 
 
-/*
+/** \brief \verbatim
  * The function feature_delete_func(ptr), when invoked on a feature_ptr,
  * frees any and all memory that is allocated by feature_init().  It
  * may also zeroize that memory.
  * 
  * This function is called in flow_record_delete(), in the file p2f.c
+ * \endverbatim
  */
 #define declare_delete(F) void F##_delete(F##_t *F);
 
 
-/*
+/** \brief \verbatim
  * The feature_unit_test function() performs a test of the feature
  * module.  It is meant to be called by the unit_test() function,
  * which appears in a test-specific program; it is not intended to be
@@ -181,11 +184,11 @@ void F##_print_json(const F##_t *F,      \
  *
  * This function is invoked by the unit_test program
  * (src/unit_test.c).
+ * \endverbatim
  */
 #define declare_unit_test(F) void F##_unit_test();
 
-/*
- * The macro declare_feature(F) declares all of the functions
+/** The macro declare_feature(F) declares all of the functions
  * associated with the feature F_t
  */
 #define declare_feature(F)    \
@@ -197,32 +200,27 @@ void F##_print_json(const F##_t *F,      \
 
 /* delete, print, etc. are missing for now */
 
-/*
- * The macro define_feature(f) instantiates a structure of type f_t
+/** The macro define_feature(f) instantiates a structure of type f_t
  * and name f.
  */
 #define define_feature(f) f##_t f;
 
-/*
- * The macro init_feature(f) initializes the element f in the
+/** The macro init_feature(f) initializes the element f in the
  * structure record
  */
 #define init_feature(f) f##_init(&(record->f));
 
-/*
- * The macro update_feature(f) processes a single packet and updates
+/** The macro update_feature(f) processes a single packet and updates
  * the feature context
  */
 #define update_feature(f) if (f##_filter(key)) f##_update(&((record)->f), payload, size_payload, report_##f);
 
-/*
- * The macro print_feature(f) prints the feature as JSON 
+/** The macro print_feature(f) prints the feature as JSON 
  */
 #define print_feature(f) f##_print_json(&((rec)->f), (rec->twin ? &(rec->twin->f) : NULL), output);
 
 
-/*
- * The macro init_feature(f) initializes the element f in the
+/** The macro init_feature(f) initializes the element f in the
  * structure record
  */
 #define delete_feature(f) f##_delete(&(r->f));
@@ -246,46 +244,39 @@ void F##_print_json(const F##_t *F,      \
 #define config_print_json_all_features_bool(feature_list) MAP(config_print_json_feature_bool, feature_list)
 
 
-/*
- * The macro declare_all_features(list) invokes init_feature() for each
+/** The macro declare_all_features(list) invokes init_feature() for each
  * feature in list
  */
 #define declare_all_features(feature_list) MAP(init_feature, feature_list)
 
-/*
- * The macro init_all_features(list) invokes init_feature() for each
+/** The macro init_all_features(list) invokes init_feature() for each
  * feature in list
  */
 #define init_all_features(feature_list) MAP(init_feature, feature_list)
 
-/*
- * The macro define_all_features(list) invokes define_feature() for each
+/** The macro define_all_features(list) invokes define_feature() for each
  * feature in list
  */
 #define define_all_features(feature_list) MAP(define_feature, feature_list)
 
-/*
- * The macro update_all_features(list) invokes update_feature() for each
+/** The macro update_all_features(list) invokes update_feature() for each
  * feature in list
  */
 #define update_all_features(feature_list) MAP(update_feature, feature_list)
 #define update_all_udp_features(feature_list) MAP(update_feature, udp_feature_list)
 
-/*
- * The macro print_all_features(list) invokes print_feature() for each
+/** The macro print_all_features(list) invokes print_feature() for each
  * feature in list
  */
 #define print_all_features(feature_list) MAP(print_feature, feature_list)
 
-/*
- * The macro delete_all_features(list) invokes feature_print_json() for each
+/** The macro delete_all_features(list) invokes feature_print_json() for each
  * feature in list
  */
 #define delete_all_features(feature_list) MAP(delete_feature, feature_list)
 
 
-/*
- * The macro unit_test_all_features(list) invokes feature_unit_test() for each
+/** The macro unit_test_all_features(list) invokes feature_unit_test() for each
  * feature in list
  */
 #define unit_test_all_features(feature_list) MAP(unit_test_feature, feature_list)

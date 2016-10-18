@@ -34,93 +34,112 @@
  *
  */
 
-/*
- * osdetect.c
+/**
+ * \file osdetect.c
  *
- * operating system identification
+ * \brief operating system identification implementation
  */
 
 #include "osdetect.h"
 
-void os_printf(zfile f, int ttl, int iws, int ttl_twin, int iws_twin) {
-  char os_name[32];
-  detect_os(ttl, iws, os_name, sizeof(os_name));
+/**
+ * \fn void os_printf (zfile f, int ttl, int iws, int ttl_twin, int iws_twin)
+ * \param f output file
+ * \param ttl
+ * \param iws
+ * \param ttl_twin
+ * \param iws_twin
+ * \return none
+ */
+void os_printf (zfile f, int ttl, int iws, int ttl_twin, int iws_twin) {
+    char os_name[32];
+    detect_os(ttl, iws, os_name, sizeof(os_name));
 
-  if (*os_name) {
-    zprintf(f, ",\"o_probable_os\":\"%s\"", os_name);
-  }
-  if (ttl_twin) {
-    detect_os(ttl_twin, iws_twin, os_name, sizeof(os_name));
     if (*os_name) {
-      zprintf(f, ",\"i_probable_os\":\"%s\"", os_name);
+        zprintf(f, ",\"o_probable_os\":\"%s\"", os_name);
     }
-  }
+    if (ttl_twin) {
+        detect_os(ttl_twin, iws_twin, os_name, sizeof(os_name));
+        if (*os_name) {
+            zprintf(f, ",\"i_probable_os\":\"%s\"", os_name);
+        }
+    }
 }
 
-// takes a TTL and initial window size and tries to find an OS
-// This new OS classification is based on the TTL and initial window size as
-//   described in Packet Inspection for Unauthorized OS Detection in Enterprises,
-//   Tyagi et al., IEEE Security & Privacy magazine. Table 1.
-//
-// Results should be taken with caution, I have not personally validated
-//   that Table 1 was in fact correct.
-void detect_os(int ttl, int iws, char* os_name, int buf_size) {
-//int slack = 31; // packet has probably gone through at least 1 TTL decrement
-                 // Need to determine best value for this.
+/**
+ * \fn void detect_os (int ttl, int iws, char* os_name, int buf_size)
+ * \brief \verbatim
+   takes a TTL and initial window size and tries to find an OS
+   This new OS classification is based on the TTL and initial window size as
+     described in Packet Inspection for Unauthorized OS Detection in Enterprises,
+     Tyagi et al., IEEE Security & Privacy magazine. Table 1.
+  
+   Results should be taken with caution, I have not personally validated
+     that Table 1 was in fact correct.
+   \endverbatim
+ * \param ttl
+ * \param iws
+ * \param os_name
+ * \param buf_size
+ * \return none
+ */
+void detect_os (int ttl, int iws, char* os_name, int buf_size) {
+    //int slack = 31; // packet has probably gone through at least 1 TTL decrement
+                      // Need to determine best value for this.
 
-  if ((ttl >= 33) && (ttl <= 64) && (iws == 5840)) {
-    strncpy(os_name, "Linux 2.4 and 2.6", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 33) && (ttl <= 64) && (iws == 5720)) {
-    strncpy(os_name, "Google Customized Linux", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 33) && (ttl <= 64) && (iws == 16384)) {
-    strncpy(os_name, "OpenBSD, AIX 4.3", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 33) && (ttl <= 64) && (iws == 32120)) {
-    strncpy(os_name, "Linux Kernel 2.2", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 33) && (ttl <= 64) && (iws == 65535)) {
-    strncpy(os_name, "FreeBSD / OS X", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 65) && (ttl <= 128) && (iws == 8192)) {
-    strncpy(os_name, "Windows 7, Vista, and Server 8", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 65) && (ttl <= 128) && (iws == 16384)) {
-    strncpy(os_name, "Windows 2000", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 65) && (ttl <= 128) && (iws == 65535)) {
-    strncpy(os_name, "Windows XP", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 129) && (ttl <= 255) && (iws == 4128)) {
-    strncpy(os_name, "Cisco Router IOS 12.4", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
-  if ((ttl >= 129) && (ttl <= 255) && (iws == 8760)) {
-    strncpy(os_name, "Solaris 7", buf_size-1);
-    os_name[buf_size - 1] = '\0';
-    return ;
-  }
+    if ((ttl >= 33) && (ttl <= 64) && (iws == 5840)) {
+        strncpy(os_name, "Linux 2.4 and 2.6", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 33) && (ttl <= 64) && (iws == 5720)) {
+        strncpy(os_name, "Google Customized Linux", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 33) && (ttl <= 64) && (iws == 16384)) {
+        strncpy(os_name, "OpenBSD, AIX 4.3", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 33) && (ttl <= 64) && (iws == 32120)) {
+        strncpy(os_name, "Linux Kernel 2.2", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 33) && (ttl <= 64) && (iws == 65535)) {
+        strncpy(os_name, "FreeBSD / OS X", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 65) && (ttl <= 128) && (iws == 8192)) {
+        strncpy(os_name, "Windows 7, Vista, and Server 8", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 65) && (ttl <= 128) && (iws == 16384)) {
+        strncpy(os_name, "Windows 2000", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 65) && (ttl <= 128) && (iws == 65535)) {
+        strncpy(os_name, "Windows XP", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 129) && (ttl <= 255) && (iws == 4128)) {
+        strncpy(os_name, "Cisco Router IOS 12.4", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
+    if ((ttl >= 129) && (ttl <= 255) && (iws == 8760)) {
+        strncpy(os_name, "Solaris 7", buf_size-1);
+        os_name[buf_size - 1] = '\0';
+        return ;
+    }
 
-  memset(os_name, 0, buf_size);
-  return ;
+    memset(os_name, 0, buf_size);
+    return ;
 
 }
 

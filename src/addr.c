@@ -34,17 +34,22 @@
  *
  */
 
-/*
- * addr.c
+/**
+ * \file addr.c
  *
- * network address functions (IPv4 only for now)
+ * \brief network address functions (IPv4 only for now)
  */
 
 #include "addr.h"
 
-unsigned int ipv4_mask(unsigned int masklen) {
-  unsigned char tmp;
-  unsigned int i, j, bytes, bits;
+/**
+ * \fn unsigned int ipv4_mask (unsigned int masklen)
+ * \param masklen length of the subnet mask
+ * \return ipv4 mask
+ */
+unsigned int ipv4_mask (unsigned int masklen) {
+  unsigned char tmp = 0;
+  unsigned int i, j, bytes, bits = 0;
   unsigned int m = 0;
   unsigned char *mask = (unsigned char *)&m;
 
@@ -64,7 +69,13 @@ unsigned int ipv4_mask(unsigned int masklen) {
   return m;
 }
 
-unsigned int addr_mask(unsigned int addr, unsigned int masklen) {
+/**
+ * \fn unsigned int addr_mask (unsigned int addr, unsigned int masklen)
+ * \param addr ipv4 address
+ * \param masklen length of the subnet mask
+ * \return ipv4 address mask
+ */
+unsigned int addr_mask (unsigned int addr, unsigned int masklen) {
   struct in_addr mask;
 
   mask.s_addr = ipv4_mask(masklen);
