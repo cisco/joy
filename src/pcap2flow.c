@@ -72,6 +72,7 @@
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "output.h"     /* compressed output             */
+#include "ipfix.h"    /* IPFIX cleanup */
 
 enum operating_mode {
   mode_none = 0,
@@ -903,6 +904,9 @@ int main(int argc, char **argv) {
 
   flocap_stats_output(info);
   // config_print(info, &config);
+
+  /* Free any of the leftover IPFIX templates before program exit */
+  ipfix_cts_cleanup();
 
   zclose(output);
 

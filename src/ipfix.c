@@ -42,6 +42,7 @@
 
 #include <string.h>   /* for memcpy() */
 #include <stdlib.h>
+#include <time.h>
 #include "ipfix.h"
 #include "pkt.h"
 #include "http.h"
@@ -76,9 +77,13 @@ static FILE *print_dest = NULL;
         fprintf(print_dest, "\n"); }
 
 
+/*
+ * Doubly linked list for collector template store (cts).
+ */
 #define MAX_IPFIX_TEMPLATES 100
-struct ipfix_template ix_templates[MAX_IPFIX_TEMPLATES];
-unsigned short num_ipfix_templates = 0;
+struct ipfix_template *collect_template_store_head = NULL;
+struct ipfix_template *collect_template_store_tail = NULL;
+uint16_t cts_count = 0;
 
 
 /*
@@ -92,6 +97,12 @@ define_all_features_config_extern_uint(feature_list);
 /*
  * Local ipfix.c prototypes
  */
+static struct ipfix_template *ipfix_cts_search(struct ipfix_template_key needle);
+
+
+static int ipfix_cts_append(struct ipfix_template tmp);
+
+
 static int ipfix_loop_data_fields(const unsigned char *data_ptr,
                                   struct ipfix_template *cur_template,
                                   uint16_t *min_record_len);
@@ -124,17 +135,168 @@ static int ipfix_skip_idp_header(struct flow_record *nf_record,
  * @param a First IPFIX template key.
  * @param b Second IPFIX template key.
  *
- * @return 0 if match, 1 if not match
+ * @return 1 if match, 0 if not match
  */
 static inline int ipfix_template_key_cmp(const struct ipfix_template_key a,
                                          const struct ipfix_template_key b) {
   if (a.observe_dom_id == b.observe_dom_id &&
       a.template_id == b.template_id &&
       a.exporter_addr.s_addr == b.exporter_addr.s_addr) {
-    return 0;
-  } else {
     return 1;
+  } else {
+    return 0;
   }
+}
+
+
+/*
+ * @brief Renew a template.
+ *
+ * Set the last_seen field within the /p template to the current time.
+ *
+ * @param template IPFIX template that will be renewed.
+ */
+static inline void ipfix_cts_template_renewal(struct ipfix_template *template) {
+  template->last_seen = time(NULL);
+}
+
+
+/*
+ * @brief Delete a template from the collector template store (cts).
+ *
+ * The heap memory that was allocated for the fields will first be freed,
+ * and then the template itself will be destroyed.
+ */
+static inline void ipfix_cts_delete(struct ipfix_template *template) {
+  if (template->fields) {
+    uint16_t field_count = template->hdr.field_count;
+    size_t fields_list_size = sizeof(struct ipfix_template_field) * field_count;
+    memset(template->fields, 0, fields_list_size);
+    free(template->fields);
+  }
+
+  memset(template, 0, sizeof(struct ipfix_template));
+  free(template);
+}
+
+
+/*
+ * @brief Free all templates that exist in the collector template store (cts).
+ *
+ * Any ipfix_template structures that currently remain within the CTS will
+ * be zeroized and have their heap memory freed.
+ */
+void ipfix_cts_cleanup(void) {
+  struct ipfix_template *this_template;
+  struct ipfix_template *next_template;
+
+  if (collect_template_store_head == NULL) {
+    return;
+  }
+
+  this_template = collect_template_store_head;
+  next_template = this_template->next;
+
+  /* Free the first stored template */
+  ipfix_cts_delete(this_template);
+
+  while (next_template) {
+    this_template = next_template;
+    next_template = this_template->next;
+
+    ipfix_cts_delete(this_template);
+  }
+}
+
+
+/*
+ * @brief Search the IPFIX collector template store (cts) for a match.
+ *
+ * Using the /p needle template, search through the store list
+ * to find whether an identical template exists in the store
+ * already.
+ *
+ * @param needle IPFIX template that will be searched for.
+ *
+ * @return NULL for not match
+ */
+static struct ipfix_template *ipfix_cts_search(struct ipfix_template_key needle) {
+  struct ipfix_template *cur_template;
+
+  if (collect_template_store_head == NULL) {
+    return NULL;
+  }
+
+  cur_template = collect_template_store_head;
+  if (ipfix_template_key_cmp(cur_template->template_key, needle)) {
+    /* Found match */
+    return cur_template;
+  }
+
+  while (cur_template->next) {
+    cur_template = cur_template->next;
+    if (ipfix_template_key_cmp(cur_template->template_key, needle)) {
+      /* Found match */
+      return cur_template;
+    }
+  }
+
+  return NULL;
+}
+
+/*
+ * @brief Allocate heap memory for a sequence of fields.
+ *
+ * @param template IPFIX template which will have allocated memory
+ *                 attached to it via pointer.
+ */
+static inline void ipfix_template_fields_malloc(struct ipfix_template *template) {
+  uint16_t field_count = template->hdr.field_count;
+  size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
+
+  template->fields = malloc(field_list_size);
+  memset(template->fields, 0, field_list_size);
+}
+
+
+/*
+ * @brief Append to the collector template store (cts).
+ *
+ * Create a new template on the heap, and copy the key, hdr, and fields
+ * from the template /p tmp. The timestamp of last_seen will be calculated
+ * and attached to the newly allocated template.
+ */
+static int ipfix_cts_append(struct ipfix_template tmp) {
+  uint16_t field_count = tmp.hdr.field_count;
+  size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
+
+  /* Init a new template on the heap */
+  struct ipfix_template *template = malloc(sizeof(struct ipfix_template));
+  memset(template, 0, sizeof(struct ipfix_template));
+
+  template->template_key = tmp.template_key;
+  template->hdr = tmp.hdr;
+  /* Allocate memory for the fields, and copy */
+  ipfix_template_fields_malloc(template);
+  memcpy(template->fields, tmp.fields, field_list_size);
+  template->payload_length = tmp.payload_length;
+
+  /* Write the current time */
+  template->last_seen = time(NULL);
+
+  if (collect_template_store_head == NULL) {
+    /* This is the first template in store list */
+    collect_template_store_head = template;
+  } else {
+    /* Append to the end of store list */
+    collect_template_store_tail->next = template;
+    template->prev = collect_template_store_tail;
+  }
+
+  /* Update the tail */
+  collect_template_store_tail = template;
+
+  return 0;
 }
 
 
@@ -243,8 +405,8 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     struct ipfix_template cur_template;
     struct ipfix_template_key template_key;
     int cur_template_pld_len = 0;
-    int redundant_template_pld_len = 0;
-    int redundant_template = 0;
+    struct ipfix_template *redundant_template = NULL;
+    struct ipfix_template_field stack_fields[field_count];
     int i;
 
     /*
@@ -255,21 +417,16 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
                             ntohl(ipfix->observe_dom_id), template_id);
 
     /* Check to see if template already exists, if so, continue */
-    for (i = 0; i < num_ipfix_templates; i++) {
-      if (ipfix_template_key_cmp(template_key,
-                                 ix_templates[i].template_key) == 0) {
-        redundant_template = 1;
-        redundant_template_pld_len = ix_templates[i].payload_length;
-        break;
-      }
-    }
-
-    if (redundant_template) {
-      /* Template already exists */
-      template_ptr += redundant_template_pld_len;
-      template_set_len -= redundant_template_pld_len;
+    if ((redundant_template = ipfix_cts_search(template_key)) != NULL) {
+      ipfix_cts_template_renewal(redundant_template);
+      template_ptr += redundant_template->payload_length;
+      template_set_len -= redundant_template->payload_length;
       continue;
     }
+
+    /* Assign the stack fields array to current template for
+     * automatic cleanup */
+    cur_template.fields = stack_fields;
 
     /*
      * The enterprise field may or may not exist for certain fields
@@ -304,9 +461,8 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     cur_template.template_key = template_key;
 
     /* Save template */
-    ix_templates[num_ipfix_templates] = cur_template;
-    num_ipfix_templates += 1;
-    num_ipfix_templates %= MAX_IPFIX_TEMPLATES;
+    ipfix_cts_append(cur_template);
+    cts_count += 1;
   }
 
   return 0;
@@ -322,8 +478,12 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
  * value in the variable length field will be overwritten by the new value
  * that corresponds to this particular data record.
  *
+ * Additionally, if the value of /p min_record_len is 0, it will be filled
+ * in (by reference) with the minimum valid data record size.
+ *
  * @param data_ptr Pointer to the IPFIX data record.
  * @param cur_template IPFIX template used for data record interpretation.
+ * @param min_record_len Used to hold minimum size of a valid data record.
  *
  * @return 0 for failure, >0 for success
  */
@@ -412,7 +572,6 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
   struct ipfix_template_key template_key;
   struct ipfix_template *cur_template = NULL;
   uint16_t min_record_len = 0;
-  int i;
 
   /* Define data template key:
    * {source IP + observation domain ID + template ID}
@@ -421,13 +580,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                           ntohl(ipfix->observe_dom_id), template_id);
 
   /* Look for template match */
-  for (i = 0; i < num_ipfix_templates; i++) {
-    if (ipfix_template_key_cmp(template_key,
-                               ix_templates[i].template_key) == 0) {
-      cur_template = &ix_templates[i];
-      break;
-    }
-  }
+  cur_template = ipfix_cts_search(template_key);
 
   /* Process data if we know the template */
   if (cur_template != NULL) {
@@ -505,13 +658,9 @@ static int ipfix_skip_idp_header(struct flow_record *ix_record,
     return 1;
   }
 
-  if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > flow_len) {
-    /*
-     * IP packet is malformed (shorter than a complete IP header, or
-     * claims to be longer than the total IDP length).
-     */
-    loginfo("error: ip packet malformed, ip_len: %d flow_len: %d",
-            ntohs(ip->ip_len), flow_len);
+  if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+    /* IP packet is malformed (shorter than a complete IP header) */
+    loginfo("error: ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
     return 1;
   }
 
@@ -600,8 +749,8 @@ void ipfix_process_flow_record(struct flow_record *ix_record,
                                const struct ipfix_template *cur_template,
                                const void *flow_data,
                                int record_num) {
-  struct timeval old_val_time;
-  unsigned int total_ms;
+  //struct timeval old_val_time;
+  //unsigned int total_ms;
   const void *flow_ptr = flow_data;
   const unsigned char *payload = NULL;
   unsigned int size_payload = 0;

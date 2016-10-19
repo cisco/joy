@@ -44,6 +44,7 @@
 #ifndef IPFIX_H
 #define IPFIX_H
 
+#include <time.h>
 #include <netinet/in.h>
 #include "p2f.h"
 
@@ -238,12 +239,16 @@ struct ipfix_template_key {
  * Stored by the collector to interpret subsequent related Data Sets.
  */
 struct ipfix_template {
+  struct ipfix_template_key template_key;
+  struct ipfix_template_hdr hdr;
+  struct ipfix_template_field *fields;
   int payload_length; /**< Keeps track of the actual template field payload length encountered,
                            since all ipfix_template_fields have enterprise memory allocated,
                            but that may not have been true for payload */
-  struct ipfix_template_key template_key;
-  struct ipfix_template_hdr hdr;
-  struct ipfix_template_field fields[IPFIX_MAX_FIELDS];
+
+  time_t last_seen;
+  struct ipfix_template *next;
+  struct ipfix_template *prev;
 };
 
 
@@ -290,6 +295,9 @@ struct ipfix_msg {
 
 
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
+
+
+void ipfix_cts_cleanup(void);
 
 
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
