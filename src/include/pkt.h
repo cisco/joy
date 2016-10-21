@@ -34,14 +34,15 @@
  *
  */
 
-/*
- * pkt.h
+/**
+ * \file pkt.h
+ *
+ * \brief packet interface
  */
-
 #ifndef PKT_H
 #define PKT_H
 
-#include <netinet/in.h>     /* for struct in_addr */
+#include <netinet/in.h> 
 
 #ifdef LINUX
 #include <endian.h>
@@ -51,23 +52,18 @@
 
 #define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
 
-
-/*
- * ethernet header
- */
+/** ethernet header */
 #define ETHERNET_HDR_LEN 14
 #define ETHERNET_ADR_LEN  6
 
+/** ethernet header structure */
 struct ethernet_hdr {
-  unsigned char dst_addr[ETHERNET_ADR_LEN];  
-  unsigned char src_addr[ETHERNET_ADR_LEN];  
-  unsigned short ether_type;                  
+    unsigned char dst_addr[ETHERNET_ADR_LEN];  
+    unsigned char src_addr[ETHERNET_ADR_LEN];  
+    unsigned short ether_type;                  
 };
 
-/*
- * Internet Protocol (IP) version four header
- */
-
+/** Internet Protocol (IP) version four header */
 #if CPU_IS_BIG_ENDIAN
 #define IP_RF    0x8000 /* Reserved           */
 #define IP_DF    0x4000 /* Don't Fragment     */
@@ -91,22 +87,21 @@ struct ethernet_hdr {
 #define ip_hdr_length(ip) ((((ip)->ip_vhl) & 0x0f)*4)
 #define ip_version(ip)    (((ip)->ip_vhl) >> 4)
 
+/** IP header structure */
 struct ip_hdr {
-  unsigned char  ip_vhl;    /* version and hdr length */
-  unsigned char  ip_tos;    /* type of service        */
-  unsigned short ip_len;    /* packet length          */
-  unsigned short ip_id;     /* identification         */
-  unsigned short ip_flgoff; /* flags, frag off field  */
-  unsigned char  ip_ttl;    /* time to live           */
-  unsigned char  ip_prot;   /* protocol               */
-  unsigned short ip_cksum;  /* checksum               */
-  struct in_addr ip_src;    /* source address         */
-  struct in_addr ip_dst;    /* destination address    */
+    unsigned char  ip_vhl;    /* version and hdr length */
+    unsigned char  ip_tos;    /* type of service        */
+    unsigned short ip_len;    /* packet length          */
+    unsigned short ip_id;     /* identification         */
+    unsigned short ip_flgoff; /* flags, frag off field  */
+    unsigned char  ip_ttl;    /* time to live           */
+    unsigned char  ip_prot;   /* protocol               */
+    unsigned short ip_cksum;  /* checksum               */
+    struct in_addr ip_src;    /* source address         */
+    struct in_addr ip_dst;    /* destination address    */
 };
 
-/*
- * Transmission Control Protocol (TCP) header 
-*/
+/** Transmission Control Protocol (TCP) header */
 #define TCP_FIN  0x01
 #define TCP_SYN  0x02
 #define TCP_RST  0x04
@@ -119,35 +114,34 @@ struct ip_hdr {
 #define TCP_OFF(h)  (((h)->tcp_off2 & 0xf0) >> 4)
 #define tcp_hdr_length(h) (((h)->tcp_offrsv >> 4) * 4)
 
+/** TCP header structure */
 struct tcp_hdr {
-  unsigned short src_port;   /* source port            */
-  unsigned short dst_port;   /* destination port       */
-  unsigned int   tcp_seq;    /* sequence number        */
-  unsigned int   tcp_ack;    /* acknowledgement number */
-  unsigned char  tcp_offrsv; /* data offset and rsrvd  */
-  unsigned char  tcp_flags;  /* flags                  */
-  unsigned short tcp_win;    /* window                 */
-  unsigned short tcp_csm;    /* checksum               */
-  unsigned short tcp_urp;    /* urgent pointer         */
+    unsigned short src_port;   /* source port            */
+    unsigned short dst_port;   /* destination port       */
+    unsigned int   tcp_seq;    /* sequence number        */
+    unsigned int   tcp_ack;    /* acknowledgement number */
+    unsigned char  tcp_offrsv; /* data offset and rsrvd  */
+    unsigned char  tcp_flags;  /* flags                  */
+    unsigned short tcp_win;    /* window                 */
+    unsigned short tcp_csm;    /* checksum               */
+    unsigned short tcp_urp;    /* urgent pointer         */
 };
 
 
-/*
- * User Datagram Protocol (UDP)
- */
+/** User Datagram Protocol (UDP) */
 struct udp_hdr {
-  unsigned short src_port;  /* source port            */
-  unsigned short dst_port;  /* destination port       */
-  unsigned short udp_len;   /* packet length          */
-  unsigned short udp_csm;   /* checksum               */
+    unsigned short src_port;  /* source port            */
+    unsigned short dst_port;  /* destination port       */
+    unsigned short udp_len;   /* packet length          */
+    unsigned short udp_csm;   /* checksum               */
 };
 
+/** ICMP header structure */
 struct icmp_hdr {
-  unsigned char  type; 
-  unsigned char  code; 
-  unsigned short checksum;
-  unsigned int   rest_of_header;
+    unsigned char  type; 
+    unsigned char  code; 
+    unsigned short checksum;
+    unsigned int   rest_of_header;
 };
-
 
 #endif /* PKT_H */

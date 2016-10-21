@@ -34,26 +34,38 @@
  *
  */
 
+/**
+ * \file http.h
+ *
+ * \brief http data extraction interface
+ */
 #ifndef HTTP_H
 #define HTTP_H
 
-#include <stdio.h>   /* for FILE */
+#include <stdio.h> 
 #include "output.h"
 
-struct http_data {
+/** http data structure */
+typedef struct {
   char *header;
   unsigned int header_length;
-};
+} http_data_t;
 
-void http_init(struct http_data *data);
+/** initialize http data structure */
+void http_init(http_data_t *data);
 
-void http_update(struct http_data *data,
+
+/** update http data structure */
+void http_update(http_data_t *data,
 		 const void *http_start, 
 		 unsigned long bytes_in_msg,
 		 unsigned int report_http);
 
-void http_printf(const struct http_data *data, char *string, zfile f);
+/** print out an http data structure */
+void http_printf(const http_data_t *data, char *string, zfile f);
 
-void http_delete(struct http_data *data);
+
+/** remove an http data structure */
+void http_delete(http_data_t *data);
 
 #endif /* HTTP_H */

@@ -34,31 +34,35 @@
  *
  */
 
-/*
- * addr_attr.c
+/**
+ * \file addr_attr.c
  *
- * address attributes
+ * \brief address attributes
  */
 
 #include <stdio.h>
 #include "addr_attr.h"
 #include "err.h"
 
-attr_flags
-attr_get_next_flag(attr_flags *a) {
-  attr_flags x = *a;
+/**
+ * \fn attr_flags attr_get_next_flag (attr_flags *a)
+ * \param a pointer to flags
+ * \return flags with only found value set
+ */
+attr_flags attr_get_next_flag (attr_flags *a) {
+    attr_flags x = *a;
 
-  /* find highest set bitflag */
-  x |= (x >> 1);
-  x |= (x >> 2);
-  x |= (x >> 4);
-  x |= (x >> 8);
-  x |= (x >> 16);
-  x = (x & ~(x >> 1));
+    /* find highest set bitflag */
+    x |= (x >> 1);
+    x |= (x >> 2);
+    x |= (x >> 4);
+    x |= (x >> 8);
+    x |= (x >> 16);
+    x = (x & ~(x >> 1));
 
-  /* unset bitflag, then return bitflag value */
-  *a ^= x;
+    /* unset bitflag, then return bitflag value */
+    *a ^= x;
 
-  return x;
+    return x;
 }
 

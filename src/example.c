@@ -34,65 +34,97 @@
  *
  */
 
-/*
- * example.c
+/**
+ * \file example.c
  *
- * An example of a data feature module that uses the C preprocessor
- * generic programming interface defined in feature.h.xs
+ * \brief An example of a data feature module that uses the C preprocessor
+ * generic programming interface defined in feature.h.
  *
  */
 
-#include <stdio.h>    /* for fprintf()              */
+#include <stdio.h>  
 #include "example.h"     
 
-
-inline void example_init(struct example *example) {
-  example->counter = 0;
+/**
+ * \fn inline void example_init (struct example *example)
+ * \param example structure to initialize
+ * \return none
+ */
+inline void example_init (struct example *example) {
+    example->counter = 0;
 }
 
-void example_update(struct example *example, 
-		    const void *data, 
-		    unsigned int len, 
-		    unsigned int report_example) {
-  if (report_example) {
-    example->counter += len;
-  }
+/**
+ * \fn void example_update (struct example *example,
+        const void *data,
+        unsigned int len,
+        unsigned int report_example)
+ * \param example structure to initialize
+ * \param data data to use for update
+ * \param len length of the data
+ * \param report_example flag to determine if we filter example
+ * \return none
+ */
+void example_update (struct example *example, 
+        const void *data, 
+        unsigned int len, 
+        unsigned int report_example) {
+    if (report_example) {
+        example->counter += len;
+    }
 }
 
-void example_print_json(const struct example *x1, const struct example *x2, zfile f) {
-  unsigned int total;
+/**
+ * \fn void example_print_json (const struct example *x1, const struct example *x2, zfile f)
+ * \param x1 pointer to example structure
+ * \param x2 pointer to example structure
+ * \param f output file
+ * \return none
+ */
+void example_print_json (const struct example *x1, const struct example *x2, zfile f) {
+    unsigned int total;
   
-  total = x1->counter;
-  if (x2) {
-    total += x2->counter;
-  }
-  if (total) {
-    zprintf(f, ",\"example\":%u", total);
-  }
+    total = x1->counter;
+    if (x2) {
+        total += x2->counter;
+    }
+    if (total) {
+        zprintf(f, ",\"example\":%u", total);
+    }
 }
 
-void example_delete(struct example *example) { 
-  /* no memory needs to be freed */
+/**
+ * \fn void example_delete (struct example *example)
+ * \param example pointer to example stucture
+ * \return none
+ */
+void example_delete (struct example *example) { 
+    /* no memory needs to be freed */
 }
 
-void example_unit_test() {
-  struct example example;
-  zfile output;
+/**
+ * \fn void example_unit_test ()
+ * \param none
+ * \return none
+ */
+void example_unit_test () {
+    struct example example;
+    zfile output;
 
-  output = zattach(stdout, "w");
-  if (output == NULL) {
-    fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
-  }
-  example_init(&example);
-  example_update(&example, NULL, 1, 1);
-  example_update(&example, NULL, 2, 1);
-  example_update(&example, NULL, 3, 1);
-  example_update(&example, NULL, 4, 1);
-  example_update(&example, NULL, 5, 1);
-  example_update(&example, NULL, 6, 1);
-  example_update(&example, NULL, 7, 1);
-  example_update(&example, NULL, 8, 1);
-  example_update(&example, NULL, 9, 1);
-  example_print_json(&example, NULL, output);
- 
+    output = zattach(stdout, "w");
+    if (output == NULL) {
+        fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
+    }
+    example_init(&example);
+    example_update(&example, NULL, 1, 1);
+    example_update(&example, NULL, 2, 1);
+    example_update(&example, NULL, 3, 1);
+    example_update(&example, NULL, 4, 1);
+    example_update(&example, NULL, 5, 1);
+    example_update(&example, NULL, 6, 1);
+    example_update(&example, NULL, 7, 1);
+    example_update(&example, NULL, 8, 1);
+    example_update(&example, NULL, 9, 1);
+    example_print_json(&example, NULL, output);
 } 
+

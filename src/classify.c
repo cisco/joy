@@ -34,16 +34,15 @@
  *
  */
 
-/*
- * classify.c
+/**
+ * \file classify.c
  *
- * contains the functionality for inline classification
+ * \brief contains the functionality for inline classification
  * 
  */
-
-#include <stdio.h>    /* for fprintf(), etc */
-#include <ctype.h>    /* for isprint()      */
-#include <string.h>   /* for memcpy()       */
+#include <stdio.h>   
+#include <ctype.h>   
+#include <string.h> 
 #include <sys/time.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -51,32 +50,35 @@
 #include "classify.h"
 #include "p2f.h"
 
+/** finds the minimum value between to inputs */
 #define min(a,b) \
-  ({ __typeof__ (a) _a = (a); \
-  __typeof__ (b) _b = (b); \
-  _a < _b ? _a : _b; })
+    ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+       _a < _b ? _a : _b; })
 
-
-unsigned int timeval_to_milliseconds_c(struct timeval ts) {
-  unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
-  return result;
+/* convert time value to millseconds */
+static unsigned int timeval_to_milliseconds_c(struct timeval ts) {
+    unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
+    return result;
 }
 
+/* time comparison */
 static inline unsigned int timer_lt_c(const struct timeval *a, const struct timeval *b) {
-  return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
+    return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
 }
 
+/* time subrtaction (difference) */
 static inline void timer_sub_c(const struct timeval *a, const struct timeval *b, struct timeval *result)  {
-  result->tv_sec = a->tv_sec - b->tv_sec;        
-  result->tv_usec = a->tv_usec - b->tv_usec;     
-  if (result->tv_usec < 0) {                         
-    --result->tv_sec;                                
-    result->tv_usec += 1000000;                      
-  }                                                    
+    result->tv_sec = a->tv_sec - b->tv_sec;        
+    result->tv_usec = a->tv_usec - b->tv_usec;     
+    if (result->tv_usec < 0) {                         
+        --result->tv_sec;                                
+        result->tv_usec += 1000000;                      
+    }                                                    
 }
 
-// bias (1) + w (207)
-//const float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = {
+//bias (1) + w (207) 
+//const float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = { 
 float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = {
    1.870162393265777379e+00, -4.795306993214020408e-05, -1.734180056229888626e-04, -6.750871045910851378e-04,
    5.175991233904169049e-04,  3.526042198693187802e-07, -2.903366739676974950e-07, -1.415422572109461820e-06,
@@ -132,7 +134,7 @@ float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = {
    5.859059243312456644e-01,  0.000000000000000000e+00,  2.700307766027922884e-01,  2.036695317557343010e+00
 };
 
-// bias (1) + w (207)
+//bias (1) + w (207)
 //const float parameters_bd[NUM_PARAMETERS_BD_LOGREG] = {
 float parameters_bd[NUM_PARAMETERS_BD_LOGREG] = {
  -2.953121634313102817e-01, -9.305965891856329863e-05, -1.604178587753208403e-04, -8.663508397764218205e-05,
@@ -253,279 +255,318 @@ float parameters_bd[NUM_PARAMETERS_BD_LOGREG] = {
   0.000000000000000000e+00,  0.000000000000000000e+00,  0.000000000000000000e+00,  0.000000000000000000e+00
 };
 
-void merge_splt_arrays(const uint16_t *pkt_len, const struct timeval *pkt_time, 
+/**
+ * \fn void merge_splt_arrays (const uint16_t *pkt_len, const struct timeval *pkt_time,
+         const uint16_t *pkt_len_twin, const struct timeval *pkt_time_twin,
+         struct timeval start_time, struct timeval start_time_twin,
+         uint16_t s_idx, uint16_t r_idx,
+         uint16_t *merged_lens, uint16_t *merged_times,
+         uint32_t max_num_pkt_len, uint32_t max_merged_num_pkts)
+ * \param pkt_len length of the packet
+ * \param pkt_time time of the packet
+ * \param pkt_len_twin length of the twin packet
+ * \param pkt_time_twin time of the twin packet
+ * \param start_time start time
+ * \param start_time_twin start time of twin
+ * \param s_idx s index in the merge
+ * \param r_idx r index in the merge
+ * \param merged_lens length of the merge
+ * \param merged_times time of the merge
+ * \param max_num_pkt_len length of maximum packets
+ * \param max_merged_num_pkts number of packets merged
+ * \return none
+ */
+void merge_splt_arrays (const uint16_t *pkt_len, const struct timeval *pkt_time, 
 		       const uint16_t *pkt_len_twin, const struct timeval *pkt_time_twin,
 		       struct timeval start_time, struct timeval start_time_twin,
 		       uint16_t s_idx, uint16_t r_idx,
 		       uint16_t *merged_lens, uint16_t *merged_times,
 		       uint32_t max_num_pkt_len, uint32_t max_merged_num_pkts) {
-  int s,r;
-  struct timeval ts_start = { 0, 0 }; /* initialize to avoid spurious warnings */
-  struct timeval tmp, tmp_r;
-  struct timeval start_m;
+    int s,r;
+    struct timeval ts_start = { 0, 0 }; /* initialize to avoid spurious warnings */
+    struct timeval tmp, tmp_r;
+    struct timeval start_m;
 
-  if (r_idx + s_idx == 0) {
-    return ;
-  } else if (r_idx == 0) {
-    ts_start = pkt_time[0];
-
-    tmp = pkt_time[0];
-    timer_sub_c(&tmp, &start_time, &start_m);
-
-  } else if (s_idx == 0) {
-    ts_start = pkt_time_twin[0];
-
-    tmp = pkt_time_twin[0];
-    timer_sub_c(&tmp, &start_time_twin, &start_m);
-
-  } else {
-    //    if (timer_lt_c(&pkt_time[0], &pkt_time_twin[0])) {
-    if (timer_lt_c(&start_time, &start_time_twin)) {
-      ts_start = pkt_time[0];
-
-      tmp = pkt_time[0];
-      timer_sub_c(&tmp, &start_time, &start_m);
-
+    if (r_idx + s_idx == 0) {
+        return ;
+    } else if (r_idx == 0) {
+        ts_start = pkt_time[0];
+        tmp = pkt_time[0];
+        timer_sub_c(&tmp, &start_time, &start_m);
+    } else if (s_idx == 0) {
+        ts_start = pkt_time_twin[0];
+        tmp = pkt_time_twin[0];
+        timer_sub_c(&tmp, &start_time_twin, &start_m);
     } else {
-      //      ts_start = pkt_time_twin[0];
-
-      tmp = pkt_time_twin[0];
-      timer_sub_c(&tmp, &start_time_twin, &start_m);
-
+        //    if (timer_lt_c(&pkt_time[0], &pkt_time_twin[0])) {
+        if (timer_lt_c(&start_time, &start_time_twin)) {
+            ts_start = pkt_time[0];
+            tmp = pkt_time[0];
+            timer_sub_c(&tmp, &start_time, &start_m);
+        } else {
+            //      ts_start = pkt_time_twin[0];
+            tmp = pkt_time_twin[0];
+            timer_sub_c(&tmp, &start_time_twin, &start_m);
+        }
     }
-  }
-  //  start_m = timeval_to_milliseconds_c(ts_start);
+    //  start_m = timeval_to_milliseconds_c(ts_start);
+    s = r = 0;
+    while ((s < s_idx) || (r < r_idx)) {
+        if (s >= s_idx) {
+            merged_lens[s+r] = pkt_len_twin[r];
+            tmp = pkt_time_twin[r];
+            timer_sub_c(&tmp, &ts_start, &tmp_r);
+            merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+            ts_start = tmp;
+            //merged_times[s+r] = pkt_time_twin[r];
+            r++;
+        } else if (r >= r_idx) {
+            merged_lens[s+r] = pkt_len[s];
+            tmp = pkt_time[s];
+            timer_sub_c(&tmp, &ts_start, &tmp_r);
+            merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+            ts_start = tmp;
+            //merged_times[s+r] = pkt_time[s];
+            s++;
+        } else {
+            if (timer_lt_c(&pkt_time[s], &pkt_time_twin[r])) {
+                merged_lens[s+r] = pkt_len[s];
+	               tmp = pkt_time[s];
+	               timer_sub_c(&tmp, &ts_start, &tmp_r);
+	               merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+	               ts_start = tmp;
+                //merged_times[s+r] = pkt_time[s];
+                s++;
+            } else {
+                merged_lens[s+r] = pkt_len_twin[r];
+	               tmp = pkt_time_twin[r];
+	               timer_sub_c(&tmp, &ts_start, &tmp_r);
+	               merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+	               ts_start = tmp;
+                //merged_times[s+r] = pkt_time_twin[r];
+                r++;
+            }
+        }
+    }
+    merged_times[0] = timeval_to_milliseconds_c(start_m);
+}
 
-  s = r = 0;
-  while ((s < s_idx) || (r < r_idx)) {
-    if (s >= s_idx) {
-      merged_lens[s+r] = pkt_len_twin[r];
+/* transform lens array to Markov chain */
+static void get_mc_rep_lens (uint16_t *lens, float *length_mc, uint16_t num_packets) {
+    float row_sum;
+    int prev_packet_size = 0;
+    int cur_packet_size = 0;
+    int i, j;
 
-      tmp = pkt_time_twin[r];
-      timer_sub_c(&tmp, &ts_start, &tmp_r);
-      merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
-      ts_start = tmp;
-      //merged_times[s+r] = pkt_time_twin[r];
-      r++;
-    } else if (r >= r_idx) {
-      merged_lens[s+r] = pkt_len[s];
+    for (i = 0; i < MC_BINS_LEN*MC_BINS_LEN; i++) { // init to 0
+        length_mc[i] = 0.0;
+    }
 
-      tmp = pkt_time[s];
-      timer_sub_c(&tmp, &ts_start, &tmp_r);
-      merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
-      ts_start = tmp;
-      //merged_times[s+r] = pkt_time[s];
-      s++;
+    if (num_packets == 0) {
+        // nothing to do
+    } else if (num_packets == 1) {
+        cur_packet_size = (int)min(lens[0]/(float)MC_BIN_SIZE_LEN,(uint16_t)MC_BINS_LEN-1);
+        length_mc[cur_packet_size + cur_packet_size*MC_BINS_LEN] = 1.0;
     } else {
-      if (timer_lt_c(&pkt_time[s], &pkt_time_twin[r])) {
-        merged_lens[s+r] = pkt_len[s];
-
-	tmp = pkt_time[s];
-	timer_sub_c(&tmp, &ts_start, &tmp_r);
-	merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
-	ts_start = tmp;
-        //merged_times[s+r] = pkt_time[s];
-        s++;
-      } else {
-        merged_lens[s+r] = pkt_len_twin[r];
-
-	tmp = pkt_time_twin[r];
-	timer_sub_c(&tmp, &ts_start, &tmp_r);
-	merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
-	ts_start = tmp;
-        //merged_times[s+r] = pkt_time_twin[r];
-        r++;
-      }
-    }
-  }
-  merged_times[0] = timeval_to_milliseconds_c(start_m);
-}
-
-// transform lens array to Markov chain
-void get_mc_rep_lens(uint16_t *lens, float *length_mc, uint16_t num_packets) {
-  float row_sum;
-  int prev_packet_size = 0;
-  int cur_packet_size = 0;
-  int i, j;
-
-  for (i = 0; i < MC_BINS_LEN*MC_BINS_LEN; i++) { // init to 0
-    length_mc[i] = 0.0;
-  }
-
-  if (num_packets == 0) {
-    // nothing to do
-  } else if (num_packets == 1) {
-    cur_packet_size = (int)min(lens[0]/(float)MC_BIN_SIZE_LEN,(uint16_t)MC_BINS_LEN-1);
-    length_mc[cur_packet_size + cur_packet_size*MC_BINS_LEN] = 1.0;
-  } else {
-    for (i = 1; i < num_packets; i++) {
-      prev_packet_size = (int)min((uint16_t)(lens[i-1]/(float)MC_BIN_SIZE_LEN),(uint16_t)MC_BINS_LEN-1);
-      cur_packet_size = (int)min((uint16_t)(lens[i]/(float)MC_BIN_SIZE_LEN),(uint16_t)MC_BINS_LEN-1);
-      length_mc[prev_packet_size*MC_BINS_LEN + cur_packet_size] += 1.0;
-    }
-    // normalize rows of Markov chain
-    for (i = 0; i < MC_BINS_LEN; i++) {
-      // find sum
-      row_sum = 0.0;
-      for (j = 0; j < MC_BINS_LEN; j++) {
-        row_sum += length_mc[i*MC_BINS_LEN+j];
-      }
-      if (row_sum != 0.0) {
-        for (j = 0; j < MC_BINS_LEN; j++) {
-          length_mc[i*MC_BINS_LEN+j] /= row_sum;
+        for (i = 1; i < num_packets; i++) {
+            prev_packet_size = (int)min((uint16_t)(lens[i-1]/(float)MC_BIN_SIZE_LEN),(uint16_t)MC_BINS_LEN-1);
+            cur_packet_size = (int)min((uint16_t)(lens[i]/(float)MC_BIN_SIZE_LEN),(uint16_t)MC_BINS_LEN-1);
+            length_mc[prev_packet_size*MC_BINS_LEN + cur_packet_size] += 1.0;
         }
-      }
-    }
-  }
-}
-
-// transform times array to Markov chain
-void get_mc_rep_times(uint16_t *times, float *time_mc, uint16_t num_packets) {
-  float row_sum;
-  int prev_packet_time = 0;
-  int cur_packet_time = 0;
-  int i, j;
-
-  for (i = 0; i < MC_BINS_TIME*MC_BINS_TIME; i++) { // init to 0
-    time_mc[i] = 0.0;
-  }
-  if (num_packets == 0) {
-    // nothing to do
-  } else if (num_packets == 1) {
-    cur_packet_time = (int)min(times[0]/(float)MC_BIN_SIZE_TIME,(uint16_t)MC_BINS_TIME-1);
-    time_mc[cur_packet_time + cur_packet_time*MC_BINS_TIME] = 1.0;
-  } else {
-    for (i = 1; i < num_packets; i++) {
-      prev_packet_time = (int)min((uint16_t)(times[i-1]/(float)MC_BIN_SIZE_TIME),(uint16_t)MC_BINS_TIME-1);
-      cur_packet_time = (int)min((uint16_t)(times[i]/(float)MC_BIN_SIZE_TIME),(uint16_t)MC_BINS_TIME-1);
-      time_mc[prev_packet_time*MC_BINS_TIME + cur_packet_time] += 1.0;
-    }
-    // normalize rows of Markov chain
-    for (i = 0; i < MC_BINS_TIME; i++) {
-      // find sum
-      row_sum = 0.0;
-      for (j = 0; j < MC_BINS_TIME; j++) {
-        row_sum += time_mc[i*MC_BINS_TIME+j];
-      }
-      if (row_sum != 0.0) {
-        for (j = 0; j < MC_BINS_TIME; j++) {
-          time_mc[i*MC_BINS_TIME+j] /= row_sum;
+        // normalize rows of Markov chain
+        for (i = 0; i < MC_BINS_LEN; i++) {
+            // find sum
+            row_sum = 0.0;
+            for (j = 0; j < MC_BINS_LEN; j++) {
+                row_sum += length_mc[i*MC_BINS_LEN+j];
+            }
+            if (row_sum != 0.0) {
+                for (j = 0; j < MC_BINS_LEN; j++) {
+                    length_mc[i*MC_BINS_LEN+j] /= row_sum;
+                }
+            }
         }
-      }
     }
-  }
 }
 
-float classify(const unsigned short *pkt_len, const struct timeval *pkt_time,
+/* transform times array to Markov chain */
+void get_mc_rep_times (uint16_t *times, float *time_mc, uint16_t num_packets) {
+    float row_sum;
+    int prev_packet_time = 0;
+    int cur_packet_time = 0;
+    int i, j;
+
+    for (i = 0; i < MC_BINS_TIME*MC_BINS_TIME; i++) { // init to 0
+        time_mc[i] = 0.0;
+    }
+    if (num_packets == 0) {
+        // nothing to do
+    } else if (num_packets == 1) {
+        cur_packet_time = (int)min(times[0]/(float)MC_BIN_SIZE_TIME,(uint16_t)MC_BINS_TIME-1);
+        time_mc[cur_packet_time + cur_packet_time*MC_BINS_TIME] = 1.0;
+    } else {
+        for (i = 1; i < num_packets; i++) {
+            prev_packet_time = (int)min((uint16_t)(times[i-1]/(float)MC_BIN_SIZE_TIME),(uint16_t)MC_BINS_TIME-1);
+            cur_packet_time = (int)min((uint16_t)(times[i]/(float)MC_BIN_SIZE_TIME),(uint16_t)MC_BINS_TIME-1);
+            time_mc[prev_packet_time*MC_BINS_TIME + cur_packet_time] += 1.0;
+        }
+        // normalize rows of Markov chain
+        for (i = 0; i < MC_BINS_TIME; i++) {
+            // find sum
+            row_sum = 0.0;
+            for (j = 0; j < MC_BINS_TIME; j++) {
+                row_sum += time_mc[i*MC_BINS_TIME+j];
+            }
+            if (row_sum != 0.0) {
+                for (j = 0; j < MC_BINS_TIME; j++) {
+                    time_mc[i*MC_BINS_TIME+j] /= row_sum;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * \fn float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
+        const unsigned short *pkt_len_twin, const struct timeval *pkt_time_twin,
+          struct timeval start_time, struct timeval start_time_twin, uint32_t max_num_pkt_len,
+        uint16_t sp, uint16_t dp, uint32_t op, uint32_t ip, uint32_t np_o, uint32_t np_i,
+        uint32_t ob, uint32_t ib, uint16_t use_bd, const uint32_t *bd, const uint32_t *bd_t)
+ * \param pkt_len length of the packet
+ * \param pkt_time time of the packet
+ * \param pkt_len_twin length of the packet twin
+ * \param pkt_time_twin time of the packet twin
+ * \param start_time start time
+ * \param start_time_twin start time of the twin
+ * \param max_num_pkt_len maximum len of number of packets
+ * \param sp
+ * \param dp
+ * \param op
+ * \param ip
+ * \param np_o
+ * \param np_i
+ * \param ob
+ * \param ib
+ * \param use_bd
+ * \param *bd pointer to bd
+ * \param *bd_t pointer to bd type
+ * \return float score
+ */
+float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
 	       const unsigned short *pkt_len_twin, const struct timeval *pkt_time_twin,
   	       struct timeval start_time, struct timeval start_time_twin, uint32_t max_num_pkt_len,
 	       uint16_t sp, uint16_t dp, uint32_t op, uint32_t ip, uint32_t np_o, uint32_t np_i,
 	       uint32_t ob, uint32_t ib, uint16_t use_bd, const uint32_t *bd, const uint32_t *bd_t) {
 
-  float features[NUM_PARAMETERS_BD_LOGREG] = {1.0};
-  float mc_lens[MC_BINS_LEN*MC_BINS_LEN];
-  float mc_times[MC_BINS_TIME*MC_BINS_TIME];
-  uint32_t i;
-  float score = 0.0;
+    float features[NUM_PARAMETERS_BD_LOGREG] = {1.0};
+    float mc_lens[MC_BINS_LEN*MC_BINS_LEN];
+    float mc_times[MC_BINS_TIME*MC_BINS_TIME];
+    uint32_t i;
+    float score = 0.0;
 
-  uint32_t op_n = min(np_o, max_num_pkt_len);
-  uint32_t ip_n = min(np_i, max_num_pkt_len);
-  uint16_t merged_lens[op_n+ip_n];
-  uint16_t merged_times[op_n+ip_n];
+    uint32_t op_n = min(np_o, max_num_pkt_len);
+    uint32_t ip_n = min(np_i, max_num_pkt_len);
+    uint16_t merged_lens[op_n+ip_n];
+    uint16_t merged_times[op_n+ip_n];
 
-  for (i = 1; i < NUM_PARAMETERS_BD_LOGREG; i++) {
-    features[i] = 0.0;
-  }
-
-  // fill out meta data
-  features[1] = (float)dp; // destination port
-  features[2] = (float)sp; // source port
-  features[3] = (float)ip; // inbound packets
-  features[4] = (float)op; // outbound packets
-  features[5] = (float)ib; // inbound bytes
-  features[6] = (float)ob; // outbound bytes
-  features[7] = 0.0;// skipping 7 until we process the pkt_time arrays
-
-  // find the raw features
-  merge_splt_arrays(pkt_len, pkt_time, pkt_len_twin, pkt_time_twin, start_time, start_time_twin, op_n, ip_n,
-		    merged_lens, merged_times, max_num_pkt_len, op_n+ip_n);
-
-  // find new duration
-  for (i = 0; i < op_n+ip_n; i++) {
-    features[7] += (float)merged_times[i];
-  }
-
-  // get the Markov chain representation for the lengths
-  get_mc_rep_lens(merged_lens, mc_lens, op_n+ip_n);
-
-  // get the Markov chain representation for the times
-  get_mc_rep_times(merged_times, mc_times, op_n+ip_n);
-
-  // fill out lens/times in feature vector
-  for (i = 0; i < MC_BINS_LEN*MC_BINS_LEN; i++) {
-    features[i+8] = mc_lens[i]; // lengths
-  }
-  for (i = 0; i < MC_BINS_TIME*MC_BINS_TIME; i++) {
-    features[i+8+MC_BINS_LEN*MC_BINS_LEN] = mc_times[i]; // times
-  }
-
-  // fill out byte distribution features
-  if (ob+ib > 100 && use_bd) {
-    for (i = 0; i < NUM_BD_VALUES; i++) {
-      if (pkt_len_twin != NULL) {
-        features[i+8+MC_BINS_LEN*MC_BINS_LEN+MC_BINS_TIME*MC_BINS_TIME] = (bd[i]+bd_t[i])/((float)(ob+ib));
-      } else {
-        features[i+8+MC_BINS_LEN*MC_BINS_LEN+MC_BINS_TIME*MC_BINS_TIME] = bd[i]/((float)(ob));
-      }
-    }
-  }
-
-  if (ob+ib > 100 && use_bd) {
-    score = parameters_bd[0];
     for (i = 1; i < NUM_PARAMETERS_BD_LOGREG; i++) {
-      score += features[i]*parameters_bd[i];
+        features[i] = 0.0;
     }
-  } else {
-    for (i = 0; i < NUM_PARAMETERS_SPLT_LOGREG; i++) {
-      score += features[i]*parameters_splt[i];
-    }
-  }
 
-  score = min(-score,500.0); // check b/c overflow
+    // fill out meta data
+    features[1] = (float)dp; // destination port
+    features[2] = (float)sp; // source port
+    features[3] = (float)ip; // inbound packets
+    features[4] = (float)op; // outbound packets
+    features[5] = (float)ib; // inbound bytes
+    features[6] = (float)ob; // outbound bytes
+    features[7] = 0.0;// skipping 7 until we process the pkt_time arrays
+
+    // find the raw features
+    merge_splt_arrays(pkt_len, pkt_time, pkt_len_twin, pkt_time_twin, start_time, start_time_twin, op_n, ip_n,
+		                    merged_lens, merged_times, max_num_pkt_len, op_n+ip_n);
+
+    // find new duration
+    for (i = 0; i < op_n+ip_n; i++) {
+        features[7] += (float)merged_times[i];
+    }
+
+    // get the Markov chain representation for the lengths
+    get_mc_rep_lens(merged_lens, mc_lens, op_n+ip_n);
+
+    // get the Markov chain representation for the times
+    get_mc_rep_times(merged_times, mc_times, op_n+ip_n);
+
+    // fill out lens/times in feature vector
+    for (i = 0; i < MC_BINS_LEN*MC_BINS_LEN; i++) {
+        features[i+8] = mc_lens[i]; // lengths
+    }
+    for (i = 0; i < MC_BINS_TIME*MC_BINS_TIME; i++) {
+        features[i+8+MC_BINS_LEN*MC_BINS_LEN] = mc_times[i]; // times
+    }
+
+    // fill out byte distribution features
+    if (ob+ib > 100 && use_bd) {
+        for (i = 0; i < NUM_BD_VALUES; i++) {
+            if (pkt_len_twin != NULL) {
+                features[i+8+MC_BINS_LEN*MC_BINS_LEN+MC_BINS_TIME*MC_BINS_TIME] = (bd[i]+bd_t[i])/((float)(ob+ib));
+            } else {
+                features[i+8+MC_BINS_LEN*MC_BINS_LEN+MC_BINS_TIME*MC_BINS_TIME] = bd[i]/((float)(ob));
+            }
+        }
+    }
+
+    if (ob+ib > 100 && use_bd) {
+        score = parameters_bd[0];
+        for (i = 1; i < NUM_PARAMETERS_BD_LOGREG; i++) {
+            score += features[i]*parameters_bd[i];
+        }
+    } else {
+        for (i = 0; i < NUM_PARAMETERS_SPLT_LOGREG; i++) {
+            score += features[i]*parameters_splt[i];
+        }
+    }
+
+    score = min(-score,500.0); // check b/c overflow
   
-  return 1.0/(1.0+exp(score));
+    return 1.0/(1.0+exp(score));
 }
 
-// if a user supplies new parameter files, update parameters_splt/bd
-void update_params(char *splt_params, char *bd_params) {
-  float param;
-  FILE *fp;
-  int count = 0;
+/**
+ * \fn void update_params (char *splt_params, char *bd_params)
+ * \brief if a user supplies new parameter files, update parameters splt/bd
+ * \param splt_params file name with new splt parameters
+ * \param bd_params file name with new bd parameters
+ * \reutrn none
+ */
+void update_params (char *splt_params, char *bd_params) {
+    float param;
+    FILE *fp;
+    int count = 0;
 
-  fp = fopen(bd_params,"r");
-  if (fp != NULL) {
-    while (fscanf(fp, "%f", &param) != EOF) {
-      parameters_bd[count] = param;
-      count++;
-      if (count >= NUM_PARAMETERS_BD_LOGREG) {
-	break;
-      }
+    fp = fopen(bd_params,"r");
+    if (fp != NULL) {
+        while (fscanf(fp, "%f", &param) != EOF) {
+            parameters_bd[count] = param;
+            count++;
+            if (count >= NUM_PARAMETERS_BD_LOGREG) {
+	               break;
+            }
+        }
+        fclose(fp);
     }
-    fclose(fp);
-  }
 
-  count = 0;
-  fp = fopen(splt_params,"r");
-  if (fp != NULL) {
-    while (fscanf(fp, "%f", &param) != EOF) {
-      parameters_splt[count] = param;
-      count++;
-      if (count >= NUM_PARAMETERS_SPLT_LOGREG) {
-	break;
-      }
+    count = 0;
+    fp = fopen(splt_params,"r");
+    if (fp != NULL) {
+        while (fscanf(fp, "%f", &param) != EOF) {
+            parameters_splt[count] = param;
+            count++;
+            if (count >= NUM_PARAMETERS_SPLT_LOGREG) {
+	               break;
+            }
+        }
+        fclose(fp);
     }
-    fclose(fp);
-  }
-
 }
 

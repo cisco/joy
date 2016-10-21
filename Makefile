@@ -33,7 +33,13 @@ export SYS_NAME = $(shell uname -s | tr "[:lower:]" "[:upper:]" )
 # compile and linkage runs smoothly.
 ##
 -include config.vars
+ifndef LIBPATH
+$(error error is "Please run ./config first.")
+endif
 ifndef SSLPATH
+$(error error is "Please run ./config first.")
+endif
+ifndef CURLPATH
 $(error error is "Please run ./config first.")
 endif
 
@@ -43,15 +49,25 @@ export DOCDIR = $(ROOT_PATH)/doc
 ##
 # main executable and unit test program
 ##
-pcap2flow: FORCE
+all: 
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
-FORCE:
+pcap2flow:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) pcap2flow
 
 unit_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
-	@cd src; $(MAKE) $(MAKEFLAGS)
+	@cd src; $(MAKE) $(MAKEFLAGS) unit_test
+
+jfd-anon:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) jfd-anon
+
+str_match_test:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) str_match_test
 
 ##
 # testing
@@ -81,7 +97,7 @@ man: $(DOCDIR)/pcap2flow.1
 ##
 clean: 
 	rm -f cscope.out cscope.files
-	rm -f $(DOCDIR)/pcap2flow.txt
+	rm -f "$(DOCDIR)/pcap2flow.txt"
 	@cd src; $(MAKE) clean
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 

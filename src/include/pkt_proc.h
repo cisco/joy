@@ -34,31 +34,30 @@
  *
  */
 
-/*
- * pkt_proc.c 
+/**
+ * \file pkt_proc.h 
  *
- * public interface to p2f packet processing 
+ * \brief public interface to p2f packet processing
+ *
  */
-
 #ifndef PKT_PROC_H
 #define PKT_PROC_H
 
 #include <pcap.h>
 
-void
-process_packet(unsigned char *ignore, const struct pcap_pkthdr *header, const unsigned char *packet);
+/** main packet processing entry point */
+void process_packet(unsigned char *ignore, const struct pcap_pkthdr *header, const unsigned char *packet);
 
-
+/** sanity check the header structure sizes */
 int data_sanity_check();
 
+/* The tls_type_code structure describes the content of a TLS record */
 /*
- * The tls_type_code structure describes the content of a TLS record
- */
-/*struct tls_type_code {
+struct tls_type_code {
   unsigned char content;
   unsigned char handshake;
-  };*/
-
+  };
+*/
 
 #endif /* PKT_PROC_H */
 

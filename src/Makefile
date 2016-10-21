@@ -17,19 +17,17 @@ CWD = $(shell basename $(TMP))
 ##
 # required libraries for pcap2flow
 ##
-LIBS = -lpcap    # packet capture library; hard requirement
-LIBS += -lm      # math library; logf() used in entropy computation
-LIBS += -lcrypto # openSSL crypto library; used in anonymization
+LIBS = -lpcap     # packet capture library; hard requirement
+LIBS += -lm       # math library; logf() used in entropy computation
+LIBS += -lcrypto  # openSSL crypto library; used in anonymization
+LIBS += -lcurl    # curl library; used in updater thread
+LIBS += -lpthread # thread library; used in updater thread
 LIBS += -lz
 
 ##
 # check for additional paths to use searching for header files
 ##
-ifndef SSLPATH
-INCLUDEDIR = -I ./include
-else
-INCLUDEDIR = -I ./include $(SSLPATH)
-endif
+INCLUDEDIR = -I ./include $(SSLPATH) $(CURLPATH)
 
 ##
 # check for additional paths to use searching for library files
@@ -56,9 +54,9 @@ CFLAGS = -Wall -Wno-deprecated-declarations -g -O3  # -pg # -g # -fstack-protect
 ##
 # variables to make source file handling easier
 ##
-PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c
+PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c updater.c
 JFDANON_SRC = anon.c addr.c str_match.c acsm.c
-ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h
+ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h updater.h
 ALL_FILES = pcap2flow.c jfd-anon.c unit_test.c str_match_test.c $(PCAP2FLOW_SRC) $(JFDANON_SRC) $(ALL_HEADER_FILES)
 
 ##
@@ -88,17 +86,17 @@ print:
 	@echo "cwd="$(CWD)
 
 pcap2flow: pcap2flow.c $(PCAP2FLOW_SRC)
-	gcc $(CFLAGS) $(CDEFS) -o $(BINDIR)/pcap2flow $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS)  
+	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/pcap2flow" $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS)  
 #	strip pcap2flow
 
 jfd-anon: jfd-anon.c $(JFDANON_SRC)
-	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o $(BINDIR)/jfd-anon $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
 unit_test: unit_test.c $(PCAP2FLOW_SRC)
-	gcc $(CFLAGS) $(CDEFS) -o $(BINDIR)/unit_test $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
 
 str_match_test: str_match_test.c $(PCAP2FLOW_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o $(BINDIR)/str_match_test str_match_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/str_match_test" str_match_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
 
 
 ##
@@ -114,7 +112,7 @@ splint: $(ALL_FILES)
 	splint $(SPLINT_OPT) $(ALL_FILES) $(INCLUDEDIR) # $(CFLAGS) $(CDEFS)  $(LIBRARYPATH) $(LIBS) 
 
 clean: 
-	rm -rf $(BINDIR)/*
+	rm -rf "$(BINDIR)/*"
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 
 # EOF

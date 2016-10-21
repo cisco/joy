@@ -34,6 +34,12 @@
  *
  */
 
+/**
+ * \file modules.h
+ *
+ * \brief module interface
+ *
+ */
 #ifndef MODULES_H
 #define MODULES_H
 
