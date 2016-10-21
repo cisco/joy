@@ -335,7 +335,6 @@ void nfv9_flow_key_init (struct flow_key *key,
     }
 }
 
-
 /*
  * Skip past L3/L4 header contained within the IDP flow data.
  * nf_record - NetFlow record being encoded, contains total IDP flow
@@ -634,6 +633,54 @@ static void nfv9_template_flowset_init (struct nfv9_template_flowset *fs) {
 
 static void nfv9_template_flowset_decode_init (struct nfv9_template_flowset *fs) {
     //  fs->flowset_hdr.Length;
+}
+
+void encode_unsigned(const void *uint, unsigned int len, void *output) {
+  switch(len) {
+    case 1:
+      ((u_char *)output)[0] = ((u_char *)uint)[0];
+      break;
+    case 2:
+      ((u_short *)output)[0] = htons(((u_short *)uint)[0]);
+      break;
+    case 4:
+      ((u_int *)output)[0] = htonl(((u_int *)uint)[0]);
+      break;
+    default:
+      fprintf(stderr, "error - integer too large in encoding\n");
+  }
+}
+
+void decode_unsigned(const void *uint, unsigned int len, void *output) {
+  switch(len) {
+    case 1:
+      ((u_char *)output)[0] = ((u_char *)uint)[0];
+      break;
+    case 2:
+      ((u_short *)output)[0] = ntohs(((u_short *)uint)[0]);
+      break;
+    case 4:
+      ((u_int *)output)[0] = ntohl(((u_int *)uint)[0]);
+      break;
+    default:
+      fprintf(stderr, "error - integer too large in decoding\n");
+  }
+}
+
+void print_unsigned(const void *uint, unsigned int len) {
+  switch(len) {
+    case 1:
+      printf("%u\n", ((u_char *)uint)[0]);
+      break;
+    case 2:
+      printf("%u\n", ((u_short *)uint)[0]);
+      break;
+    case 4:
+      printf("%u\n", ((u_int *)uint)[0]);
+      break;
+    default:
+      fprintf(stderr, "error - bad integer size in print_unsigned \n");
+  }
 }
 
 static void nfv9_template_flowset_add_field (struct nfv9_template_flowset *fs,

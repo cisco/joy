@@ -39,7 +39,7 @@ LIBRARYPATH = $(LIBPATH)
 endif
 
 ##
-# make sure we a definition for BINDIR
+# make sure we have a definition for BINDIR
 ##
 ifndef BINDIR
 BINDIR = ../bin
