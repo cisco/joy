@@ -374,6 +374,8 @@ int main (int argc, char **argv) {
     enum operating_mode mode = mode_none;
     pthread_t upd_thread;
     int upd_rc;
+    //pthread_t ipfix_cts_monitor_thread;
+    //int cts_monitor_thread_rc;
 
     /* sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -781,7 +783,23 @@ int main (int argc, char **argv) {
 	                return -5;
             }  
         }
-    
+
+        /*
+         * Start up the IPFIX collector template store (cts) monitor
+         * thread. Monitor is only active during live capture runs.
+         */
+#if 0
+        cts_monitor_thread_rc = pthread_create(&ipfix_cts_monitor_thread,
+                                               NULL,
+                                               ipfix_cts_monitor,
+                                               (void*)NULL);
+        if (cts_monitor_thread_rc) {
+          fprintf(info, "error: could not start ipfix cts monitor thread\n");
+          fprintf(info, "pthread_create() rc: %d\n", cts_monitor_thread_rc);
+          return -7;
+        }
+#endif
+ 
         /*
          * start up the updater thread
          *   updater is only active during live capture runs

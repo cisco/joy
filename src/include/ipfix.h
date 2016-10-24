@@ -46,10 +46,11 @@
 
 #include <time.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include "p2f.h"
 
 
-/*
+/* @brief @verbatim
   IPFIX (RFC7011)
 
   The format of an IPFIX message header is as follows:
@@ -156,6 +157,7 @@
   |              ...              |      Padding (optional)       |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
+@endverbatim
 */
 
 
@@ -297,6 +299,9 @@ struct ipfix_msg {
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
 
+void *ipfix_cts_monitor(void *ptr);
+
+
 void ipfix_cts_cleanup(void);
 
 
@@ -312,12 +317,6 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          uint16_t set_id,
                          const struct flow_key rec_key,
                          struct flow_key *prev_key);
-
-
-void ipfix_process_flow_record(struct flow_record *ix_record,
-                               const struct ipfix_template *cur_template,
-                               const void *flow_data,
-                               int record_num);
 
 
 /*

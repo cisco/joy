@@ -77,6 +77,10 @@ static FILE *print_dest = NULL;
         fprintf(print_dest, "\n"); }
 
 
+#define CTS_MONITOR_INTERVAL (30)
+#define CTS_EXPIRE_TIME (1800) /* 30 minutes */
+//static pthread_mutex_t cts_lock = PTHREAD_MUTEX_INITIALIZER;
+
 /*
  * Doubly linked list for collector template store (cts).
  */
@@ -97,7 +101,12 @@ define_all_features_config_extern_uint(feature_list);
 /*
  * Local ipfix.c prototypes
  */
-static struct ipfix_template *ipfix_cts_search(struct ipfix_template_key needle);
+static int ipfix_cts_search(struct ipfix_template_key needle,
+                            struct ipfix_template **dest_template,
+                            int flag_renew);
+
+
+static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_size);
 
 
 static int ipfix_cts_append(struct ipfix_template tmp);
@@ -127,6 +136,157 @@ static int ipfix_process_flow_sys_up_time(const void *flow_data,
 static int ipfix_skip_idp_header(struct flow_record *nf_record,
                                  const unsigned char **payload,
                                  unsigned int *size_payload);
+
+static void ipfix_process_flow_record(struct flow_record *ix_record,
+                               const struct ipfix_template *cur_template,
+                               const void *flow_data,
+                               int record_num);
+
+
+/*
+ * @brief Free an allocated template structure.
+ *
+ * First free the attached fields memory. Then free the template memory.
+ *
+ * @param template IPFIX template that will have it's heap memory freed.
+ */
+static inline void ipfix_delete_template(struct ipfix_template *template) {
+  if (template == NULL) {
+    loginfo("api-error: template is null");
+    return;
+  }
+
+  if (template->fields) {
+    uint16_t field_count = template->hdr.field_count;
+    size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
+    memset(template->fields, 0, field_list_size);
+    free(template->fields);
+  }
+
+  memset(template, 0, sizeof(struct ipfix_template));
+  free(template);
+}
+
+
+/*
+ * @brief Delete a template from the collector template store (cts).
+ *
+ * The heap memory that was allocated for the fields will first be freed,
+ * and then the template itself will be destroyed.
+ *
+ * WARNING: the mutex lock (cts_lock) for the collector template store
+ * MUST be aquired before invoking this function.
+ *
+ * @param template IPFIX template that will be deleted from the cts.
+ */
+static void ipfix_cts_delete(struct ipfix_template *template) {
+  struct ipfix_template *prev_template = NULL;
+  struct ipfix_template *next_template = NULL;
+
+  prev_template = template->prev;
+  next_template = template->next;
+
+  /*
+   * Update neighbor template pointers.
+   */
+  if (prev_template && next_template) {
+    /* Both previous and next template exists */
+    prev_template->next = next_template;
+    next_template->prev = prev_template;
+  } else if (prev_template) {
+    /* Looking at tail of list */
+    prev_template->next = NULL;
+    collect_template_store_tail = prev_template;
+  } else if (next_template) {
+    /* Looking at head of list */
+    next_template->prev = NULL;
+    collect_template_store_head = next_template;
+  } else {
+    /* Only 1 template in list, need to set head and tail to NULL */
+    collect_template_store_tail = NULL;
+    collect_template_store_head = NULL;
+  }
+
+  ipfix_delete_template(template); 
+
+  /* Decrement the store count */
+  cts_count -= 1;
+}
+
+
+/*
+ * @brief Scan IPFIX collector template store (cts) for expired.
+ *
+ * Go through the cts looking for any templates that have not
+ * been refreshed within the configured expire time.
+ *
+ * WARNING: the mutex lock (cts_lock) for the collector template store
+ * MUST be aquired before invoking this function.
+ *
+ * @return >0 for number of records expired, 0 for none
+ */
+static int ipfix_cts_scan_expired(void) {
+  time_t current_time = time(NULL);
+  struct ipfix_template *cur_template;
+  struct ipfix_template *next_template;
+  int rc = 0;
+
+  //pthread_mutex_lock(&cts_lock);
+  if (collect_template_store_head == NULL) {
+    //pthread_mutex_unlock(&cts_lock);
+    return rc;
+  }
+
+  cur_template = collect_template_store_head;
+  next_template = cur_template->next;
+  if ((current_time - cur_template->last_seen) > CTS_EXPIRE_TIME) {
+    /* The template is expired, remove from store */
+    ipfix_cts_delete(cur_template);
+    rc += 1;
+  }
+
+  while (next_template) {
+    cur_template = next_template;
+    next_template = cur_template->next;
+    if ((current_time - cur_template->last_seen) > CTS_EXPIRE_TIME) {
+      /* The template is expired, remove from store */
+      ipfix_cts_delete(cur_template);
+      rc += 1;
+    }
+  }
+  //pthread_mutex_unlock(&cts_lock);
+
+  return rc;
+}
+
+
+/*
+ * @brief Monitor the collector template store (cts) running
+ *        as a thread off of pcap2flow.
+ *
+ * Monitoring is only active during live processing runs.
+ * Monitor terminates automatically when pcap2flow exits due
+ * to the nature of how pthreads work.
+ *
+ * @param ptr Always NULL and not used, part of function
+ *            prototype for pthread_create.
+ *
+ * @return Never return and the thread terminates when pcap2flow exits.
+ */
+void *ipfix_cts_monitor(void *ptr) {
+  uint16_t num_expired;
+  while (1) {
+    /* let's only wake up and do work at specific intervals */
+    num_expired = ipfix_cts_scan_expired();
+    if (!num_expired) {
+      loginfo("No templates were expired.");
+    } else {
+      loginfo("%d templates were expired.", num_expired);
+    }
+
+    sleep(CTS_MONITOR_INTERVAL);
+  }
+}
 
 
 /*
@@ -162,35 +322,21 @@ static inline void ipfix_cts_template_renewal(struct ipfix_template *template) {
 
 
 /*
- * @brief Delete a template from the collector template store (cts).
- *
- * The heap memory that was allocated for the fields will first be freed,
- * and then the template itself will be destroyed.
- */
-static inline void ipfix_cts_delete(struct ipfix_template *template) {
-  if (template->fields) {
-    uint16_t field_count = template->hdr.field_count;
-    size_t fields_list_size = sizeof(struct ipfix_template_field) * field_count;
-    memset(template->fields, 0, fields_list_size);
-    free(template->fields);
-  }
-
-  memset(template, 0, sizeof(struct ipfix_template));
-  free(template);
-}
-
-
-/*
  * @brief Free all templates that exist in the collector template store (cts).
  *
  * Any ipfix_template structures that currently remain within the CTS will
  * be zeroized and have their heap memory freed.
+ *
+ * NOTE: The collector template store (cts) mutex lock (cts_lock) will be
+ * acquired while this cleanup function executes.
  */
 void ipfix_cts_cleanup(void) {
   struct ipfix_template *this_template;
   struct ipfix_template *next_template;
 
+  //pthread_mutex_lock(&cts_lock);
   if (collect_template_store_head == NULL) {
+    //pthread_mutex_unlock(&cts_lock);
     return;
   }
 
@@ -206,6 +352,55 @@ void ipfix_cts_cleanup(void) {
 
     ipfix_cts_delete(this_template);
   }
+  //pthread_mutex_unlock(&cts_lock);
+}
+
+
+/*
+ * @brief Copy a template from the store list into a new template.
+ *
+ * Using /p as the template from the store, copy it's contents
+ * into a newly allocated template that is totally independent.
+ * The user of the new template can modify it however they wish,
+ * with no impact to the original store template.
+ *
+ * WARNING: The end user of the newly allocated template is
+ * responsible for freeing that memory.
+ */
+static void ipfix_cts_copy(struct ipfix_template **dest_template,
+                           struct ipfix_template *src_template) {
+  uint16_t field_count = src_template->hdr.field_count;
+  size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
+  struct ipfix_template_field *new_fields = NULL;
+  struct ipfix_template *new_template = NULL;
+
+  if (dest_template == NULL || src_template == NULL) {
+    loginfo("api-error: dest or src template is null");
+    return;
+  }
+
+  /* Allocate heap memory for new_template */
+  new_template = ipfix_template_malloc(field_list_size);
+
+  /* Save pointer to new_template field memory */
+  new_fields = new_template->fields;
+
+  memcpy(new_template, src_template, sizeof(struct ipfix_template));
+
+  /* Reattach new_fields */
+  new_template->fields = new_fields;
+
+  /* New template is a copy, so it isn't part of the store */
+  new_template->next = NULL;
+  new_template->prev = NULL;
+
+  /* Copy the fields data */
+  if (src_template->fields && new_template->fields) {
+    memcpy(new_template->fields, src_template->fields, field_list_size);
+  }
+
+  /* Assign dest_template handle to newly allocated template */
+  *dest_template = new_template;
 }
 
 
@@ -217,32 +412,56 @@ void ipfix_cts_cleanup(void) {
  * already.
  *
  * @param needle IPFIX template that will be searched for.
+ * @param dest_template IPFIX template that will have match contents
+ *                      copied into.
+ * @param flag_renew Controls whether a matched template should have it's
+ *                   last_seen time refreshed. Use 1 to enable renewal.
  *
- * @return NULL for not match
+ * @return 1 for match, 0 for not match
  */
-static struct ipfix_template *ipfix_cts_search(struct ipfix_template_key needle) {
+static int ipfix_cts_search(struct ipfix_template_key needle,
+                            struct ipfix_template **dest_template,
+                            int flag_renew) {
   struct ipfix_template *cur_template;
 
+  //pthread_mutex_lock(&cts_lock);
   if (collect_template_store_head == NULL) {
-    return NULL;
+    //pthread_mutex_unlock(&cts_lock);
+    return 0;
   }
 
   cur_template = collect_template_store_head;
   if (ipfix_template_key_cmp(cur_template->template_key, needle)) {
     /* Found match */
-    return cur_template;
+    if (flag_renew == 1) {
+      ipfix_cts_template_renewal(cur_template);
+    }
+    if (dest_template != NULL) {
+      ipfix_cts_copy(dest_template, cur_template);
+    }
+    //pthread_mutex_unlock(&cts_lock);
+    return 1;
   }
 
   while (cur_template->next) {
     cur_template = cur_template->next;
     if (ipfix_template_key_cmp(cur_template->template_key, needle)) {
       /* Found match */
-      return cur_template;
+      if (flag_renew == 1) {
+        ipfix_cts_template_renewal(cur_template);
+      }
+      if (dest_template != NULL) {
+        ipfix_cts_copy(dest_template, cur_template);
+      }
+      //pthread_mutex_unlock(&cts_lock);
+      return 1;
     }
   }
+  //pthread_mutex_unlock(&cts_lock);
 
-  return NULL;
+  return 0;
 }
+
 
 /*
  * @brief Allocate heap memory for a sequence of fields.
@@ -250,12 +469,22 @@ static struct ipfix_template *ipfix_cts_search(struct ipfix_template_key needle)
  * @param template IPFIX template which will have allocated memory
  *                 attached to it via pointer.
  */
-static inline void ipfix_template_fields_malloc(struct ipfix_template *template) {
-  uint16_t field_count = template->hdr.field_count;
-  size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
-
+static inline void ipfix_template_fields_malloc(struct ipfix_template *template,
+                                                size_t field_list_size) {
   template->fields = malloc(field_list_size);
   memset(template->fields, 0, field_list_size);
+}
+
+
+static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_size) {
+  /* Init a new template on the heap */
+  struct ipfix_template *template = malloc(sizeof(struct ipfix_template));
+  memset(template, 0, sizeof(struct ipfix_template));
+
+  /* Allocate memory for the fields */
+  ipfix_template_fields_malloc(template, field_list_size);
+
+  return template;
 }
 
 
@@ -265,25 +494,32 @@ static inline void ipfix_template_fields_malloc(struct ipfix_template *template)
  * Create a new template on the heap, and copy the key, hdr, and fields
  * from the template /p tmp. The timestamp of last_seen will be calculated
  * and attached to the newly allocated template.
+ *
+ * @return 0 if templates was added, 1 if template was not added.
  */
 static int ipfix_cts_append(struct ipfix_template tmp) {
   uint16_t field_count = tmp.hdr.field_count;
   size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
+  struct ipfix_template *template = NULL;
+
+  if (cts_count >= (MAX_IPFIX_TEMPLATES - 1)) {
+    loginfo("warning: ipfix template lost, already at maximum storage threshold");
+    return 1;
+  }
 
   /* Init a new template on the heap */
-  struct ipfix_template *template = malloc(sizeof(struct ipfix_template));
-  memset(template, 0, sizeof(struct ipfix_template));
+  template = ipfix_template_malloc(field_list_size);
 
+  /* Copy the atrribute data */
   template->template_key = tmp.template_key;
   template->hdr = tmp.hdr;
-  /* Allocate memory for the fields, and copy */
-  ipfix_template_fields_malloc(template);
   memcpy(template->fields, tmp.fields, field_list_size);
   template->payload_length = tmp.payload_length;
 
   /* Write the current time */
   template->last_seen = time(NULL);
 
+  //pthread_mutex_lock(&cts_lock);
   if (collect_template_store_head == NULL) {
     /* This is the first template in store list */
     collect_template_store_head = template;
@@ -295,6 +531,10 @@ static int ipfix_cts_append(struct ipfix_template tmp) {
 
   /* Update the tail */
   collect_template_store_tail = template;
+
+  /* Increment the store count */
+  cts_count += 1;
+  //pthread_mutex_unlock(&cts_lock);
 
   return 0;
 }
@@ -402,7 +642,7 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     template_set_len -= 4;
     uint16_t template_id = ntohs(template_hdr->template_id);
     uint16_t field_count = ntohs(template_hdr->field_count);
-    struct ipfix_template cur_template;
+    struct ipfix_template cur_template = {0};
     struct ipfix_template_key template_key;
     int cur_template_pld_len = 0;
     struct ipfix_template *redundant_template = NULL;
@@ -417,10 +657,11 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
                             ntohl(ipfix->observe_dom_id), template_id);
 
     /* Check to see if template already exists, if so, continue */
-    if ((redundant_template = ipfix_cts_search(template_key)) != NULL) {
-      ipfix_cts_template_renewal(redundant_template);
+    if (ipfix_cts_search(template_key, &redundant_template, 1)) {
       template_ptr += redundant_template->payload_length;
       template_set_len -= redundant_template->payload_length;
+      /* Need to free the allocated temporary template */
+      ipfix_delete_template(redundant_template);
       continue;
     }
 
@@ -462,7 +703,6 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
 
     /* Save template */
     ipfix_cts_append(cur_template);
-    cts_count += 1;
   }
 
   return 0;
@@ -572,6 +812,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
   struct ipfix_template_key template_key;
   struct ipfix_template *cur_template = NULL;
   uint16_t min_record_len = 0;
+  int rc = 1;
 
   /* Define data template key:
    * {source IP + observation domain ID + template ID}
@@ -580,10 +821,10 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                           ntohl(ipfix->observe_dom_id), template_id);
 
   /* Look for template match */
-  cur_template = ipfix_cts_search(template_key);
+  ipfix_cts_search(template_key, &cur_template, 0);
 
   /* Process data if we know the template */
-  if (cur_template != NULL) {
+  if (cur_template->hdr.template_id != 0) {
     struct flow_key key;
     struct flow_record *ix_record;
 
@@ -596,7 +837,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
        */
       if(!(data_record_size = ipfix_loop_data_fields(data_ptr, cur_template,
                                                      &min_record_len))){
-        return 1;
+        goto cleanup;
       }
 
       /* Init flow key */
@@ -622,7 +863,15 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
     loginfo("error: current template is null, cannot parse the data set");
   }
 
-  return 0;
+  rc = 0;
+
+  /* Cleanup */
+cleanup:
+  if (cur_template) {
+    ipfix_delete_template(cur_template);
+  }
+
+  return rc;
 }
 
 
@@ -745,7 +994,7 @@ static int ipfix_process_flow_sys_up_time(const void *flow_data,
 }
 
 
-void ipfix_process_flow_record(struct flow_record *ix_record,
+static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const struct ipfix_template *cur_template,
                                const void *flow_data,
                                int record_num) {
