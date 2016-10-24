@@ -518,6 +518,9 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case IDP: 
+                if (nf_record->idp != NULL) {
+                    free(nf_record->idp);
+                }
                 nf_record->idp_len = htons(cur_template->fields[i].FieldLength);
                 nf_record->idp = malloc(nf_record->idp_len);
                 if (nf_record->idp != NULL) {
@@ -542,13 +545,6 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 
                 /* Update all enabled feature modules */
                 update_all_features(feature_list);
-
-                /* free up the IDP packet data */
-                if (nf_record->idp != NULL) {
-                    free(nf_record->idp);
-                    nf_record->idp = NULL;
-                    nf_record->idp_len = 0;
-                }
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case SPLT:
