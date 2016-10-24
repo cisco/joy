@@ -1025,8 +1025,9 @@ static unsigned int packet_is_sslv2_hello (const void *data) {
  * \return NULL on jumbo frames
  */
 struct tls_information *process_tls (const struct timeval ts,
-    const void *start, int len, struct tls_information *r) {
-    const struct tls_header *tls;
+    const void *payload, int len, struct tls_information *r) {
+    const void *start = payload;
+    const struct tls_header *tls = NULL;
     unsigned int tls_len;
     unsigned int levels = 0;
     //unsigned char end_cert = 0;

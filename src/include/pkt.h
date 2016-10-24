@@ -73,6 +73,9 @@ struct ethernet_hdr {
 #define ip_is_fragment(ip) (htons((ip)->ip_flgoff) & (IP_MF | IP_FOFF))
 #define ip_fragment_offset(ip) (htons((ip)->ip_flgoff) & IP_FOFF)
 
+#define ip_hdr_length(ip) ((((ip)->ip_vhl) & 0x0f)*4)
+#define ip_version(ip)    (((ip)->ip_vhl) >> 4)
+
 #else
 
 #define IP_RF    0x0080 /* Reserved           */
@@ -82,10 +85,11 @@ struct ethernet_hdr {
 
 #define ip_is_fragment(ip) (((ip)->ip_flgoff) & (IP_MF | IP_FOFF))
 #define ip_fragment_offset(ip) ((ip)->ip_flgoff & IP_FOFF)
-#endif
 
 #define ip_hdr_length(ip) ((((ip)->ip_vhl) & 0x0f)*4)
 #define ip_version(ip)    (((ip)->ip_vhl) >> 4)
+#endif
+
 
 /** IP header structure */
 struct ip_hdr {

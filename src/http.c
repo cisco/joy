@@ -112,11 +112,12 @@ void http_update(http_data_t*data,
         /*
          * note: we leave room for null termination in the data buffer
          */
-
+       
         data->header = malloc(len);
         if (data->header == NULL) {
             return; 
         }
+        memset(data->header, 0x0, len);
         data->header_length = memcpy_up_to_crlfcrlf_plus_magic(data->header, http_start, len);
     }
 } 
@@ -249,54 +250,61 @@ static unsigned int memcpy_up_to_crlfcrlf_plus_magic (char *dst, const char *src
     enum parse_state state = non_crlf;
     unsigned int body_bytes = 0; 
 
-    for (i=0; i<length; i++) {
-        dst[i] = src[i];
-
-        if (state != second_lf) {
-            /* still parsing HTTP headers */
-
-            /*
-             * make string printable, by suppressing characters below SPACE
-             * (32) and above DEL (127), inclusive, except for \r and \n
-             */
-            if ((dst[i] < 32 || dst[i] > 126) && dst[i] != '\r' && dst[i] != '\n') {
-	              dst[i] = '.';
-            }
-            /* avoid JSON confusion */
-            if (dst[i] == '"' || dst[i] == '\\') {
-	              dst[i] = '.';
-            }
+    for (i=0; i<length; ++i) {
+        /* reached the end of the src without finding crlfcrlf */
+        if (i == (length - MAGIC)) {
+           ++i;
+           break;
         }
 
-        /* advance lexer state  */
-        if (src[i] == '\r') {
-            if (state == non_crlf) {
-	              state = first_cr;
-            } else if (state == first_lf) {
-	              state = second_cr;
-            } 
-        } else if (src[i] == '\n') {
-            if (state == first_cr) {
-	              state = first_lf;
-            } else if (state == second_cr) {
-	              state = second_lf;
-            }
-        } else {
-            if (state != second_lf) {
-	              state = non_crlf;
-            }
-        }
+        /* copy the byte to destination */
+        *(dst+i) = *(src+i);
 
         /*  found a CRLFCRLF; copy magic bytes of body then return */
         if (state == second_lf) {
             if (body_bytes < MAGIC) {
-	              // printf("body_bytes: %u\tMAGIC: %u\ti: %u\tlength: %u\n", body_bytes, MAGIC, i, length);
-	              body_bytes++;
+                // printf("body_bytes: %u\tMAGIC: %u\ti: %u\tlength: %u\n", body_bytes, MAGIC, i, length);
+                ++body_bytes;
             } else {
-	              i++;
-	              break;
+                ++i;
+                break;
             }
         }
+
+        /* still parsing HTTP headers */
+        else {
+            /*
+             * make string printable, by suppressing characters below SPACE
+             * (32) and above DEL (127), inclusive, except for \r and \n
+             */
+            if ((*(dst+i) < 32 || *(dst+i) > 126) && *(dst+i) != '\r' && *(dst+i) != '\n') {
+                *(dst+i) = '.';
+            }
+            /* avoid JSON confusion */
+            if ((*(dst+i) == '"') || (*(dst+i) == '\\')) {
+                *(dst+i) = '.';
+            }
+
+            /* advance lexer state  */
+            if (*(src+i) == '\r') {
+                if (state == non_crlf) {
+                    state = first_cr;
+                } else if (state == first_lf) {
+                    state = second_cr;
+                } 
+            } else if (*(src+i) == '\n') {
+                if (state == first_cr) {
+                    state = first_lf;
+                } else if (state == second_cr) {
+                    state = second_lf;
+                }
+            } else {
+                if (state != second_lf) {
+                    state = non_crlf;
+                }
+            }
+        }
+
     }
   
     return i;

@@ -283,6 +283,8 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
     struct flow_key prev_key;
     int flowset_num = 0;
 
+    memset(&prev_key, 0x0, sizeof(struct flow_key));
+
     if (output_level > none) {
         fprintf(info,"Source IP: %s\n",inet_ntoa(r->key.sa));
         fprintf(info,"Source ID: %i\n",htonl(nfv9->SourceID));
@@ -319,6 +321,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
 	              u_short field_count = htons(template_hdr->FieldCount);
 	
 	              struct nfv9_template_key nf_template_key;
+                      memset(&nf_template_key, 0x0, sizeof(struct nfv9_template_key));
 	              nfv9_template_key_init(&nf_template_key, r->key.sa.s_addr, htonl(nfv9->SourceID), template_id);
 	
 	              // check to see if template already exists, if so, continue
