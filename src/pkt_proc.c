@@ -408,7 +408,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
 	                  nfv9_flow_key_init(&key, cur_template, flow_data);
 
 	                  // get a nf record
-	                  struct flow_record *nf_record;
+	                  struct flow_record *nf_record = NULL;
 	                  nf_record = flow_key_get_record(&key, CREATE_RECORDS); 
     
 	                  // fill out record
@@ -920,6 +920,9 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
      * is the first packet in the flow with nonzero data payload
      */
     if ((report_idp) && record->op && (record->idp_len == 0)) {
+        if (record->idp != NULL) {
+            free(record->idp);
+        }
         record->idp_len = (ntohs(ip->ip_len) < report_idp ? ntohs(ip->ip_len) : report_idp);
         record->idp = malloc(record->idp_len);
         memcpy(record->idp, ip, record->idp_len);
