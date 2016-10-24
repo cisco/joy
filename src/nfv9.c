@@ -348,7 +348,7 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
                           const unsigned char **payload,
                           unsigned int *size_payload) {
     unsigned char proto = 0;
-    const struct ip_hdr *ip;
+    const struct ip_hdr *ip = NULL;
     unsigned int ip_hdr_len;
     const unsigned char *flow_data = nf_record->idp;
     unsigned int flow_len = nf_record->idp_len;
@@ -385,6 +385,7 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
              */
             return;
         }
+
         /* define/compute tcp payload (segment) offset */
         *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
 
@@ -414,13 +415,16 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
 void nfv9_process_flow_record (struct flow_record *nf_record, 
         const struct nfv9_template *cur_template, 
         const void *flow_data, int record_num) {
+
     struct timeval old_val_time;
-    unsigned int total_ms;
+    unsigned int total_ms = 0;
     const unsigned char *payload = NULL;
     unsigned int size_payload = 0;
     struct flow_record *record = nf_record;
     struct flow_key *key = &nf_record->key;
-    int i,j;
+    int i,j = 0;
+
+    memset(&old_val_time, 0x0, sizeof(struct timeval));
 
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
         switch (htons(cur_template->fields[i].FieldType)) {
@@ -513,27 +517,38 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
                 memcpy(nf_record->tls_info.tls_random, flow_data, 32);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
-            case IDP:
+            case IDP: 
                 nf_record->idp_len = htons(cur_template->fields[i].FieldLength);
                 nf_record->idp = malloc(nf_record->idp_len);
-                memcpy(nf_record->idp, flow_data, nf_record->idp_len);
+                if (nf_record->idp != NULL) {
+                    memcpy(nf_record->idp, flow_data, nf_record->idp_len);
+                }
 
                 /* Get the start of IDP packet payload */
+                payload = NULL;
+                size_payload = 0;
                 nfv9_skip_idp_header(nf_record, &payload, &size_payload);
-  
+
                 /* if packet has port 443 and nonzero data length, process it as TLS */
                 if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
                     struct timeval ts = {0}; /* Zeroize temporary timestamp */
-                    process_tls(ts, payload, size_payload, &record->tls_info);
+                    process_tls(ts, payload, size_payload, &nf_record->tls_info);
                 }
 
                 /* if packet has port 80 and nonzero data length, process it as HTTP */
-                if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
-                    http_update(&record->http_data, payload, size_payload, config.http);
+                else if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+                    http_update(&nf_record->http_data, payload, size_payload, config.http);
                 }
 
                 /* Update all enabled feature modules */
                 update_all_features(feature_list);
+
+                /* free up the IDP packet data */
+                if (nf_record->idp != NULL) {
+                    free(nf_record->idp);
+                    nf_record->idp = NULL;
+                    nf_record->idp_len = 0;
+                }
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case SPLT:
