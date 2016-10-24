@@ -34,10 +34,10 @@
  *
  */
 
-/*
- * osdetect.h
+/**
+ * \file osdetect.h
  *
- * operating system identification
+ * \brief operating system identification interface
  */
 
 #ifndef OS_DETECT_H
@@ -47,8 +47,10 @@
 #include <stdio.h>
 #include "output.h"
 
+/** printf definition */
 void os_printf(zfile f, int ttl, int iws, int ttl_twin, int iws_twin);
 
+/** figure out the Operating System */
 void detect_os(int ttl, int iws, char* os_name, int buf_size);
 
 #endif /* OS_DETECT_H */

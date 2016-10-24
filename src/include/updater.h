@@ -1,24 +1,24 @@
 /*
- *	
+ *
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -35,50 +35,51 @@
  */
 
 /**
- * \file example.h
+ * \file updater.h
  *
- * \brief example generic programming interface defined in feature.h.
+ * \brief Interface to updater code used keep the label subnets up to
+ *        date and also re-fresh the classifers.
  *
  */
-#ifndef EXAMPLE_H
-#define EXAMPLE_H
 
-#include <stdio.h> 
-#include "output.h"
-#include "feature.h"
+#ifndef UPD_H
+#define UPD_H
 
-/** usage string */
-#define example_usage "  example=1                  include example feature\n"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <pthread.h>
+#include "radix_trie.h"
 
-/** example filter key */
-#define example_filter(key) 1
-  
-/** example structure */
-typedef struct example {
-  unsigned int counter;
-} example_t;
+/** Work interval defined for the updater main processing loop */
+#define UPDATER_WORK_INTERVAL (86400) /* (60*60*24) = 86400 mins, 24 hours */
 
+/** URL for the Talos malware feed */
+#define TALOS_URL "http://www.talosintelligence.com/feeds/ip-filter.blf"
 
-declare_feature(example);
+/** destination file name for the talos malware feed */
+#define TALOS_FILE_NAME "talos-ip-filter.blf"
 
-/** initialization function */
-void example_init(struct example *example);
+/** Updater return codes */
+typedef enum {
+    upd_success = 0,
+    upd_failure = 1
+} upd_return_codes_t;
 
-/** update example */
-void example_update(struct example *example, 
-		    const void *data, 
-		    unsigned int len, 
-		    unsigned int report_example);
+/** mutex used to ensure the radix_trie isn't being accessed by another thread */
+extern pthread_mutex_t radix_trie_lock;
 
-/** JSON print example */
-void example_print_json(const struct example *w1, 
-		    const struct example *w2,
-		    zfile f);
+/** mutex used to let other threads know the updater is currently doing work */
+extern pthread_mutex_t work_in_process;
 
-/** delete example */
-void example_delete(struct example *example);
+/** external reference to the radix_trie used by pcap2flow */
+extern radix_trie_t rt;
 
-/** example unit test entry point */
-void example_unit_test();
+/** external reference to the file used for dumping out errors, warning, info */
+extern FILE *info;
 
-#endif /* EXAMPLE_H */
+/** Main entry point for the updater thread */
+void *updater_main(void* ptr);
+
+#endif /* UPD_H */

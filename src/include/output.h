@@ -1,12 +1,4 @@
 /*
- * output.h
- *
- * this header defines macros for a compile-time option that can
- * automatically compress file output using zlib; it is used for
- * automatic JSON compression (but could be used for other purposes as
- * well)
- */
-/*
  *	
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
@@ -42,28 +34,35 @@
  *
  */
 
-
+/**
+ * \file output.h
+ *
+ * \brief this header defines macros for a compile-time option that can
+ * automatically compress file output using zlib; it is used for
+ * automatic JSON compression (but could be used for other purposes as
+ * well)
+ *
+ */
 #ifndef OUTPUT_H
 #define OUTPUT_H
 
-#include <zlib.h>      /* for gzip file read/writes      */
+#include <zlib.h>
 
-/*
- * Set the variable COMPRESSED_OUTPUT to 1 to use zlib to
+/**
+ * \brief Set the variable COMPRESSED_OUTPUT to 1 to use zlib to
  * automatically compress the JSON output, or set it to 0 to have
  * normal output.  When compressed output is used, zless can be used
  * to read the files, and gunzip can be used to convert them to normal
  * files.  
+ *
  */
 #ifndef COMPRESSED_OUTPUT
 #define COMPRESSED_OUTPUT 1
 #endif
 
-#if (COMPRESSED_OUTPUT == 0)
-/*
- * normal output
- */
 
+#if (COMPRESSED_OUTPUT == 0)
+/** normal output */
 typedef FILE *zfile;
 
 #define zopen(fname, ...)    (fopen(fname, __VA_ARGS__))
@@ -74,10 +73,7 @@ typedef FILE *zfile;
 #define zsuffix(string)      (string)
 
 #else
-/*
- * gzip compressed output
- */
-
+/** gzip compressed output */
 typedef gzFile zfile;
 
 #define zopen(fname, ...)    (gzopen(fname, __VA_ARGS__))
@@ -88,6 +84,5 @@ typedef gzFile zfile;
 #define zsuffix(string)      (string ".gz")
 
 #endif
-
 
 #endif  /* OUTPUT_H */

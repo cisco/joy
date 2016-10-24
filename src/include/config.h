@@ -34,6 +34,13 @@
  *
  */
 
+/**
+ * \file config.h
+ *
+ * \brief interface for configuration 
+ *
+ */
+
 #ifndef CONFIG_H
 #define CONFIG_H
 
@@ -41,61 +48,67 @@
 #include "radix_trie.h"
 #include "feature.h"
 
+/** maximum line length */
 #define LINEMAX 256
 
 #define NULL_KEYWORD "none"
 
-
+/** structure for the configuration parameters */
 struct configuration {
-  unsigned int bidir;
-  unsigned int include_zeroes;
-  unsigned int byte_distribution;
-  unsigned int report_entropy;
-  //unsigned int report_wht;
-  unsigned int report_hd;
-  unsigned int report_exe;
-  unsigned int include_tls;
-  unsigned int include_classifier;
-  unsigned int idp;
-  // unsigned int dns;
-  unsigned int http;
-  unsigned int promisc;
-  unsigned int daemon;
-  unsigned int num_pkts;
-  unsigned int type;           /* 1=SPLT, 2=SALT */
-  unsigned int retain_local;
-  unsigned int max_records;
-  unsigned int output_level;
-  unsigned int nfv9_capture_port;
-  unsigned int ipfix_capture_port;
-  unsigned int flow_key_match_method;
+    unsigned int bidir;
+    unsigned int include_zeroes;
+    unsigned int byte_distribution;
+    unsigned int report_entropy;
+    //unsigned int report_wht;
+    unsigned int report_hd;
+    unsigned int report_exe;
+    unsigned int include_tls;
+    unsigned int include_classifier;
+    unsigned int idp;
+    // unsigned int dns;
+    unsigned int http;
+    unsigned int promisc;
+    unsigned int daemon;
+    unsigned int num_pkts;
+    unsigned int type;           /*!< 1=SPLT, 2=SALT */
+    unsigned int retain_local;
+    unsigned int max_records;
+    unsigned int output_level;
+    unsigned int nfv9_capture_port;
+    unsigned int ipfix_capture_port;
+    unsigned int flow_key_match_method;
   
-  declare_all_features_config_uint(feature_list);
+    declare_all_features_config_uint(feature_list);
   
-  char *compact_byte_distribution;
-  char *interface;
-  char *filename;              /* output file, if not NULL */
-  char *outputdir;             /* directory to write output files */
-  char *logfile; 
-  char *anon_addrs_file;
-  char *anon_http_file;
-  char *upload_servername;
-  char *upload_key;
-  char *params_file;
-  char *bpf_filter_exp;
-  char *subnet[MAX_NUM_FLAGS]; /* max defined in radix_trie.h    */
-  unsigned int num_subnets;    /* counts entries in subnet array */
+    char *compact_byte_distribution;
+    char *interface;
+    char *filename;              /*!< output file, if not NULL */
+    char *outputdir;             /*!< directory to write output files */
+    char *logfile; 
+    char *anon_addrs_file;
+    char *anon_http_file;
+    char *upload_servername;
+    char *upload_key;
+    char *params_file;
+    char *bpf_filter_exp;
+    char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
+    unsigned int num_subnets;    /*!< counts entries in subnet array */
 };
 
 
+/** set the defaults for the joy open source */
 void config_set_defaults(struct configuration *config);
 
+/** set the configuration items from a file */
 int config_set_from_file(struct configuration *config, const char *fname);
 
+/** set the configuration items from command line arguments */
 int config_set_from_argv(struct configuration *config, char *argv[], int argc);
 
+/** print out the configuration */
 void config_print(FILE *f, const struct configuration *c);
 
+/** print out the configuration in JSON format */
 void config_print_json(zfile f, const struct configuration *c);
 
 #endif /* CONFIG_H */

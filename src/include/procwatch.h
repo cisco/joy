@@ -34,8 +34,10 @@
  *
  */
 
-/*
- * procwatch.h
+/**
+ * \file procwatch.h
+ *
+ * \brief process watcher interface file
  */
 
 #ifndef PROCWATCH_H
@@ -54,6 +56,7 @@
  * structures.
  */
 
+/** main function for host process to flow mapping */
 int get_host_flow_data();
 
 #endif /* PROCWATCH_H */

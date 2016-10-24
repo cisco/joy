@@ -34,16 +34,17 @@
  *
  */
 
-/*
- * p2f.h
+/**
+ * \file p2f.h
  *
- * header file for pcap2flow
+ * \brief header file for pcap2flow
+ * 
  */
 
 #ifndef P2F_H
 #define P2F_H
 
-#include <sys/socket.h>   /* for struct in_addr */
+#include <sys/socket.h>  
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
@@ -58,18 +59,18 @@
 #include "feature.h"
 
 enum print_level { 
-  none = 0, 
-  packet_summary = 1, 
-  all_data =2 
+    none = 0, 
+    packet_summary = 1, 
+    all_data =2 
 };
 
 
 struct flow_key {
-  struct in_addr sa;
-  struct in_addr da;
-  unsigned short int sp;
-  unsigned short int dp;
-  unsigned short int prot;
+    struct in_addr sa;
+    struct in_addr da;
+    unsigned short int sp;
+    unsigned short int dp;
+    unsigned short int prot;
 };
 
 /*
@@ -81,87 +82,88 @@ struct flow_key {
 #define MAX_IDP 1500
 
 struct flow_record {
-  struct flow_key key;                  /* identifies flow by 5-tuple          */
-  unsigned int np;                      /* number of packets                   */
-  unsigned int op;                      /* number of packets (w/nonzero data)  */
-  unsigned int ob;                      /* number of bytes of application data */
-  unsigned char ttl;                    /* smallest IP TTL in flow             */
-  struct timeval start;                 /* start time                          */ 
-  struct timeval end;                   /* end time                            */
-  unsigned int last_pkt_len;            /* last observed appdata length        */
-  unsigned short pkt_len[MAX_NUM_PKT_LEN];  /* array of packet appdata lengths */  
-  struct timeval pkt_time[MAX_NUM_PKT_LEN]; /* array of arrival times          */
-  unsigned char pkt_flags[MAX_NUM_PKT_LEN]; /* array of packet flags           */
-  unsigned int byte_count[256];         /* number of occurences of each byte   */
-  unsigned int compact_byte_count[16];         /* number of occurences of each byte, mapping to compact form   */
-  unsigned long int num_bytes;
-  double bd_mean;
-  double bd_variance;
-  struct header_description hd;         /* header description (proto ident)    */
-  struct tls_information tls_info;      /* TLS awareness                       */
-  struct http_data http_data;           /* HTTP header information             */
-  //  char *dns_name[MAX_NUM_PKT_LEN];       /* array of DNS names                 */
-  // struct dns dns;
-  void *idp;
-  unsigned int idp_len;
-  unsigned int ack;
-  unsigned int seq;
-  unsigned int initial_seq;
-  unsigned int invalid;
-  unsigned int retrans;
-  char *exe_name;                       /* executable associated with flow    */ 
-  unsigned char tcp_option_nop;
-  unsigned int tcp_option_mss;
-  unsigned int tcp_option_wscale;
-  unsigned char tcp_option_sack;
-  unsigned char tcp_option_fastopen;
-  unsigned char tcp_option_tstamp;
-  unsigned short tcp_initial_window_size;
-  unsigned int tcp_syn_size;
-  unsigned char exp_type;
-  unsigned char first_switched_found;   /* hack to make sure we only correct once */
-
-  define_all_features(feature_list);    /* define all features listed in feature.h */
-
-  struct flow_record *twin;             /* other half of bidirectional flow    */
-  struct flow_record *next;             /* next record in flow_record_list     */
-  struct flow_record *prev;             /* previous record in flow_record_list */
-  struct flow_record *time_prev;        /* previous record in chronological list */
-  struct flow_record *time_next;        /* next record in chronological list     */
+    struct flow_key key;                  /*!< identifies flow by 5-tuple          */
+    unsigned int np;                      /*!< number of packets                   */
+    unsigned int op;                      /*!< number of packets (w/nonzero data)  */
+    unsigned int ob;                      /*!< number of bytes of application data */
+    unsigned char ttl;                    /*!< smallest IP TTL in flow             */
+    struct timeval start;                 /*!< start time                          */ 
+    struct timeval end;                   /*!< end time                            */
+    unsigned int last_pkt_len;            /*!< last observed appdata length        */
+    unsigned short pkt_len[MAX_NUM_PKT_LEN];  /*!< array of packet appdata lengths */  
+    struct timeval pkt_time[MAX_NUM_PKT_LEN]; /*!< array of arrival times          */
+    unsigned char pkt_flags[MAX_NUM_PKT_LEN]; /*!< array of packet flags           */
+    unsigned int byte_count[256];         /*!< number of occurences of each byte   */
+    unsigned int compact_byte_count[16];         /*!< number of occurences of each byte, mapping to compact form   */
+    unsigned long int num_bytes;
+    double bd_mean;
+    double bd_variance;
+    header_description_t hd;         /*!< header description (proto ident)    */
+    struct tls_information tls_info;      /*!< TLS awareness                       */
+    http_data_t http_data;           /*!< HTTP header information             */
+    //  char *dns_name[MAX_NUM_PKT_LEN];       /*!< array of DNS names                 */
+    // struct dns dns;
+    void *idp;
+    unsigned int idp_len;
+    unsigned int ack;
+    unsigned int seq;
+    unsigned int initial_seq;
+    unsigned int invalid;
+    unsigned int retrans;
+    char *exe_name;                       /*!< executable associated with flow    */ 
+    unsigned char tcp_option_nop;
+    unsigned int tcp_option_mss;
+    unsigned int tcp_option_wscale;
+    unsigned char tcp_option_sack;
+    unsigned char tcp_option_fastopen;
+    unsigned char tcp_option_tstamp;
+    unsigned short tcp_initial_window_size;
+    unsigned int tcp_syn_size;
+    unsigned char exp_type;
+    unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
+  
+    define_all_features(feature_list);    /*!< define all features listed in feature.h */
+  
+    struct flow_record *twin;             /*!< other half of bidirectional flow    */
+    struct flow_record *next;             /*!< next record in flow_record_list     */
+    struct flow_record *prev;             /*!< previous record in flow_record_list */
+    struct flow_record *time_prev;        /*!< previous record in chronological list */
+    struct flow_record *time_next;        /*!< next record in chronological list     */
 };
 
 
-/*
- * flow_records can be accessed in either of two ways: 
- *
- *   - An individual record can be looked up by its flow key, which
- *     uses the flow_record_list_array[], which is indexed by the
- *     flow_key_hash() function; this is a doubly linked list.
- *
- *   - All records can be listed in chronological order, using the
- *     time_next pointer's linked list.  (That list will actually be
- *     ordered based on when each flow record is allocated and
- *     initialized, which in most cases is the order in which new
- *     flows are observed.)  The head and tail of that list are
- *     flow_record_chrono_first and flow_record_chrono_last,
- *     respectively.
- *
- * Flows are allocated and initialized by the flow_key_get_record()
- * function when the CREATE_RECORDS flag is set in the arguments to
- * that function.  
- *
- * Each flow_record describes a single unidirectional flow.  The twin
- * pointer contains the address to the flow record of the twin (that
- * is, the flow with source and destination addresses and ports
- * reversed), if there is a twin; otherwise, the twin pointer is NULL.
- * The twin pointer is set in flow_key_get_record(), and that function
- * adds a newly created flow_record to the chronological list only if
- * it has no twin.
- *
- * The function flow_record_list_free() frees *all* flow records in
- * the flow_record_list_array[].  This function should only be used
- * after all processing of all of the associated flows is done.
- * 
+/** \remarks \verbatim
+   flow_records can be accessed in either of two ways: 
+  
+     - An individual record can be looked up by its flow key, which
+       uses the flow_record_list_array[], which is indexed by the
+       flow_key_hash() function; this is a doubly linked list.
+  
+     - All records can be listed in chronological order, using the
+       time_next pointer's linked list.  (That list will actually be
+       ordered based on when each flow record is allocated and
+       initialized, which in most cases is the order in which new
+       flows are observed.)  The head and tail of that list are
+       flow_record_chrono_first and flow_record_chrono_last,
+       respectively.
+  
+   Flows are allocated and initialized by the flow_key_get_record()
+   function when the CREATE_RECORDS flag is set in the arguments to
+   that function.  
+  
+   Each flow_record describes a single unidirectional flow.  The twin
+   pointer contains the address to the flow record of the twin (that
+   is, the flow with source and destination addresses and ports
+   reversed), if there is a twin; otherwise, the twin pointer is NULL.
+   The twin pointer is set in flow_key_get_record(), and that function
+   adds a newly created flow_record to the chronological list only if
+   it has no twin.
+  
+   The function flow_record_list_free() frees *all* flow records in
+   the flow_record_list_array[].  This function should only be used
+   after all processing of all of the associated flows is done.
+   
+ \endverbatim
  */
 
 
@@ -172,8 +174,10 @@ struct flow_record {
 
 typedef struct flow_record *flow_record_list;
 
-/*
- * The function flow_key_get_record(k, flag) returns a pointer to a
+#define CREATE_RECORDS      1
+#define DONT_CREATE_RECORDS 0
+/**
+ * \brief The function flow_key_get_record(k, flag) returns a pointer to a
  * flow_record structure that has flow_key k.  If such a record
  * existed before the invocation, then it returns a pointer to that
  * record.  If no matching flow_record exists before invocation, then
@@ -183,12 +187,12 @@ typedef struct flow_record *flow_record_list;
  * returned if the malloc() call that attempts to allocate memory for
  * a new flow_record structure itself returns NULL.
  *
- * If the pointer returned by flow_key_get_record() is not NULL, then
+ * \brief If the pointer returned by flow_key_get_record() is not NULL, then
  * it points to a flow_record structure that is fully initialized (if
  * it is newly created) and potentially already populated with some
  * flow data (if not newly created).  
  * 
- * The twin of a flow_key (src, dst, srcp, dstp, pr) is the flow_key
+ * \brief The twin of a flow_key (src, dst, srcp, dstp, pr) is the flow_key
  * (dst, src, dstp, srcp, pr) with addresses and ports swapped.  If a
  * flow_record that is the twin of the flow_key k exists before the
  * invocation of flow_key_get_records(k, flag), then the pointer
@@ -200,26 +204,17 @@ typedef struct flow_record *flow_record_list;
  * "twin" pointer, and prints out bidirectional information.
  *
  */
-#define CREATE_RECORDS      1
-#define DONT_CREATE_RECORDS 0
 struct flow_record *flow_key_get_record(const struct flow_key *key, 
 					unsigned int create_new_records);
 
 
-void flow_record_init(/*@out@*/ struct flow_record *record, 
-		      /*@in@*/ const struct flow_key *key);
-
-void flow_record_print_json(const struct flow_record *record);
-
+/** update the byte count of the flow record */
 void flow_record_update_byte_count(struct flow_record *f, const void *x, unsigned int len);
 
+/** update the compact byte count of the flow record */
 void flow_record_update_compact_byte_count(struct flow_record *f, const void *x, unsigned int len);
 
 void flow_record_update_byte_dist_mean_var(struct flow_record *f, const void *x, unsigned int len);
-
-void flow_record_delete(struct flow_record *r);
-
-void flow_record_print_and_delete(struct flow_record *record);
 
 void flow_record_list_init();
 
@@ -227,13 +222,9 @@ void flow_record_list_free();
 
 void flow_record_list_print_json(const struct timeval *inactive_cutoff);
 
-/*
- * flow_record_is_past_active_expiration(record) returns 1 if the age
- * of the flow record is greater than active_max, and returns 0 otherwise
- */
-unsigned int flow_record_is_past_active_expiration(const struct flow_record *record);
-
 int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);
+
+void timer_sub(const struct timeval *a, const struct timeval *b, struct timeval *result);
 
 
 /* flocap_stats holds high-level statistics about packets and flow
@@ -283,8 +274,8 @@ void flocap_stats_output(FILE *f);
 
 void flocap_stats_timer_init();
 
-/*
- * the function flow_key_set_exe_name(key, name) finds the flow record
+/**
+ * \brief the function flow_key_set_exe_name(key, name) finds the flow record
  * associated with key, if there is one, and then sets the exe_name of
  * that record to the provided name
  */
@@ -298,42 +289,26 @@ enum SALT_algorithm {
   rle = 4
 };
 
-/*
- * for portability and static analysis, we define our own timer
- * comparison functions (rather than use non-standard
- * timercmp/timersub macros)
- */
-unsigned int timer_gt(const struct timeval *a, const struct timeval *b);
-
-unsigned int timer_lt(const struct timeval *a, const struct timeval *b);
-
-void timer_sub(const struct timeval *a, const struct timeval *b, struct timeval *result);
-
-void timer_clear(struct timeval *a);
-
 int upload_file(const char *filename, const char *servername, const char *key, unsigned int retain); 
 
 
 void flow_record_list_unit_test();
 
-/* 
- * convert_string_to_printable(s, len) convers the character string s
+/** 
+ * \brief convert_string_to_printable(s, len) convers the character string s
  * into a JSON-safe, NULL-terminated printable string.
  * Non-alphanumeric characters are converted to "." (a period).  This
  * function is useful only to ensure that strings that one expects to
  * be printable, such as DNS names, don't cause encoding errors when
  * they are actually not non-printable, non-JSON-safe strings.  
  *
- * RETURN VALUE: a pointer to the location immediately after the
+ * \brief RETURN VALUE: a pointer to the location immediately after the
  * NULL-terminated string
  */ 
-
 void *convert_string_to_printable(char *s, unsigned int len);
 
 
-/*
- * print a buffer as hexadecimal
- */
+/** print a buffer as hexadecimal */
 void zprintf_raw_as_hex(zfile f, const void *data, unsigned int len);
 
 #endif /* P2F_H */

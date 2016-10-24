@@ -34,161 +34,200 @@
  *
  */
 
-/*
- * wht.c
+/**
+ * \file wht.c
  *
- * walsh-hadamard transform implementation
+ * \brief walsh-hadamard transform implementation
  *
  */
-
-#include <stdint.h>   /* for uint8_t, uint16_t, ... */
-#include <string.h>   /* for memcpy()               */
-#include <stdio.h>    /* for fprintf()              */
+#include <stdint.h>
+#include <string.h>
+#include <stdio.h>
 #include "wht.h"     
 
-inline void wht_init(struct wht *wht) {
-  wht->b = 0;
-  wht->spectrum[0] = 0;
-  wht->spectrum[1] = 0;
-  wht->spectrum[2] = 0;
-  wht->spectrum[3] = 0;
-}
-
-static inline void wht_process_four_bytes(struct wht *wht, const uint8_t *d) {
-  int16_t x[4];
-  
-  x[0] = d[0] + d[2];
-  x[1] = d[1] + d[3];
-  x[2] = d[0] - d[2];
-  x[3] = d[1] - d[3];
-  wht->spectrum[0] += (x[0] + x[1]);
-  wht->spectrum[1] += (x[0] - x[1]);
-  wht->spectrum[2] += (x[2] + x[3]);
-  wht->spectrum[3] += (x[2] - x[3]);
-}
-
-void wht_update(struct wht *wht, const void *data, unsigned int len, unsigned int report_wht) {
-  const uint8_t *d = data;
-
-  if (report_wht) {
-    wht->b += len;
-    while (len > 4) {
-      wht_process_four_bytes(wht, d);
-      d += 4;
-      len -= 4;
+/**
+ * \fn inline void wht_init (struct wht *wht)
+ * \param wht pointer to the structure to initialize
+ * \return none
+ */
+inline void wht_init (struct wht *wht) {
+    if (wht != NULL) {
+        wht->b = 0;
+        wht->spectrum[0] = 0;
+        wht->spectrum[1] = 0;
+        wht->spectrum[2] = 0;
+        wht->spectrum[3] = 0;
     }
-    if (len > 0) {
-      uint8_t buffer[4] = { 0, 0, 0, 0 };
+}
+
+/*
+ * process 4 bytes into transform
+ *    pointers are sanity checked before calling this inline function
+ */
+static inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) {
+    int16_t x[4];
+  
+    x[0] = d[0] + d[2];
+    x[1] = d[1] + d[3];
+    x[2] = d[0] - d[2];
+    x[3] = d[1] - d[3];
+    wht->spectrum[0] += (x[0] + x[1]);
+    wht->spectrum[1] += (x[0] - x[1]);
+    wht->spectrum[2] += (x[2] + x[3]);
+    wht->spectrum[3] += (x[2] - x[3]);
+}
+
+/**
+ * \fn void wht_update (struct wht *wht, const void *data, unsigned int len, unsigned int report_wht)
+ * \param wht point to the structure
+ * \param data pointer to the data to update with
+ * \param len length of the data passed in
+ * \param report_wht value used to determine processing
+ * \return none
+ */
+void wht_update (struct wht *wht, const void *data, unsigned int len, unsigned int report_wht) {
+    const uint8_t *d = data;
+
+    /* sanity checks */
+    if ((wht == NULL) || (data == NULL))
+        return;
+
+    /* see if we should process */
+    if (report_wht) {
+        wht->b += len;
+        while (len > 4) {
+            wht_process_four_bytes(wht, d);
+            d += 4;
+            len -= 4;
+        }
+        if (len > 0) {
+            uint8_t buffer[4] = { 0, 0, 0, 0 };
       
-      memcpy(buffer, d, len);
-      wht_process_four_bytes(wht, buffer);
+            memcpy(buffer, d, len);
+            wht_process_four_bytes(wht, buffer);
+        }
     }
-  }
 }
 
-void wht_printf(const struct wht *wht, zfile f) {
+/* print function for scaled walsh-hadamard structure */
+static void wht_printf_scaled (const struct wht *wht, zfile f) {
+    unsigned int num_bytes = wht->b;
+
+    if (num_bytes == 0) {
+        return;
+    }
   
-  zprintf(f, ",\"wht\":[%d,%d,%d,%d]",
-	  wht->spectrum[0], wht->spectrum[1], wht->spectrum[2], wht->spectrum[3]);
-  
+    zprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
+	      (float) wht->spectrum[0] / num_bytes, 
+	      (float) wht->spectrum[1] / num_bytes,
+	      (float) wht->spectrum[2] / num_bytes,
+	      (float) wht->spectrum[3] / num_bytes);
 }
 
-void wht_printf_scaled(const struct wht *wht, zfile f) {
-  unsigned int num_bytes = wht->b;
+/**
+ * \fn void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f)
+ * \param w1 pointer to walsh-hadamard structure1
+ * \param w2 pointer to walsh-hadamard structure2
+ * \param f file to be used for output
+ * \return none
+ */
+void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f) {
+    int64_t s[4];
+    uint64_t n;
 
-  if (num_bytes == 0) {
-    return;
-  }
+    /* sanity check */
+    if (w1 == NULL) {
+        /* nothing to do */
+        return;
+    }
+
+    /* if w2 is NULL, just print w1 scaled */
+    if (w2 == NULL) {
+        return wht_printf_scaled(w1, f);
+    }
   
-  zprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
-	  (float) wht->spectrum[0] / num_bytes, 
-	  (float) wht->spectrum[1] / num_bytes,
-	  (float) wht->spectrum[2] / num_bytes,
-	  (float) wht->spectrum[3] / num_bytes);
-  
-}
+    n = w1->b + w2->b;
+    if (n == 0) {
+        return;    /* there was no data, so there is no WHT to print */
+    }
 
-void wht_print_json(const struct wht *w1, const struct wht *w2, zfile f) {
-  int64_t s[4];
-  uint64_t n;
+    /* combine each direction */
+    s[0] = w1->spectrum[0] + w2->spectrum[0];  
+    s[1] = w1->spectrum[1] + w2->spectrum[1];  
+    s[2] = w1->spectrum[2] + w2->spectrum[2];  
+    s[3] = w1->spectrum[3] + w2->spectrum[3];  
 
-  if (w2 == NULL) {
-    return wht_printf_scaled(w1, f);
-  }
-  
-  n = w1->b + w2->b;
-  if (n == 0) {
-    return;    /* there was no data, so there is no WHT to print */
-  }
-
-  /* combine each direction */
-  s[0] = w1->spectrum[0] + w2->spectrum[0];  
-  s[1] = w1->spectrum[1] + w2->spectrum[1];  
-  s[2] = w1->spectrum[2] + w2->spectrum[2];  
-  s[3] = w1->spectrum[3] + w2->spectrum[3];  
-
-  zprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
-	  (float) s[0] / n, 
-	  (float) s[1] / n,
-	  (float) s[2] / n,
-	  (float) s[3] / n);
+    zprintf(f, ",\"wht\":[%.5g,%.5g,%.5g,%.5g]",
+	      (float) s[0] / n, 
+	      (float) s[1] / n,
+	      (float) s[2] / n,
+	      (float) s[3] / n);
 #if 0
-  zprintf(f, ",\"RAW1\":[%d,%d,%d,%d]",
-	  w1->spectrum[0], 
-	  w1->spectrum[1],
-	  w1->spectrum[2],
-	  w1->spectrum[3]);
-  zprintf(f, ",\"RAW2\":[%d,%d,%d,%d]",
-	  w1->spectrum[0], 
-	  w1->spectrum[1],
-	  w1->spectrum[2],
-	  w1->spectrum[3]);
+    zprintf(f, ",\"RAW1\":[%d,%d,%d,%d]",
+	      w1->spectrum[0], 
+	      w1->spectrum[1],
+	      w1->spectrum[2],
+	      w1->spectrum[3]);
+    zprintf(f, ",\"RAW2\":[%d,%d,%d,%d]",
+	      w1->spectrum[0], 
+	      w1->spectrum[1],
+	      w1->spectrum[2],
+	      w1->spectrum[3]);
 #endif 
 }
 
-void wht_delete(struct wht *wht) { 
+/**
+ * \fn void wht_delete (struct wht *wht)
+ * \param pointer to the structure
+ * \return none
+ */
+void wht_delete (struct wht *wht) {
+    memset (wht, 0x00, sizeof (struct wht));
 }
 
-
+/**
+ * \fn void wht_unit_test ()
+ * \param none
+ * \return none
+ */
 void wht_unit_test() {
-  struct wht wht, wht2;
-  uint8_t buffer1[8] = {
-    1, 1, 1, 1, 1, 1, 1, 1
-  };
-  uint8_t buffer2[8] = {
-    1, 0, 1, 0, 1, 0, 1, 0
-  };
-  uint8_t buffer3[8] = {
-    0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 
-    //    0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf
-  };
-  uint8_t buffer4[4] = {
-    255, 254, 253, 252
-  };
-  zfile output;
+    struct wht wht, wht2;
+    uint8_t buffer1[8] = {
+          1, 1, 1, 1, 1, 1, 1, 1
+    };
+    uint8_t buffer2[8] = {
+          1, 0, 1, 0, 1, 0, 1, 0
+    };
+    uint8_t buffer3[8] = {
+          0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 
+          //0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe, 0xf
+    };
+    uint8_t buffer4[4] = {
+          255, 254, 253, 252
+    };
+    zfile output;
 
-  output = zattach(stdout, "w");
-  if (output == NULL) {
-    fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
-  }
+    output = zattach(stdout, "w");
+    if (output == NULL) {
+        fprintf(stderr, "%s: error: could not initialize (possibly compressed) stdout for writing\n", __FUNCTION__);
+    }
 
-  wht_init(&wht);
-  wht_update(&wht, buffer1, sizeof(buffer1), 1);
-  wht_printf_scaled(&wht, output);
+    wht_init(&wht);
+    wht_update(&wht, buffer1, sizeof(buffer1), 1);
+    wht_printf_scaled(&wht, output);
 
-  wht_init(&wht);
-  wht_update(&wht, buffer2, sizeof(buffer2), 1);
-  wht_printf_scaled(&wht, output);
+    wht_init(&wht);
+    wht_update(&wht, buffer2, sizeof(buffer2), 1);
+    wht_printf_scaled(&wht, output);
 
-  wht_init(&wht);
-  wht_update(&wht, buffer3, sizeof(buffer3), 1);
-  wht_printf_scaled(&wht, output);
+    wht_init(&wht);
+    wht_update(&wht, buffer3, sizeof(buffer3), 1);
+    wht_printf_scaled(&wht, output);
 
-  wht_init(&wht);
-  wht_init(&wht2);
-  wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
-  wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
-  wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
-  wht_print_json(&wht, &wht2, output);
-
+    wht_init(&wht);
+    wht_init(&wht2);
+    wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
+    wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
+    wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
+    wht_print_json(&wht, &wht2, output);
 } 

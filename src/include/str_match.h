@@ -1,10 +1,4 @@
 /*
- * str_match.h
- *
- * declarations for string matching functions
- *
- */
-/*
  *	
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
@@ -39,7 +33,12 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
+/**
+ * \file str_match.h
+ *
+ * \brief declarations for string matching functions
+ *
+ */
 #ifndef STR_MATCH_H
 #define STR_MATCH_H
 
@@ -49,34 +48,29 @@
 #define MATCH_ARRAY_LEN 32
 
 struct matches {
-  size_t start[MATCH_ARRAY_LEN];
-  size_t stop[MATCH_ARRAY_LEN];
-  unsigned int count;
+    size_t start[MATCH_ARRAY_LEN];
+    size_t stop[MATCH_ARRAY_LEN];
+    unsigned int count;
 };
 
-#define matches_init(x) (x->count = 0)
-
-void matches_add(struct matches *matches, size_t stop, size_t length);
-
-void matches_print(struct matches *matches, char *text);
-
 typedef acsm_context_t *str_match_ctx;
-
-void str_match_ctx_find_all_longest(const str_match_ctx ctx, 
-				    const unsigned char *text, 
-				    size_t len, 
-				    struct matches *matches);
-
-
-typedef enum status (*string_transform)(const char *input, 
-					unsigned int inlen, 
-					char *output,
-					unsigned int outlen);
-
-int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename, string_transform transform);
 
 #define str_match_ctx_alloc() acsm_alloc(NO_CASE)
 
 #define str_match_ctx_free(ctx) acsm_free(ctx)
+
+typedef enum status (*string_transform)(const char *input, 
+				unsigned int inlen, 
+				char *output,
+				unsigned int outlen);
+
+/** find all the matches for a given set of text */
+void str_match_ctx_find_all_longest(const str_match_ctx ctx, 
+    const unsigned char *text, 
+    size_t len, 
+    struct matches *matches);
+
+/** initialize a string matching context from data in a file */
+int str_match_ctx_init_from_file(str_match_ctx ctx, const char *filename, string_transform transform);
 
 #endif /* STR_MATCH_H */

@@ -26,6 +26,12 @@
  * prior written authorization from the authors.
  */
 
+/**
+ * \file map.h
+ * 
+ * \brief map macro interface 
+ *
+ */
 #ifndef MAP_H_INCLUDED
 #define MAP_H_INCLUDED
 
