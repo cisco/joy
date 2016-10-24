@@ -34,12 +34,49 @@
  *
  */
 
-#ifndef MODULES_H
-#define MODULES_H
+/*
+ * ssh.h
+ *
+ * Secure Shell (SSH) protocol awareness for joy
+ *
+ */
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* SSH awareness                 */ 
+#ifndef SSH_H
+#define SSH_H
 
-#endif /* MODULES_H */
+#include <stdio.h>   /* for FILE* */
+#include "output.h"
+#include "feature.h"
+#include "utils.h"
+
+#define ssh_usage "  ssh=1                      report ssh information\n"
+
+#define ssh_filter(key) ((key->prot == 6) && (key->dp == 22 || key->sp == 22))
+
+#define MAX_SSH_LEN 2048
+
+typedef struct ssh {
+  enum role role;
+  char protocol[MAX_SSH_LEN];
+  char host_key_algos[MAX_SSH_LEN];
+  unsigned char cookie[16];
+} ssh_t;
+
+declare_feature(ssh);
+
+void ssh_init(struct ssh *ssh);
+
+void ssh_update(struct ssh *ssh, 
+		    const void *data, 
+		    unsigned int len, 
+		    unsigned int report_ssh);
+
+void ssh_print_json(const struct ssh *w1, 
+		    const struct ssh *w2,
+		    zfile f);
+
+void ssh_delete(struct ssh *ssh);
+
+void ssh_unit_test();
+  
+#endif /* SSH_H */
