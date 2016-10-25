@@ -336,6 +336,9 @@ static void TLSClientHello_get_extensions (const void *x, int len,
     i = 0;
     while (len > 0) {
         if (raw_to_unsigned_short(y) == 0) {
+            if (r->sni != NULL) {
+                free(r->sni);
+            }
             r->sni_length = raw_to_unsigned_short(y+7)+1;
             r->sni = malloc(r->sni_length);
             memset(r->sni, '\0', r->sni_length);
@@ -348,6 +351,9 @@ static void TLSClientHello_get_extensions (const void *x, int len,
             continue;
         }
 
+        if (r->tls_extensions[i].data != NULL) {
+            free(r->tls_extensions[i].data);
+        }
         r->tls_extensions[i].type = raw_to_unsigned_short(y);
         r->tls_extensions[i].length = raw_to_unsigned_short(y+2);
         // should check if length is reasonable?
