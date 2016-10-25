@@ -891,7 +891,7 @@ static int ipfix_skip_idp_header(struct flow_record *ix_record,
                                  const unsigned char **payload,
                                  unsigned int *size_payload) {
   unsigned char proto = 0;
-  const struct ip_hdr *ip;
+  const struct ip_hdr *ip = NULL;
   unsigned int ip_hdr_len;
   const void *flow_data = ix_record->idp;
   unsigned int flow_len = ix_record->idp_len;
@@ -999,13 +999,15 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const void *flow_data,
                                int record_num) {
   //struct timeval old_val_time;
-  //unsigned int total_ms;
+  //unsigned int total_ms = 0;
   const void *flow_ptr = flow_data;
   const unsigned char *payload = NULL;
   unsigned int size_payload = 0;
   struct flow_record *record = ix_record;
   struct flow_key *key = &ix_record->key;
-  int i, j;
+  int i, j = 0;
+
+  //memset(&old_val_time, 0, sizeof(struct timeval));
 
   for (i = 0; i < cur_template->hdr.field_count; i++) {
     uint16_t field_length = 0;
@@ -1122,11 +1124,18 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         break;
 #endif
       case IPFIX_IDP:
+        if (ix_record->idp != NULL) {
+          free(ix_record->idp);
+        }
         ix_record->idp_len = field_length;
         ix_record->idp = malloc(ix_record->idp_len);
-        memcpy(ix_record->idp, flow_data, ix_record->idp_len);
+        if (ix_record->idp != NULL) {
+          memcpy(ix_record->idp, flow_data, ix_record->idp_len);
+        }
 
         /* Get the start of IDP packet payload */
+        payload = NULL;
+        size_payload = 0;
         if (ipfix_skip_idp_header(ix_record, &payload, &size_payload)) {
           /* Error skipping idp header */
           flow_ptr += field_length;
@@ -1140,7 +1149,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         }
 
         /* If packet has port 80 and nonzero data length, process it as HTTP */
-        if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+        else if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
           http_update(&record->http_data, payload, size_payload, config.http);
         }
 
