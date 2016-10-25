@@ -283,6 +283,14 @@ struct ipfix_data_set {
 };
 
 
+struct __attribute__((__packed__)) ipfix_basic_list_hdr {
+  uint8_t semantic;
+  uint16_t field_id;
+  uint16_t element_length;
+  uint32_t enterprise_num;
+};
+
+
 /*
  * @brief Structure representing an IPFIX message.
  */
@@ -349,7 +357,8 @@ enum ipfix_entities {
   IPFIX_FLOW_START_SYS_UP_TIME =                    22,
   IPFIX_BASIC_LIST =                                291,
   IPFIX_IDP =                                       16386,
-  IPFIX_BYTE_DISTRIBUTION =                         16398,
+  IPFIX_BYTE_DISTRIBUTION =                         16390,
+  IPFIX_BYTE_DISTRIBUTION_FORMAT =                  16398,
 };
 
 

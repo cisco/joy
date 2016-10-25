@@ -649,6 +649,8 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     struct ipfix_template_field stack_fields[field_count];
     int i;
 
+    memset(stack_fields, 0, sizeof(struct ipfix_template_field)*field_count);
+
     /*
      * Define Template Set key:
      * {source IP + observation domain ID + template ID}
@@ -994,12 +996,64 @@ static int ipfix_process_flow_sys_up_time(const void *flow_data,
 }
 
 
+static void ipfix_case_byte_distribution(struct flow_record *ix_record,
+                                         const void *data,
+                                         uint16_t data_length,
+                                         uint16_t element_length) {
+  int i = 0;
+
+  if (element_length != 2) {
+    loginfo("error: expecting 2 bytes");
+    return;
+  }
+
+  while (data_length > 0) {
+    ix_record->byte_count[i] = (uint16_t)ntohs(*(const uint16_t *)data);
+
+    data += element_length;
+    data_length -= element_length;
+    i += 1;
+  }
+}
+
+
+static void ipfix_parse_basic_list(struct flow_record *ix_record,
+                                   const void *data,
+                                   uint16_t data_length) {
+  const void *ptr = data;
+  const struct ipfix_basic_list_hdr *bl_hdr = ptr;
+  //uint8_t semantic = bl_hdr->semantic;
+  uint16_t field_id = ntohs(bl_hdr->field_id);
+  uint16_t element_length = ntohs(bl_hdr->element_length);
+  //uint32_t enterprise_num = 0;
+  uint8_t hdr_length = 5; /* default 5 bytes */
+  uint16_t remaining_length = data_length;
+
+  if ipfix_field_enterprise_bit(field_id) {
+    /* Enterprise bit is set,  */
+    //enterprise_num = ntohl(bl_hdr->enterprise_num);
+    /* Remove the bit from field_id */
+    field_id = field_id ^ 0x8000;
+    hdr_length += 4;
+  }
+
+  remaining_length -= hdr_length;
+  ptr += hdr_length;
+
+  switch (field_id) {
+    case IPFIX_BYTE_DISTRIBUTION:
+      ipfix_case_byte_distribution(ix_record, ptr, remaining_length, element_length);
+  }
+}
+
+
 static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const struct ipfix_template *cur_template,
                                const void *flow_data,
                                int record_num) {
   //struct timeval old_val_time;
   //unsigned int total_ms = 0;
+  //uint16_t bd_format = 1;
   const void *flow_ptr = flow_data;
   const unsigned char *payload = NULL;
   unsigned int size_payload = 0;
@@ -1187,23 +1241,15 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         flow_data += field_length;
         break;
 #endif
-      case IPFIX_BYTE_DISTRIBUTION: ;
-        int bytes_per_val = field_length/256;
-        for (j = 0; j < 256; j++) {
-          /* 1 byte vals */
-          if (bytes_per_val == 1) {
-            ix_record->byte_count[j] = (int)*(const uint8_t *)(flow_data+j*bytes_per_val);
-          }
-          /* 2 byte vals */
-          else if (bytes_per_val == 2) {
-            ix_record->byte_count[j] = ntohs(*(const uint16_t *)(flow_data+j*bytes_per_val));
-          }
-          /* 4 byte vals */
-          else {
-            ix_record->byte_count[j] = ntohl(*(const uint32_t *)(flow_data+j*bytes_per_val));
-          }
-        }
+#if 0
+      case IPFIX_BYTE_DISTRIBUTION_FORMAT:
+        bd_format = (uint16_t)*((const uint16_t *)flow_data);
+        flow_ptr += field_length;
+        break;
+#endif
 
+      case IPFIX_BASIC_LIST:
+        ipfix_parse_basic_list(ix_record, flow_data, field_length);
         flow_ptr += field_length;
         break;
 
@@ -1213,4 +1259,3 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
     }
   }
 }
-
