@@ -1039,8 +1039,6 @@ static void ipfix_process_byte_distribution(struct flow_record *ix_record,
  * @param data Contains the sequence packet lengths data.
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
- * @param pkt_len_index Starting index where packet length
- *                      data will be written into /p ix_record.
  */
 static void ipfix_process_spl(struct flow_record *ix_record,
                               const void *data,
@@ -1206,6 +1204,223 @@ static void ipfix_process_spt(struct flow_record *ix_record,
 
 
 /*
+ * @brief Process TLS record lengths related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the TLS record lengths data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
+                                             const void *data,
+                                             uint16_t data_length,
+                                             uint16_t element_length) {
+  int i = 0;
+
+  if (element_length != 2) {
+    loginfo("api-error: expecting element_length == 2");
+    return;
+  }
+
+  while (data_length > 0) {
+    ix_record->tls_info.tls_len[i] = ntohs(*((const uint16_t *)data));
+
+    data += element_length;
+    data_length -= element_length;
+    i++;
+  }
+}
+
+
+/*
+ * @brief Process TLS record times related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the TLS record times data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_tls_record_times(struct flow_record *ix_record,
+                                           const void *data,
+                                           uint16_t data_length,
+                                           uint16_t element_length) {
+  uint32_t total_ms = 0;
+  int i = 0;
+
+  if (element_length != 2) {
+    loginfo("api-error: expecting element_length == 2");
+    return;
+  }
+
+  while (data_length > 0) {
+    uint16_t value_time = ntohs(*((const uint16_t *)data));
+    ix_record->tls_info.tls_time[i].tv_sec =
+      ((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
+      + (ix_record->start.tv_usec / 1000)) / 1000;
+
+    ix_record->tls_info.tls_time[i].tv_usec =
+      (((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
+        + (ix_record->start.tv_usec/1000)) % 1000) * 1000;
+
+    total_ms += value_time;
+
+    data += element_length;
+    data_length -= element_length;
+    i++;
+  }
+}
+
+
+/*
+ * @brief Process TLS content types related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the TLS content types data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_tls_content_types(struct flow_record *ix_record,
+                                            const void *data,
+                                            uint16_t data_length,
+                                            uint16_t element_length) {
+  int i = 0;
+
+  if (element_length != 1) {
+    loginfo("api-error: expecting element_length == 1");
+    return;
+  }
+
+  while (data_length > 0) {
+    ix_record->tls_info.tls_type[i].content = *((const uint8_t *)data);
+
+    data += element_length;
+    data_length -= element_length;
+    i++;
+  }
+}
+
+
+/*
+ * @brief Process TLS handshake types related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the TLS handshake types data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
+                                              const void *data,
+                                              uint16_t data_length,
+                                              uint16_t element_length) {
+  int i = 0;
+
+  if (element_length != 1) {
+    loginfo("api-error: expecting element_length == 1");
+    return;
+  }
+
+  while (data_length > 0) {
+    ix_record->tls_info.tls_type[i].handshake = *((const uint8_t *)data);
+    ix_record->tls_info.tls_op += 1;
+
+    data += element_length;
+    data_length -= element_length;
+    i++;
+  }
+}
+
+
+/*
+ * @brief Process TLS cipher suites related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the TLS cipher suites data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_tls_cipher_suites(struct flow_record *ix_record,
+                                            const void *data,
+                                            uint16_t data_length,
+                                            uint16_t element_length) {
+  int i = 0;
+
+  if (element_length != 2) {
+    loginfo("api-error: expecting element_length == 2");
+    return;
+  }
+
+  while (data_length > 0) {
+    ix_record->tls_info.ciphersuites[i] = ntohs(*((const uint16_t *)data));
+    ix_record->tls_info.num_ciphersuites += 1;
+
+    data += element_length;
+    data_length -= element_length;
+    i++;
+  }
+}
+
+
+/*
+ * @brief Process TLS extension lengths related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the TLS extension lengths data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
+                                          const void *data,
+                                          uint16_t data_length,
+                                          uint16_t element_length) {
+  int i = 0;
+
+  if (element_length != 2) {
+    loginfo("api-error: expecting element_length == 2");
+    return;
+  }
+
+  while (data_length > 0) {
+    ix_record->tls_info.tls_extensions[i].length = ntohs(*((const uint16_t *)data));
+
+    data += element_length;
+    data_length -= element_length;
+    i++;
+  }
+}
+
+
+/*
+ * @brief Process TLS extension types related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the TLS extension lengths data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
+                                          const void *data,
+                                          uint16_t data_length,
+                                          uint16_t element_length) {
+  int i = 0;
+
+  if (element_length != 2) {
+    loginfo("api-error: expecting element_length == 2");
+    return;
+  }
+
+  while (data_length > 0) {
+    ix_record->tls_info.tls_extensions[i].type = ntohs(*((const uint16_t *)data));
+    ix_record->tls_info.tls_extensions[i].data = NULL;
+    ix_record->tls_info.num_tls_extensions += 1;
+
+    data += element_length;
+    data_length -= element_length;
+    i++;
+  }
+}
+
+
+/*
  * @brief Parse through the contents of an IPFIX basicList.
  *
  * @param ix_record IPFIX flow record being encoded.
@@ -1251,6 +1466,41 @@ static void ipfix_parse_basic_list(struct flow_record *ix_record,
                         element_length, hdr_length);
       break;
 
+    case IPFIX_TLS_RECORD_LENGTHS:
+      ipfix_process_tls_record_lengths(ix_record, ptr, remaining_length,
+                                       element_length);
+      break;
+
+    case IPFIX_TLS_RECORD_TIMES:
+      ipfix_process_tls_record_times(ix_record, ptr, remaining_length,
+                                     element_length);
+      break;
+
+    case IPFIX_TLS_CONTENT_TYPES:
+      ipfix_process_tls_content_types(ix_record, ptr, remaining_length,
+                                      element_length);
+      break;
+
+    case IPFIX_TLS_HANDSHAKE_TYPES:
+      ipfix_process_tls_handshake_types(ix_record, ptr, remaining_length,
+                                        element_length);
+      break;
+
+    case IPFIX_TLS_CIPHER_SUITES:
+      ipfix_process_tls_cipher_suites(ix_record, ptr, remaining_length,
+                                      element_length);
+      break;
+
+    case IPFIX_TLS_EXTENSION_LENGTHS:
+      ipfix_process_tls_ext_lengths(ix_record, ptr, remaining_length,
+                                    element_length);
+      break;
+
+    case IPFIX_TLS_EXTENSION_TYPES:
+      ipfix_process_tls_ext_types(ix_record, ptr, remaining_length,
+                                  element_length);
+      break;
+
     default:
       break;
   }
@@ -1261,14 +1511,13 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const struct ipfix_template *cur_template,
                                const void *flow_data,
                                int record_num) {
-  //unsigned int total_ms = 0;
   //uint16_t bd_format = 1;
   const void *flow_ptr = flow_data;
   const unsigned char *payload = NULL;
   unsigned int size_payload = 0;
   struct flow_record *record = ix_record;
   struct flow_key *key = &ix_record->key;
-  int i, j = 0;
+  int i;
 
   for (i = 0; i < cur_template->hdr.field_count; i++) {
     uint16_t field_length = 0;
@@ -1309,82 +1558,28 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
 
         flow_ptr += field_length;
         break;
-#if 0
-      case TLS_SRLT:
-        total_ms = 0;
-        for (j = 0; j < 20; j++) {
-          if (htons(*(const short *)(flow_data+j*2)) == 0) {
-            break;
-          }
 
-          ix_record->tls_info.tls_len[j] = ntohs(*(const unsigned short *)(flow_data+j*2));
-
-          ix_record->tls_info.tls_time[j].tv_sec =
-            (total_ms+ntohs(*(const unsigned short *)(flow_data+40+j*2))
-            +ix_record->start.tv_sec*1000+ix_record->start.tv_usec/1000)/1000;
-
-          ix_record->tls_info.tls_time[j].tv_usec =
-            ((total_ms+ntohs(*(const unsigned short *)(flow_data+40+j*2))
-            +ix_record->start.tv_sec*1000+ix_record->start.tv_usec/1000)%1000)*1000;
-
-          total_ms += htons(*(const unsigned short *)(flow_data+40+j*2));
-
-          ix_record->tls_info.tls_type[j].content = *(const unsigned char *)(flow_data+80+j);
-          ix_record->tls_info.tls_type[j].handshake = *(const unsigned char *)(flow_data+100+j);
-          ix_record->tls_info.tls_op += 1;
-        }
-
-        flow_data += field_length;
-        break;
-
-      case TLS_CS:
-        for (j = 0; j < 125; j++) {
-          if (ntohs(*(const uint16_t *)(flow_data+j*2)) == 65535) {
-            break;
-          }
-          ix_record->tls_info.ciphersuites[j] = ntohs(*(const uint16_t *)(flow_data+j*2));
-          ix_record->tls_info.num_ciphersuites += 1;
-        }
-
-        flow_data += field_length;
-        break;
-
-      case TLS_EXT:
-        for (j = 0; j < 35; j++) {
-          if (htons(*(const short *)(flow_data+j*2)) == 0) {
-            break;
-          }
-          ix_record->tls_info.tls_extensions[j].length = ntohs(*(const unsigned short *)(flow_data+j*2));
-          ix_record->tls_info.tls_extensions[j].type = ntohs(*(const unsigned short *)(flow_data+70+j*2));
-          ix_record->tls_info.tls_extensions[j].data = NULL;
-          ix_record->tls_info.num_tls_extensions += 1;
-        }
-
-        flow_data += field_length;
-        break;
-
-      case TLS_VERSION:
+      case IPFIX_TLS_VERSION:
         ix_record->tls_info.tls_v = *(const uint8_t *)flow_data;
         flow_data += field_length;
         break;
 
-      case TLS_CLIENT_KEY_LENGTH:
+      case IPFIX_TLS_KEY_LENGTH:
         ix_record->tls_info.tls_client_key_length = ntohs(*(const uint16_t *)flow_data);
         flow_data += field_length;
         break;
 
-      case TLS_SESSION_ID:
-        ix_record->tls_info.tls_sid_len = ntohs(*(const uint16_t *)flow_data);
-        ix_record->tls_info.tls_sid_len = min(ix_record->tls_info.tls_sid_len,256);
-        memcpy(ix_record->tls_info.tls_sid, flow_data+2, ix_record->tls_info.tls_sid_len);
+      case IPFIX_TLS_SESSION_ID:
+        ix_record->tls_info.tls_sid_len = min(field_length, 256);
+        memcpy(ix_record->tls_info.tls_sid, flow_data, ix_record->tls_info.tls_sid_len);
         flow_data += field_length;
         break;
 
-      case TLS_HELLO_RANDOM:
+      case IPFIX_TLS_RANDOM:
         memcpy(ix_record->tls_info.tls_random, flow_data, 32);
         flow_data += field_length;
         break;
-#endif
+
       case IPFIX_IDP:
         if (ix_record->idp != NULL) {
           free(ix_record->idp);

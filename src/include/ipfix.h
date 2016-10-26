@@ -306,6 +306,11 @@ struct ipfix_msg {
 
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
+#define min(a,b) \
+    ({ __typeof__ (a) _a = (a); \
+    __typeof__ (b) _b = (b); \
+    _a < _b ? _a : _b; })
+
 
 void *ipfix_cts_monitor(void *ptr);
 
@@ -361,6 +366,17 @@ enum ipfix_entities {
   IPFIX_BYTE_DISTRIBUTION_FORMAT =                  16398,
   IPFIX_SEQUENCE_PACKET_LENGTHS =                   16399,
   IPFIX_SEQUENCE_PACKET_TIMES =                     16400,
+  IPFIX_TLS_RECORD_LENGTHS =                        16403,
+  IPFIX_TLS_RECORD_TIMES =                          16404,
+  IPFIX_TLS_CONTENT_TYPES =                         16405,
+  IPFIX_TLS_HANDSHAKE_TYPES =                       16406,
+  IPFIX_TLS_CIPHER_SUITES =                         16392,
+  IPFIX_TLS_EXTENSION_LENGTHS =                     16407,
+  IPFIX_TLS_EXTENSION_TYPES =                       16408,
+  IPFIX_TLS_VERSION =                               16394,
+  IPFIX_TLS_KEY_LENGTH =                            16395,
+  IPFIX_TLS_SESSION_ID =                            16396,
+  IPFIX_TLS_RANDOM =                                16397,
 };
 
 
