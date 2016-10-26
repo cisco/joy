@@ -280,6 +280,8 @@ enum status process_ipfix(const void *start,
   int set_num = 0;
   const struct flow_key rec_key = r->key;
 
+  memset(&prev_key, 0, sizeof(struct flow_key));
+
   if (ntohs(ipfix->version_number) != 10) {
     if (output_level > none) {
       fprintf(info, "ERROR: ipfix version number is invalid\n");

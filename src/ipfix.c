@@ -90,6 +90,10 @@ struct ipfix_template *collect_template_store_tail = NULL;
 uint16_t cts_count = 0;
 
 
+/* Related to SPLT */
+unsigned int splt_pkt_index;
+
+
 /*
  * External objects, defined in pcap2flow
  */
@@ -109,7 +113,7 @@ static int ipfix_cts_search(struct ipfix_template_key needle,
 static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_size);
 
 
-static int ipfix_cts_append(struct ipfix_template tmp);
+static int ipfix_cts_append(struct ipfix_template *tmp);
 
 
 static int ipfix_loop_data_fields(const unsigned char *data_ptr,
@@ -497,8 +501,8 @@ static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_siz
  *
  * @return 0 if templates was added, 1 if template was not added.
  */
-static int ipfix_cts_append(struct ipfix_template tmp) {
-  uint16_t field_count = tmp.hdr.field_count;
+static int ipfix_cts_append(struct ipfix_template *tmp) {
+  uint16_t field_count = tmp->hdr.field_count;
   size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
   struct ipfix_template *template = NULL;
 
@@ -511,10 +515,10 @@ static int ipfix_cts_append(struct ipfix_template tmp) {
   template = ipfix_template_malloc(field_list_size);
 
   /* Copy the atrribute data */
-  template->template_key = tmp.template_key;
-  template->hdr = tmp.hdr;
-  memcpy(template->fields, tmp.fields, field_list_size);
-  template->payload_length = tmp.payload_length;
+  template->template_key = tmp->template_key;
+  template->hdr = tmp->hdr;
+  memcpy(template->fields, tmp->fields, field_list_size);
+  template->payload_length = tmp->payload_length;
 
   /* Write the current time */
   template->last_seen = time(NULL);
@@ -642,14 +646,11 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     template_set_len -= 4;
     uint16_t template_id = ntohs(template_hdr->template_id);
     uint16_t field_count = ntohs(template_hdr->field_count);
-    struct ipfix_template cur_template = {0};
+    struct ipfix_template *cur_template = NULL;
     struct ipfix_template_key template_key;
     int cur_template_pld_len = 0;
     struct ipfix_template *redundant_template = NULL;
-    struct ipfix_template_field stack_fields[field_count];
     int i;
-
-    memset(stack_fields, 0, sizeof(struct ipfix_template_field)*field_count);
 
     /*
      * Define Template Set key:
@@ -667,9 +668,8 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
       continue;
     }
 
-    /* Assign the stack fields array to current template for
-     * automatic cleanup */
-    cur_template.fields = stack_fields;
+    /* Allocate temporary template */
+    cur_template = ipfix_template_malloc(field_count * sizeof(struct ipfix_template_field));
 
     /*
      * The enterprise field may or may not exist for certain fields
@@ -683,14 +683,14 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
 
       if (ipfix_field_enterprise_bit(host_info_elem_id)) {
         /* The enterprise bit is set, remove from element id */
-        cur_template.fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
-        cur_template.fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
+        cur_template->fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
+        cur_template->fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
         fld_size = 8;
       } else {
-        cur_template.fields[i].info_elem_id = host_info_elem_id;
+        cur_template->fields[i].info_elem_id = host_info_elem_id;
       }
 
-      cur_template.fields[i].fixed_length = host_fixed_length;
+      cur_template->fields[i].fixed_length = host_fixed_length;
 
       template_ptr += fld_size;
       template_set_len -= fld_size;
@@ -698,13 +698,18 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     }
 
     /* The template is new, so save info */
-    cur_template.hdr.template_id = template_id;
-    cur_template.hdr.field_count = field_count;
-    cur_template.payload_length = cur_template_pld_len;
-    cur_template.template_key = template_key;
+    cur_template->hdr.template_id = template_id;
+    cur_template->hdr.field_count = field_count;
+    cur_template->payload_length = cur_template_pld_len;
+    cur_template->template_key = template_key;
 
     /* Save template */
     ipfix_cts_append(cur_template);
+
+    /* Cleanup the temporary template */
+    if (cur_template) {
+      ipfix_delete_template(cur_template);
+    }
   }
 
   return 0;
@@ -829,6 +834,8 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
   if (cur_template->hdr.template_id != 0) {
     struct flow_key key;
     struct flow_record *ix_record;
+
+    memset(&key, 0, sizeof(struct flow_key));
 
     /* Process all data records in set */
     while (data_set_len > min_record_len){
@@ -996,14 +1003,22 @@ static int ipfix_process_flow_sys_up_time(const void *flow_data,
 }
 
 
-static void ipfix_case_byte_distribution(struct flow_record *ix_record,
-                                         const void *data,
-                                         uint16_t data_length,
-                                         uint16_t element_length) {
+/*
+ * @brief Process byte distribution related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the byte distribution data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ */
+static void ipfix_process_byte_distribution(struct flow_record *ix_record,
+                                            const void *data,
+                                            uint16_t data_length,
+                                            uint16_t element_length) {
   int i = 0;
 
   if (element_length != 2) {
-    loginfo("error: expecting 2 bytes");
+    loginfo("api-error: expecting element_length == 2");
     return;
   }
 
@@ -1017,6 +1032,186 @@ static void ipfix_case_byte_distribution(struct flow_record *ix_record,
 }
 
 
+/*
+ * @brief Process sequence packet lengths related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the sequence packet lengths data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ * @param pkt_len_index Starting index where packet length
+ *                      data will be written into /p ix_record.
+ */
+static void ipfix_process_spl(struct flow_record *ix_record,
+                              const void *data,
+                              uint16_t data_length,
+                              uint16_t element_length) {
+  int16_t old_value = 0;
+  int16_t repeated_length = 0;
+  unsigned int pkt_len_index = 0;
+
+  if (element_length != 2) {
+    loginfo("api-error: expecting element_length == 2");
+    return;
+  }
+
+  /* 
+   * Set the global splt packet index variable,
+   * for use in subsequent sequence packet times.
+   */
+  splt_pkt_index = ix_record->op;
+  pkt_len_index = splt_pkt_index;
+
+  while (data_length > 0) {
+    int16_t packet_length = (int16_t)ntohs(*(const int16_t *)data);
+
+    if (packet_length >= 0) {
+      old_value = packet_length;
+      if (packet_length > 0) {
+        ix_record->op += 1;
+      }
+      if (pkt_len_index < MAX_NUM_PKT_LEN) {
+        ix_record->pkt_len[pkt_len_index] = packet_length;
+	      ix_record->ob += packet_length;
+        pkt_len_index++;
+      } else {
+        break;
+      }
+    } else {
+      /*
+       * Packet length value represents the number of packets that were
+       * observed that had a length equal to the last observed packet length.
+       */
+      int i = 0;
+      repeated_length = packet_length * -1;
+      ix_record->op += repeated_length;
+      for (i = 0; i < repeated_length; i++) {
+        if (pkt_len_index < MAX_NUM_PKT_LEN) {
+          ix_record->pkt_len[pkt_len_index] = old_value;
+          ix_record->ob += old_value;
+          pkt_len_index++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    data += element_length;
+    data_length -= element_length;
+  }
+}
+
+
+/*
+ * @brief Process sequence packet times related data.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the sequence packet times data.
+ * @param data_length Length in octets of the data.
+ * @param element_length Length in octets of each element.
+ * @param hdr_length Length in octets of the basicList header.
+ */
+static void ipfix_process_spt(struct flow_record *ix_record,
+                              const void *data,
+                              uint16_t data_length,
+                              uint16_t element_length,
+                              uint16_t hdr_length) {
+  struct timeval previous_time;
+  uint16_t packet_time = 0;
+  int repeated_times = 0;
+  unsigned int pkt_time_index = 0;
+  int i = 0;
+
+  memset(&previous_time, 0, sizeof(struct timeval));
+
+  pkt_time_index = splt_pkt_index;
+  
+  /* Initialize the most recent previous time */
+  if (pkt_time_index > 0) {
+    previous_time.tv_sec = ix_record->pkt_time[pkt_time_index-1].tv_sec;
+    previous_time.tv_usec = ix_record->pkt_time[pkt_time_index-1].tv_usec;
+  } else {
+    previous_time.tv_sec = ix_record->start.tv_sec;
+    previous_time.tv_usec = ix_record->start.tv_usec;
+  }
+
+  while (data_length > 0) {
+    int16_t packet_length =
+      ntohs(*(const int16_t *)((data + i) - (data_length + hdr_length)));
+    packet_time = ntohs(*(const uint16_t *)data);
+
+    /* Look for run length encoding */
+    if (packet_length < 0) {
+      /* FIXME extra -1 ? */
+      int16_t repeated_length = packet_length * -1;
+      while (repeated_length > 0) {
+        if (pkt_time_index < MAX_NUM_PKT_LEN) {
+          ix_record->pkt_time[pkt_time_index] = previous_time;
+          pkt_time_index++;
+        } else {
+          break;
+        }
+        repeated_length -= 1;
+      }
+    }
+
+    if (packet_time >= 0) {
+      /*
+       * Packet_time value represents the positive time delta between
+       * the previous packet and the current packet.
+       */
+      if (pkt_time_index < MAX_NUM_PKT_LEN) {
+        previous_time.tv_sec += (time_t)(packet_time/1000);
+        previous_time.tv_usec +=
+          (uint32_t)(packet_time - ((int)(packet_time/1000.0))*1000)*1000;
+
+        /*
+         * Make sure to check for wrap around,
+         * weirdness happens when usec >= 1000000
+         */
+        if (previous_time.tv_usec >= 1000000) {
+          previous_time.tv_sec +=
+            (time_t)((int)(previous_time.tv_usec / 1000000));
+          previous_time.tv_usec %= 1000000;
+        }
+
+        ix_record->pkt_time[pkt_time_index] = previous_time;
+        pkt_time_index++;
+      } else {
+        break;
+      }
+    } else {
+      /*
+       * Packet_time value represents the number of packets that were
+       * observed that had an arrival time equal to the last observed
+       * arrival time
+       */
+      int k;
+      repeated_times = packet_time * -1;
+      for (k = 0; k < repeated_times; k++) {
+        if (pkt_time_index < MAX_NUM_PKT_LEN) {
+          ix_record->pkt_time[pkt_time_index] = previous_time;
+          pkt_time_index++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    data += element_length;
+    data_length -= element_length;
+    i += 2;
+  }
+}
+
+
+/*
+ * @brief Parse through the contents of an IPFIX basicList.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param data Contains the basicList.
+ * @param data_length Length in octets of the basicList.
+ */
 static void ipfix_parse_basic_list(struct flow_record *ix_record,
                                    const void *data,
                                    uint16_t data_length) {
@@ -1042,7 +1237,22 @@ static void ipfix_parse_basic_list(struct flow_record *ix_record,
 
   switch (field_id) {
     case IPFIX_BYTE_DISTRIBUTION:
-      ipfix_case_byte_distribution(ix_record, ptr, remaining_length, element_length);
+      ipfix_process_byte_distribution(ix_record, ptr, remaining_length,
+                                      element_length);
+      break;
+
+    case IPFIX_SEQUENCE_PACKET_LENGTHS:
+      ipfix_process_spl(ix_record, ptr, remaining_length,
+                        element_length);
+      break;
+
+    case IPFIX_SEQUENCE_PACKET_TIMES:
+      ipfix_process_spt(ix_record, ptr, remaining_length,
+                        element_length, hdr_length);
+      break;
+
+    default:
+      break;
   }
 }
 
@@ -1051,7 +1261,6 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const struct ipfix_template *cur_template,
                                const void *flow_data,
                                int record_num) {
-  //struct timeval old_val_time;
   //unsigned int total_ms = 0;
   //uint16_t bd_format = 1;
   const void *flow_ptr = flow_data;
@@ -1061,8 +1270,6 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
   struct flow_key *key = &ix_record->key;
   int i, j = 0;
 
-  //memset(&old_val_time, 0, sizeof(struct timeval));
-
   for (i = 0; i < cur_template->hdr.field_count; i++) {
     uint16_t field_length = 0;
     flow_data = flow_ptr;
@@ -1071,6 +1278,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
       /* Get variable length and move just beyond it */
       field_length = cur_template->fields[i].variable_length;
       flow_data += cur_template->fields[i].var_hdr_length;
+      flow_ptr += cur_template->fields[i].var_hdr_length;
     } else {
       /* Field length is fixed */
       field_length = cur_template->fields[i].fixed_length;
@@ -1211,36 +1419,6 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         update_all_features(feature_list);
         flow_ptr += field_length;
         break;
-#if 0
-      case SPLT:
-      case SPLT_NGA: ;
-        int max_length_array = (int)ntohs(cur_template->fields[i].FieldLength)/2;
-        const void *length_data = flow_data;
-        const void *time_data = flow_data + max_length_array;
-
-        int pkt_len_index = ix_record->op;
-        int pkt_time_index = ix_record->op;
-
-        /* Process the lengths array in the SPLT data */
-        nfv9_process_lengths(ix_record, length_data,
-                             max_length_array, pkt_len_index);
-
-        /* Initialize the time <- this is where we should use the ipfix timestamp */
-        if (pkt_time_index > 0) {
-          old_val_time.tv_sec = ix_record->pkt_time[pkt_time_index-1].tv_sec;
-          old_val_time.tv_usec = ix_record->pkt_time[pkt_time_index-1].tv_usec;
-        } else {
-          old_val_time.tv_sec = ix_record->start.tv_sec;
-          old_val_time.tv_usec = ix_record->start.tv_usec;
-        }
-
-        // process the times array in the SPLT data
-        nfv9_process_times(ix_record, time_data, &old_val_time,
-                           max_length_array, pkt_time_index);
-
-        flow_data += field_length;
-        break;
-#endif
 #if 0
       case IPFIX_BYTE_DISTRIBUTION_FORMAT:
         bd_format = (uint16_t)*((const uint16_t *)flow_data);

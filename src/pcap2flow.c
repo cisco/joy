@@ -304,6 +304,7 @@ static int usage (char *s) {
            "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
            "  retain=1                   retain a local copy of file after upload\n" 
            "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
+           "  ipfix_cap_port=N           enable IPFIX capture on port N\n"
            "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 

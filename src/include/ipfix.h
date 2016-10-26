@@ -359,6 +359,8 @@ enum ipfix_entities {
   IPFIX_IDP =                                       16386,
   IPFIX_BYTE_DISTRIBUTION =                         16390,
   IPFIX_BYTE_DISTRIBUTION_FORMAT =                  16398,
+  IPFIX_SEQUENCE_PACKET_LENGTHS =                   16399,
+  IPFIX_SEQUENCE_PACKET_TIMES =                     16400,
 };
 
 
