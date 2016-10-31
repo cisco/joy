@@ -1506,6 +1506,16 @@ static void ipfix_parse_basic_list(struct flow_record *ix_record,
 }
 
 
+/*
+ * @brief Parse through the contents of an IPFIX Data Set.
+ *
+ * @param ix_record IPFIX flow record being encoded.
+ * @param cur_template IPFIX template used to interpret the data.
+ * @param flow_data Flow data representing an IPFIX data record.
+ * @param record_num Flag indicating whether to record the packet delta.
+ *                   Use 0 for yes, otherwise no
+ *
+ */
 static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const struct ipfix_template *cur_template,
                                const void *flow_data,
