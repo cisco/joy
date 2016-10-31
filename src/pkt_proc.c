@@ -51,6 +51,7 @@
 #include "err.h"
 #include "tls.h"
 #include "nfv9.h"
+#include "ipfix.h"
 #include "config.h"
 
 /*
@@ -65,6 +66,7 @@ extern unsigned int include_tls;
 extern unsigned int report_idp;
 extern unsigned int report_hd;
 extern unsigned int nfv9_capture_port;
+extern unsigned int ipfix_capture_port;
 extern enum SALT_algorithm salt_algo;
 extern enum print_level output_level;
 extern struct flocap_stats stats;
@@ -259,6 +261,112 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
     record->seq = ntohl(tcp->tcp_seq);
     record->ack = ntohl(tcp->tcp_ack);
 }
+
+
+/*
+ * @brief Process IPFIX message contents.
+ *
+ * @param start Beginning of IPFIX message data.
+ * @param len Total length of the data.
+ * @param r Flow record tracking the inbound network packet.
+ */
+enum status process_ipfix(const void *start,
+                          int len,
+                          struct flow_record *r) {
+
+  const struct ipfix_hdr *ipfix = start;
+  const struct ipfix_set_hdr *ipfix_sh;
+  struct flow_key prev_key;
+  int set_num = 0;
+  const struct flow_key rec_key = r->key;
+
+  memset(&prev_key, 0, sizeof(struct flow_key));
+
+  if (ntohs(ipfix->version_number) != 10) {
+    if (output_level > none) {
+      fprintf(info, "ERROR: ipfix version number is invalid\n");
+    }
+  }
+
+  /* debugging output */
+  if (output_level > none) {
+    fprintf(info, "processing ipfix packet\n");
+    fprintf(output, "   protocol: ipfix");
+    fprintf(output, " packet len: %u\n", len);
+
+    if (output_level > packet_summary) {
+      if (len > 0) {
+        fprintf(output, "    payload:\n");
+        print_payload(start, len);
+      }
+    }
+
+    fprintf(info,"Source IP: %s\n",inet_ntoa(r->key.sa));
+    fprintf(info,"Observation Domain ID: %i\n", htonl(ipfix->observe_dom_id));
+  }
+
+  /* Move past ipfix_hdr, i.e. IPFIX message header */
+  start += 16;
+  len -= 16;
+
+  /*
+   * Parse IPFIX message for template, options, or data sets.
+   */
+  while (len > 0) {
+    ipfix_sh = start;
+    uint16_t set_id = ntohs(ipfix_sh->set_id);
+
+    if (output_level > none) {
+      fprintf(info,"Set ID: %i\n", set_id);
+      fprintf(info,"Set Length: %i\n", ntohs(ipfix_sh->length));
+    }
+
+    if ((set_id <= 1) || ((4 <= set_id) && (set_id <= 255))) {
+      /* The set_id is invalid, either Netflow or reserved */
+      if (output_level > none) {
+        fprintf(info, "ERROR: Set ID is invalid\n");
+      }
+    }
+    /*
+     * Set ID is a Template Set
+     */
+    else if (set_id == 2) {
+      /* Set template pointer to right after set header */
+      const void *template_start = start + 4;
+      uint16_t template_set_len = htons(ipfix_sh->length) - 4;
+
+      /* Parse the template set */
+      ipfix_parse_template_set(ipfix, template_start,
+                               template_set_len, rec_key);
+    }
+    /*
+     * Set ID is an Options Template Set
+     */
+    else if (set_id == 3) {
+      /* Ignore Options Template for now, what is this used for? */
+      if (output_level > none) {
+	      fprintf(info,"Options Template NYI\n");
+      }
+    }
+    /*
+     * Set ID is a Data Set
+     */
+    else {
+      const void *data_start = start + 4;
+      uint16_t data_set_len = ntohs(ipfix_sh->length) - 4;
+
+      ipfix_parse_data_set(ipfix, data_start, data_set_len,
+                           set_id, rec_key, &prev_key);
+    }
+
+    start += ntohs(ipfix_sh->length);
+    len -= ntohs(ipfix_sh->length);
+    set_num += 1;
+  }
+
+  return ok;
+}
+
 
 static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start, int len, struct flow_record *r) {
 
@@ -660,6 +768,10 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
 
     if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
         process_nfv9(h, payload, size_payload, record);
+    }
+
+    if (ipfix_capture_port && (key->dp == ipfix_capture_port)) {
+      process_ipfix(payload, size_payload, record);
     }
 
     return record;

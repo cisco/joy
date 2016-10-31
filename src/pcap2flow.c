@@ -74,6 +74,7 @@
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "output.h"     /* compressed output             */
 #include "updater.h"    /* updater thread for classifer and label subnets */
+#include "ipfix.h"    /* IPFIX cleanup */
 
 enum operating_mode {
     mode_none = 0,
@@ -120,6 +121,8 @@ extern unsigned int include_tls;
 extern unsigned int include_classifier;
 
 extern unsigned int nfv9_capture_port;
+
+extern unsigned int ipfix_capture_port;
 
 extern zfile output;
 
@@ -301,6 +304,7 @@ static int usage (char *s) {
            "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
            "  retain=1                   retain a local copy of file after upload\n" 
            "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
+           "  ipfix_cap_port=N           enable IPFIX capture on port N\n"
            "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
@@ -371,6 +375,8 @@ int main (int argc, char **argv) {
     enum operating_mode mode = mode_none;
     pthread_t upd_thread;
     int upd_rc;
+    //pthread_t ipfix_cts_monitor_thread;
+    //int cts_monitor_thread_rc;
 
     /* sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -463,6 +469,7 @@ int main (int argc, char **argv) {
         report_idp = config.idp;
         salt_algo = config.type;
         nfv9_capture_port = config.nfv9_capture_port;
+        ipfix_capture_port = config.ipfix_capture_port;
 
         set_config_all_features(feature_list);
 
@@ -777,7 +784,23 @@ int main (int argc, char **argv) {
 	                return -5;
             }  
         }
-    
+
+        /*
+         * Start up the IPFIX collector template store (cts) monitor
+         * thread. Monitor is only active during live capture runs.
+         */
+#if 0
+        cts_monitor_thread_rc = pthread_create(&ipfix_cts_monitor_thread,
+                                               NULL,
+                                               ipfix_cts_monitor,
+                                               (void*)NULL);
+        if (cts_monitor_thread_rc) {
+          fprintf(info, "error: could not start ipfix cts monitor thread\n");
+          fprintf(info, "pthread_create() rc: %d\n", cts_monitor_thread_rc);
+          return -7;
+        }
+#endif
+ 
         /*
          * start up the updater thread
          *   updater is only active during live capture runs
@@ -920,6 +943,9 @@ int main (int argc, char **argv) {
 
     flocap_stats_output(info);
     // config_print(info, &config);
+
+    /* Free any of the leftover IPFIX templates before program exit */
+    ipfix_cts_cleanup();
 
     zclose(output);
 

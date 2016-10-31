@@ -225,6 +225,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "nfv9_port")) {
         parse_check(parse_int(&config->nfv9_capture_port, arg, num, 0, 0xffff));
 
+    } else if (match(command, "ipfix_cap_port")) {
+        parse_check(parse_int(&config->ipfix_capture_port, arg, num, 0, 0xffff));
+
     } else if (match(command, "nat")) {
         parse_check(parse_bool(&config->flow_key_match_method, arg, num));
 
