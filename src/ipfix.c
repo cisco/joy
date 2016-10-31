@@ -1140,7 +1140,6 @@ static void ipfix_process_spt(struct flow_record *ix_record,
 
     /* Look for run length encoding */
     if (packet_length < 0) {
-      /* FIXME extra -1 ? */
       int16_t repeated_length = packet_length * -1;
       while (repeated_length > 0) {
         if (pkt_time_index < MAX_NUM_PKT_LEN) {
@@ -1540,7 +1539,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
             ix_record->np += ntohl(*(const uint32_t *)(flow_data));
           } else {
             ix_record->np +=
-              __builtin_bswap64(*(const uint64_t *)(flow_data)); /*FIXME*/
+              __builtin_bswap64(*(const uint64_t *)(flow_data));
           }
         }
 

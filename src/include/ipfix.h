@@ -208,18 +208,17 @@ struct ipfix_option_hdr {
  * data depending on whether the leftmost bit of info_elem_id
  * is set (big-endian).
  *
- * FIXME see if the enterprise_num memory can be dynamically chosen??
  */
 struct ipfix_template_field {
   uint16_t info_elem_id;
-  uint16_t fixed_length; /* FIXME make this into union eventually? */
+  uint16_t fixed_length;
   uint32_t enterprise_num;
   uint16_t variable_length;
   uint8_t var_hdr_length; /**< How many bytes the variable header consists of */
 };
 
 
-#define IPFIX_MAX_LEN 1480 /* FIXME is this the right limit? */
+#define IPFIX_MAX_LEN 1480
 #define IPFIX_MAX_FIELDS (IPFIX_MAX_LEN/4)
 
 
