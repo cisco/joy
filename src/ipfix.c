@@ -43,6 +43,7 @@
 #include <string.h>   /* for memcpy() */
 #include <stdlib.h>
 #include <time.h>
+#include <netdb.h>
 #include "ipfix.h"
 #include "pkt.h"
 #include "http.h"
@@ -88,6 +89,14 @@ static FILE *print_dest = NULL;
 struct ipfix_template *collect_template_store_head = NULL;
 struct ipfix_template *collect_template_store_tail = NULL;
 uint16_t cts_count = 0;
+
+
+/*
+ * Doubly linked list for exporter template store (xts).
+ */
+struct ipfix_exporter_template *export_template_store_head = NULL;
+struct ipfix_exporter_template *export_template_store_tail = NULL;
+uint16_t xts_count = 0;
 
 
 /* Related to SPLT */
@@ -316,7 +325,7 @@ static inline int ipfix_template_key_cmp(const struct ipfix_template_key a,
 /*
  * @brief Renew a template.
  *
- * Set the last_seen field within the /p template to the current time.
+ * Set the last_seen field within the \p template to the current time.
  *
  * @param template IPFIX template that will be renewed.
  */
@@ -363,7 +372,7 @@ void ipfix_cts_cleanup(void) {
 /*
  * @brief Copy a template from the store list into a new template.
  *
- * Using /p as the template from the store, copy it's contents
+ * Using \p as the template from the store, copy it's contents
  * into a newly allocated template that is totally independent.
  * The user of the new template can modify it however they wish,
  * with no impact to the original store template.
@@ -411,7 +420,7 @@ static void ipfix_cts_copy(struct ipfix_template **dest_template,
 /*
  * @brief Search the IPFIX collector template store (cts) for a match.
  *
- * Using the /p needle template, search through the store list
+ * Using the \p needle template, search through the store list
  * to find whether an identical template exists in the store
  * already.
  *
@@ -496,7 +505,7 @@ static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_siz
  * @brief Append to the collector template store (cts).
  *
  * Create a new template on the heap, and copy the key, hdr, and fields
- * from the template /p tmp. The timestamp of last_seen will be calculated
+ * from the template \p tmp. The timestamp of last_seen will be calculated
  * and attached to the newly allocated template.
  *
  * @return 0 if templates was added, 1 if template was not added.
@@ -725,7 +734,7 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
  * value in the variable length field will be overwritten by the new value
  * that corresponds to this particular data record.
  *
- * Additionally, if the value of /p min_record_len is 0, it will be filled
+ * Additionally, if the value of \p min_record_len is 0, it will be filled
  * in (by reference) with the minimum valid data record size.
  *
  * @param data_ptr Pointer to the IPFIX data record.
@@ -1640,4 +1649,617 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         break;
     }
   }
+}
+
+
+/******************************************
+ * \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+ *                                        |
+ *          IPFIX EXPORTING               |
+ *                                        |
+ * ////////////////////////////////////////
+ *****************************************/
+
+
+/*
+ * OBS_DOM_ID is hardcoded now for simplicity
+ * FIXME make it with prng for uniqueness
+ */
+#define OBS_DOM_ID 1
+
+#define IPFIX_COLLECTOR_PORT 4739
+#define HOST_NAME_MAX_SIZE 50
+
+static uint16_t exporter_template_id = 256;
+
+#define ipfix_exp_template_field_macro(a, b) \
+  ((struct ipfix_exporter_template_field) {a, b, 0})
+
+
+/*
+ * @brief Allocate heap memory for a sequence of fields.
+ *
+ * @param template IPFIX exporter template which will have allocated memory
+ *                 attached to it via pointer.
+ */
+static void ipfix_exp_template_fields_malloc(struct ipfix_exporter_template *template,
+                                             uint16_t field_count) {
+  size_t field_list_size = field_count * sizeof(struct ipfix_exporter_template_field);
+
+  template->fields = malloc(field_list_size);
+  memset(template->fields, 0, field_list_size);
+}
+
+
+/*
+ * @brief Allocate heap memory for an exporter template.
+ *
+ * @param num_fields Number of fields the template will be able to hold.
+ *
+ * @return A newly allocated ipfix_exporter_template
+ */
+static struct ipfix_exporter_template *ipfix_exp_template_malloc(uint16_t field_count) {
+  /* Init a new exporter template on the heap */
+  struct ipfix_exporter_template *template = malloc(sizeof(struct ipfix_exporter_template));
+
+  if (template != NULL) {
+    memset(template, 0, sizeof(struct ipfix_exporter_template));
+    /* Allocate memory for the fields */
+    ipfix_exp_template_fields_malloc(template, field_count);
+  } else {
+    loginfo("error: malloc failed");
+  }
+
+  template->length = 4;
+
+  return template;
+}
+
+
+/*
+ * @brief Free an allocated exporter template structure.
+ *
+ * First free the attached fields memory. Then free the template memory.
+ *
+ * @param template IPFIX exporter template that will have it's heap memory freed.
+ */
+static inline void ipfix_delete_exp_template(struct ipfix_exporter_template *template) {
+  if (template == NULL) {
+    loginfo("api-error: template is null");
+    return;
+  }
+
+  if (template->fields) {
+    uint16_t field_count = template->hdr.field_count;
+    size_t field_list_size = sizeof(struct ipfix_exporter_template_field) * field_count;
+    memset(template->fields, 0, field_list_size);
+    free(template->fields);
+  }
+
+  memset(template, 0, sizeof(struct ipfix_exporter_template));
+  free(template);
+}
+
+
+
+/*
+ * @brief Append to the exporter template store (xts).
+ *
+ * Add a given template to the end of the exporter template store
+ * linked list.
+ *
+ * @param template IPFIX exporter template that will be appended.
+ *
+ * @return 0 if templates was added, 1 if template was not added.
+ */
+static int ipfix_xts_append(struct ipfix_exporter_template *template) {
+  if (xts_count >= (MAX_IPFIX_TEMPLATES - 1)) {
+    loginfo("warning: ipfix template cannot be added to xts, already at maximum storage threshold");
+    return 1;
+  }
+
+  /* Write the current time */
+  //template->last_seen = time(NULL);
+
+  if (export_template_store_head == NULL) {
+    /* This is the first template in store list */
+    export_template_store_head = template;
+  } else {
+    /* Append to the end of store list */
+    export_template_store_tail->next = template;
+    template->prev = export_template_store_tail;
+  }
+
+  /* Update the tail */
+  export_template_store_tail = template;
+
+  /* Increment the store count */
+  xts_count += 1;
+
+  return 0;
+}
+
+
+/*
+ * @brief Copy a template from the export store list into a new template.
+ *
+ * Using \p as the template from the store, copy it's contents
+ * into a newly allocated template that is totally independent.
+ * The user of the new template can modify it however they wish,
+ * with no impact to the original export store template.
+ *
+ * WARNING: The end user of the newly allocated template is
+ * responsible for freeing that memory.
+ */
+static int ipfix_xts_copy(struct ipfix_exporter_template **dest_template,
+                           struct ipfix_exporter_template *src_template) {
+  uint16_t field_count = src_template->hdr.field_count;
+  struct ipfix_exporter_template_field *new_fields = NULL;
+  struct ipfix_exporter_template *new_template = NULL;
+  size_t field_list_size = field_count * sizeof(struct ipfix_exporter_template_field);
+
+  if (dest_template == NULL || src_template == NULL) {
+    loginfo("api-error: dest or src template is null");
+    return 1;
+  }
+
+  /* Allocate heap memory for new_template */
+  new_template = ipfix_exp_template_malloc(field_count);
+
+  if (new_template == NULL) {
+    loginfo("error: template is null");
+    return 1;
+  }
+
+  /* Save pointer to new_template field memory */
+  new_fields = new_template->fields;
+
+  memcpy(new_template, src_template, sizeof(struct ipfix_exporter_template));
+
+  /* Reattach new_fields */
+  new_template->fields = new_fields;
+
+  /* New template is a copy, so it isn't part of the store */
+  new_template->next = NULL;
+  new_template->prev = NULL;
+
+  /* Copy the fields data */
+  if (src_template->fields && new_template->fields) {
+    memcpy(new_template->fields, src_template->fields, field_list_size);
+  }
+
+  /* Assign dest_template handle to newly allocated template */
+  *dest_template = new_template;
+
+  return 0;
+}
+
+
+/*
+ * @brief Free all templates that exist in the exporter template store (xts).
+ *
+ * Any ipfix_exporter_template structures that currently remain within the XTS will
+ * be zeroized and have their heap memory freed.
+ */
+void ipfix_xts_cleanup(void) {
+  struct ipfix_exporter_template *this_template;
+  struct ipfix_exporter_template *next_template;
+
+  if (collect_template_store_head == NULL) {
+    return;
+  }
+
+  this_template = export_template_store_head;
+  next_template = this_template->next;
+
+  /* Free the first stored template */
+  ipfix_delete_exp_template(this_template);
+
+  while (next_template) {
+    this_template = next_template;
+    next_template = this_template->next;
+
+    ipfix_delete_exp_template(this_template);
+  }
+}
+
+
+static void ipfix_exp_template_add_field(struct ipfix_exporter_template *t,
+                                         struct ipfix_exporter_template_field f) {
+    t->fields[t->hdr.field_count] = f;
+    t->hdr.field_count++;
+}
+
+
+/*
+ * @brief Create a simple 5-tuple template.
+ *
+ * Make a basic template that represents the traditional 5-tuple
+ * unique id. This consists of the source/destination ipv4 address,
+ * source/destination transport port, and the transport protocol identifier.
+ *
+ * WARNING: The end user of the newly allocated template is
+ * responsible for freeing that memory.
+ *
+ * @return The desired template, otherwise NULL for failure.
+ */
+static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
+  struct ipfix_exporter_template *template = NULL;
+  unsigned int num_fields = 5;
+
+  template = ipfix_exp_template_malloc(num_fields); 
+
+  if (template != NULL) {
+    /* Update the template header field count */
+    template->hdr.field_count = num_fields;
+
+    /* Add the fields */
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
+    template->length += 4;
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_DESTINATION_IPV4_ADDRESS, 4));
+    template->length += 4;
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_SOURCE_TRANSPORT_PORT, 2));
+    template->length += 2;
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_DESTINATION_TRANSPORT_PORT, 2));
+    template->length += 2;
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
+    template->length += 1;
+  } else {
+    loginfo("error: template is null");
+  }
+
+  return template;
+}
+
+
+/*
+ * @brief Create a template, given a valid type.
+ *
+ * Create a new template on the heap according to the
+ * \p template_type. If the template type is not supported then
+ * an error is logged and no template is made.
+ *
+ * WARNING: The end user of the newly allocated template is
+ * responsible for freeing that memory.
+ *
+ * @param template_type A valid entry from the enum ipfix_template_type list.
+ *
+ * @return The desired template, otherwise NULL for failure.
+ */
+static struct ipfix_exporter_template *ipfix_exp_create_template
+(enum ipfix_template_type template_type) {
+
+  struct ipfix_exporter_template *template = NULL;
+
+  switch (template_type) {
+    case IPFIX_SIMPLE_TEMPLATE:
+      template = ipfix_exp_create_simple_template();
+      break;
+
+    default:
+      loginfo("api-error: template type is not supported");
+      break;
+  }
+
+  if (template != NULL) {
+    template->hdr.template_id = exporter_template_id;
+    ipfix_xts_append(template);
+  } else {
+    loginfo("error: unable to create template");
+  }
+
+  return template;
+}
+
+
+/*
+ * @brief Initialize an IPFIX template set.
+ *
+ * Taking \p set as input, zeroize the set and then
+ * add the necessary set id and length.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ */
+static void ipfix_exp_template_set_init(struct ipfix_exporter_template_set *set) {
+  memset(set, 0, sizeof(struct ipfix_exporter_template_set));
+  set->set_hdr.set_id = IPFIX_TEMPLATE_SET;
+  set->set_hdr.length = 4; /* size of the header */
+}
+
+
+/*
+ * @brief Add a new template to the list of templates attached to the set.
+ *
+ * The \p set contains a doubly linked list to traverse any templates
+ * that may be attached to it. Here, \p template will be added to that list.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param template IPFIX exporter template that will be appended.
+ */
+static void ipfix_exp_template_set_add(struct ipfix_exporter_template_set *set,
+                                       struct ipfix_exporter_template *template) {
+
+  /*
+   * Add the template to the list attached to set.
+   */
+  if (set->records_head == NULL) {
+    /* This is the first template in set list*/
+    set->records_head = template;
+  } else {
+    /* Append to the end of set list */
+    set->records_tail->next = template;
+    template->prev = set->records_tail;
+  }
+
+  /* Update the tail */
+  set->records_tail = template;
+
+  /* Update the set length with total size of template */
+  set->set_hdr.length += template->length;
+}
+
+
+/*
+ * @brief Add a new template to the list of templates attached to the set.
+ *
+ * The \p set contains a doubly linked list to traverse any templates
+ * that may be attached to it. Here, \p template will be added to that list.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param template IPFIX exporter template that will be appended.
+ */
+static void ipfix_exp_template_set_list_cleanup(struct ipfix_exporter_template_set *set) {
+  struct ipfix_exporter_template *this_template;
+  struct ipfix_exporter_template *next_template;
+
+  if (set->records_head == NULL) {
+    return;
+  }
+
+  this_template = set->records_head;
+  next_template = this_template->next;
+
+  /* Free the first stored template */
+  ipfix_delete_exp_template(this_template);
+
+  while (next_template) {
+    this_template = next_template;
+    next_template = this_template->next;
+
+    ipfix_delete_exp_template(this_template);
+  }
+}
+
+
+/*
+ * @brief Initialize an ipfix message.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param template IPFIX exporter template that will be appended.
+ */
+static void ipfix_exporter_msg_init(struct ipfix_exporter *e,
+                                    struct ipfix_msg *msg) {
+
+    memset(e, 0, sizeof(struct ipfix_exporter));
+
+    msg->hdr.version_number = htons(10);
+    msg->hdr.length = 16;
+    msg->hdr.observe_dom_id = htonl(OBS_DOM_ID);
+}
+
+
+/*
+ * @brief Initialize an IPFIX exporter object.
+ *
+ * Startup an exporter object that keeps track of the number
+ * of messages sent, and configures it with a transport socket
+ * for sending messages. If \p host_name is NULL, the localhost
+ * is used as the server (collector) target.
+ *
+ * @param e Pointer to the ipfix_exporter that will be initialized.
+ * @param host_name Host name of the server, a.k.a collector.
+ */
+static int ipfix_exporter_init(struct ipfix_exporter *e,
+                               const char *host_name) {
+  struct hostent *host = NULL;
+  char host_desc [HOST_NAME_MAX_SIZE];
+
+  if (host_name != NULL) {
+    strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE);
+  } else {
+    /* localhost */
+    strncpy(host_desc, "127.0.0.1", HOST_NAME_MAX_SIZE);
+  }
+
+  e->msg_count = 0;
+
+  e->socket = socket(AF_INET, SOCK_DGRAM, 0);
+  if (e->socket < 0) {
+    loginfo("error: cannot create socket");
+    return 1;
+  }
+
+  /* Set local (exporter) address */
+  memset((char *)&e->exprt_addr, 0, sizeof(e->exprt_addr));
+  e->exprt_addr.sin_family = AF_INET;
+  e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  e->exprt_addr.sin_port = htons(0); /* ANY */
+  if (bind(e->socket, (struct sockaddr *)&e->exprt_addr,
+           sizeof(e->exprt_addr)) < 0) {
+    loginfo("error: bind address failed");
+    return 1;
+  }
+
+  /* Set remote (collector) address */
+  memset((char*)&e->clctr_addr, 0, sizeof(e->clctr_addr));
+  e->clctr_addr.sin_family = AF_INET;
+  e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_PORT);
+  host = gethostbyname(host_desc);
+
+  if (!host) {
+    loginfo("could not find address for collector %s", host_desc);
+    return 1;
+  }
+
+  memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
+
+  return 0;
+}
+
+
+static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter *exporter,
+                                             struct ipfix_exporter_template_set *set,
+                                             struct ipfix_msg *message,
+                                             uint16_t *msg_length) {
+  struct ipfix_exporter_template *current = NULL;
+  unsigned char *data_ptr = NULL;
+  size_t set_header_length = sizeof(struct ipfix_set_hdr);
+  size_t template_header_length = sizeof(struct ipfix_template_hdr);
+
+  if (exporter == NULL) {
+    loginfo("api-error: exporter is null");
+    return 1;
+  }
+
+  if (message == NULL) {
+    loginfo("api-error: message is null");
+    return 1;
+  }
+
+  if (set == NULL) {
+    loginfo("api-error: set is null");
+    return 1;
+  }
+
+  if (set->set_hdr.length > (IPFIX_MAX_SET_LEN - *msg_length)) {
+    loginfo("error: set is larger than remaining message buffer");
+    return 1;
+  }
+
+  data_ptr = message->data;
+
+  /* Encode the set header into message */
+  memcpy(data_ptr, (const void *)&set->set_hdr, set_header_length);
+  data_ptr += set_header_length;
+  *msg_length += set_header_length;
+
+  current = set->records_head;
+
+  /* Encode the set templates into message */
+  while (current != NULL) {
+    int i = 0;
+    memcpy(data_ptr, (const void *)&current->hdr, template_header_length);
+    data_ptr += template_header_length;
+    *msg_length += template_header_length;
+
+    for (i = 0; i < current->hdr.field_count; i++) {
+      memcpy(data_ptr, (const void *)&current->fields[i].info_elem_id, 2);
+      data_ptr += 2;
+      *msg_length += 2;
+
+      memcpy(data_ptr, (const void *)&current->fields[i].fixed_length, 2);
+      data_ptr += 2;
+      *msg_length += 2;
+
+      /* TODO enterprise bit */
+    }
+
+    current = current->next;
+  }
+
+  return 0;
+}
+
+
+static int ipfix_exporter_send_msg(struct ipfix_exporter *e,
+                                   struct ipfix_msg *msg) {
+  ssize_t bytes = 0;
+
+  msg->hdr.export_time = time(NULL);
+  msg->hdr.sequence_number = htonl(e->msg_count);
+
+  bytes = sendto(e->socket, msg, 0, 0, (struct sockaddr *)&e->clctr_addr,
+                 sizeof(e->clctr_addr));
+
+  if (bytes < 0) {
+    loginfo("error: ipfix message could not be sent");
+    return 1;
+  }
+
+  e->msg_count++;
+
+  return 0;
+}
+
+
+static int ipfix_exp_send_template_set(struct ipfix_exporter *exporter,
+                                       struct ipfix_exporter_template_set *set) {
+  struct ipfix_msg message;
+  uint16_t message_length = 0;
+
+  /* Init the message */
+  ipfix_exporter_msg_init(exporter, &message);
+
+  while (message_length < IPFIX_MAX_SET_LEN) {
+    /* Encode the template set into the message */
+    if (ipfix_exp_msg_encode_template_set(exporter, set, &message, &message_length)) {
+      loginfo("error: could not encode template set");
+      return 1;
+    }
+    message.hdr.length += set->set_hdr.length;
+    break; /* FIXME only doing 1 set right now, so break out here */
+  }
+
+  /* Send the encoded message using exporter object */
+  if (ipfix_exporter_send_msg(exporter, &message)) {
+    loginfo("error: message send failed");
+    return 1;
+  }
+
+  return 0;
+}
+
+
+int ipfix_export_main(const struct flow_record *record) {
+  struct ipfix_exporter exporter;
+  struct ipfix_exporter_template_set template_set;
+  struct ipfix_exporter_template *tmp = NULL;
+  struct ipfix_exporter_template *new_tmp = NULL;
+
+  /* Init the exporter for use */
+  ipfix_exporter_init(&exporter, NULL);
+
+  /* Init the template set for use */
+  ipfix_exp_template_set_init(&template_set);
+
+  /* This is the template held in xts store. It will be freed at end of
+   * program process or by timeout thread
+   */
+  tmp = ipfix_exp_create_template(IPFIX_SIMPLE_TEMPLATE);
+
+  /* Copy the xts template into the new local copy */
+  if (ipfix_xts_copy(&new_tmp, tmp)) {
+    loginfo("error: copy from export template store failed")
+    return 1;
+  }
+
+  /* Add the new template to the set */
+  ipfix_exp_template_set_add(&template_set, new_tmp);
+
+  /* Encode the template set data, and send over exporter */
+  ipfix_exp_send_template_set(&exporter, &template_set);
+
+  /* Free the templates we made for this set */
+  ipfix_exp_template_set_list_cleanup(&template_set);
+
+  return 0;
 }

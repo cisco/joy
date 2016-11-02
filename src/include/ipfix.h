@@ -45,6 +45,8 @@
 #define IPFIX_H
 
 #include <time.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include "p2f.h"
@@ -202,7 +204,7 @@ struct ipfix_option_hdr {
 
 
 /*
- * @brief Structure representing a template field specifier.
+ * @brief Structure representing a collector template field specifier.
  *
  * This may not have the enterprise_num field populated with
  * data depending on whether the leftmost bit of info_elem_id
@@ -218,12 +220,8 @@ struct ipfix_template_field {
 };
 
 
-#define IPFIX_MAX_LEN 1480
-#define IPFIX_MAX_FIELDS (IPFIX_MAX_LEN/4)
-
-
 /*
- * @brief Structure representing a Template key.
+ * @brief Structure representing a collector Template key.
  *
  * Used by the Collector to track Templates as unique entities.
  */
@@ -235,7 +233,7 @@ struct ipfix_template_key {
 
 
 /*
- * @brief Structure representing a single Template entity.
+ * @brief Structure representing a single collector Template entity.
  *
  * Stored by the collector to interpret subsequent related Data Sets.
  */
@@ -253,35 +251,6 @@ struct ipfix_template {
 };
 
 
-/*
- * @brief Structure representing a Template Set.
- */
-struct ipfix_template_set {
-  struct ipfix_set_hdr set_hdr;
-  struct ipfix_template_hdr template_hdr; /**< First template header is always needed */
-  unsigned char set[IPFIX_MAX_LEN]; /**< May contain more template headers */
-};
-
-
-/*
- * @brief Structure representing an Options Set.
- */
-struct ipfix_option_set {
-  struct ipfix_set_hdr set_hdr;
-  struct ipfix_option_hdr option_hdr; /**< First options header is always needed */
-  unsigned char set[IPFIX_MAX_LEN]; /**< May contain more options headers */
-};
-
-
-/*
- * @brief Structure representing a Data Set.
- */
-struct ipfix_data_set {
-  struct ipfix_set_hdr set_hdr;
-  unsigned char set[IPFIX_MAX_LEN];
-};
-
-
 struct __attribute__((__packed__)) ipfix_basic_list_hdr {
   uint8_t semantic;
   uint16_t field_id;
@@ -291,15 +260,93 @@ struct __attribute__((__packed__)) ipfix_basic_list_hdr {
 
 
 /*
+ * The maximum length of any single IPFIX message.
+ * 1500 - 20 (IP hdr) - 8 (UDP hdr)
+ */
+#define IPFIX_MTU 1472
+
+/*
+ * The maximum length of a set including it's header.
+ * IPFIX_MTU - sizeof(ipfix_hdr)
+ */
+#define IPFIX_MAX_SET_LEN 1456
+
+/*
+ * The maximum length of the data contained within a set.
+ * IPFIX_MAX_SET_LEN - sizeof(ipfix_set_hdr)
+ */
+#define IPFIX_MAX_SET_DATA_LEN 1448
+
+/*
+ * The maximum number of fields allowed residing within the data of a set.
+ * IPFIX_MAX_SET_LEN - sizeof(ipfix_set_hdr)
+ */
+#define IPFIX_MAX_FIELDS (IPFIX_MAX_SET_DATA_LEN/4)
+
+
+struct ipfix_exporter_template_field {
+  uint16_t info_elem_id;
+  uint16_t fixed_length;
+  uint32_t enterprise_num;
+};
+
+
+struct ipfix_exporter_template {
+  struct ipfix_template_hdr hdr;
+  struct ipfix_exporter_template_field *fields;
+  uint16_t length; /**< total length the template, including header */
+
+  struct ipfix_exporter_template *next;
+  struct ipfix_exporter_template *prev;
+};
+
+
+/*
+ * @brief Structure representing a Template Set.
+ */
+struct ipfix_exporter_template_set {
+  struct ipfix_set_hdr set_hdr;
+
+  struct ipfix_exporter_template *records_head;
+  struct ipfix_exporter_template *records_tail;
+};
+
+
+/*
+ * @brief Structure representing an Options Set.
+ */
+struct ipfix_exporter_option_set {
+  struct ipfix_set_hdr set_hdr;
+  unsigned char set[IPFIX_MAX_SET_DATA_LEN];
+};
+
+
+/*
+ * @brief Structure representing a Data Set.
+ */
+struct ipfix_exporter_data_set {
+  struct ipfix_set_hdr set_hdr;
+  unsigned char set[IPFIX_MAX_SET_DATA_LEN];
+};
+
+
+/*
  * @brief Structure representing an IPFIX message.
  */
 struct ipfix_msg {
   struct ipfix_hdr hdr;
-  union {
-    struct ipfix_template_set template_fs;
-    struct ipfix_data_set     data_fs;
-    struct ipfix_option_set   option_fs;
-  } set;
+  unsigned char data[IPFIX_MAX_SET_LEN]; 
+};
+
+
+/*
+ * @brief Structure representing an IPFIX exporter.
+ */
+struct ipfix_exporter {
+    struct sockaddr_in exprt_addr;  /**< exporter address */
+    struct sockaddr_in clctr_addr;  /**< collector address */
+    int socket;
+    unsigned int msg_count;
 };
 
 
@@ -329,6 +376,22 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          uint16_t set_id,
                          const struct flow_key rec_key,
                          struct flow_key *prev_key);
+
+int ipfix_export_main(const struct flow_record *record);
+
+
+enum ipfix_set_type {
+  IPFIX_RESERVED_SET_0 =                            0,
+  IPFIX_RESERVED_SET_1 =                            1,
+  IPFIX_TEMPLATE_SET =                              2,
+  IPFIX_OPTION_SET =                                3,
+};
+
+
+enum ipfix_template_type {
+  IPFIX_RESERVED_TEMPLATE =                          0,
+  IPFIX_SIMPLE_TEMPLATE =                            1
+};
 
 
 /*
