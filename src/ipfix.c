@@ -2167,7 +2167,7 @@ static void ipfix_exp_template_set_list_cleanup(struct ipfix_exporter_template_s
 static void ipfix_exporter_msg_init(struct ipfix_exporter *e,
                                     struct ipfix_msg *msg) {
 
-    memset(e, 0, sizeof(struct ipfix_exporter));
+    memset(msg, 0, sizeof(struct ipfix_msg));
 
     msg->hdr.version_number = htons(10);
     msg->hdr.length = 16;
@@ -2190,6 +2190,7 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
                                const char *host_name) {
   struct hostent *host = NULL;
   char host_desc [HOST_NAME_MAX_SIZE];
+  in_addr_t localhost = 0;
 
   memset(e, 0, sizeof(struct ipfix_exporter));
 
@@ -2202,12 +2203,13 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 
   e->msg_count = 0;
 
-  e->socket = socket(AF_INET, SOCK_DGRAM, 0);
+  e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (e->socket < 0) {
     loginfo("error: cannot create socket");
     return 1;
   }
 
+#if 0
   /* Set local (exporter) address */
   memset((char *)&e->exprt_addr, 0, sizeof(e->exprt_addr));
   e->exprt_addr.sin_family = AF_INET;
@@ -2220,19 +2222,24 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
     loginfo("error: bind address failed");
     return 1;
   }
+#endif
 
   /* Set remote (collector) address */
   memset((char*)&e->clctr_addr, 0, sizeof(e->clctr_addr));
   e->clctr_addr.sin_family = AF_INET;
   e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_PORT);
-  host = gethostbyname(host_desc);
 
-  if (!host) {
-    loginfo("could not find address for collector %s", host_desc);
-    return 1;
+  if (host_name != NULL) {
+    host = gethostbyname(host_desc);
+    if (!host) {
+      loginfo("could not find address for collector %s", host_desc);
+      return 1;
+    }
+    memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
+  } else {
+    localhost = inet_addr("127.0.0.1");
+    e->clctr_addr.sin_addr.s_addr = localhost;
   }
-
-  memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
 
   return 0;
 }
