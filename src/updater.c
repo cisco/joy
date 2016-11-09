@@ -226,7 +226,7 @@ static upd_return_codes_t update_radix_trie ()
 {
     radix_trie_t tmp_rt;
     attr_flags flag_malware;
-    char *configfile = "internal.net";
+    char *configfile = TALOS_FILE_NAME;
     enum status err;
 
     /* allocate a new radix_trie structure */
@@ -240,6 +240,7 @@ static upd_return_codes_t update_radix_trie ()
     err = radix_trie_init(updater_trie);
     if (err != ok) {
         loginfo("error: could not initialize radix_trie\n");
+        radix_trie_free(updater_trie);
         return upd_failure;
     }
 
@@ -247,6 +248,7 @@ static upd_return_codes_t update_radix_trie ()
     flag_malware = radix_trie_add_attr_label(updater_trie, "malware");
     if (flag_malware == 0) {
         loginfo("error: count not add label 'malware'\n");
+        radix_trie_free(updater_trie);
         return upd_failure;
     }
 
@@ -254,6 +256,7 @@ static upd_return_codes_t update_radix_trie ()
     err = radix_trie_add_subnets_from_file(updater_trie, configfile, flag_malware, stderr);
     if (err != ok) {
         loginfo("error: could not add subnets to radix_trie from file %s\n", configfile);
+        radix_trie_free(updater_trie);
         return upd_failure;
     }
  
