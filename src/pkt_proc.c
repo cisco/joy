@@ -66,7 +66,8 @@ extern unsigned int include_tls;
 extern unsigned int report_idp;
 extern unsigned int report_hd;
 extern unsigned int nfv9_capture_port;
-extern unsigned int ipfix_capture_port;
+extern unsigned int ipfix_collect_port;
+extern unsigned int ipfix_export_port;
 extern enum SALT_algorithm salt_algo;
 extern enum print_level output_level;
 extern struct flocap_stats stats;
@@ -770,7 +771,7 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
         process_nfv9(h, payload, size_payload, record);
     }
 
-    if (ipfix_capture_port && (key->dp == ipfix_capture_port)) {
+    if (ipfix_collect_port && (key->dp == ipfix_collect_port)) {
       process_ipfix(payload, size_payload, record);
     }
 
@@ -1045,6 +1046,11 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
 
     /* increment overall byte count */
     flocap_stats_incr_num_bytes(transport_len);
+
+    if (ipfix_export_port) {
+        /* Ipfix exporting is on */
+        ipfix_export_main(record);
+    }
  
     return;
 }

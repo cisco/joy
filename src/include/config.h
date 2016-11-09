@@ -75,7 +75,9 @@ struct configuration {
     unsigned int max_records;
     unsigned int output_level;
     unsigned int nfv9_capture_port;
-    unsigned int ipfix_capture_port;
+    unsigned int ipfix_collect_port;
+    unsigned int ipfix_collect_online;
+    unsigned int ipfix_export_port;
     unsigned int flow_key_match_method;
   
     declare_all_features_config_uint(feature_list);

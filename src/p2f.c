@@ -217,7 +217,11 @@ unsigned int include_classifier = 0;
 
 unsigned int nfv9_capture_port = 0;
 
-unsigned int ipfix_capture_port = 0;
+unsigned int ipfix_collect_port = 0;
+
+unsigned int ipfix_collect_online = 0;
+
+unsigned int ipfix_export_port = 0;
 
 zfile output = NULL;
 

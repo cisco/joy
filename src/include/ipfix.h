@@ -260,6 +260,21 @@ struct __attribute__((__packed__)) ipfix_basic_list_hdr {
 
 
 /*
+ * @brief Structure representing an IPFIX collector.
+ */
+struct ipfix_collector {
+    struct sockaddr_in clctr_addr;  /**< collector address */
+    int socket;
+    unsigned int msg_count;
+};
+
+
+/*
+ * Buffer size for receiving network messages.
+ */
+#define TRANSPORT_MTU 1500
+
+/*
  * The maximum length of any single IPFIX message.
  * 1500 - 20 (IP hdr) - 8 (UDP hdr)
  */
@@ -284,6 +299,12 @@ struct __attribute__((__packed__)) ipfix_basic_list_hdr {
 #define IPFIX_MAX_FIELDS (IPFIX_MAX_SET_DATA_LEN/4)
 
 
+enum ipfix_template_type {
+  IPFIX_RESERVED_TEMPLATE =                          0,
+  IPFIX_SIMPLE_TEMPLATE =                            1
+};
+
+
 struct ipfix_exporter_template_field {
   uint16_t info_elem_id;
   uint16_t fixed_length;
@@ -294,6 +315,7 @@ struct ipfix_exporter_template_field {
 struct ipfix_exporter_template {
   struct ipfix_template_hdr hdr;
   struct ipfix_exporter_template_field *fields;
+  enum ipfix_template_type type;
   uint16_t length; /**< total length the template, including header */
 
   struct ipfix_exporter_template *next;
@@ -361,7 +383,13 @@ struct ipfix_exporter {
 void *ipfix_cts_monitor(void *ptr);
 
 
+void ipfix_module_cleanup(void);
+
+
 void ipfix_cts_cleanup(void);
+
+
+void ipfix_xts_cleanup(void);
 
 
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
@@ -377,6 +405,10 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          const struct flow_key rec_key,
                          struct flow_key *prev_key);
 
+
+int ipfix_collect_main(void);
+
+
 int ipfix_export_main(const struct flow_record *record);
 
 
@@ -385,12 +417,6 @@ enum ipfix_set_type {
   IPFIX_RESERVED_SET_1 =                            1,
   IPFIX_TEMPLATE_SET =                              2,
   IPFIX_OPTION_SET =                                3,
-};
-
-
-enum ipfix_template_type {
-  IPFIX_RESERVED_TEMPLATE =                          0,
-  IPFIX_SIMPLE_TEMPLATE =                            1
 };
 
 

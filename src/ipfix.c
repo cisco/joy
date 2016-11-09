@@ -102,10 +102,17 @@ uint16_t xts_count = 0;
 /* Related to SPLT */
 unsigned int splt_pkt_index;
 
+/* Exporter object to send messages, alive until process termination */
+static struct ipfix_exporter gateway_export;
+
+/* Collector object to receive messages, alive until process termination */
+static struct ipfix_collector gateway_collect;
 
 /*
  * External objects, defined in pcap2flow
  */
+extern unsigned int ipfix_collect_port;
+extern unsigned int ipfix_export_port;
 extern unsigned int include_tls;
 extern struct configuration config;
 define_all_features_config_extern_uint(feature_list);
@@ -154,6 +161,73 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const struct ipfix_template *cur_template,
                                const void *flow_data,
                                int record_num);
+
+
+/*
+ * @brief Initialize an IPFIX collector object.
+ *
+ * Startup a collector object that keeps track of the number
+ * of messages received, and configures it with a transport socket
+ * for receiving messages.
+ *
+ * @param c Pointer to the ipfix_collector that will be initialized.
+ */
+static int ipfix_collector_init(struct ipfix_collector *c) {
+  struct sockaddr_in remote_addr = {0};
+  socklen_t remote_addrlen = sizeof(remote_addr);
+  int recvlen = 0;
+  unsigned char buf[TRANSPORT_MTU];
+
+  memset(c, 0, sizeof(struct ipfix_collector));
+
+  c->msg_count = 0;
+
+  c->socket = socket(AF_INET, SOCK_DGRAM, 0);
+  if (c->socket < 0) {
+    loginfo("error: cannot create socket");
+    return 1;
+  }
+
+  /* Set local (exporter) address */
+  memset((char *)&c->clctr_addr, 0, sizeof(c->clctr_addr));
+  c->clctr_addr.sin_family = AF_INET;
+  c->clctr_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  c->clctr_addr.sin_port = htons(ipfix_collect_port);
+
+  /* Bind the socket */
+  if (bind(c->socket, (struct sockaddr *)&c->clctr_addr,
+           sizeof(c->clctr_addr)) < 0) {
+    loginfo("error: bind address failed");
+    return 1;
+  }
+
+  /*
+   * Loop waiting to receive data.
+   * Infinite loop, ends with process termination.
+   */
+  while(1) {
+    loginfo("waiting on port %d", ipfix_collect_port);
+    recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
+                       (struct sockaddr *)&remote_addr, &remote_addrlen);
+    loginfo("received %d bytes\n", recvlen);
+    if (recvlen > 0) {
+      buf[recvlen] = 0;
+      loginfo("received message: \"%s\"", buf);
+    }
+  }
+
+  return 0;
+}
+
+
+int ipfix_collect_main(void) {
+  /* Init the collector for use, if not done already */
+  if (gateway_collect.socket == 0) {
+    ipfix_collector_init(&gateway_collect);
+  }
+
+  return 0;
+}
 
 
 /*
@@ -220,7 +294,7 @@ static void ipfix_cts_delete(struct ipfix_template *template) {
     collect_template_store_head = NULL;
   }
 
-  ipfix_delete_template(template); 
+  ipfix_delete_template(template);
 
   /* Decrement the store count */
   cts_count -= 1;
@@ -635,7 +709,7 @@ static void ipfix_template_key_init(struct ipfix_template_key *k,
  *
  * @param ipfix The IPFIX message header.
  * @param template_start Beginning of the template set.
- * @param set_len Total length of the template set measured in octets. 
+ * @param set_len Total length of the template set measured in octets.
  * @param rec_key Flow key generated upstream in process_packet()
  *                corresponding to the packet capture.
  *
@@ -1062,7 +1136,7 @@ static void ipfix_process_spl(struct flow_record *ix_record,
     return;
   }
 
-  /* 
+  /*
    * Set the global splt packet index variable,
    * for use in subsequent sequence packet times.
    */
@@ -1079,7 +1153,7 @@ static void ipfix_process_spl(struct flow_record *ix_record,
       }
       if (pkt_len_index < MAX_NUM_PKT_LEN) {
         ix_record->pkt_len[pkt_len_index] = packet_length;
-	      ix_record->ob += packet_length;
+        ix_record->ob += packet_length;
         pkt_len_index++;
       } else {
         break;
@@ -1132,7 +1206,7 @@ static void ipfix_process_spt(struct flow_record *ix_record,
   memset(&previous_time, 0, sizeof(struct timeval));
 
   pkt_time_index = splt_pkt_index;
-  
+
   /* Initialize the most recent previous time */
   if (pkt_time_index > 0) {
     previous_time.tv_sec = ix_record->pkt_time[pkt_time_index-1].tv_sec;
@@ -1836,6 +1910,51 @@ static int ipfix_xts_copy(struct ipfix_exporter_template **dest_template,
 
 
 /*
+ * @brief Search the IPFIX exporter template store (xts) for a match.
+ *
+ * Using the \p type of the template, search through the store list
+ * to find whether an identical template exists in the store
+ * already.
+ *
+ * @param type IPFIX exporter template type that will be searched for.
+ * @param dest_template IPFIX exporter template that will have match contents
+ *                      copied into.
+ *
+ * @return 1 for match, 0 for not match
+ */
+static int ipfix_xts_search(enum ipfix_template_type type,
+                            struct ipfix_exporter_template **dest_template) {
+  struct ipfix_exporter_template *cur_template;
+
+  if (export_template_store_head == NULL) {
+    return 0;
+  }
+
+  cur_template = export_template_store_head;
+  if (cur_template->type == type) {
+    /* Found match */
+    if (dest_template != NULL) {
+      ipfix_xts_copy(dest_template, cur_template);
+    }
+    return 1;
+  }
+
+  while (cur_template->next) {
+    cur_template = cur_template->next;
+    if (cur_template->type == type) {
+      /* Found match */
+      if (dest_template != NULL) {
+        ipfix_xts_copy(dest_template, cur_template);
+      }
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+
+/*
  * @brief Free all templates that exist in the exporter template store (xts).
  *
  * Any ipfix_exporter_template structures that currently remain within the XTS will
@@ -1885,14 +2004,11 @@ static void ipfix_exp_template_add_field(struct ipfix_exporter_template *t,
  */
 static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
   struct ipfix_exporter_template *template = NULL;
-  unsigned int num_fields = 5;
+  uint16_t num_fields = 5;
 
-  template = ipfix_exp_template_malloc(num_fields); 
+  template = ipfix_exp_template_malloc(num_fields);
 
   if (template != NULL) {
-    /* Update the template header field count */
-    template->hdr.field_count = num_fields;
-
     /* Add the fields */
     ipfix_exp_template_add_field(template,
         ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
@@ -1916,6 +2032,8 @@ static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
   } else {
     loginfo("error: template is null");
   }
+
+  template->type = IPFIX_SIMPLE_TEMPLATE;
 
   return template;
 }
@@ -2073,6 +2191,8 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   struct hostent *host = NULL;
   char host_desc [HOST_NAME_MAX_SIZE];
 
+  memset(e, 0, sizeof(struct ipfix_exporter));
+
   if (host_name != NULL) {
     strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE);
   } else {
@@ -2092,7 +2212,9 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   memset((char *)&e->exprt_addr, 0, sizeof(e->exprt_addr));
   e->exprt_addr.sin_family = AF_INET;
   e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  e->exprt_addr.sin_port = htons(0); /* ANY */
+  e->exprt_addr.sin_port = htons(ipfix_export_port);
+
+  /* Bind the socket */
   if (bind(e->socket, (struct sockaddr *)&e->exprt_addr,
            sizeof(e->exprt_addr)) < 0) {
     loginfo("error: bind address failed");
@@ -2229,34 +2351,44 @@ static int ipfix_exp_send_template_set(struct ipfix_exporter *exporter,
 }
 
 
+void ipfix_module_cleanup(void) {
+  ipfix_cts_cleanup();
+  ipfix_xts_cleanup();
+}
+
+
 int ipfix_export_main(const struct flow_record *record) {
-  struct ipfix_exporter exporter;
   struct ipfix_exporter_template_set template_set;
   struct ipfix_exporter_template *tmp = NULL;
   struct ipfix_exporter_template *new_tmp = NULL;
 
-  /* Init the exporter for use */
-  ipfix_exporter_init(&exporter, NULL);
+  /* Init the exporter for use, if not done already */
+  if (gateway_export.socket == 0) {
+    ipfix_exporter_init(&gateway_export, NULL);
+  }
 
   /* Init the template set for use */
   ipfix_exp_template_set_init(&template_set);
 
-  /* This is the template held in xts store. It will be freed at end of
-   * program process or by timeout thread
+  /*
+   * Search for the template in the xts. If it's already there,
+   * simply let the search function take care of copying into the
+   * local template. If it does not already exist in xts, create
+   * an entry in the xts and copy locally to here.
    */
-  tmp = ipfix_exp_create_template(IPFIX_SIMPLE_TEMPLATE);
-
-  /* Copy the xts template into the new local copy */
-  if (ipfix_xts_copy(&new_tmp, tmp)) {
-    loginfo("error: copy from export template store failed")
-    return 1;
+  if (!ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, &new_tmp)) {
+    tmp = ipfix_exp_create_template(IPFIX_SIMPLE_TEMPLATE);
+    if (ipfix_xts_copy(&new_tmp, tmp)) {
+      loginfo("error: copy from export template store failed")
+      return 1;
+    }
   }
 
   /* Add the new template to the set */
   ipfix_exp_template_set_add(&template_set, new_tmp);
 
   /* Encode the template set data, and send over exporter */
-  ipfix_exp_send_template_set(&exporter, &template_set);
+  ipfix_exp_send_template_set(&gateway_export, &template_set);
 
   /* Free the templates we made for this set */
   ipfix_exp_template_set_list_cleanup(&template_set);
