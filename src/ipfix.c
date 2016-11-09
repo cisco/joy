@@ -176,7 +176,7 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
   struct sockaddr_in remote_addr = {0};
   socklen_t remote_addrlen = sizeof(remote_addr);
   int recvlen = 0;
-  unsigned char buf[TRANSPORT_MTU];
+  char buf[TRANSPORT_MTU];
 
   memset(c, 0, sizeof(struct ipfix_collector));
 
@@ -211,8 +211,8 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
                        (struct sockaddr *)&remote_addr, &remote_addrlen);
     loginfo("received %d bytes\n", recvlen);
     if (recvlen > 0) {
-      buf[recvlen] = 0;
-      loginfo("received message: \"%s\"", buf);
+      buf[recvlen] = '\0';
+      printf("received message: \"%s\"\n", buf);
     }
   }
 
@@ -2316,7 +2316,7 @@ static int ipfix_exporter_send_msg(struct ipfix_exporter *e,
   msg->hdr.export_time = time(NULL);
   msg->hdr.sequence_number = htonl(e->msg_count);
 
-  bytes = sendto(e->socket, msg, 0, 0, (struct sockaddr *)&e->clctr_addr,
+  bytes = sendto(e->socket, msg, msg->hdr.length, 0, (struct sockaddr *)&e->clctr_addr,
                  sizeof(e->clctr_addr));
 
   if (bytes < 0) {
