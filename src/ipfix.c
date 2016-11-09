@@ -61,7 +61,7 @@
  *
  **  TO_SCREEN = 1 for 'stderr'
  */
-#define TO_SCREEN 0
+#define TO_SCREEN 1
 
 /** used to print out information during ipfix execution
  *
@@ -86,27 +86,27 @@ static FILE *print_dest = NULL;
  * Doubly linked list for collector template store (cts).
  */
 #define MAX_IPFIX_TEMPLATES 100
-struct ipfix_template *collect_template_store_head = NULL;
-struct ipfix_template *collect_template_store_tail = NULL;
-uint16_t cts_count = 0;
+static struct ipfix_template *collect_template_store_head = NULL;
+static struct ipfix_template *collect_template_store_tail = NULL;
+static uint16_t cts_count = 0;
 
 
 /*
  * Doubly linked list for exporter template store (xts).
  */
-struct ipfix_exporter_template *export_template_store_head = NULL;
-struct ipfix_exporter_template *export_template_store_tail = NULL;
-uint16_t xts_count = 0;
+static struct ipfix_exporter_template *export_template_store_head = NULL;
+static struct ipfix_exporter_template *export_template_store_tail = NULL;
+static uint16_t xts_count = 0;
 
 
 /* Related to SPLT */
-unsigned int splt_pkt_index;
+static unsigned int splt_pkt_index = 0;
 
 /* Exporter object to send messages, alive until process termination */
-static struct ipfix_exporter gateway_export;
+static struct ipfix_exporter gateway_export = {0};
 
 /* Collector object to receive messages, alive until process termination */
-static struct ipfix_collector gateway_collect;
+static struct ipfix_collector gateway_collect = {0};
 
 /*
  * External objects, defined in pcap2flow
@@ -173,23 +173,25 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
  * @param c Pointer to the ipfix_collector that will be initialized.
  */
 static int ipfix_collector_init(struct ipfix_collector *c) {
-  struct sockaddr_in remote_addr = {0};
-  socklen_t remote_addrlen = sizeof(remote_addr);
+  struct sockaddr_in remote_addr;
+  socklen_t remote_addrlen = 0;
   int recvlen = 0;
   char buf[TRANSPORT_MTU];
 
+  /* Initialize the collector structures */
+  memset(&remote_addr, 0, sizeof(struct sockaddr_in));
+  remote_addrlen = sizeof(remote_addr);
+  memset(buf, 0, sizeof(TRANSPORT_MTU));
   memset(c, 0, sizeof(struct ipfix_collector));
 
-  c->msg_count = 0;
-
+  /* Get a socket for the collector */
   c->socket = socket(AF_INET, SOCK_DGRAM, 0);
   if (c->socket < 0) {
     loginfo("error: cannot create socket");
     return 1;
   }
 
-  /* Set local (exporter) address */
-  memset((char *)&c->clctr_addr, 0, sizeof(c->clctr_addr));
+  /* Set local (collector) address */
   c->clctr_addr.sin_family = AF_INET;
   c->clctr_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   c->clctr_addr.sin_port = htons(ipfix_collect_port);
@@ -224,6 +226,7 @@ int ipfix_collect_main(void) {
   /* Init the collector for use, if not done already */
   if (gateway_collect.socket == 0) {
     ipfix_collector_init(&gateway_collect);
+    /* Never returns from here */
   }
 
   return 0;
@@ -558,18 +561,30 @@ static int ipfix_cts_search(struct ipfix_template_key needle,
  */
 static inline void ipfix_template_fields_malloc(struct ipfix_template *template,
                                                 size_t field_list_size) {
+  if (template->fields != NULL) {
+    free(template->fields);
+  }
+
   template->fields = malloc(field_list_size);
-  memset(template->fields, 0, field_list_size);
+
+  if (template->fields == NULL) {
+    loginfo("error: could not allocate memory for field list");
+  } else {
+    memset(template->fields, 0, field_list_size);
+  }
 }
 
 
 static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_size) {
   /* Init a new template on the heap */
   struct ipfix_template *template = malloc(sizeof(struct ipfix_template));
-  memset(template, 0, sizeof(struct ipfix_template));
 
-  /* Allocate memory for the fields */
-  ipfix_template_fields_malloc(template, field_list_size);
+  if (template != NULL){
+    memset(template, 0, sizeof(struct ipfix_template));
+
+    /* Allocate memory for the fields */
+    ipfix_template_fields_malloc(template, field_list_size);
+  }
 
   return template;
 }
@@ -2201,8 +2216,6 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
     strncpy(host_desc, "127.0.0.1", HOST_NAME_MAX_SIZE);
   }
 
-  e->msg_count = 0;
-
   e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (e->socket < 0) {
     loginfo("error: cannot create socket");
@@ -2211,7 +2224,6 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 
 #if 0
   /* Set local (exporter) address */
-  memset((char *)&e->exprt_addr, 0, sizeof(e->exprt_addr));
   e->exprt_addr.sin_family = AF_INET;
   e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   e->exprt_addr.sin_port = htons(ipfix_export_port);
@@ -2225,7 +2237,6 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 #endif
 
   /* Set remote (collector) address */
-  memset((char*)&e->clctr_addr, 0, sizeof(e->clctr_addr));
   e->clctr_addr.sin_family = AF_INET;
   e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_PORT);
 
