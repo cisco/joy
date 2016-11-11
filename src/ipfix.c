@@ -48,6 +48,8 @@
 #include "pkt.h"
 #include "http.h"
 #include "tls.h"
+#include "pkt_proc.h"
+#include "p2f.h"
 #include "config.h"
 
 /********************************************
@@ -173,15 +175,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
  * @param c Pointer to the ipfix_collector that will be initialized.
  */
 static int ipfix_collector_init(struct ipfix_collector *c) {
-  struct sockaddr_in remote_addr;
-  socklen_t remote_addrlen = 0;
-  int recvlen = 0;
-  char buf[TRANSPORT_MTU];
-
   /* Initialize the collector structures */
-  memset(&remote_addr, 0, sizeof(struct sockaddr_in));
-  remote_addrlen = sizeof(remote_addr);
-  memset(buf, 0, sizeof(TRANSPORT_MTU));
   memset(c, 0, sizeof(struct ipfix_collector));
 
   /* Get a socket for the collector */
@@ -203,31 +197,83 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
     return 1;
   }
 
+  return 0;
+}
+
+
+static int ipfix_collect_process_socket(unsigned char *data,
+                                        unsigned int data_len,
+                                        struct sockaddr_in *remote_addr) {
+  struct flow_key key;
+  struct flow_record *record = NULL;
+
+  /* Create a flow_key and flow_record to use */
+  memset(&key, 0, sizeof(struct flow_key));
+
+  key.sa = remote_addr->sin_addr;
+  key.sp = remote_addr->sin_port;
+  key.da = gateway_collect.clctr_addr.sin_addr;
+  key.dp = gateway_collect.clctr_addr.sin_port;
+  key.prot = IPPROTO_UDP;
+
+  record = flow_key_get_record(&key, CREATE_RECORDS);
+
+  process_ipfix(data, data_len, record);
+
+  return 0;
+}
+
+
+static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
+  struct sockaddr_in remote_addr;
+  socklen_t remote_addrlen = 0;
+  int recvlen = 0;
+  unsigned char buf[TRANSPORT_MTU];
+  //int i = 0;
+
+  /* Initialize stuff for receiving data */
+  memset(&remote_addr, 0, sizeof(struct sockaddr_in));
+  remote_addrlen = sizeof(remote_addr);
+  memset(buf, 0, sizeof(TRANSPORT_MTU));
+
   /*
    * Loop waiting to receive data.
    * Infinite loop, ends with process termination.
    */
   while(1) {
-    loginfo("waiting on port %d", ipfix_collect_port);
+    //loginfo("waiting on port %d", ipfix_collect_port);
     recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
                        (struct sockaddr *)&remote_addr, &remote_addrlen);
+    if (recvlen > 0) {
+      ipfix_collect_process_socket(buf, recvlen, &remote_addr);
+    }
+#if 0
     loginfo("received %d bytes\n", recvlen);
     if (recvlen > 0) {
       buf[recvlen] = '\0';
-      printf("received message: \"%s\"\n", buf);
+      printf("received message: ");
+      for (i=0; i < recvlen; i++) {
+        printf("0x%08x", buf[i]);
+      }
+      printf("\n");
     }
+#endif
   }
-
-  return 0;
 }
 
 
 int ipfix_collect_main(void) {
   /* Init the collector for use, if not done already */
   if (gateway_collect.socket == 0) {
-    ipfix_collector_init(&gateway_collect);
-    /* Never returns from here */
+    if (ipfix_collector_init(&gateway_collect)) {
+      loginfo("error: could not init ipfix_collector \"gateway_collect\"");
+      return 1;
+    }
   }
+
+  /* Loop on the socket waiting for data to process */
+  ipfix_collect_socket_loop(&gateway_collect);
+  /* Never returns from here */
 
   return 0;
 }
