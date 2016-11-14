@@ -278,6 +278,7 @@ enum status process_ipfix(const void *start,
   const struct ipfix_hdr *ipfix = start;
   const struct ipfix_set_hdr *ipfix_sh;
   struct flow_key prev_key;
+  uint16_t message_len = ntohs(ipfix->length);
   int set_num = 0;
   const struct flow_key rec_key = r->key;
 
@@ -287,6 +288,10 @@ enum status process_ipfix(const void *start,
     if (output_level > none) {
       fprintf(info, "ERROR: ipfix version number is invalid\n");
     }
+  }
+
+  if (message_len > len) {
+    fprintf(info, "ERROR: ipfix message claims to be longer than actual packet length\n");
   }
 
   /* debugging output */
@@ -308,12 +313,12 @@ enum status process_ipfix(const void *start,
 
   /* Move past ipfix_hdr, i.e. IPFIX message header */
   start += 16;
-  len -= 16;
+  message_len -= 16;
 
   /*
    * Parse IPFIX message for template, options, or data sets.
    */
-  while (len > 0) {
+  while (message_len > 0) {
     ipfix_sh = start;
     uint16_t set_id = ntohs(ipfix_sh->set_id);
 
@@ -361,7 +366,7 @@ enum status process_ipfix(const void *start,
     }
 
     start += ntohs(ipfix_sh->length);
-    len -= ntohs(ipfix_sh->length);
+    message_len -= ntohs(ipfix_sh->length);
     set_num += 1;
   }
 

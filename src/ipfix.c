@@ -211,9 +211,9 @@ static int ipfix_collect_process_socket(unsigned char *data,
   memset(&key, 0, sizeof(struct flow_key));
 
   key.sa = remote_addr->sin_addr;
-  key.sp = remote_addr->sin_port;
+  key.sp = ntohs(remote_addr->sin_port);
   key.da = gateway_collect.clctr_addr.sin_addr;
-  key.dp = gateway_collect.clctr_addr.sin_port;
+  key.dp = ntohs(gateway_collect.clctr_addr.sin_port);
   key.prot = IPPROTO_UDP;
 
   record = flow_key_get_record(&key, CREATE_RECORDS);
@@ -228,7 +228,7 @@ static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
   struct sockaddr_in remote_addr;
   socklen_t remote_addrlen = 0;
   int recvlen = 0;
-  unsigned char buf[TRANSPORT_MTU];
+  unsigned char buf[TRANSPORT_MTU]; /* FIXME need to be char instead? */
   //int i = 0;
 
   /* Initialize stuff for receiving data */
@@ -241,14 +241,14 @@ static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
    * Infinite loop, ends with process termination.
    */
   while(1) {
-    //loginfo("waiting on port %d", ipfix_collect_port);
+    loginfo("waiting on port %d", ipfix_collect_port);
     recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
                        (struct sockaddr *)&remote_addr, &remote_addrlen);
     if (recvlen > 0) {
       ipfix_collect_process_socket(buf, recvlen, &remote_addr);
     }
-#if 0
     loginfo("received %d bytes\n", recvlen);
+#if 0
     if (recvlen > 0) {
       buf[recvlen] = '\0';
       printf("received message: ");
@@ -792,7 +792,7 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
     uint16_t field_count = ntohs(template_hdr->field_count);
     struct ipfix_template *cur_template = NULL;
     struct ipfix_template_key template_key;
-    int cur_template_pld_len = 0;
+    int cur_template_fld_len = 0;
     struct ipfix_template *redundant_template = NULL;
     int i;
 
@@ -838,13 +838,13 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
 
       template_ptr += fld_size;
       template_set_len -= fld_size;
-      cur_template_pld_len += fld_size;
+      cur_template_fld_len += fld_size;
     }
 
     /* The template is new, so save info */
     cur_template->hdr.template_id = template_id;
     cur_template->hdr.field_count = field_count;
-    cur_template->payload_length = cur_template_pld_len;
+    cur_template->payload_length = cur_template_fld_len;
     cur_template->template_key = template_key;
 
     /* Save template */
@@ -1925,6 +1925,8 @@ static int ipfix_xts_append(struct ipfix_exporter_template *template) {
  *
  * WARNING: The end user of the newly allocated template is
  * responsible for freeing that memory.
+ *
+ * @return 0 for success, 1 for failure.
  */
 static int ipfix_xts_copy(struct ipfix_exporter_template **dest_template,
                            struct ipfix_exporter_template *src_template) {
@@ -2025,7 +2027,7 @@ void ipfix_xts_cleanup(void) {
   struct ipfix_exporter_template *this_template;
   struct ipfix_exporter_template *next_template;
 
-  if (collect_template_store_head == NULL) {
+  if (export_template_store_head == NULL) {
     return;
   }
 
@@ -2036,6 +2038,7 @@ void ipfix_xts_cleanup(void) {
   ipfix_delete_exp_template(this_template);
 
   while (next_template) {
+    /* Free any remainders */
     this_template = next_template;
     next_template = this_template->next;
 
@@ -2048,6 +2051,7 @@ static void ipfix_exp_template_add_field(struct ipfix_exporter_template *t,
                                          struct ipfix_exporter_template_field f) {
     t->fields[t->hdr.field_count] = f;
     t->hdr.field_count++;
+    t->length += 4;
 }
 
 
@@ -2070,26 +2074,23 @@ static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
   template = ipfix_exp_template_malloc(num_fields);
 
   if (template != NULL) {
-    /* Add the fields */
+    /*
+     * Add the fields
+     */
     ipfix_exp_template_add_field(template,
         ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
-    template->length += 4;
 
     ipfix_exp_template_add_field(template,
         ipfix_exp_template_field_macro(IPFIX_DESTINATION_IPV4_ADDRESS, 4));
-    template->length += 4;
 
     ipfix_exp_template_add_field(template,
         ipfix_exp_template_field_macro(IPFIX_SOURCE_TRANSPORT_PORT, 2));
-    template->length += 2;
 
     ipfix_exp_template_add_field(template,
         ipfix_exp_template_field_macro(IPFIX_DESTINATION_TRANSPORT_PORT, 2));
-    template->length += 2;
 
     ipfix_exp_template_add_field(template,
         ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
-    template->length += 1;
   } else {
     loginfo("error: template is null");
   }
@@ -2225,14 +2226,16 @@ static void ipfix_exp_template_set_list_cleanup(struct ipfix_exporter_template_s
  * @param set Pointer to an ipfix_exporter_template_set in memory.
  * @param template IPFIX exporter template that will be appended.
  */
-static void ipfix_exporter_msg_init(struct ipfix_exporter *e,
-                                    struct ipfix_msg *msg) {
+static void ipfix_export_message_init(struct ipfix_message *message) {
 
-    memset(msg, 0, sizeof(struct ipfix_msg));
+    memset(message, 0, sizeof(struct ipfix_message));
 
-    msg->hdr.version_number = htons(10);
-    msg->hdr.length = 16;
-    msg->hdr.observe_dom_id = htonl(OBS_DOM_ID);
+    /* IPFIX version = 10 */
+    message->hdr.version_number = htons(10);
+    /* Must be converted to network-byte order before message send */
+    message->hdr.length = 16;
+    /* Set the observation domain id */
+    message->hdr.observe_dom_id = htonl(OBS_DOM_ID);
 }
 
 
@@ -2257,9 +2260,6 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 
   if (host_name != NULL) {
     strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE);
-  } else {
-    /* localhost */
-    strncpy(host_desc, "127.0.0.1", HOST_NAME_MAX_SIZE);
   }
 
   e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -2267,20 +2267,6 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
     loginfo("error: cannot create socket");
     return 1;
   }
-
-#if 0
-  /* Set local (exporter) address */
-  e->exprt_addr.sin_family = AF_INET;
-  e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  e->exprt_addr.sin_port = htons(ipfix_export_port);
-
-  /* Bind the socket */
-  if (bind(e->socket, (struct sockaddr *)&e->exprt_addr,
-           sizeof(e->exprt_addr)) < 0) {
-    loginfo("error: bind address failed");
-    return 1;
-  }
-#endif
 
   /* Set remote (collector) address */
   e->clctr_addr.sin_family = AF_INET;
@@ -2302,19 +2288,31 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 }
 
 
-static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter *exporter,
-                                             struct ipfix_exporter_template_set *set,
-                                             struct ipfix_msg *message,
+/*
+ * @brief Encode a template set into an IPFIX message.
+ *
+ * Take a \p set of Ipfix templates, and encode the whole
+ * \p set into an IPFIX \p message according RFC7011 spec.
+ * The \p message may contain other other data, so this
+ * functions appends to the message, opposed to overwriting.
+ * A handle to \p msg_length is used, where the value represents
+ * the total running length of the \p message. This is used by
+ * calling functions to keep track of how much data has been
+ * written into the \p message.
+ *
+ * @param set Single set of multiple Ipfix templates.
+ * @param message IPFIX message that the \p set will be encoded and written into.
+ * @param msg_length Total length of the \p message.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter_template_set *set,
+                                             struct ipfix_message *message,
                                              uint16_t *msg_length) {
   struct ipfix_exporter_template *current = NULL;
   unsigned char *data_ptr = NULL;
-  size_t set_header_length = sizeof(struct ipfix_set_hdr);
-  size_t template_header_length = sizeof(struct ipfix_template_hdr);
-
-  if (exporter == NULL) {
-    loginfo("api-error: exporter is null");
-    return 1;
-  }
+  uint16_t bigend_set_id = 0;
+  uint16_t bigend_set_len = 0;
 
   if (message == NULL) {
     loginfo("api-error: message is null");
@@ -2333,26 +2331,45 @@ static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter *exporter,
 
   data_ptr = message->data;
 
+  bigend_set_id = htons(set->set_hdr.set_id);
+  bigend_set_len = htons(set->set_hdr.length);
+
   /* Encode the set header into message */
-  memcpy(data_ptr, (const void *)&set->set_hdr, set_header_length);
-  data_ptr += set_header_length;
-  *msg_length += set_header_length;
+  memcpy(data_ptr, (const void *)&bigend_set_id, 2);
+  data_ptr += 2;
+  *msg_length += 2;
+
+  memcpy(data_ptr, (const void *)&bigend_set_len, 2);
+  data_ptr += 2;
+  *msg_length += 2;
 
   current = set->records_head;
 
   /* Encode the set templates into message */
   while (current != NULL) {
     int i = 0;
-    memcpy(data_ptr, (const void *)&current->hdr, template_header_length);
-    data_ptr += template_header_length;
-    *msg_length += template_header_length;
+    uint16_t bigend_template_id = htons(current->hdr.template_id);
+    uint16_t bigend_template_field_count = htons(current->hdr.field_count);
+
+    /* Encode the template header into message */
+    memcpy(data_ptr, (const void *)&bigend_template_id, 2);
+    data_ptr += 2;
+    *msg_length += 2;
+
+    memcpy(data_ptr, (const void *)&bigend_template_field_count, 2);
+    data_ptr += 2;
+    *msg_length += 2;
 
     for (i = 0; i < current->hdr.field_count; i++) {
-      memcpy(data_ptr, (const void *)&current->fields[i].info_elem_id, 2);
+      uint16_t bigend_field_id = htons(current->fields[i].info_elem_id);
+      uint16_t bigend_field_len = htons(current->fields[i].fixed_length);
+
+      /* Encode the field element into message */
+      memcpy(data_ptr, (const void *)&bigend_field_id, 2);
       data_ptr += 2;
       *msg_length += 2;
 
-      memcpy(data_ptr, (const void *)&current->fields[i].fixed_length, 2);
+      memcpy(data_ptr, (const void *)&bigend_field_len, 2);
       data_ptr += 2;
       *msg_length += 2;
 
@@ -2366,14 +2383,35 @@ static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter *exporter,
 }
 
 
-static int ipfix_exporter_send_msg(struct ipfix_exporter *e,
-                                   struct ipfix_msg *msg) {
+/*
+ * @brief Send an IPFIX message using a configured exporter.
+ *
+ * An IPFIX exporter, \p e, that has been properly configured
+ * is used to send a \p msg to an IPFIX collector server.
+ * It is important to stress that at this point, both the exporter \p e,
+ * and the message \p msg, are both initialized, setup, and containing valid
+ * data that adheres to the RFC7011 specification.
+ *
+ * @param e Single set of multiple Ipfix templates.
+ * @param message IPFIX message that the \p set will be encoded and written into.
+ * @param msg_length Total length of the \p message.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_export_send_message(struct ipfix_exporter *e,
+                                     struct ipfix_message *message) {
   ssize_t bytes = 0;
 
-  msg->hdr.export_time = time(NULL);
-  msg->hdr.sequence_number = htonl(e->msg_count);
+  /* Convert the header length to network-byte order */
+  message->hdr.length = htons(message->hdr.length);
+  /* Write the time message is exported */
+  message->hdr.export_time = htonl(time(NULL));
+  /* Write message sequence number relative to current session */
+  message->hdr.sequence_number = htonl(e->msg_count);
 
-  bytes = sendto(e->socket, msg, msg->hdr.length, 0, (struct sockaddr *)&e->clctr_addr,
+  /* Send the message */
+  bytes = sendto(e->socket, message, message->hdr.length, 0,
+                 (struct sockaddr *)&e->clctr_addr,
                  sizeof(e->clctr_addr));
 
   if (bytes < 0) {
@@ -2381,6 +2419,7 @@ static int ipfix_exporter_send_msg(struct ipfix_exporter *e,
     return 1;
   }
 
+  /* Increment the exporter's message count */
   e->msg_count++;
 
   return 0;
@@ -2389,15 +2428,15 @@ static int ipfix_exporter_send_msg(struct ipfix_exporter *e,
 
 static int ipfix_exp_send_template_set(struct ipfix_exporter *exporter,
                                        struct ipfix_exporter_template_set *set) {
-  struct ipfix_msg message;
+  struct ipfix_message message;
   uint16_t message_length = 0;
 
   /* Init the message */
-  ipfix_exporter_msg_init(exporter, &message);
+  ipfix_export_message_init(&message);
 
   while (message_length < IPFIX_MAX_SET_LEN) {
     /* Encode the template set into the message */
-    if (ipfix_exp_msg_encode_template_set(exporter, set, &message, &message_length)) {
+    if (ipfix_exp_msg_encode_template_set(set, &message, &message_length)) {
       loginfo("error: could not encode template set");
       return 1;
     }
@@ -2406,7 +2445,7 @@ static int ipfix_exp_send_template_set(struct ipfix_exporter *exporter,
   }
 
   /* Send the encoded message using exporter object */
-  if (ipfix_exporter_send_msg(exporter, &message)) {
+  if (ipfix_export_send_message(exporter, &message)) {
     loginfo("error: message send failed");
     return 1;
   }

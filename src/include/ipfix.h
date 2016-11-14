@@ -204,7 +204,7 @@ struct ipfix_option_hdr {
 
 
 /*
- * @brief Structure representing a collector template field specifier.
+ * @brief Structure representing a Collector Template Field specifier.
  *
  * This may not have the enterprise_num field populated with
  * data depending on whether the leftmost bit of info_elem_id
@@ -221,7 +221,7 @@ struct ipfix_template_field {
 
 
 /*
- * @brief Structure representing a collector Template key.
+ * @brief Structure representing a Collector Template key.
  *
  * Used by the Collector to track Templates as unique entities.
  */
@@ -233,7 +233,7 @@ struct ipfix_template_key {
 
 
 /*
- * @brief Structure representing a single collector Template entity.
+ * @brief Structure representing a single Collector Template entity.
  *
  * Stored by the collector to interpret subsequent related Data Sets.
  */
@@ -251,6 +251,9 @@ struct ipfix_template {
 };
 
 
+/*
+ * @brief Structure representing an IPFIX "basicList" data type.
+ */
 struct __attribute__((__packed__)) ipfix_basic_list_hdr {
   uint8_t semantic;
   uint16_t field_id;
@@ -260,7 +263,7 @@ struct __attribute__((__packed__)) ipfix_basic_list_hdr {
 
 
 /*
- * @brief Structure representing an IPFIX collector.
+ * @brief Structure representing an IPFIX Collector.
  */
 struct ipfix_collector {
     struct sockaddr_in clctr_addr;  /**< collector address */
@@ -270,7 +273,7 @@ struct ipfix_collector {
 
 
 /*
- * Buffer size for receiving network messages.
+ * Buffer size for sending/receiving network messages.
  */
 #define TRANSPORT_MTU 1500
 
@@ -299,6 +302,13 @@ struct ipfix_collector {
 #define IPFIX_MAX_FIELDS (IPFIX_MAX_SET_DATA_LEN/4)
 
 
+/*
+ * @brief Enumeration representing IPFIX template type ids.
+ * 
+ * These are not defined in the spec, but rather created
+ * and maintained locally in accordance with the spec in order
+ * to export particular data we are interested in.
+ */
 enum ipfix_template_type {
   IPFIX_RESERVED_TEMPLATE =                          0,
   IPFIX_SIMPLE_TEMPLATE =                            1
@@ -312,6 +322,9 @@ struct ipfix_exporter_template_field {
 };
 
 
+/*
+ * @brief Structure representing an IPFIX Exporter Template.
+ */
 struct ipfix_exporter_template {
   struct ipfix_template_hdr hdr;
   struct ipfix_exporter_template_field *fields;
@@ -355,14 +368,14 @@ struct ipfix_exporter_data_set {
 /*
  * @brief Structure representing an IPFIX message.
  */
-struct ipfix_msg {
+struct ipfix_message {
   struct ipfix_hdr hdr;
   unsigned char data[IPFIX_MAX_SET_LEN]; 
 };
 
 
 /*
- * @brief Structure representing an IPFIX exporter.
+ * @brief Structure representing an IPFIX Exporter.
  */
 struct ipfix_exporter {
     struct sockaddr_in exprt_addr;  /**< exporter address */
@@ -412,6 +425,9 @@ int ipfix_collect_main(void);
 int ipfix_export_main(const struct flow_record *record);
 
 
+/*
+ * @brief Enumeration representing IPFIX set type ids.
+ */
 enum ipfix_set_type {
   IPFIX_RESERVED_SET_0 =                            0,
   IPFIX_RESERVED_SET_1 =                            1,
@@ -422,7 +438,6 @@ enum ipfix_set_type {
 
 /*
  * @brief Enumeration representing IPFIX field entities.
- *
  */
 enum ipfix_entities {
   IPFIX_RESERVED =                                  0,
