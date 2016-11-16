@@ -1827,6 +1827,31 @@ static void ipfix_exp_template_fields_malloc(struct ipfix_exporter_template *tem
 
 
 /*
+ * @brief Allocate heap memory for a sequence of fields.
+ *
+ * @param template IPFIX exporter template which will have allocated memory
+ *                 attached to it via pointer.
+ */
+static void ipfix_delete_exp_template_fields(struct ipfix_exporter_template *template) {
+  uint16_t field_count = 0;
+
+  if (template == NULL) {
+    loginfo("api-error: template is null");
+  }
+
+  field_count = template->hdr.field_count;
+
+  size_t field_list_size = field_count * sizeof(struct ipfix_exporter_template_field);
+  if (template->fields) {
+    memset(template->fields, 0, field_list_size);
+    free(template->fields);
+  } else {
+    loginfo("warning: fields were already null");
+  }
+}
+
+
+/*
  * @brief Allocate heap memory for an exporter template.
  *
  * @param num_fields Number of fields the template will be able to hold.
@@ -1865,16 +1890,50 @@ static inline void ipfix_delete_exp_template(struct ipfix_exporter_template *tem
   }
 
   if (template->fields) {
-    uint16_t field_count = template->hdr.field_count;
-    size_t field_list_size = sizeof(struct ipfix_exporter_template_field) * field_count;
-    memset(template->fields, 0, field_list_size);
-    free(template->fields);
+    /* Free the attached fields memory */
+    ipfix_delete_exp_template_fields(template);
   }
 
+  /* Free the template */
   memset(template, 0, sizeof(struct ipfix_exporter_template));
   free(template);
 }
 
+
+/*
+ * @brief Allocate heap memory for an exporter data record.
+ *
+ * @return A newly allocated ipfix_exporter_data
+ */
+static struct ipfix_exporter_data *ipfix_exp_data_malloc(void) {
+  /* Init a new exporter data record on the heap */
+  struct ipfix_exporter_data *data_record = malloc(sizeof(struct ipfix_exporter_data));
+
+  if (data_record != NULL) {
+    memset(data_record, 0, sizeof(struct ipfix_exporter_data));
+  } else {
+    loginfo("error: malloc failed, data record is null");
+  }
+
+  return data_record;
+}
+
+
+/*
+ * @brief Free an allocated exporter data record.
+ *
+ * @param template IPFIX exporter data record that will have it's heap memory freed.
+ */
+static inline void ipfix_delete_exp_data(struct ipfix_exporter_data *data_record) {
+  if (data_record == NULL) {
+    loginfo("api-error: template is null");
+    return;
+  }
+
+  /* Free the data record */
+  memset(data_record, 0, sizeof(struct ipfix_exporter_template));
+  free(data_record);
+}
 
 
 /*
@@ -2047,6 +2106,623 @@ void ipfix_xts_cleanup(void) {
 }
 
 
+/////////////////////////////////////////////////////////////////////
+// MEMORY MODEL: Exporter Template Set
+/////////////////////////////////////////////////////////////////////
+
+/*
+ * @brief Initialize an IPFIX template set.
+ *
+ * Taking \p set as input, zeroize the set and then
+ * add the necessary set id and length.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ */
+static void ipfix_exp_template_set_init(struct ipfix_exporter_template_set *set) {
+  if (set == NULL) {
+    loginfo("api-error: set is null");
+    return;
+  }
+
+  memset(set, 0, sizeof(struct ipfix_exporter_template_set));
+  set->set_hdr.set_id = IPFIX_TEMPLATE_SET;
+  set->set_hdr.length = 4; /* size of the header */
+}
+
+
+/*
+ * @brief Allocate heap memory for a template set.
+ *
+ * Taking \p set as input, zeroize the set and then
+ * add the necessary set id and length.
+ *
+ * @return An allocated IPFIX template set, or NULL
+ */
+static struct ipfix_exporter_template_set *ipfix_exp_template_set_malloc(void) {
+  struct ipfix_exporter_template_set *template_set = NULL;
+
+  template_set = malloc(sizeof(struct ipfix_exporter_template_set));
+
+  if (template_set != NULL) {
+    ipfix_exp_template_set_init(template_set);
+  } else {
+    loginfo("error: template set malloc failed");
+  }
+
+  return template_set;
+}
+
+
+/*
+ * @brief Append to the list of templates attached to the set.
+ *
+ * The \p set contains a doubly linked list to traverse any templates
+ * that may be attached to it. Here, \p template will be added to that list.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param template IPFIX exporter template that will be appended.
+ */
+static void ipfix_exp_template_set_add(struct ipfix_exporter_template_set *set,
+                                       struct ipfix_exporter_template *template) {
+
+  /*
+   * Add the template to the list attached to set.
+   */
+  if (set->records_head == NULL) {
+    /* This is the first template in set list*/
+    set->records_head = template;
+  } else {
+    /* Append to the end of set list */
+    set->records_tail->next = template;
+    template->prev = set->records_tail;
+  }
+
+  /* Update the tail */
+  set->records_tail = template;
+
+  /* Update the set length with total size of template */
+  set->set_hdr.length += template->length;
+}
+
+
+/*
+ * @brief Cleanup a template set by freeing any allocated memory that's been attached.
+ *
+ * A template \p set contains a list of templates that have been allocated on
+ * the heap. This function takes care of freeing up that list.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ */
+static void ipfix_exp_template_set_cleanup(struct ipfix_exporter_template_set *set) {
+  struct ipfix_exporter_template *this_template;
+  struct ipfix_exporter_template *next_template;
+
+  if (set->records_head == NULL) {
+    return;
+  }
+
+  this_template = set->records_head;
+  next_template = this_template->next;
+
+  /* Free the first stored template */
+  ipfix_delete_exp_template(this_template);
+
+  while (next_template) {
+    this_template = next_template;
+    next_template = this_template->next;
+
+    ipfix_delete_exp_template(this_template);
+  }
+}
+
+
+/*
+ * @brief Free an allocated template set.
+ *
+ * First free the any attached memory to the template \p set.
+ * Then free the template \p set itself.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ */
+static void ipfix_delete_exp_template_set(struct ipfix_exporter_template_set *set) {
+  if (set == NULL) {
+    return;
+  }
+
+  ipfix_exp_template_set_cleanup(set);
+
+  memset(set, 0, sizeof(struct ipfix_exporter_template_set));
+  free(set);
+}
+
+
+/////////////////////////////////////////////////////////////////////
+// MEMORY MODEL: Exporter Data Set
+/////////////////////////////////////////////////////////////////////
+
+/*
+ * @brief Initialize an IPFIX data set.
+ *
+ * Taking \p set as input, zeroize the set and then
+ * add the associated template and initial length.
+ *
+ * @param set Pointer to an ipfix_exporter_data_set in memory.
+ */
+static void ipfix_exp_data_set_init(struct ipfix_exporter_data_set *set,
+                                    uint16_t rel_template_id) {
+  if (set == NULL) {
+    loginfo("api-error: set is null");
+    return;
+  }
+
+  memset(set, 0, sizeof(struct ipfix_exporter_data_set));
+  set->set_hdr.set_id = rel_template_id;
+  set->set_hdr.length = 4; /* size of the header */
+}
+
+
+/*
+ * @brief Allocate heap memory for a template set.
+ *
+ * Taking \p set as input, zeroize the set and then
+ * add the necessary set id and length.
+ *
+ * @param rel_template_id The associated template id that collector uses to interpret the data set.
+ *
+ * @return An allocated IPFIX data set, or NULL
+ */
+static struct ipfix_exporter_data_set *ipfix_exp_data_set_malloc(uint16_t rel_template_id) {
+  struct ipfix_exporter_data_set *data_set = NULL;
+
+  data_set = malloc(sizeof(struct ipfix_exporter_data_set));
+
+  if (data_set != NULL) {
+    ipfix_exp_data_set_init(data_set, rel_template_id);
+  } else {
+    loginfo("error: data set malloc failed");
+  }
+
+  return data_set;
+}
+
+
+/*
+ * @brief Append to the list of data records attached to the set.
+ *
+ * The \p set contains a doubly linked list to traverse any data records
+ * that may be attached to it. Here, \p data_record will be added to that list.
+ *
+ * @param set Pointer to an ipfix_exporter_data_set in memory.
+ * @param data_record IPFIX exporter data record that will be appended.
+ */
+static void ipfix_exp_data_set_add(struct ipfix_exporter_data_set *set,
+                                   struct ipfix_exporter_data *data_record) {
+
+  /*
+   * Add the template to the list attached to set.
+   */
+  if (set->records_head == NULL) {
+    /* This is the first data record in set list*/
+    set->records_head = data_record;
+  } else {
+    /* Append to the end of set list */
+    set->records_tail->next = data_record;
+    data_record->prev = set->records_tail;
+  }
+
+  /* Update the tail */
+  set->records_tail = data_record;
+
+  /* Update the set length with total size of data record */
+  set->set_hdr.length += data_record->length;
+}
+
+
+/*
+ * @brief Cleanup a data set by freeing any allocated memory that's been attached.
+ *
+ * A data \p set contains a list of data records that have been allocated on
+ * the heap. This function takes care of freeing up that list.
+ *
+ * @param set Pointer to an ipfix_exporter_data_set in memory.
+ */
+static void ipfix_exp_data_set_cleanup(struct ipfix_exporter_data_set *set) {
+  struct ipfix_exporter_data *this_data_record;
+  struct ipfix_exporter_data *next_data_record;
+
+  if (set->records_head == NULL) {
+    return;
+  }
+
+  this_data_record = set->records_head;
+  next_data_record = this_data_record->next;
+
+  /* Free the first data record */
+  ipfix_delete_exp_data(this_data_record);
+
+  while (next_data_record) {
+    this_data_record = next_data_record;
+    next_data_record = this_data_record->next;
+
+    ipfix_delete_exp_data(this_data_record);
+  }
+}
+
+
+/*
+ * @brief Free an allocated data set.
+ *
+ * First free the any attached memory to the data \p set.
+ * Then free the data \p set itself.
+ *
+ * @param set Pointer to an ipfix_exporter_data_set in memory.
+ */
+static void ipfix_delete_exp_data_set(struct ipfix_exporter_data_set *set) {
+  if (set == NULL) {
+    return;
+  }
+
+  ipfix_exp_data_set_cleanup(set);
+
+  memset(set, 0, sizeof(struct ipfix_exporter_data_set));
+  free(set);
+}
+
+
+////////////////////////////////////////////////////////////////////
+// MEMORY MODEL: Exporter Set Node
+////////////////////////////////////////////////////////////////////
+
+/*
+ * @brief Initialize an IPFIX set node.
+ *
+ * The set \p node will have it's memory zeroized, and then a set
+ * will be allocated and attached to the \p node.
+ *
+ * WARNING: The \p node must be cleaned up before process exit
+ * because of the downstream allocated memory.
+ *
+ * @param node Pointer to an ipfix_exporter_set_node in memory.
+ * @param set_id set_id 2 for template set, 3 for option set, >= 256 for data set,
+ *        otherwise invalid
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_exp_set_node_init(struct ipfix_exporter_set_node *node,
+                                   uint16_t set_id) {
+  struct ipfix_exporter_template_set *template_set = NULL;
+  struct ipfix_exporter_option_set *option_set = NULL;
+  struct ipfix_exporter_data_set *data_set = NULL;
+
+  if (node == NULL) {
+    loginfo("api-error: set is null");
+    return 1;
+  }
+
+  memset(node, 0, sizeof(struct ipfix_exporter_set_node));
+
+  if (set_id == IPFIX_TEMPLATE_SET) {
+    /* Create and attach a template set */
+    template_set = ipfix_exp_template_set_malloc();
+    node->set.template_set = template_set;
+    //node->length = template_set->set_hdr.length;
+  } else if (set_id == IPFIX_OPTION_SET) {
+    /* Create and attached an option set */
+    // FIXME change to use option_set api when it has been made
+    option_set = malloc(sizeof(struct ipfix_exporter_option_set));
+    node->set.option_set = option_set;
+    //node->length = option_set->set_hdr.length;
+  } else if (set_id >= 256) {
+    /* Create and attach a data set */
+    data_set = ipfix_exp_data_set_malloc(set_id);
+    node->set.data_set = data_set;
+    //node->length = option_set->set_hdr.length;
+  } else {
+    loginfo("api-error: invalid set_id");
+    return 1;
+  }
+
+  node->set_type = set_id;
+
+  return 0;
+}
+
+
+/*
+ * @brief Allocate heap memory for a set node.
+ *
+ * The set node is used as a container to encapsulate any 1 of the valid IPFIX set
+ * types, i.e. template set, option set, or data set. Use \p set_id as an indicator
+ * for which type of IPFIX set should be allocated and attached to the new set node
+ * container.
+ *
+ * @param set_id 2 for template set, 3 for option set, >= 256 for data set,
+ *        otherwise invalid
+ *
+ * @return An allocated set node container
+ */
+static struct ipfix_exporter_set_node *ipfix_exp_set_node_malloc(uint16_t set_id) {
+  struct ipfix_exporter_set_node *node = NULL;
+
+  node = malloc(sizeof(struct ipfix_exporter_set_node));
+
+  if (node != NULL) {
+    if (ipfix_exp_set_node_init(node, set_id)) {
+      loginfo("error: could not init the set_node");
+    }
+  } else {
+    loginfo("error: set_node malloc failed");
+  }
+
+  return node;
+}
+
+
+/*
+ * @brief Cleanup a set node by freeing any allocated memory that's been attached.
+ *
+ * A set \p node contains an attached IPFIX set that exists on the heap.
+ * This function takes care of freeing up that set and any other necessary cleanup
+ * steps.
+ *
+ * @param set Pointer to an ipfix_exporter_set_node in memory.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_exp_set_node_cleanup(struct ipfix_exporter_set_node *node) {
+  uint16_t set_type = 0;
+
+  if (node == NULL) {
+    loginfo("api-error: node is null");
+    return 1;
+  }
+
+  set_type = node->set_type;
+
+  if (set_type == IPFIX_TEMPLATE_SET) {
+    /* Cleanup and delete the template set */
+    ipfix_delete_exp_template_set(node->set.template_set);
+  } else if (set_type == IPFIX_OPTION_SET) {
+    /* Cleanup and delete the option set */
+    // FIXME change to use option_set api when it has been made
+    free(node->set.option_set);
+  } else if (set_type >= 256) {
+    /* Cleanup and delete the data set */
+    ipfix_delete_exp_data_set(node->set.data_set);
+  } else {
+    loginfo("error: invalid set type");
+    return 1;
+  }
+
+  return 0;
+}
+
+
+/*
+ * @brief Free an allocated set node.
+ *
+ * First free the any attached memory to the set \p node.
+ * Then free the set \p node itself.
+ *
+ * @param set Pointer to an ipfix_exporter_set_node in memory.
+ */
+static void ipfix_delete_exp_set_node(struct ipfix_exporter_set_node *node) {
+  if (node == NULL) {
+    loginfo("warning: node parameter is null");
+    return;
+  }
+
+  ipfix_exp_set_node_cleanup(node);
+
+  memset(node, 0, sizeof(struct ipfix_exporter_set_node));
+  free(node);
+}
+
+
+////////////////////////////////////////////////////////////////////
+// MEMORY MODEL: Exporter Message
+////////////////////////////////////////////////////////////////////
+
+/*
+ * @brief Initialize an IPFIX message.
+ *
+ * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param template IPFIX exporter template that will be appended.
+ */
+static void ipfix_exp_message_init(struct ipfix_message *message) {
+
+    memset(message, 0, sizeof(struct ipfix_message));
+
+    /* IPFIX version = 10 */
+    message->hdr.version_number = htons(10);
+    /* Must be converted to network-byte order before message send */
+    message->hdr.length = 16;
+    /* Set the observation domain id */
+    message->hdr.observe_dom_id = htonl(OBS_DOM_ID);
+}
+
+
+/*
+ * @brief Allocate heap memory for an IPFIX message.
+ *
+ * @return An allocated IPFIX message, or NULL
+ */
+static struct ipfix_message *ipfix_exp_message_malloc(void) {
+  struct ipfix_message *message = NULL;
+
+  message = malloc(sizeof(struct ipfix_message));
+
+  if (message != NULL) {
+    ipfix_exp_message_init(message);
+  } else {
+    loginfo("error: data set malloc failed");
+  }
+
+  return message;
+}
+
+
+/*
+ * @brief Add to the list of set nodes attached to the IPFIX message.
+ *
+ * The \p message contains a doubly linked list to traverse any set nodes
+ * that may be attached to it. Here \p node will be added to that list.
+ *
+ * @param message Pointer to an ipfix_message in memory.
+ * @param node IPFIX exporter set node that will be appended.
+ */
+static int ipfix_exp_message_add(struct ipfix_message *message,
+                                 struct ipfix_exporter_set_node *node) {
+  uint16_t set_type = 0;
+
+  if (message == NULL) {
+    loginfo("api-error: message is null");
+    return 1;
+  }
+
+  if (node == NULL) {
+    loginfo("api-error: node is null");
+    return 1;
+  }
+
+  /*
+   * Add the template to the list attached to set.
+   */
+  if (message->sets_head == NULL) {
+    /* This is the first template in set list*/
+    message->sets_head = node;
+  } else {
+    /* Append to the end of set list */
+    message->sets_tail->next = node;
+    node->prev = message->sets_tail;
+  }
+
+  /* Update the tail */
+  message->sets_tail = node;
+
+  /*
+   * Update the message length with size of set
+   */
+  set_type = node->set_type;
+
+  if (set_type == IPFIX_TEMPLATE_SET) {
+    /* Add the template set length */
+    message->hdr.length += node->set.template_set->set_hdr.length;
+  } else if (set_type == IPFIX_OPTION_SET) {
+    /* Add the option set length */
+    message->hdr.length += node->set.option_set->set_hdr.length;
+  } else if (set_type >= 256) {
+    /* Add the data set length */
+    message->hdr.length += node->set.data_set->set_hdr.length;
+  } else {
+    loginfo("error: invalid set type");
+    return 1;
+  }
+
+  return 0;
+}
+
+
+/*
+ * @brief Cleanup an IPFIX message by freeing any allocated memory that's been attached.
+ *
+ * A \p message contains a list of set nodes that have been allocated on
+ * the heap. This function takes care of freeing up that list.
+ *
+ * @param set Pointer to an ipfix_message in memory.
+ */
+static void ipfix_exp_message_cleanup(struct ipfix_message *message) {
+  struct ipfix_exporter_set_node *this_set_node;
+  struct ipfix_exporter_set_node *next_set_node;
+
+  if (message->sets_head == NULL) {
+    return;
+  }
+
+  this_set_node = message->sets_head;
+  next_set_node = this_set_node->next;
+
+  /* Free the first set node */
+  ipfix_delete_exp_set_node(this_set_node);
+
+  while (next_set_node) {
+    this_set_node = next_set_node;
+    next_set_node = this_set_node->next;
+
+    ipfix_delete_exp_set_node(this_set_node);
+  }
+}
+
+
+/*
+ * @brief Free an allocated IPFIX message.
+ *
+ * First free the any attached memory to the \p message.
+ * Then free the \p message itself.
+ *
+ * @param set Pointer to an ipfix_message in memory.
+ */
+static void ipfix_delete_exp_message(struct ipfix_message *message) {
+  if (message == NULL) {
+    return;
+  }
+
+  ipfix_exp_message_cleanup(message);
+
+  memset(message, 0, sizeof(struct ipfix_message));
+  free(message);
+}
+
+
+/*
+ * @brief Initialize an IPFIX exporter object.
+ *
+ * Startup an exporter object that keeps track of the number
+ * of messages sent, and configures it with a transport socket
+ * for sending messages. If \p host_name is NULL, the localhost
+ * is used as the server (collector) target.
+ *
+ * @param e Pointer to the ipfix_exporter that will be initialized.
+ * @param host_name Host name of the server, a.k.a collector.
+ */
+static int ipfix_exporter_init(struct ipfix_exporter *e,
+                               const char *host_name) {
+  struct hostent *host = NULL;
+  char host_desc [HOST_NAME_MAX_SIZE];
+  in_addr_t localhost = 0;
+
+  memset(e, 0, sizeof(struct ipfix_exporter));
+
+  if (host_name != NULL) {
+    strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE);
+  }
+
+  e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (e->socket < 0) {
+    loginfo("error: cannot create socket");
+    return 1;
+  }
+
+  /* Set remote (collector) address */
+  e->clctr_addr.sin_family = AF_INET;
+  e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_PORT);
+
+  if (host_name != NULL) {
+    host = gethostbyname(host_desc);
+    if (!host) {
+      loginfo("could not find address for collector %s", host_desc);
+      return 1;
+    }
+    memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
+  } else {
+    localhost = inet_addr("127.0.0.1");
+    e->clctr_addr.sin_addr.s_addr = localhost;
+  }
+
+  return 0;
+}
+
+
 static void ipfix_exp_template_add_field(struct ipfix_exporter_template *t,
                                          struct ipfix_exporter_template_field f) {
     t->fields[t->hdr.field_count] = f;
@@ -2142,158 +2818,11 @@ static struct ipfix_exporter_template *ipfix_exp_create_template
 
 
 /*
- * @brief Initialize an IPFIX template set.
- *
- * Taking \p set as input, zeroize the set and then
- * add the necessary set id and length.
- *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
- */
-static void ipfix_exp_template_set_init(struct ipfix_exporter_template_set *set) {
-  memset(set, 0, sizeof(struct ipfix_exporter_template_set));
-  set->set_hdr.set_id = IPFIX_TEMPLATE_SET;
-  set->set_hdr.length = 4; /* size of the header */
-}
-
-
-/*
- * @brief Add a new template to the list of templates attached to the set.
- *
- * The \p set contains a doubly linked list to traverse any templates
- * that may be attached to it. Here, \p template will be added to that list.
- *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
- * @param template IPFIX exporter template that will be appended.
- */
-static void ipfix_exp_template_set_add(struct ipfix_exporter_template_set *set,
-                                       struct ipfix_exporter_template *template) {
-
-  /*
-   * Add the template to the list attached to set.
-   */
-  if (set->records_head == NULL) {
-    /* This is the first template in set list*/
-    set->records_head = template;
-  } else {
-    /* Append to the end of set list */
-    set->records_tail->next = template;
-    template->prev = set->records_tail;
-  }
-
-  /* Update the tail */
-  set->records_tail = template;
-
-  /* Update the set length with total size of template */
-  set->set_hdr.length += template->length;
-}
-
-
-/*
- * @brief Add a new template to the list of templates attached to the set.
- *
- * The \p set contains a doubly linked list to traverse any templates
- * that may be attached to it. Here, \p template will be added to that list.
- *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
- * @param template IPFIX exporter template that will be appended.
- */
-static void ipfix_exp_template_set_list_cleanup(struct ipfix_exporter_template_set *set) {
-  struct ipfix_exporter_template *this_template;
-  struct ipfix_exporter_template *next_template;
-
-  if (set->records_head == NULL) {
-    return;
-  }
-
-  this_template = set->records_head;
-  next_template = this_template->next;
-
-  /* Free the first stored template */
-  ipfix_delete_exp_template(this_template);
-
-  while (next_template) {
-    this_template = next_template;
-    next_template = this_template->next;
-
-    ipfix_delete_exp_template(this_template);
-  }
-}
-
-
-/*
- * @brief Initialize an ipfix message.
- *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
- * @param template IPFIX exporter template that will be appended.
- */
-static void ipfix_export_message_init(struct ipfix_message *message) {
-
-    memset(message, 0, sizeof(struct ipfix_message));
-
-    /* IPFIX version = 10 */
-    message->hdr.version_number = htons(10);
-    /* Must be converted to network-byte order before message send */
-    message->hdr.length = 16;
-    /* Set the observation domain id */
-    message->hdr.observe_dom_id = htonl(OBS_DOM_ID);
-}
-
-
-/*
- * @brief Initialize an IPFIX exporter object.
- *
- * Startup an exporter object that keeps track of the number
- * of messages sent, and configures it with a transport socket
- * for sending messages. If \p host_name is NULL, the localhost
- * is used as the server (collector) target.
- *
- * @param e Pointer to the ipfix_exporter that will be initialized.
- * @param host_name Host name of the server, a.k.a collector.
- */
-static int ipfix_exporter_init(struct ipfix_exporter *e,
-                               const char *host_name) {
-  struct hostent *host = NULL;
-  char host_desc [HOST_NAME_MAX_SIZE];
-  in_addr_t localhost = 0;
-
-  memset(e, 0, sizeof(struct ipfix_exporter));
-
-  if (host_name != NULL) {
-    strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE);
-  }
-
-  e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (e->socket < 0) {
-    loginfo("error: cannot create socket");
-    return 1;
-  }
-
-  /* Set remote (collector) address */
-  e->clctr_addr.sin_family = AF_INET;
-  e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_PORT);
-
-  if (host_name != NULL) {
-    host = gethostbyname(host_desc);
-    if (!host) {
-      loginfo("could not find address for collector %s", host_desc);
-      return 1;
-    }
-    memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
-  } else {
-    localhost = inet_addr("127.0.0.1");
-    e->clctr_addr.sin_addr.s_addr = localhost;
-  }
-
-  return 0;
-}
-
-
-/*
  * @brief Encode a template set into an IPFIX message.
  *
  * Take a \p set of Ipfix templates, and encode the whole
- * \p set into an IPFIX \p message according RFC7011 spec.
- * The \p message may contain other other data, so this
+ * \p set into a \p message_buf according RFC7011 spec.
+ * The \p message_buf may contain other other data, so this
  * functions appends to the message, opposed to overwriting.
  * A handle to \p msg_length is used, where the value represents
  * the total running length of the \p message. This is used by
@@ -2301,21 +2830,21 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
  * written into the \p message.
  *
  * @param set Single set of multiple Ipfix templates.
- * @param message IPFIX message that the \p set will be encoded and written into.
+ * @param message Buffer for message that the template \p set will be encoded and written into.
  * @param msg_length Total length of the \p message.
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter_template_set *set,
-                                             struct ipfix_message *message,
-                                             uint16_t *msg_length) {
+static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set,
+                                         unsigned char *message_buf,
+                                         uint16_t *msg_length) {
   struct ipfix_exporter_template *current = NULL;
   unsigned char *data_ptr = NULL;
   uint16_t bigend_set_id = 0;
   uint16_t bigend_set_len = 0;
 
-  if (message == NULL) {
-    loginfo("api-error: message is null");
+  if (message_buf == NULL) {
+    loginfo("api-error: message_buf is null");
     return 1;
   }
 
@@ -2329,7 +2858,7 @@ static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter_template_set 
     return 1;
   }
 
-  data_ptr = message->data;
+  data_ptr = message_buf;
 
   bigend_set_id = htons(set->set_hdr.set_id);
   bigend_set_len = htons(set->set_hdr.length);
@@ -2383,6 +2912,78 @@ static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter_template_set 
 }
 
 
+static int ipfix_exp_encode_set_node(struct ipfix_exporter_set_node *set_node,
+                                     unsigned char *raw_msg_buf,
+                                     uint16_t *buf_len) {
+  uint16_t set_type = 0;
+
+  if (set_node == NULL) {
+    loginfo("api-error: set_node is null");
+    return 1;
+  }
+
+  set_type = set_node->set_type;
+
+  if (set_type == IPFIX_TEMPLATE_SET) {
+    /* Encode the template set into the message */
+    ipfix_exp_encode_template_set(set_node->set.template_set,
+                                  raw_msg_buf, buf_len);
+  } else if (set_type == IPFIX_OPTION_SET) {
+    /* Encode the option set into the message */
+    // TODO call option set encoding function here
+    loginfo("warning: option set encoding not supported yet");
+  } else if (set_type >= 256) {
+    /* Encode the data set into the message */
+    // TODO call data set encoding function here
+    loginfo("warning: data set encoding not supported yet");
+  } else {
+    loginfo("error: invalid set type");
+    return 1;
+  }
+
+  return 0;
+}
+
+
+static int ipfix_exp_encode_message(struct ipfix_message *message,
+                                    unsigned char *raw_msg_buf) {
+  struct ipfix_exporter_set_node *this_set_node = NULL;
+  uint16_t buf_len = 0;
+
+  if (message == NULL) {
+    loginfo("api_error: message is null");
+    return 1;
+  }
+
+  if (message->sets_head == NULL) {
+    loginfo("error: message does not contain any sets");
+    return 1;
+  }
+
+  /* Get the head of set node list */
+  this_set_node = message->sets_head;
+
+  while (buf_len < IPFIX_MAX_SET_LEN) {
+    /* FIXME need to make this length check actually robust */
+    if (this_set_node == NULL) {
+      /* Reached end of set node list */
+      break;
+    }
+
+    /* Encode the node into the message */
+    if (ipfix_exp_encode_set_node(this_set_node, raw_msg_buf, &buf_len)) {
+      loginfo("error: could not encode set node");
+      return 1;
+    }
+
+    /* Go to next node in the list */
+    this_set_node = this_set_node->next;
+  }
+
+  return 0;
+}
+
+
 /*
  * @brief Send an IPFIX message using a configured exporter.
  *
@@ -2400,7 +3001,16 @@ static int ipfix_exp_msg_encode_template_set(struct ipfix_exporter_template_set 
  */
 static int ipfix_export_send_message(struct ipfix_exporter *e,
                                      struct ipfix_message *message) {
+  struct ipfix_raw_message raw_message;
   ssize_t bytes = 0;
+
+  memset(&raw_message, 0, sizeof(struct ipfix_raw_message));
+
+  /*
+   * Encode the message contents according to RFC7011,
+   * and pack it into the raw_message for sending
+   */
+  ipfix_exp_encode_message(message, raw_message.payload);
 
   /* Convert the header length to network-byte order */
   message->hdr.length = htons(message->hdr.length);
@@ -2409,8 +3019,20 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
   /* Write message sequence number relative to current session */
   message->hdr.sequence_number = htonl(e->msg_count);
 
+  /*
+   * Copy message header into raw_message header
+   */
+  memcpy(&raw_message.hdr, &message->hdr, sizeof(struct ipfix_hdr));
+#if 0
+  raw_message.hdr.version_number = message->hdr.version_number;
+  raw_message.hdr.length = message->hdr.length;
+  raw_message.hdr.export_time = message->hdr.export_time;
+  raw_message.hdr.sequence_number = message->hdr.sequence_number;
+  raw_message.hdr.observe_dom_id = message->hdr.observe_dom_id;
+#endif
+
   /* Send the message */
-  bytes = sendto(e->socket, message, message->hdr.length, 0,
+  bytes = sendto(e->socket, &raw_message, raw_message.hdr.length, 0,
                  (struct sockaddr *)&e->clctr_addr,
                  sizeof(e->clctr_addr));
 
@@ -2426,34 +3048,6 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
 }
 
 
-static int ipfix_exp_send_template_set(struct ipfix_exporter *exporter,
-                                       struct ipfix_exporter_template_set *set) {
-  struct ipfix_message message;
-  uint16_t message_length = 0;
-
-  /* Init the message */
-  ipfix_export_message_init(&message);
-
-  while (message_length < IPFIX_MAX_SET_LEN) {
-    /* Encode the template set into the message */
-    if (ipfix_exp_msg_encode_template_set(set, &message, &message_length)) {
-      loginfo("error: could not encode template set");
-      return 1;
-    }
-    message.hdr.length += set->set_hdr.length;
-    break; /* FIXME only doing 1 set right now, so break out here */
-  }
-
-  /* Send the encoded message using exporter object */
-  if (ipfix_export_send_message(exporter, &message)) {
-    loginfo("error: message send failed");
-    return 1;
-  }
-
-  return 0;
-}
-
-
 void ipfix_module_cleanup(void) {
   ipfix_cts_cleanup();
   ipfix_xts_cleanup();
@@ -2461,40 +3055,78 @@ void ipfix_module_cleanup(void) {
 
 
 int ipfix_export_main(const struct flow_record *record) {
-  struct ipfix_exporter_template_set template_set;
-  struct ipfix_exporter_template *tmp = NULL;
-  struct ipfix_exporter_template *new_tmp = NULL;
+  struct ipfix_message *message = NULL;
+  struct ipfix_exporter_set_node *set_node = NULL;
+  struct ipfix_exporter_template_set *template_set = NULL;
+
+  struct ipfix_exporter_template *xts_tmp = NULL;
+  struct ipfix_exporter_template *local_tmp = NULL;
+  int rc = 0;
 
   /* Init the exporter for use, if not done already */
   if (gateway_export.socket == 0) {
     ipfix_exporter_init(&gateway_export, NULL);
   }
 
-  /* Init the template set for use */
-  ipfix_exp_template_set_init(&template_set);
+  /* Create and init the IPFIX message */
+  if (!(message = ipfix_exp_message_malloc())) {
+    loginfo("error: unable to create a message");
+    rc = 1;
+    goto end;
+  }
+
+  /* Create and init the set node with a template set for use */
+  if (!(set_node = ipfix_exp_set_node_malloc(IPFIX_TEMPLATE_SET))) {
+    loginfo("error: unable to create a template set_node");
+    rc = 1;
+    goto end;
+  }
+
+  /* Point local template_set to inside set_node for easy manipulation */
+  template_set = set_node->set.template_set;
 
   /*
    * Search for the template in the xts. If it's already there,
    * simply let the search function take care of copying into the
    * local template. If it does not already exist in xts, create
-   * an entry in the xts and copy locally to here.
+   * an entry in the xts and copy locally to here. No need to
+   * free the xts_tmp because that is handled before process exit.
    */
-  if (!ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, &new_tmp)) {
-    tmp = ipfix_exp_create_template(IPFIX_SIMPLE_TEMPLATE);
-    if (ipfix_xts_copy(&new_tmp, tmp)) {
+  if (!ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, &local_tmp)) {
+    xts_tmp = ipfix_exp_create_template(IPFIX_SIMPLE_TEMPLATE);
+    if (ipfix_xts_copy(&local_tmp, xts_tmp)) {
       loginfo("error: copy from export template store failed")
-      return 1;
+      rc = 1;
+      goto end;
     }
   }
 
-  /* Add the new template to the set */
-  ipfix_exp_template_set_add(&template_set, new_tmp);
+  /* Add the new template to the template_set */
+  ipfix_exp_template_set_add(template_set, local_tmp);
 
-  /* Encode the template set data, and send over exporter */
-  ipfix_exp_send_template_set(&gateway_export, &template_set);
+  /* Attach the set node to the message container */
+  if (ipfix_exp_message_add(message, set_node)) {
+    loginfo("error: unable to attach set_node to message");
+    rc = 1;
+    goto end;
+  }
 
-  /* Free the templates we made for this set */
-  ipfix_exp_template_set_list_cleanup(&template_set);
+  /* Send the IPFIX message over exporter */
+  ipfix_export_send_message(&gateway_export, message);
 
-  return 0;
+end:
+  if (message) {
+    /* Cleanup the message, handles all cleanup of all attached set containers */
+    ipfix_delete_exp_message(message);
+  } else if (set_node) {
+    /* Cleanup the set node, since the message container wasn't made */
+    ipfix_delete_exp_set_node(set_node);
+  }
+
+  if (local_tmp) {
+    /* Free the local template */
+    ipfix_delete_exp_template(local_tmp);
+  }
+
+  return rc;
 }

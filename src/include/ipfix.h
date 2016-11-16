@@ -337,6 +337,18 @@ struct ipfix_exporter_template {
 
 
 /*
+ * @brief Structure representing an IPFIX Exporter Data record.
+ */
+struct ipfix_exporter_data {
+  unsigned char data[IPFIX_MAX_SET_DATA_LEN];
+  uint16_t length; /**< total length the data record */
+
+  struct ipfix_exporter_data *next;
+  struct ipfix_exporter_data *prev;
+};
+
+
+/*
  * @brief Structure representing a Template Set.
  */
 struct ipfix_exporter_template_set {
@@ -361,7 +373,23 @@ struct ipfix_exporter_option_set {
  */
 struct ipfix_exporter_data_set {
   struct ipfix_set_hdr set_hdr;
-  unsigned char set[IPFIX_MAX_SET_DATA_LEN];
+
+  struct ipfix_exporter_data *records_head;
+  struct ipfix_exporter_data *records_tail;
+};
+
+
+struct ipfix_exporter_set_node {
+  uint16_t set_type; /**< the internal set id, made visible here */
+  //uint16_t length; /**< internal set length, made visible here */
+  union {
+    struct ipfix_exporter_template_set *template_set;
+    struct ipfix_exporter_option_set *option_set;
+    struct ipfix_exporter_data_set *data_set;
+  } set;
+
+  struct ipfix_exporter_set_node *next;
+  struct ipfix_exporter_set_node *prev;
 };
 
 
@@ -370,7 +398,18 @@ struct ipfix_exporter_data_set {
  */
 struct ipfix_message {
   struct ipfix_hdr hdr;
-  unsigned char data[IPFIX_MAX_SET_LEN]; 
+
+  struct ipfix_exporter_set_node *sets_head;
+  struct ipfix_exporter_set_node *sets_tail;
+};
+
+
+/*
+ * @brief Structure representing the raw data of an IPFIX message.
+ */
+struct ipfix_raw_message {
+  struct ipfix_hdr hdr;
+  unsigned char payload[IPFIX_MAX_SET_LEN];
 };
 
 
