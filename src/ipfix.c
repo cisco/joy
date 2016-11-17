@@ -2771,6 +2771,7 @@ static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
     loginfo("error: template is null");
   }
 
+  /* Set the type of template for identification */
   template->type = IPFIX_SIMPLE_TEMPLATE;
 
   return template;
@@ -3023,13 +3024,6 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
    * Copy message header into raw_message header
    */
   memcpy(&raw_message.hdr, &message->hdr, sizeof(struct ipfix_hdr));
-#if 0
-  raw_message.hdr.version_number = message->hdr.version_number;
-  raw_message.hdr.length = message->hdr.length;
-  raw_message.hdr.export_time = message->hdr.export_time;
-  raw_message.hdr.sequence_number = message->hdr.sequence_number;
-  raw_message.hdr.observe_dom_id = message->hdr.observe_dom_id;
-#endif
 
   /* Send the message */
   bytes = sendto(e->socket, &raw_message, raw_message.hdr.length, 0,
@@ -3118,14 +3112,6 @@ end:
   if (message) {
     /* Cleanup the message, handles all cleanup of all attached set containers */
     ipfix_delete_exp_message(message);
-  } else if (set_node) {
-    /* Cleanup the set node, since the message container wasn't made */
-    ipfix_delete_exp_set_node(set_node);
-  }
-
-  if (local_tmp) {
-    /* Free the local template */
-    ipfix_delete_exp_template(local_tmp);
   }
 
   return rc;
