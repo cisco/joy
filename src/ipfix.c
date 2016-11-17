@@ -105,10 +105,22 @@ static uint16_t xts_count = 0;
 static unsigned int splt_pkt_index = 0;
 
 /* Exporter object to send messages, alive until process termination */
-static struct ipfix_exporter gateway_export = {0};
+static struct ipfix_exporter gateway_export = {
+  {0,0,{0},{'0','0','0','0','0','0','0','0'}},
+  {0,0,{0},{'0','0','0','0','0','0','0','0'}},
+  0,0
+};
+
 
 /* Collector object to receive messages, alive until process termination */
-static struct ipfix_collector gateway_collect = {0};
+static struct ipfix_collector gateway_collect = {
+  {0,0,{0},{'0','0','0','0','0','0','0','0'}},
+  0,0
+};
+
+/* Used for exporting formatted IPFIX messages */
+static struct ipfix_raw_message raw_message;
+
 
 /*
  * External objects, defined in pcap2flow
@@ -3002,7 +3014,6 @@ static int ipfix_exp_encode_message(struct ipfix_message *message,
  */
 static int ipfix_export_send_message(struct ipfix_exporter *e,
                                      struct ipfix_message *message) {
-  struct ipfix_raw_message raw_message;
   ssize_t bytes = 0;
 
   memset(&raw_message, 0, sizeof(struct ipfix_raw_message));
