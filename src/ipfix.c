@@ -984,7 +984,10 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                           ntohl(ipfix->observe_dom_id), template_id);
 
   /* Look for template match */
-  ipfix_cts_search(template_key, &cur_template, 0);
+  if (!ipfix_cts_search(template_key, &cur_template, 0)) {
+    loginfo("error: no template for data set found");
+    goto cleanup;
+  }
 
   /* Process data if we know the template */
   if (cur_template->hdr.template_id != 0) {
@@ -1933,6 +1936,7 @@ static struct ipfix_exporter_data_field *ipfix_exp_data_field_malloc(uint16_t va
 
     field->value = malloc((size_t)value_length);
     if (field->value != NULL) {
+      memset(field->value, 0, (size_t)value_length);
       field->length = value_length;
     } else {
       loginfo("error: field value malloc failed");
@@ -2881,6 +2885,10 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
  * WARNING: The end user of the newly allocated template is
  * responsible for freeing that memory.
  *
+ * @param fr_record Joy flow record created during the metric observation
+ *                  phase of the process, i.e. process_packet(). It contains
+ *                  information that will be encoded into the new data record.
+ *
  * @return The desired data record, otherwise NULL for failure.
  */
 static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
@@ -2897,28 +2905,28 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
      */
     /* IPFIX_SOURCE_IPV4_ADDRESS */
     data_field = ipfix_exp_data_field_malloc(sizeof(uint32_t));
-    memcpy(data_field, &fr_record->key.sa.s_addr, sizeof(uint32_t));
+    memcpy(data_field->value, &fr_record->key.sa.s_addr, sizeof(uint32_t));
     ipfix_exp_data_record_add(data_record, data_field);
 
     /* IPFIX_DESTINATION_IPV4_ADDRESS */
     data_field = ipfix_exp_data_field_malloc(sizeof(uint32_t));
-    memcpy(data_field, &fr_record->key.da.s_addr, sizeof(uint32_t));
+    memcpy(data_field->value, &fr_record->key.da.s_addr, sizeof(uint32_t));
     ipfix_exp_data_record_add(data_record, data_field);
 
     /* IPFIX_SOURCE_TRANSPORT_PORT */
     data_field = ipfix_exp_data_field_malloc(sizeof(uint16_t));
-    memcpy(data_field, &fr_record->key.sp, sizeof(uint16_t));
+    memcpy(data_field->value, &fr_record->key.sp, sizeof(uint16_t));
     ipfix_exp_data_record_add(data_record, data_field);
 
     /* IPFIX_DESTINATION_TRANSPORT_PORT */
     data_field = ipfix_exp_data_field_malloc(sizeof(uint16_t));
-    memcpy(data_field, &fr_record->key.dp, sizeof(uint16_t));
+    memcpy(data_field->value, &fr_record->key.dp, sizeof(uint16_t));
     ipfix_exp_data_record_add(data_record, data_field);
 
     /* IPFIX_PROTOCOL_IDENTIFIER */
     data_field = ipfix_exp_data_field_malloc(sizeof(uint8_t));
     protocol = (uint8_t)(fr_record->key.prot & 0xff);
-    memcpy(data_field, &protocol, sizeof(uint8_t));
+    memcpy(data_field->value, &protocol, sizeof(uint8_t));
     ipfix_exp_data_record_add(data_record, data_field);
   } else {
     loginfo("error: unable to malloc data record");
@@ -2944,9 +2952,9 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
  * responsible for freeing that memory.
  *
  * @param template_type A valid entry from the enum ipfix_template_type list.
- * @param flow_record IPFIX flow record created during the metric observation
- *                    phase of the process, i.e. process_packet(). It contains
- *                    information that will be encoded into the new data record.
+ * @param fr_record Joy flow record created during the metric observation
+ *                  phase of the process, i.e. process_packet(). It contains
+ *                  information that will be encoded into the new data record.
  *
  * @return The desired data record, otherwise NULL for failure.
  */
@@ -3079,10 +3087,10 @@ static struct ipfix_exporter_template *ipfix_exp_create_template
  * A handle to \p msg_length is used, where the value represents
  * the total running length of the \p message. This is used by
  * calling functions to keep track of how much data has been
- * written into the \p message.
+ * written into the \p message and for the \p message_buf write offset.
  *
  * @param set Single set of multiple Ipfix templates.
- * @param message Buffer for message that the template \p set will be encoded and written into.
+ * @param message_buf Buffer for message that the template \p set will be encoded and written into.
  * @param msg_length Total length of the \p message.
  *
  * @return 0 for success, 1 for failure
@@ -3110,7 +3118,7 @@ static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set
     return 1;
   }
 
-  data_ptr = message_buf;
+  data_ptr = message_buf + *msg_length;
 
   bigend_set_id = htons(set->set_hdr.set_id);
   bigend_set_len = htons(set->set_hdr.length);
@@ -3164,6 +3172,20 @@ static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set
 }
 
 
+/*
+ * @brief Encode a simple 5-tuple data record into an IPFIX message.
+ *
+ * Using the \p data_record container, encode the attached fields
+ * into the \p message buf according to the RFC7011 spec.
+ * The \p message_buf may contain other other data, so this
+ * functions appends to the message, opposed to overwriting.
+ *
+ * @param data_record Single Ipfix data record.
+ * @param message_buf Buffer for message that the template \p set will be encoded and written into.
+ * @param msg_length Total length of the \p message.
+ *
+ * @return 0 for success, 1 for failure
+ */
 static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_record,
                                                unsigned char *message_buf) {
   struct ipfix_exporter_data_field *field = NULL;
@@ -3202,7 +3224,7 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
   }
 
   /* IPFIX_SOURCE_IPV4_ADDRESS */
-  bigend_src_addr = htonl((uint32_t)*field->value);
+  bigend_src_addr = *(const uint32_t *)field->value;
   memcpy(ptr, &bigend_src_addr, field->length);
   ptr += field->length;
 
@@ -3212,7 +3234,7 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
   }
 
   /* IPFIX_DESTINATION_IPV4_ADDRESS */
-  bigend_dest_addr = htonl((uint32_t)*field->value);
+  bigend_dest_addr = *(const uint32_t *)field->value;
   memcpy(ptr, &bigend_dest_addr, field->length);
   ptr += field->length;
 
@@ -3222,7 +3244,7 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
   }
 
   /* IPFIX_SOURCE_TRANSPORT_PORT */
-  bigend_src_port = htons((uint16_t)*field->value);
+  bigend_src_port = htons(*(const uint16_t *)field->value);
   memcpy(ptr, &bigend_src_port, field->length);
   ptr += field->length;
 
@@ -3232,7 +3254,7 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
   }
 
   /* IPFIX_DESTINATION_TRANSPORT_PORT */
-  bigend_dest_port = htons((uint16_t)*field->value);
+  bigend_dest_port = htons(*(const uint16_t *)field->value);
   memcpy(ptr, &bigend_dest_port, field->length);
   ptr += field->length;
 
@@ -3242,7 +3264,7 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
   }
 
   /* IPFIX_PROTOCOL_IDENTIFIER */
-  protocol = (uint8_t)*field->value;
+  protocol = *(const uint8_t *)field->value;
   memcpy(ptr, &protocol, field->length);
 
   /*
@@ -3265,7 +3287,7 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
  * written into the \p message.
  *
  * @param set Single set of multiple Ipfix data records.
- * @param message Buffer for message that the template \p set will be encoded and written into.
+ * @param message_buf Buffer for message that the template \p set will be encoded and written into.
  * @param msg_length Total length of the \p message.
  *
  * @return 0 for success, 1 for failure
@@ -3293,7 +3315,7 @@ static int ipfix_exp_encode_data_set(struct ipfix_exporter_data_set *set,
     return 1;
   }
 
-  data_ptr = message_buf;
+  data_ptr = message_buf + *msg_length;
 
   bigend_set_id = htons(set->set_hdr.set_id);
   bigend_set_len = htons(set->set_hdr.length);
@@ -3333,6 +3355,21 @@ static int ipfix_exp_encode_data_set(struct ipfix_exporter_data_set *set,
 }
 
 
+/*
+ * @brief Encode a set node into an IPFIX message.
+ *
+ * Take a \p set_node and inspect it see see whether
+ * it contains a template set, option set, or data set.
+ * After figuring out which set is contained, the appropriate
+ * set encoding function will be called, passing down the
+ * \p raw_msg_buf and \p buf_len to the sub-functions.
+ *
+ * @param set_node Single set node encapsulating a template/option/data set..
+ * @param raw_msg_buf Buffer for message that the template \p set will be encoded and written into.
+ * @param msg_length Total length of the \p message.
+ *
+ * @return 0 for success, 1 for failure
+ */
 static int ipfix_exp_encode_set_node(struct ipfix_exporter_set_node *set_node,
                                      unsigned char *raw_msg_buf,
                                      uint16_t *buf_len) {
@@ -3366,6 +3403,19 @@ static int ipfix_exp_encode_set_node(struct ipfix_exporter_set_node *set_node,
 }
 
 
+/*
+ * @brief Encode a message container into the buffer for sending over network.
+ *
+ * Take a \p message and iterate over it's attached sub-containers
+ * which may include template/option/data sets. As each set is encountered
+ * the data contained within will be encoded according to the IPFIX specification
+ * and subsequently written into a buffer for sending over the network.
+ *
+ * @param message Message entity related to all sub-container entities.
+ * @param raw_msg_buf Buffer for message that the template \p set will be encoded and written into.
+ *
+ * @return 0 for success, 1 for failure
+ */
 static int ipfix_exp_encode_message(struct ipfix_message *message,
                                     unsigned char *raw_msg_buf) {
   struct ipfix_exporter_set_node *this_set_node = NULL;
