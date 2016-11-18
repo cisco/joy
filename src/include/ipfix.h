@@ -322,6 +322,14 @@ struct ipfix_exporter_template_field {
 };
 
 
+struct ipfix_exporter_data_field {
+  unsigned char *value;
+  uint16_t length; /**< length of the value */
+
+  struct ipfix_exporter_data_field *next;
+};
+
+
 /*
  * @brief Structure representing an IPFIX Exporter Template.
  */
@@ -340,7 +348,10 @@ struct ipfix_exporter_template {
  * @brief Structure representing an IPFIX Exporter Data record.
  */
 struct ipfix_exporter_data {
-  unsigned char data[IPFIX_MAX_SET_DATA_LEN];
+  struct ipfix_exporter_data_field *fields_head;
+  struct ipfix_exporter_data_field *fields_tail;
+  enum ipfix_template_type type;
+  uint16_t field_count; /**< number of field values in list */
   uint16_t length; /**< total length the data record */
 
   struct ipfix_exporter_data *next;

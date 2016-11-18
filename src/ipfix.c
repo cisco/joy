@@ -1913,14 +1913,114 @@ static inline void ipfix_delete_exp_template(struct ipfix_exporter_template *tem
 
 
 /*
+ * @brief Allocate heap memory for an exporter data field.
+ *
+ * @param value_length Length in bytes of the data value. The value attribute
+ *                     within the the new data_field will be allocated according
+ *                     to the given \p value_length, and be able to hold up to that
+ *                     amount of bytes.
+ *
+ * @return A newly allocated ipfix_exporter_data_field
+ */
+static struct ipfix_exporter_data_field *ipfix_exp_data_field_malloc(uint16_t value_length) {
+  struct ipfix_exporter_data_field *field = NULL;
+
+  /* Init a new exporter template on the heap */
+  field = malloc(sizeof(struct ipfix_exporter_data_field));
+
+  if (field != NULL) {
+    memset(field, 0, sizeof(struct ipfix_exporter_data_field));
+
+    field->value = malloc((size_t)value_length);
+    if (field->value != NULL) {
+      field->length = value_length;
+    } else {
+      loginfo("error: field value malloc failed");
+    }
+  } else {
+    loginfo("error: malloc failed");
+  }
+
+  return field;
+}
+
+
+/*
+ * @brief Free an allocated exporter data field.
+ *
+ * @param template IPFIX exporter data field that will have it's heap memory freed.
+ */
+static inline void ipfix_delete_exp_data_field(struct ipfix_exporter_data_field *data_field) {
+  if (data_field == NULL) {
+    loginfo("api-error: data field is null");
+    return;
+  }
+
+  if (data_field->value) {
+    memset(data_field->value, 0, (size_t)data_field->length);
+    free(data_field->value);
+  }
+
+  /* Free the data record */
+  memset(data_field, 0, sizeof(struct ipfix_exporter_data_field));
+  free(data_field);
+}
+
+
+/*
+ * @brief Append to the list of fields attached to the data record.
+ *
+ * The \p data_record contains the head/tail of a list of related data fields.
+ * Here \p data_field will be added to that list.
+ *
+ * @param data_record Pointer to an ipfix_exporter_data in memory.
+ * @param data_field IPFIX exporter data field that will be appended.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_exp_data_record_add(struct ipfix_exporter_data *data_record,
+                                     struct ipfix_exporter_data_field *data_field) {
+
+  if (data_record == NULL || data_field == NULL) {
+    loginfo("api-error: data record or field is null");
+    return 1;
+  }
+
+  /*
+   * Append the data_field to the list attached to data_record.
+   */
+  if (data_record->fields_head == NULL) {
+    /* This is the first field in the data record */
+    data_record->fields_head = data_field;
+  } else {
+    /* Append to the end of fields list */
+    data_record->fields_tail->next = data_field;
+  }
+
+  /* Update the tail */
+  data_record->fields_tail = data_field;
+
+  /* Update the data record length with total size of field */
+  data_record->length += data_field->length;
+
+  /* Increment the field count */
+  data_record->field_count += 1;
+
+  return 0;
+}
+
+
+/*
  * @brief Allocate heap memory for an exporter data record.
  *
  * @return A newly allocated ipfix_exporter_data
  */
-static struct ipfix_exporter_data *ipfix_exp_data_malloc(void) {
-  /* Init a new exporter data record on the heap */
-  struct ipfix_exporter_data *data_record = malloc(sizeof(struct ipfix_exporter_data));
+static struct ipfix_exporter_data *ipfix_exp_data_record_malloc(void) {
+  struct ipfix_exporter_data *data_record = NULL;
 
+  /* Init a new exporter data record on the heap */
+  data_record = malloc(sizeof(struct ipfix_exporter_data));
+  
   if (data_record != NULL) {
     memset(data_record, 0, sizeof(struct ipfix_exporter_data));
   } else {
@@ -1932,15 +2032,48 @@ static struct ipfix_exporter_data *ipfix_exp_data_malloc(void) {
 
 
 /*
+ * @brief Cleanup a data record by freeing any allocated memory that's been attached.
+ *
+ * A \p data_record contains a list of data fields that have been allocated on
+ * the heap. This function takes care of freeing up that list.
+ *
+ * @param set Pointer to an ipfix_exporter_data in memory.
+ */
+static void ipfix_exp_data_record_cleanup(struct ipfix_exporter_data *data_record) {
+  struct ipfix_exporter_data_field *this_data_field;
+  struct ipfix_exporter_data_field *next_data_field;
+
+  if (data_record->fields_head == NULL) {
+    return;
+  }
+
+  this_data_field = data_record->fields_head;
+  next_data_field = this_data_field->next;
+
+  /* Free the first data field */
+  ipfix_delete_exp_data_field(this_data_field);
+
+  while (next_data_field) {
+    this_data_field = next_data_field;
+    next_data_field = this_data_field->next;
+
+    ipfix_delete_exp_data_field(this_data_field);
+  }
+}
+
+
+/*
  * @brief Free an allocated exporter data record.
  *
  * @param template IPFIX exporter data record that will have it's heap memory freed.
  */
-static inline void ipfix_delete_exp_data(struct ipfix_exporter_data *data_record) {
+static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data_record) {
   if (data_record == NULL) {
-    loginfo("api-error: template is null");
+    loginfo("api-error: data record is null");
     return;
   }
+
+  ipfix_exp_data_record_cleanup(data_record);
 
   /* Free the data record */
   memset(data_record, 0, sizeof(struct ipfix_exporter_template));
@@ -2168,8 +2301,8 @@ static struct ipfix_exporter_template_set *ipfix_exp_template_set_malloc(void) {
 /*
  * @brief Append to the list of templates attached to the set.
  *
- * The \p set contains a doubly linked list to traverse any templates
- * that may be attached to it. Here, \p template will be added to that list.
+ * The \p set contains the head/tail of a list of related templates.
+ * Here, \p template will be added to that list.
  *
  * @param set Pointer to an ipfix_exporter_template_set in memory.
  * @param template IPFIX exporter template that will be appended.
@@ -2279,7 +2412,8 @@ static void ipfix_exp_data_set_init(struct ipfix_exporter_data_set *set,
  * Taking \p set as input, zeroize the set and then
  * add the necessary set id and length.
  *
- * @param rel_template_id The associated template id that collector uses to interpret the data set.
+ * @param rel_template_id The associated template id that collector
+ *                        uses to interpret the data set.
  *
  * @return An allocated IPFIX data set, or NULL
  */
@@ -2301,8 +2435,8 @@ static struct ipfix_exporter_data_set *ipfix_exp_data_set_malloc(uint16_t rel_te
 /*
  * @brief Append to the list of data records attached to the set.
  *
- * The \p set contains a doubly linked list to traverse any data records
- * that may be attached to it. Here, \p data_record will be added to that list.
+ * The \p set contains the head/tail of a list of related data_record.
+ * Here, \p data_record will be added to that list.
  *
  * @param set Pointer to an ipfix_exporter_data_set in memory.
  * @param data_record IPFIX exporter data record that will be appended.
@@ -2350,13 +2484,13 @@ static void ipfix_exp_data_set_cleanup(struct ipfix_exporter_data_set *set) {
   next_data_record = this_data_record->next;
 
   /* Free the first data record */
-  ipfix_delete_exp_data(this_data_record);
+  ipfix_delete_exp_data_record(this_data_record);
 
   while (next_data_record) {
     this_data_record = next_data_record;
     next_data_record = this_data_record->next;
 
-    ipfix_delete_exp_data(this_data_record);
+    ipfix_delete_exp_data_record(this_data_record);
   }
 }
 
@@ -2577,8 +2711,8 @@ static struct ipfix_message *ipfix_exp_message_malloc(void) {
 /*
  * @brief Add to the list of set nodes attached to the IPFIX message.
  *
- * The \p message contains a doubly linked list to traverse any set nodes
- * that may be attached to it. Here \p node will be added to that list.
+ * The \p message contains the head/tail of a list of related set_nodes.
+ * Here \p node will be added to that list.
  *
  * @param message Pointer to an ipfix_message in memory.
  * @param node IPFIX exporter set node that will be appended.
@@ -2732,6 +2866,111 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   }
 
   return 0;
+}
+
+
+/*
+ * @brief Create a simple 5-tuple data record.
+ *
+ * Make a basic data record that holds the traditional 5-tuple
+ * unique id. This consists of the source/destination ipv4 address,
+ * source/destination transport port, and the transport protocol identifier.
+ * The new data record will use the \p flow_record to encode the appropriate
+ * information according to the IPFIX specification.
+ *
+ * WARNING: The end user of the newly allocated template is
+ * responsible for freeing that memory.
+ *
+ * @return The desired data record, otherwise NULL for failure.
+ */
+static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
+(const struct flow_record *fr_record) {
+  struct ipfix_exporter_data *data_record = NULL;
+  struct ipfix_exporter_data_field *data_field = NULL;
+  uint8_t protocol = 0;
+
+  data_record = ipfix_exp_data_record_malloc();
+
+  if (data_record != NULL) {
+    /*
+     * Add and encode the data fields
+     */
+    /* IPFIX_SOURCE_IPV4_ADDRESS */
+    data_field = ipfix_exp_data_field_malloc(sizeof(uint32_t));
+    memcpy(data_field, &fr_record->key.sa.s_addr, sizeof(uint32_t));
+    ipfix_exp_data_record_add(data_record, data_field);
+
+    /* IPFIX_DESTINATION_IPV4_ADDRESS */
+    data_field = ipfix_exp_data_field_malloc(sizeof(uint32_t));
+    memcpy(data_field, &fr_record->key.da.s_addr, sizeof(uint32_t));
+    ipfix_exp_data_record_add(data_record, data_field);
+
+    /* IPFIX_SOURCE_TRANSPORT_PORT */
+    data_field = ipfix_exp_data_field_malloc(sizeof(uint16_t));
+    memcpy(data_field, &fr_record->key.sp, sizeof(uint16_t));
+    ipfix_exp_data_record_add(data_record, data_field);
+
+    /* IPFIX_DESTINATION_TRANSPORT_PORT */
+    data_field = ipfix_exp_data_field_malloc(sizeof(uint16_t));
+    memcpy(data_field, &fr_record->key.dp, sizeof(uint16_t));
+    ipfix_exp_data_record_add(data_record, data_field);
+
+    /* IPFIX_PROTOCOL_IDENTIFIER */
+    data_field = ipfix_exp_data_field_malloc(sizeof(uint8_t));
+    protocol = (uint8_t)(fr_record->key.prot & 0xff);
+    memcpy(data_field, &protocol, sizeof(uint8_t));
+    ipfix_exp_data_record_add(data_record, data_field);
+  } else {
+    loginfo("error: unable to malloc data record");
+  }
+
+  /* Set the type of template for identification */
+  data_record->type = IPFIX_SIMPLE_TEMPLATE;
+
+  return data_record;
+}
+
+
+/*
+ * @brief Create a data record, given a valid type.
+ *
+ * Create a new data record on the heap according to the
+ * \p template_type. If the template type is not supported then
+ * an error is logged and no data record is made because
+ * all data records must have a related template in order to
+ * be sucessfully interpreted.
+ *
+ * WARNING: The end user of the newly allocated data record is
+ * responsible for freeing that memory.
+ *
+ * @param template_type A valid entry from the enum ipfix_template_type list.
+ * @param flow_record IPFIX flow record created during the metric observation
+ *                    phase of the process, i.e. process_packet(). It contains
+ *                    information that will be encoded into the new data record.
+ *
+ * @return The desired data record, otherwise NULL for failure.
+ */
+static struct ipfix_exporter_data *ipfix_exp_create_data_record
+(enum ipfix_template_type template_type,
+ const struct flow_record *fr_record) {
+
+  struct ipfix_exporter_data *data_record = NULL;
+
+  switch (template_type) {
+    case IPFIX_SIMPLE_TEMPLATE:
+      data_record = ipfix_exp_create_simple_data_record(fr_record);
+      break;
+
+    default:
+      loginfo("api-error: template type is not supported");
+      break;
+  }
+
+  if (data_record == NULL) {
+    loginfo("error: unable to create data record");
+  }
+
+  return data_record;
 }
 
 
@@ -2925,6 +3164,175 @@ static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set
 }
 
 
+static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_record,
+                                               unsigned char *message_buf) {
+  struct ipfix_exporter_data_field *field = NULL;
+  unsigned char *ptr = NULL;
+  uint32_t bigend_src_addr = 0;
+  uint32_t bigend_dest_addr = 0;
+  uint16_t bigend_src_port = 0;
+  uint16_t bigend_dest_port = 0;
+  uint8_t protocol = 0;
+
+  if (data_record == NULL) {
+    loginfo("api-error: data_record is null");
+    return 1;
+  }
+
+  if (data_record->type != IPFIX_SIMPLE_TEMPLATE) {
+    loginfo("api-error: wrong data record type");
+    return 1;
+  }
+
+  if (data_record->field_count != 5) {
+    loginfo("error: invalid field_count, must equal 5");
+    return 1;
+  }
+
+  ptr = message_buf;
+
+  /*
+   * Encode the data fields into message buffer
+   */
+  if (data_record->fields_head != NULL) {
+    field = data_record->fields_head;
+  } else {
+    loginfo("error: no fields attached to data record");
+    return 1;
+  }
+
+  /* IPFIX_SOURCE_IPV4_ADDRESS */
+  bigend_src_addr = htonl((uint32_t)*field->value);
+  memcpy(ptr, &bigend_src_addr, field->length);
+  ptr += field->length;
+
+  if (!(field = field->next)) {
+    loginfo("error: expected field missing from list");
+    return 1;
+  }
+
+  /* IPFIX_DESTINATION_IPV4_ADDRESS */
+  bigend_dest_addr = htonl((uint32_t)*field->value);
+  memcpy(ptr, &bigend_dest_addr, field->length);
+  ptr += field->length;
+
+  if (!(field = field->next)) {
+    loginfo("error: expected field missing from list");
+    return 1;
+  }
+
+  /* IPFIX_SOURCE_TRANSPORT_PORT */
+  bigend_src_port = htons((uint16_t)*field->value);
+  memcpy(ptr, &bigend_src_port, field->length);
+  ptr += field->length;
+
+  if (!(field = field->next)) {
+    loginfo("error: expected field missing from list");
+    return 1;
+  }
+
+  /* IPFIX_DESTINATION_TRANSPORT_PORT */
+  bigend_dest_port = htons((uint16_t)*field->value);
+  memcpy(ptr, &bigend_dest_port, field->length);
+  ptr += field->length;
+
+  if (!(field = field->next)) {
+    loginfo("error: expected field missing from list");
+    return 1;
+  }
+
+  /* IPFIX_PROTOCOL_IDENTIFIER */
+  protocol = (uint8_t)*field->value;
+  memcpy(ptr, &protocol, field->length);
+
+  /*
+   * All fields were encoded into message!
+   */
+  return 0;
+}
+
+
+/*
+ * @brief Encode a data set into an IPFIX message.
+ *
+ * Take a \p set of Ipfix data records, and encode the whole
+ * \p set into a \p message_buf according RFC7011 spec.
+ * The \p message_buf may contain other other data, so this
+ * functions appends to the message, opposed to overwriting.
+ * A handle to \p msg_length is used, where the value represents
+ * the total running length of the \p message. This is used by
+ * calling functions to keep track of how much data has been
+ * written into the \p message.
+ *
+ * @param set Single set of multiple Ipfix data records.
+ * @param message Buffer for message that the template \p set will be encoded and written into.
+ * @param msg_length Total length of the \p message.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_exp_encode_data_set(struct ipfix_exporter_data_set *set,
+                                     unsigned char *message_buf,
+                                     uint16_t *msg_length) {
+  struct ipfix_exporter_data *this_data_record = NULL;
+  unsigned char *data_ptr = NULL;
+  uint16_t bigend_set_id = 0;
+  uint16_t bigend_set_len = 0;
+
+  if (message_buf == NULL) {
+    loginfo("api-error: message_buf is null");
+    return 1;
+  }
+
+  if (set == NULL) {
+    loginfo("api-error: set is null");
+    return 1;
+  }
+
+  if (set->set_hdr.length > (IPFIX_MAX_SET_LEN - *msg_length)) {
+    loginfo("error: set is larger than remaining message buffer");
+    return 1;
+  }
+
+  data_ptr = message_buf;
+
+  bigend_set_id = htons(set->set_hdr.set_id);
+  bigend_set_len = htons(set->set_hdr.length);
+
+  /* Encode the set header into message */
+  memcpy(data_ptr, &bigend_set_id, 2);
+  data_ptr += 2;
+  *msg_length += 2;
+
+  memcpy(data_ptr, &bigend_set_len, 2);
+  data_ptr += 2;
+  *msg_length += 2;
+
+  this_data_record = set->records_head;
+
+  /* Encode the set data records into message */
+  while (this_data_record != NULL) {
+    switch (this_data_record->type) {
+      case IPFIX_SIMPLE_TEMPLATE:
+        if (ipfix_exp_encode_data_record_simple(this_data_record, data_ptr)) {
+          loginfo("error: could not encode the simple data record into message");
+          return 1;
+        }
+        break;
+
+      default:
+        loginfo("error: invalid data record type, cannot encode into message");
+        return 1;
+    }
+
+    data_ptr += this_data_record->length;
+    *msg_length += this_data_record->length;
+    this_data_record = this_data_record->next;
+  }
+
+  return 0;
+}
+
+
 static int ipfix_exp_encode_set_node(struct ipfix_exporter_set_node *set_node,
                                      unsigned char *raw_msg_buf,
                                      uint16_t *buf_len) {
@@ -2947,8 +3355,8 @@ static int ipfix_exp_encode_set_node(struct ipfix_exporter_set_node *set_node,
     loginfo("warning: option set encoding not supported yet");
   } else if (set_type >= 256) {
     /* Encode the data set into the message */
-    // TODO call data set encoding function here
-    loginfo("warning: data set encoding not supported yet");
+    ipfix_exp_encode_data_set(set_node->set.data_set,
+                              raw_msg_buf, buf_len);
   } else {
     loginfo("error: invalid set type");
     return 1;
@@ -3059,13 +3467,15 @@ void ipfix_module_cleanup(void) {
 }
 
 
-int ipfix_export_main(const struct flow_record *record) {
+int ipfix_export_main(const struct flow_record *fr_record) {
   struct ipfix_message *message = NULL;
   struct ipfix_exporter_set_node *set_node = NULL;
   struct ipfix_exporter_template_set *template_set = NULL;
+  struct ipfix_exporter_data_set *data_set = NULL;
 
   struct ipfix_exporter_template *xts_tmp = NULL;
   struct ipfix_exporter_template *local_tmp = NULL;
+  struct ipfix_exporter_data *data_record = NULL;
   int rc = 0;
 
   /* Init the exporter for use, if not done already */
@@ -3109,7 +3519,30 @@ int ipfix_export_main(const struct flow_record *record) {
   /* Add the new template to the template_set */
   ipfix_exp_template_set_add(template_set, local_tmp);
 
-  /* Attach the set node to the message container */
+  /* Attach the template set node to the message container */
+  if (ipfix_exp_message_add(message, set_node)) {
+    loginfo("error: unable to attach set_node to message");
+    rc = 1;
+    goto end;
+  }
+
+  /* Create and init the set node with a data record */
+  if (!(set_node = ipfix_exp_set_node_malloc(local_tmp->hdr.template_id))) {
+    loginfo("error: unable to create a data record set_node");
+    rc = 1;
+    goto end;
+  }
+
+  /* Point local data_set to inside set_node for easy manipulation */
+  data_set = set_node->set.data_set;
+
+  /* Create a new data_record and use the current flow_record for encoding */
+  data_record = ipfix_exp_create_data_record(IPFIX_SIMPLE_TEMPLATE, fr_record);
+
+  /* Add the data_record to the data_set */
+  ipfix_exp_data_set_add(data_set, data_record);
+
+  /* Attach the data set node to the message container */
   if (ipfix_exp_message_add(message, set_node)) {
     loginfo("error: unable to attach set_node to message");
     rc = 1;
