@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <netdb.h>
+#include <openssl/rand.h>
 #include "ipfix.h"
 #include "pkt.h"
 #include "http.h"
@@ -240,7 +241,7 @@ static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
   struct sockaddr_in remote_addr;
   socklen_t remote_addrlen = 0;
   int recvlen = 0;
-  unsigned char buf[TRANSPORT_MTU]; /* FIXME need to be char instead? */
+  unsigned char buf[TRANSPORT_MTU];
   //int i = 0;
 
   /* Initialize stuff for receiving data */
@@ -1812,10 +1813,10 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
 
 
 /*
- * OBS_DOM_ID is hardcoded now for simplicity
- * FIXME make it with prng for uniqueness
+ * Exporting process observation domain id.
+ * Will be generated upon creation of the first ipfix_exporter object.
  */
-#define OBS_DOM_ID 1
+static uint32_t exporter_obs_dom_id = 0;
 
 #define IPFIX_COLLECTOR_PORT 4739
 #define HOST_NAME_MAX_SIZE 50
@@ -2024,7 +2025,7 @@ static struct ipfix_exporter_data *ipfix_exp_data_record_malloc(void) {
 
   /* Init a new exporter data record on the heap */
   data_record = malloc(sizeof(struct ipfix_exporter_data));
-  
+
   if (data_record != NULL) {
     memset(data_record, 0, sizeof(struct ipfix_exporter_data));
   } else {
@@ -2558,7 +2559,7 @@ static int ipfix_exp_set_node_init(struct ipfix_exporter_set_node *node,
     //node->length = template_set->set_hdr.length;
   } else if (set_id == IPFIX_OPTION_SET) {
     /* Create and attached an option set */
-    // FIXME change to use option_set api when it has been made
+    // TODO change to use option_set api when it has been made
     option_set = malloc(sizeof(struct ipfix_exporter_option_set));
     node->set.option_set = option_set;
     //node->length = option_set->set_hdr.length;
@@ -2634,7 +2635,7 @@ static int ipfix_exp_set_node_cleanup(struct ipfix_exporter_set_node *node) {
     ipfix_delete_exp_template_set(node->set.template_set);
   } else if (set_type == IPFIX_OPTION_SET) {
     /* Cleanup and delete the option set */
-    // FIXME change to use option_set api when it has been made
+    // TODO change to use option_set api when it has been made
     free(node->set.option_set);
   } else if (set_type >= 256) {
     /* Cleanup and delete the data set */
@@ -2688,7 +2689,7 @@ static void ipfix_exp_message_init(struct ipfix_message *message) {
     /* Must be converted to network-byte order before message send */
     message->hdr.length = 16;
     /* Set the observation domain id */
-    message->hdr.observe_dom_id = htonl(OBS_DOM_ID);
+    message->hdr.observe_dom_id = htonl(exporter_obs_dom_id);
 }
 
 
@@ -2867,6 +2868,15 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   } else {
     localhost = inet_addr("127.0.0.1");
     e->clctr_addr.sin_addr.s_addr = localhost;
+  }
+
+  /* Generate the global observation domain id if not done already */
+  if (!exporter_obs_dom_id) {
+    uint8_t rand_buf[4];
+    if (!RAND_pseudo_bytes(rand_buf, sizeof(rand_buf))) {
+      loginfo("error: observation domain id prng failure");
+    }
+    exporter_obs_dom_id = bytes_to_u32(rand_buf);
   }
 
   return 0;

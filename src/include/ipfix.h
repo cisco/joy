@@ -435,12 +435,20 @@ struct ipfix_exporter {
 };
 
 
+#define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
+
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
 #define min(a,b) \
     ({ __typeof__ (a) _a = (a); \
     __typeof__ (b) _b = (b); \
     _a < _b ? _a : _b; })
+
+#if CPU_IS_BIG_ENDIAN
+# define bytes_to_u32(bytes) (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3] 
+#else
+# define bytes_to_u32(bytes) bytes[0] + (bytes[1] << 8) + (bytes[2] << 16) + (bytes[3] << 24)
+#endif
 
 
 void *ipfix_cts_monitor(void *ptr);
