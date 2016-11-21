@@ -129,6 +129,10 @@ extern unsigned int ipfix_collect_online;
 
 extern unsigned int ipfix_export_port;
 
+extern unsigned int ipfix_export_remote_port;
+
+extern char *ipfix_export_remote_host;
+
 extern zfile output;
 
 extern FILE *info;
@@ -312,6 +316,11 @@ static int usage (char *s) {
            "  ipfix_collect_port=N       enable IPFIX collector on port N\n"
            "  ipfix_collect_online=1     use an active UDP socket for IPFIX collector\n"
            "  ipfix_export_port=N        enable IPFIX export on port N\n"
+           "  ipfix_export_remote_port=N IPFIX exporter will send to port N that exists on the remote server target\n"
+           "                             Default=4739\n"
+           "  ipfix_export_remote_host=\"host\"\n"
+           "                             Use \"host\" as the remote server target for the IPFIX exporter\n"
+           "                             Default=\"127.0.0.1\" (localhost)\n"
            "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
@@ -382,8 +391,8 @@ int main (int argc, char **argv) {
     enum operating_mode mode = mode_none;
     pthread_t upd_thread;
     int upd_rc;
-    //pthread_t ipfix_cts_monitor_thread;
-    //int cts_monitor_thread_rc;
+    pthread_t ipfix_cts_monitor_thread;
+    int cts_monitor_thread_rc;
 
     /* sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -479,6 +488,8 @@ int main (int argc, char **argv) {
         ipfix_collect_port = config.ipfix_collect_port;
         ipfix_collect_online = config.ipfix_collect_online;
         ipfix_export_port = config.ipfix_export_port;
+        ipfix_export_remote_port = config.ipfix_export_remote_port;
+        ipfix_export_remote_host = config.ipfix_export_remote_host;
 
         set_config_all_features(feature_list);
 
@@ -925,7 +936,6 @@ int main (int argc, char **argv) {
          * Start up the IPFIX collector template store (cts) monitor
          * thread. Monitor is only active during live capture runs.
          */
-#if 0
         cts_monitor_thread_rc = pthread_create(&ipfix_cts_monitor_thread,
                                                NULL,
                                                ipfix_cts_monitor,
@@ -935,7 +945,6 @@ int main (int argc, char **argv) {
           fprintf(info, "pthread_create() rc: %d\n", cts_monitor_thread_rc);
           return -7;
         }
-#endif
 
         flow_record_list_init();
 

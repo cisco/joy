@@ -223,6 +223,10 @@ unsigned int ipfix_collect_online = 0;
 
 unsigned int ipfix_export_port = 0;
 
+unsigned int ipfix_export_remote_port = 0;
+
+char *ipfix_export_remote_host = NULL;
+
 zfile output = NULL;
 
 FILE *info = NULL;

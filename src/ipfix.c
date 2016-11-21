@@ -83,7 +83,7 @@ static FILE *print_dest = NULL;
 
 #define CTS_MONITOR_INTERVAL (30)
 #define CTS_EXPIRE_TIME (1800) /* 30 minutes */
-//static pthread_mutex_t cts_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t cts_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  * Doubly linked list for collector template store (cts).
@@ -128,6 +128,7 @@ static struct ipfix_raw_message raw_message;
  */
 extern unsigned int ipfix_collect_port;
 extern unsigned int ipfix_export_port;
+extern unsigned int ipfix_export_remote_port;
 extern unsigned int include_tls;
 extern struct configuration config;
 define_all_features_config_extern_uint(feature_list);
@@ -380,9 +381,9 @@ static int ipfix_cts_scan_expired(void) {
   struct ipfix_template *next_template;
   int rc = 0;
 
-  //pthread_mutex_lock(&cts_lock);
+  pthread_mutex_lock(&cts_lock);
   if (collect_template_store_head == NULL) {
-    //pthread_mutex_unlock(&cts_lock);
+    pthread_mutex_unlock(&cts_lock);
     return rc;
   }
 
@@ -403,7 +404,7 @@ static int ipfix_cts_scan_expired(void) {
       rc += 1;
     }
   }
-  //pthread_mutex_unlock(&cts_lock);
+  pthread_mutex_unlock(&cts_lock);
 
   return rc;
 }
@@ -483,9 +484,9 @@ void ipfix_cts_cleanup(void) {
   struct ipfix_template *this_template;
   struct ipfix_template *next_template;
 
-  //pthread_mutex_lock(&cts_lock);
+  pthread_mutex_lock(&cts_lock);
   if (collect_template_store_head == NULL) {
-    //pthread_mutex_unlock(&cts_lock);
+    pthread_mutex_unlock(&cts_lock);
     return;
   }
 
@@ -501,7 +502,7 @@ void ipfix_cts_cleanup(void) {
 
     ipfix_cts_delete(this_template);
   }
-  //pthread_mutex_unlock(&cts_lock);
+  pthread_mutex_unlock(&cts_lock);
 }
 
 
@@ -573,9 +574,9 @@ static int ipfix_cts_search(struct ipfix_template_key needle,
                             int flag_renew) {
   struct ipfix_template *cur_template;
 
-  //pthread_mutex_lock(&cts_lock);
+  pthread_mutex_lock(&cts_lock);
   if (collect_template_store_head == NULL) {
-    //pthread_mutex_unlock(&cts_lock);
+    pthread_mutex_unlock(&cts_lock);
     return 0;
   }
 
@@ -588,7 +589,7 @@ static int ipfix_cts_search(struct ipfix_template_key needle,
     if (dest_template != NULL) {
       ipfix_cts_copy(dest_template, cur_template);
     }
-    //pthread_mutex_unlock(&cts_lock);
+    pthread_mutex_unlock(&cts_lock);
     return 1;
   }
 
@@ -602,11 +603,11 @@ static int ipfix_cts_search(struct ipfix_template_key needle,
       if (dest_template != NULL) {
         ipfix_cts_copy(dest_template, cur_template);
       }
-      //pthread_mutex_unlock(&cts_lock);
+      pthread_mutex_unlock(&cts_lock);
       return 1;
     }
   }
-  //pthread_mutex_unlock(&cts_lock);
+  pthread_mutex_unlock(&cts_lock);
 
   return 0;
 }
@@ -680,7 +681,7 @@ static int ipfix_cts_append(struct ipfix_template *tmp) {
   /* Write the current time */
   template->last_seen = time(NULL);
 
-  //pthread_mutex_lock(&cts_lock);
+  pthread_mutex_lock(&cts_lock);
   if (collect_template_store_head == NULL) {
     /* This is the first template in store list */
     collect_template_store_head = template;
@@ -695,7 +696,7 @@ static int ipfix_cts_append(struct ipfix_template *tmp) {
 
   /* Increment the store count */
   cts_count += 1;
-  //pthread_mutex_unlock(&cts_lock);
+  pthread_mutex_unlock(&cts_lock);
 
   return 0;
 }
@@ -1818,7 +1819,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
  */
 static uint32_t exporter_obs_dom_id = 0;
 
-#define IPFIX_COLLECTOR_PORT 4739
+#define IPFIX_COLLECTOR_DEFAULT_PORT 4739
 #define HOST_NAME_MAX_SIZE 50
 
 static uint16_t exporter_template_id = 256;
@@ -2854,9 +2855,23 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
     return 1;
   }
 
+  /* Set local (exporter) address */
+  e->exprt_addr.sin_family = AF_INET;
+  e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  e->exprt_addr.sin_port = htons(ipfix_export_port);
+  if (bind(e->socket, (struct sockaddr *)&e->exprt_addr,
+           sizeof(e->exprt_addr)) < 0) {
+    loginfo("error: bind address failed");
+    return 1;
+  }
+
   /* Set remote (collector) address */
   e->clctr_addr.sin_family = AF_INET;
-  e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_PORT);
+  if (ipfix_export_remote_port) {
+    e->clctr_addr.sin_port = htons(ipfix_export_remote_port);
+  } else {
+    e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_DEFAULT_PORT);
+  }
 
   if (host_name != NULL) {
     host = gethostbyname(host_desc);

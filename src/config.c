@@ -231,8 +231,14 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "ipfix_collect_online")) {
         parse_check(parse_bool(&config->ipfix_collect_online, arg, num));
 
-    } else if (match(command, "ipfix_export")) {
+    } else if (match(command, "ipfix_export_port")) {
         parse_check(parse_int(&config->ipfix_export_port, arg, num, 0, 0xffff));
+
+    } else if (match(command, "ipfix_export_remote_port")) {
+        parse_check(parse_int(&config->ipfix_export_remote_port, arg, num, 0, 0xffff));
+
+    } else if (match(command, "ipfix_export_remote_host")) {
+        parse_check(parse_string(&config->ipfix_export_remote_host, arg, num));
 
     } else if (match(command, "nat")) {
         parse_check(parse_bool(&config->flow_key_match_method, arg, num));
