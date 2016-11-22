@@ -337,6 +337,8 @@ struct ipfix_exporter_template {
   struct ipfix_template_hdr hdr;
   struct ipfix_exporter_template_field *fields;
   enum ipfix_template_type type;
+  time_t last_sent; /**< the last time this template was sent to the collector */
+  //time_t last_used; /**< the most recent time a data set was sent referencing this template */
   uint16_t length; /**< total length the template, including header */
 
   struct ipfix_exporter_template *next;
@@ -410,6 +412,8 @@ struct ipfix_exporter_set_node {
 struct ipfix_message {
   struct ipfix_hdr hdr;
 
+  time_t creation_time; /**< used to track how long the message has existed */
+
   struct ipfix_exporter_set_node *sets_head;
   struct ipfix_exporter_set_node *sets_tail;
 };
@@ -478,6 +482,9 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
 
 
 int ipfix_collect_main(void);
+
+
+int ipfix_export_flush_message(void);
 
 
 int ipfix_export_main(const struct flow_record *record);
