@@ -33,19 +33,19 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
-/**
- * \file modules.h
+/*
+ * utils.h
  *
- * \brief module interface
- *
+ * utilites that can be used by pcap2flow feature modules 
  */
-#ifndef MODULES_H
-#define MODULES_H
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* secure shell protocol         */
+#ifndef P2FUTILS
+#define P2FUTILS
 
-#endif /* MODULES_H */
+enum role {
+  role_unknown = 0,
+  role_client  = 1,
+  role_server  = 2
+};
+
+#endif /* P2FUTILS */

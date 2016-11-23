@@ -104,7 +104,7 @@
  * included in the flow_record.  To include/exclude a feature in a
  * build of pcap2flow, add/remove it from this list.
  */
-#define feature_list wht, example, dns
+#define feature_list wht, example, dns, ssh
 
 #define define_feature_config_uint(f) unsigned int report_##f = 0;
 #define define_all_features_config_uint(flist) MAP(define_feature_config_uint, flist)
