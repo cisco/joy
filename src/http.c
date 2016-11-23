@@ -513,6 +513,8 @@ static void http_header_print_as_object (zfile f, char *header, char *string, un
     enum http_type type = http_done;  
     struct matches matches;
 
+    token1 = token2 = NULL; /* initialize just to avoid compiler warnings */
+
     zprintf(f, ",\"%s\":{", string);
 
     if (length < 4) {
