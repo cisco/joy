@@ -367,6 +367,7 @@ struct ipfix_exporter_data {
 struct ipfix_exporter_template_set {
   struct ipfix_set_hdr set_hdr;
 
+  struct ipfix_message *parent_message; /**< message which the set is attached to */
   struct ipfix_exporter_template *records_head;
   struct ipfix_exporter_template *records_tail;
 };
@@ -387,6 +388,7 @@ struct ipfix_exporter_option_set {
 struct ipfix_exporter_data_set {
   struct ipfix_set_hdr set_hdr;
 
+  struct ipfix_message *parent_message; /**< message which the set is attached to */
   struct ipfix_exporter_data *records_head;
   struct ipfix_exporter_data *records_tail;
 };

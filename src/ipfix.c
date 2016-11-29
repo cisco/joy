@@ -2087,7 +2087,7 @@ static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data
   ipfix_exp_data_record_cleanup(data_record);
 
   /* Free the data record */
-  memset(data_record, 0, sizeof(struct ipfix_exporter_template));
+  memset(data_record, 0, sizeof(struct ipfix_exporter_data));
   free(data_record);
 }
 
@@ -2338,6 +2338,13 @@ static void ipfix_exp_template_set_add(struct ipfix_exporter_template_set *set,
 
   /* Update the set length with total size of template */
   set->set_hdr.length += template->length;
+  if (set->parent_message) {
+    /*
+     * The template set has already been attached to a message,
+     * so update the length of that as well.
+     */
+    set->parent_message->hdr.length += template->length;
+  }
 }
 
 
@@ -2472,6 +2479,13 @@ static void ipfix_exp_data_set_add(struct ipfix_exporter_data_set *set,
 
   /* Update the set length with total size of data record */
   set->set_hdr.length += data_record->length;
+  if (set->parent_message) {
+    /*
+     * The data set has already been attached to a message,
+     * so update the length of that as well.
+     */
+    set->parent_message->hdr.length += data_record->length;
+  }
 }
 
 
@@ -2720,13 +2734,15 @@ static struct ipfix_message *ipfix_exp_message_malloc(void) {
 
 
 /*
- * @brief Append to the list of data records attached to the set.
+ * @brief Find the an IPFIX template set in a message.
  *
- * The \p set contains the head/tail of a list of related data_record.
- * Here, \p data_record will be added to that list.
+ * Look for a valid template set which is attached to the \p message.
+ * It is not necessary to provide a set id, because templates sets
+ * will always have a set id equal to 2.
  *
- * @param set Pointer to an ipfix_exporter_data_set in memory.
- * @param data_record IPFIX exporter data record that will be appended.
+ * @param message Pointer to an ipfix_message in memory.
+ *
+ * @return The desired data set, or NULL
  */
 static struct ipfix_exporter_template_set *ipfix_exp_message_find_template_set
 (struct ipfix_message *message) {
@@ -2763,13 +2779,15 @@ static struct ipfix_exporter_template_set *ipfix_exp_message_find_template_set
 
 
 /*
- * @brief Append to the list of data records attached to the set.
+ * @brief Find the requested IPFIX data set in a message.
  *
- * The \p set contains the head/tail of a list of related data_record.
- * Here, \p data_record will be added to that list.
+ * Look for a data set which matches the \p set_id and which
+ * is attached to the \p message.
  *
- * @param set Pointer to an ipfix_exporter_data_set in memory.
- * @param data_record IPFIX exporter data record that will be appended.
+ * @param message Pointer to an ipfix_message in memory.
+ * @param set_id The set id of the data set, used to identify it.
+ *
+ * @return The desired data set, or NULL
  */
 static struct ipfix_exporter_data_set *ipfix_exp_message_find_data_set
 (struct ipfix_message *message,
@@ -2841,6 +2859,7 @@ static int ipfix_exp_message_add(struct ipfix_message *message,
       loginfo("info: message is full, please attach to another message");
       return 2;
     }
+    node->set.template_set->parent_message = message;
     message->hdr.length += node->set.template_set->set_hdr.length;
   } else if (set_type == IPFIX_OPTION_SET) {
     /* Add the option set length */
@@ -2848,6 +2867,7 @@ static int ipfix_exp_message_add(struct ipfix_message *message,
       loginfo("info: message is full, please attach to another message");
       return 2;
     }
+    // TODO add parent message here for option set
     message->hdr.length += node->set.option_set->set_hdr.length;
   } else if (set_type >= 256) {
     /* Add the data set length */
@@ -2855,6 +2875,7 @@ static int ipfix_exp_message_add(struct ipfix_message *message,
       loginfo("info: message is full, please attach to another message");
       return 2;
     }
+    node->set.data_set->parent_message = message;
     message->hdr.length += node->set.data_set->set_hdr.length;
   } else {
     loginfo("error: invalid set type");
@@ -3678,6 +3699,7 @@ void ipfix_module_cleanup(void) {
   ipfix_xts_cleanup();
   if (export_message != NULL) {
     ipfix_delete_exp_message(export_message);
+    export_message = NULL;
   }
 }
 
@@ -3804,6 +3826,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
           if (export_message) {
             /* Cleanup the message, handles all cleanup of all attached set containers */
             ipfix_delete_exp_message(export_message);
+            export_message = NULL;
           }
 
           /* Call myself to create a new message for the set that was leftover */
@@ -3815,7 +3838,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
        * The valid Template Set already exists in message.
        * Simply make the template and attach to the template_set.
        */
-      if (local_tmp->length + export_message->hdr.length <= IPFIX_MTU) {
+      if (local_tmp->length + export_message->hdr.length <= IPFIX_MAX_SET_LEN) {
         /* Add the new template to the template_set */
         ipfix_exp_template_set_add(template_set, local_tmp);
 
@@ -3841,6 +3864,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
         if (export_message) {
           /* Cleanup the message, handles all cleanup of all attached set containers */
           ipfix_delete_exp_message(export_message);
+          export_message = NULL;
         }
 
         /* Call myself to create a new message for the data record that was leftover */
@@ -3906,6 +3930,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
         if (export_message) {
           /* Cleanup the message, handles all cleanup of all attached set containers */
           ipfix_delete_exp_message(export_message);
+          export_message = NULL;
         }
         /* Call myself to create a new message for the set that was leftover */
         ipfix_export_main(fr_record);
@@ -3919,7 +3944,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
     /* Create a new data_record and use the current flow_record for encoding */
     data_record = ipfix_exp_create_data_record(IPFIX_SIMPLE_TEMPLATE, fr_record);
 
-    if (data_record->length + export_message->hdr.length <= IPFIX_MTU) {
+    if (data_record->length + export_message->hdr.length <= IPFIX_MAX_SET_LEN) {
       /* Add the data record to the existing data set */
       ipfix_exp_data_set_add(data_set, data_record);
     } else {
@@ -3929,6 +3954,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
       if (export_message) {
         /* Cleanup the message, handles all cleanup of all attached set containers */
         ipfix_delete_exp_message(export_message);
+        export_message = NULL;
       }
       /* Delete the unsent data record */
       if (data_record) {
