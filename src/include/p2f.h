@@ -52,7 +52,6 @@
 #include <time.h>
 
 #include "tls.h"          /* provides TLS awareness        */
-#include "pkt_proc.h"     /* for struct tls_type_code      */
 #include "hdr_dsc.h"      /* header description (proto id) */
 #include "http.h"         /* http header data              */
 #include "modules.h"      

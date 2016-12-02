@@ -79,7 +79,8 @@
 enum operating_mode {
     mode_none = 0,
     mode_offline = 1,
-    mode_online = 2
+    mode_online = 2,
+    mode_ipfix_collect_online = 3
 };
 
 /* some globals defined in p2f.c */
@@ -122,7 +123,15 @@ extern unsigned int include_classifier;
 
 extern unsigned int nfv9_capture_port;
 
-extern unsigned int ipfix_capture_port;
+extern unsigned int ipfix_collect_port;
+
+extern unsigned int ipfix_collect_online;
+
+extern unsigned int ipfix_export_port;
+
+extern unsigned int ipfix_export_remote_port;
+
+extern char *ipfix_export_remote_host;
 
 extern zfile output;
 
@@ -304,7 +313,14 @@ static int usage (char *s) {
            "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
            "  retain=1                   retain a local copy of file after upload\n" 
            "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
-           "  ipfix_cap_port=N           enable IPFIX capture on port N\n"
+           "  ipfix_collect_port=N       enable IPFIX collector on port N\n"
+           "  ipfix_collect_online=1     use an active UDP socket for IPFIX collector\n"
+           "  ipfix_export_port=N        enable IPFIX export on port N\n"
+           "  ipfix_export_remote_port=N IPFIX exporter will send to port N that exists on the remote server target\n"
+           "                             Default=4739\n"
+           "  ipfix_export_remote_host=\"host\"\n"
+           "                             Use \"host\" as the remote server target for the IPFIX exporter\n"
+           "                             Default=\"127.0.0.1\" (localhost)\n"
            "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
@@ -375,8 +391,8 @@ int main (int argc, char **argv) {
     enum operating_mode mode = mode_none;
     pthread_t upd_thread;
     int upd_rc;
-    //pthread_t ipfix_cts_monitor_thread;
-    //int cts_monitor_thread_rc;
+    pthread_t ipfix_cts_monitor_thread;
+    int cts_monitor_thread_rc;
 
     /* sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -469,7 +485,11 @@ int main (int argc, char **argv) {
         report_idp = config.idp;
         salt_algo = config.type;
         nfv9_capture_port = config.nfv9_capture_port;
-        ipfix_capture_port = config.ipfix_capture_port;
+        ipfix_collect_port = config.ipfix_collect_port;
+        ipfix_collect_online = config.ipfix_collect_online;
+        ipfix_export_port = config.ipfix_export_port;
+        ipfix_export_remote_port = config.ipfix_export_remote_port;
+        ipfix_export_remote_host = config.ipfix_export_remote_host;
 
         set_config_all_features(feature_list);
 
@@ -495,6 +515,24 @@ int main (int argc, char **argv) {
          */
         config.interface = cli_interface;
     }
+
+    if (config.ipfix_collect_port && config.ipfix_export_port) {
+        /*
+         * Simultaneous IPFIX collection and exporting is not allowed
+         */
+        fprintf(info, "error: ipfix collection and exporting not allowed at same time\n");
+        return -1;
+    }
+
+    if (config.ipfix_collect_online && !(config.ipfix_collect_port)) {
+        /*
+         * Cannot use online collection when the overall Ipfix collect feature is not enabled.
+         */
+        fprintf(info, "error: must enable IPFIX collection via ipfix_collect_port "
+                      "to use ipfix_collect_online\n");
+        return -1;
+    }
+
     if (config.filename) {
         strncpy(filename, config.filename, MAX_FILENAME_LEN);
     }
@@ -503,8 +541,18 @@ int main (int argc, char **argv) {
      * set the operating mode to online or offline 
      */
     if (config.interface != NULL && strcmp(config.interface, NULL_KEYWORD)) {
+        /* Network interface sniffing using Pcap */
+        if (config.ipfix_collect_port) {
+            /* Ipfix collection does not use interface sniffing */
+            fprintf(info, "error: ipfix collection and interface monitoring not allowed at same time\n");
+            return -1;
+        }
         mode = mode_online;
+    } else if (config.ipfix_collect_online) {
+        /* Ipfix live collecting process */
+        mode = mode_ipfix_collect_online;
     } else {
+        /* Static Pcap file consumption */
         mode = mode_offline;
     }
     
@@ -786,22 +834,6 @@ int main (int argc, char **argv) {
         }
 
         /*
-         * Start up the IPFIX collector template store (cts) monitor
-         * thread. Monitor is only active during live capture runs.
-         */
-#if 0
-        cts_monitor_thread_rc = pthread_create(&ipfix_cts_monitor_thread,
-                                               NULL,
-                                               ipfix_cts_monitor,
-                                               (void*)NULL);
-        if (cts_monitor_thread_rc) {
-          fprintf(info, "error: could not start ipfix cts monitor thread\n");
-          fprintf(info, "pthread_create() rc: %d\n", cts_monitor_thread_rc);
-          return -7;
-        }
-#endif
- 
-        /*
          * start up the updater thread
          *   updater is only active during live capture runs
          */
@@ -894,6 +926,32 @@ int main (int argc, char **argv) {
         pcap_close(handle);
  
 
+    } else if (mode == mode_ipfix_collect_online) {
+        /* IPFIX live collecting process */
+        signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
+        signal(SIGTERM, sig_close);
+        signal(SIGQUIT, sig_reload);   /* Ctl-\ causes an info dump      */
+
+        /*
+         * Start up the IPFIX collector template store (cts) monitor
+         * thread. Monitor is only active during live capture runs.
+         */
+        cts_monitor_thread_rc = pthread_create(&ipfix_cts_monitor_thread,
+                                               NULL,
+                                               ipfix_cts_monitor,
+                                               (void*)NULL);
+        if (cts_monitor_thread_rc) {
+          fprintf(info, "error: could not start ipfix cts monitor thread\n");
+          fprintf(info, "pthread_create() rc: %d\n", cts_monitor_thread_rc);
+          return -7;
+        }
+
+        flow_record_list_init();
+
+        ipfix_collect_main();
+
+        flow_record_list_print_json(NULL);
+        fflush(info);
     } else { /* mode = mode_offline */
 
         if ((argc-opt_count <= 1) && (ifile == NULL)) {
@@ -944,8 +1002,10 @@ int main (int argc, char **argv) {
     flocap_stats_output(info);
     // config_print(info, &config);
 
-    /* Free any of the leftover IPFIX templates before program exit */
-    ipfix_cts_cleanup();
+    /* Flush any unsent exporter messages in Ipfix module */
+    ipfix_export_flush_message();
+    /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
+    ipfix_module_cleanup();
 
     zclose(output);
 

@@ -45,6 +45,8 @@
 #define IPFIX_H
 
 #include <time.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include "p2f.h"
@@ -202,7 +204,7 @@ struct ipfix_option_hdr {
 
 
 /*
- * @brief Structure representing a template field specifier.
+ * @brief Structure representing a Collector Template Field specifier.
  *
  * This may not have the enterprise_num field populated with
  * data depending on whether the leftmost bit of info_elem_id
@@ -218,12 +220,8 @@ struct ipfix_template_field {
 };
 
 
-#define IPFIX_MAX_LEN 1480
-#define IPFIX_MAX_FIELDS (IPFIX_MAX_LEN/4)
-
-
 /*
- * @brief Structure representing a Template key.
+ * @brief Structure representing a Collector Template key.
  *
  * Used by the Collector to track Templates as unique entities.
  */
@@ -235,7 +233,7 @@ struct ipfix_template_key {
 
 
 /*
- * @brief Structure representing a single Template entity.
+ * @brief Structure representing a single Collector Template entity.
  *
  * Stored by the collector to interpret subsequent related Data Sets.
  */
@@ -254,34 +252,8 @@ struct ipfix_template {
 
 
 /*
- * @brief Structure representing a Template Set.
+ * @brief Structure representing an IPFIX "basicList" data type.
  */
-struct ipfix_template_set {
-  struct ipfix_set_hdr set_hdr;
-  struct ipfix_template_hdr template_hdr; /**< First template header is always needed */
-  unsigned char set[IPFIX_MAX_LEN]; /**< May contain more template headers */
-};
-
-
-/*
- * @brief Structure representing an Options Set.
- */
-struct ipfix_option_set {
-  struct ipfix_set_hdr set_hdr;
-  struct ipfix_option_hdr option_hdr; /**< First options header is always needed */
-  unsigned char set[IPFIX_MAX_LEN]; /**< May contain more options headers */
-};
-
-
-/*
- * @brief Structure representing a Data Set.
- */
-struct ipfix_data_set {
-  struct ipfix_set_hdr set_hdr;
-  unsigned char set[IPFIX_MAX_LEN];
-};
-
-
 struct __attribute__((__packed__)) ipfix_basic_list_hdr {
   uint8_t semantic;
   uint16_t field_id;
@@ -291,17 +263,185 @@ struct __attribute__((__packed__)) ipfix_basic_list_hdr {
 
 
 /*
- * @brief Structure representing an IPFIX message.
+ * @brief Structure representing an IPFIX Collector.
  */
-struct ipfix_msg {
-  struct ipfix_hdr hdr;
-  union {
-    struct ipfix_template_set template_fs;
-    struct ipfix_data_set     data_fs;
-    struct ipfix_option_set   option_fs;
-  } set;
+struct ipfix_collector {
+    struct sockaddr_in clctr_addr;  /**< collector address */
+    int socket;
+    unsigned int msg_count;
 };
 
+
+/*
+ * Buffer size for sending/receiving network messages.
+ */
+#define TRANSPORT_MTU 1500
+
+/*
+ * The maximum length of any single IPFIX message.
+ * 1500 - 20 (IP hdr) - 8 (UDP hdr)
+ */
+#define IPFIX_MTU 1472
+
+/*
+ * The maximum length of a set including it's header.
+ * IPFIX_MTU - sizeof(ipfix_hdr)
+ */
+#define IPFIX_MAX_SET_LEN 1456
+
+/*
+ * The maximum length of the data contained within a set.
+ * IPFIX_MAX_SET_LEN - sizeof(ipfix_set_hdr)
+ */
+#define IPFIX_MAX_SET_DATA_LEN 1448
+
+/*
+ * The maximum number of fields allowed residing within the data of a set.
+ * IPFIX_MAX_SET_LEN - sizeof(ipfix_set_hdr)
+ */
+#define IPFIX_MAX_FIELDS (IPFIX_MAX_SET_DATA_LEN/4)
+
+
+/*
+ * @brief Enumeration representing IPFIX template type ids.
+ * 
+ * These are not defined in the spec, but rather created
+ * and maintained locally in accordance with the spec in order
+ * to export particular data we are interested in.
+ */
+enum ipfix_template_type {
+  IPFIX_RESERVED_TEMPLATE =                          0,
+  IPFIX_SIMPLE_TEMPLATE =                            1
+};
+
+
+struct ipfix_exporter_template_field {
+  uint16_t info_elem_id;
+  uint16_t fixed_length;
+  uint32_t enterprise_num;
+};
+
+
+struct ipfix_exporter_data_field {
+  unsigned char *value;
+  uint16_t length; /**< length of the value */
+
+  struct ipfix_exporter_data_field *next;
+};
+
+
+/*
+ * @brief Structure representing an IPFIX Exporter Template.
+ */
+struct ipfix_exporter_template {
+  struct ipfix_template_hdr hdr;
+  struct ipfix_exporter_template_field *fields;
+  enum ipfix_template_type type;
+  time_t last_sent; /**< the last time this template was sent to the collector */
+  //time_t last_used; /**< the most recent time a data set was sent referencing this template */
+  uint16_t length; /**< total length the template, including header */
+
+  struct ipfix_exporter_template *next;
+  struct ipfix_exporter_template *prev;
+};
+
+
+/*
+ * @brief Structure representing an IPFIX Exporter Data record.
+ */
+struct ipfix_exporter_data {
+  struct ipfix_exporter_data_field *fields_head;
+  struct ipfix_exporter_data_field *fields_tail;
+  enum ipfix_template_type type;
+  uint16_t field_count; /**< number of field values in list */
+  uint16_t length; /**< total length the data record */
+
+  struct ipfix_exporter_data *next;
+  struct ipfix_exporter_data *prev;
+};
+
+
+/*
+ * @brief Structure representing a Template Set.
+ */
+struct ipfix_exporter_template_set {
+  struct ipfix_set_hdr set_hdr;
+
+  struct ipfix_message *parent_message; /**< message which the set is attached to */
+  struct ipfix_exporter_template *records_head;
+  struct ipfix_exporter_template *records_tail;
+};
+
+
+/*
+ * @brief Structure representing an Options Set.
+ */
+struct ipfix_exporter_option_set {
+  struct ipfix_set_hdr set_hdr;
+  unsigned char set[IPFIX_MAX_SET_DATA_LEN];
+};
+
+
+/*
+ * @brief Structure representing a Data Set.
+ */
+struct ipfix_exporter_data_set {
+  struct ipfix_set_hdr set_hdr;
+
+  struct ipfix_message *parent_message; /**< message which the set is attached to */
+  struct ipfix_exporter_data *records_head;
+  struct ipfix_exporter_data *records_tail;
+};
+
+
+struct ipfix_exporter_set_node {
+  uint16_t set_type; /**< the internal set id, made visible here */
+  //uint16_t length; /**< internal set length, made visible here */
+  union {
+    struct ipfix_exporter_template_set *template_set;
+    struct ipfix_exporter_option_set *option_set;
+    struct ipfix_exporter_data_set *data_set;
+  } set;
+
+  struct ipfix_exporter_set_node *next;
+  struct ipfix_exporter_set_node *prev;
+};
+
+
+/*
+ * @brief Structure representing an IPFIX message.
+ */
+struct ipfix_message {
+  struct ipfix_hdr hdr;
+
+  time_t creation_time; /**< used to track how long the message has existed */
+
+  struct ipfix_exporter_set_node *sets_head;
+  struct ipfix_exporter_set_node *sets_tail;
+};
+
+
+/*
+ * @brief Structure representing the raw data of an IPFIX message.
+ */
+struct ipfix_raw_message {
+  struct ipfix_hdr hdr;
+  unsigned char payload[IPFIX_MAX_SET_LEN];
+};
+
+
+/*
+ * @brief Structure representing an IPFIX Exporter.
+ */
+struct ipfix_exporter {
+    struct sockaddr_in exprt_addr;  /**< exporter address */
+    struct sockaddr_in clctr_addr;  /**< collector address */
+    int socket;
+    unsigned int msg_count;
+};
+
+
+#define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
 
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
@@ -310,11 +450,23 @@ struct ipfix_msg {
     __typeof__ (b) _b = (b); \
     _a < _b ? _a : _b; })
 
+#if CPU_IS_BIG_ENDIAN
+# define bytes_to_u32(bytes) (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3] 
+#else
+# define bytes_to_u32(bytes) bytes[0] + (bytes[1] << 8) + (bytes[2] << 16) + (bytes[3] << 24)
+#endif
+
 
 void *ipfix_cts_monitor(void *ptr);
 
 
+void ipfix_module_cleanup(void);
+
+
 void ipfix_cts_cleanup(void);
+
+
+void ipfix_xts_cleanup(void);
 
 
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
@@ -331,9 +483,28 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          struct flow_key *prev_key);
 
 
+int ipfix_collect_main(void);
+
+
+int ipfix_export_flush_message(void);
+
+
+int ipfix_export_main(const struct flow_record *record);
+
+
+/*
+ * @brief Enumeration representing IPFIX set type ids.
+ */
+enum ipfix_set_type {
+  IPFIX_RESERVED_SET_0 =                            0,
+  IPFIX_RESERVED_SET_1 =                            1,
+  IPFIX_TEMPLATE_SET =                              2,
+  IPFIX_OPTION_SET =                                3,
+};
+
+
 /*
  * @brief Enumeration representing IPFIX field entities.
- *
  */
 enum ipfix_entities {
   IPFIX_RESERVED =                                  0,

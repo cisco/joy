@@ -75,7 +75,10 @@ struct configuration {
     unsigned int max_records;
     unsigned int output_level;
     unsigned int nfv9_capture_port;
-    unsigned int ipfix_capture_port;
+    unsigned int ipfix_collect_port;
+    unsigned int ipfix_collect_online;
+    unsigned int ipfix_export_port;
+    unsigned int ipfix_export_remote_port;
     unsigned int flow_key_match_method;
   
     declare_all_features_config_uint(feature_list);
@@ -92,6 +95,7 @@ struct configuration {
     char *params_file;
     char *bpf_filter_exp;
     char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
+    char *ipfix_export_remote_host;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
 };
 
