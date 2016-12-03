@@ -35,18 +35,57 @@
  */
 
 /**
- * \file modules.h
+ * \file ip_id.h
  *
- * \brief module interface
+ * \brief ip_id generic programming interface defined in feature.h.
  *
  */
-#ifndef MODULES_H
-#define MODULES_H
+#ifndef IP_ID_H
+#define IP_ID_H
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* secure shell protocol         */
-#include "ip_id.h"        /* ipv4 identification field     */
+#include <stdio.h> 
+#include "output.h"
+#include "feature.h"
 
-#endif /* MODULES_H */
+/** 
+ * MAX_NUM_IP_ID is the maximum number of IP ID fields that will be
+ * reported for a single flow
+ */
+#define MAX_NUM_IP_ID 50
+
+/** usage string */
+#define ip_id_usage "  ip_id=1                    include ip_id feature\n"
+
+/** ip_id filter key */
+#define ip_id_filter(key) 1
+  
+/** ip_id structure */
+typedef struct ip_id {
+    unsigned short int num_ip_id;
+    unsigned short int id[MAX_NUM_IP_ID];
+} ip_id_t;
+
+
+declare_feature(ip_id);
+
+/** initialization function */
+void ip_id_init(struct ip_id *ip_id);
+
+/** update ip_id */
+void ip_id_update(struct ip_id *ip_id, 
+		    const void *data, 
+		    unsigned int len, 
+		    unsigned int report_ip_id);
+
+/** JSON print ip_id */
+void ip_id_print_json(const struct ip_id *w1, 
+		    const struct ip_id *w2,
+		    zfile f);
+
+/** delete ip_id */
+void ip_id_delete(struct ip_id *ip_id);
+
+/** ip_id unit test entry point */
+void ip_id_unit_test();
+
+#endif /* IP_ID_H */

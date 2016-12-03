@@ -691,7 +691,7 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
-    update_all_features(feature_list);
+    update_all_features(payload_feature_list);
     
     /* if packet has port 443 and nonzero data length, process it as TLS */
     if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
@@ -770,7 +770,7 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
-    update_all_features(feature_list);
+    update_all_features(payload_feature_list);
 
     if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
         process_nfv9(h, payload, size_payload, record);
@@ -844,7 +844,7 @@ process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct fl
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
-    update_all_features(feature_list);
+    update_all_features(payload_feature_list);
   
     return record;
 }
@@ -894,7 +894,7 @@ process_ip (const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struc
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
-    update_all_features(feature_list);
+    update_all_features(payload_feature_list);
 
     return record;
 }
@@ -974,7 +974,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         key.da = ip->ip_dst;
         proto = key.prot = IPPROTO_IP;
     }  
-
+    
     /* determine transport protocol and handle appropriately */
 
     transport_start = (void *)ip + ip_hdr_len;
@@ -993,6 +993,9 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
             record = process_ip(header, transport_start, transport_len, &key);
             break;
     }
+
+    /* apply IP-specific feature processing */
+    update_all_ip_features(ip_feature_list);
 
     /*
      * if our packet is malformed TCP, UDP, or ICMP, then the process

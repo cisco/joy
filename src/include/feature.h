@@ -104,7 +104,10 @@
  * included in the flow_record.  To include/exclude a feature in a
  * build of pcap2flow, add/remove it from this list.
  */
-#define feature_list wht, example, dns, ssh
+#define ip_feature_list ip_id
+#define payload_feature_list wht, example, dns, ssh
+#define feature_list payload_feature_list, ip_feature_list
+
 
 #define define_feature_config_uint(f) unsigned int report_##f = 0;
 #define define_all_features_config_uint(flist) MAP(define_feature_config_uint, flist)
@@ -215,6 +218,11 @@ void F##_print_json(const F##_t *F,      \
  */
 #define update_feature(f) if (f##_filter(key)) f##_update(&((record)->f), payload, size_payload, report_##f);
 
+/** The macro update_ip_feature(f) processes a single packet, given
+ * a pointer to the IP header, and updates the feature context
+ */
+#define update_ip_feature(f) if (f##_filter(key)) f##_update(&((record)->f), ip, ip_hdr_len, report_##f);
+
 /** The macro print_feature(f) prints the feature as JSON 
  */
 #define print_feature(f) f##_print_json(&((rec)->f), (rec->twin ? &(rec->twin->f) : NULL), output);
@@ -263,7 +271,11 @@ void F##_print_json(const F##_t *F,      \
  * feature in list
  */
 #define update_all_features(feature_list) MAP(update_feature, feature_list)
-#define update_all_udp_features(feature_list) MAP(update_feature, udp_feature_list)
+
+/** The macro update_all_features(list) invokes update_feature() for each
+ * feature in list
+ */
+#define update_all_ip_features(feature_list) MAP(update_ip_feature, feature_list)
 
 /** The macro print_all_features(list) invokes print_feature() for each
  * feature in list
