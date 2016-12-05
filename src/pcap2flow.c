@@ -336,6 +336,7 @@ static int usage (char *s) {
            "  type=T                     select message type: 1=SPLT, 2=SALT\n" 
            "  idp=N                      report N bytes of the initial data packet of each flow\n"
            "  label=L:F                  add label L to addresses that match the subnets in file F\n"
+           "  URLmodel=URL               URL to be used to retrieve classisifer updates\n" 
            "  model=F1:F2                change classifier parameters, SPLT in file F1 and SPLT+BD in file F2\n"
            "  hd=1                       include header description\n" 
 	   get_usage_all_features(feature_list),
@@ -608,7 +609,16 @@ int main (int argc, char **argv) {
             fprintf(info, "error: could not parse command \"%s\" into form param_splt:param_bd\n", config.params_file);
             exit(1);
         } else {
-            update_params(params_splt,params_bd);
+            /*
+             * if no URL specified, then process local files 
+             * otherwise, if we have a URL, then the updater process
+             * will handle the model updates.
+             */
+            if (config.params_url == NULL) {
+                fprintf(info, "updating classifiers from supplied model(%s)\n", config.params_file);
+                update_params(SPLT_PARAM_TYPE,params_splt);
+                update_params(BD_PARAM_TYPE,params_bd);
+            }
         }
     }
 
@@ -837,7 +847,7 @@ int main (int argc, char **argv) {
          * start up the updater thread
          *   updater is only active during live capture runs
          */
-         upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)NULL);
+         upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)&config);
          if (upd_rc) {
 	            fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
 	            return -6;

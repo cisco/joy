@@ -44,6 +44,8 @@
  *  and the classifiers for pcap2flow.
  */
 #include "updater.h"
+#include "classify.h"
+#include "config.h"
 #include "radix_trie.h"
 #include "curl/curl.h"
 #include "curl/easy.h"
@@ -79,6 +81,12 @@ radix_trie_t updater_trie = NULL;
 
 /** MD5 digest of the Talos malware feed file */
 static unsigned char talos_md5[MD5_DIGEST_LENGTH];
+
+/** Classifier digest of the SPLT values */
+static unsigned char splt_classifier_md5[MD5_DIGEST_LENGTH];
+
+/** Classifier digest of the BD values */
+static unsigned char bd_classifier_md5[MD5_DIGEST_LENGTH];
 
 /** Most recent MD5 digest computed */
 static unsigned char md5_digest_result[MD5_DIGEST_LENGTH];
@@ -193,6 +201,7 @@ static upd_return_codes_t dnload_talos_file () {
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, talos_file);
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, upd_write_data);
     curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, errbuf);
+    curl_easy_setopt(handle, CURLOPT_TIMEOUT, 40L);
 
     /* execute the download */
     curl_rc = curl_easy_perform(handle);
@@ -213,7 +222,75 @@ static upd_return_codes_t dnload_talos_file () {
     fclose(talos_file);
     curl_easy_cleanup(handle);
 
-    return (compute_md5_digest(TALOS_FILE_NAME));
+    if (dnld_rc == upd_success) {
+        return (compute_md5_digest(TALOS_FILE_NAME));
+    } else {
+        return dnld_rc;
+    }
+}
+
+/*
+ * Function performs the main downloading of the classifier file.
+ *    Uses curl to download the file from the feed and store the file locally.
+ */
+static upd_return_codes_t dnload_classifier_file (char *url, char *filename) {
+    upd_return_codes_t dnld_rc = upd_failure;
+    CURLcode curl_rc = CURLE_OK;
+    CURL *handle = NULL;
+    FILE *classifier_file = NULL;
+    char full_url[MAX_URL_LENGTH];
+    char errbuf[CURL_ERROR_SIZE];
+    
+    /* get a curl handle for the download */
+    handle = curl_easy_init();
+    if (handle == NULL) {
+        loginfo("error: curl easy init failed\n");
+        return dnld_rc;
+    }
+
+    /* open the destination file */
+    classifier_file = fopen(filename, "wb");
+    if (classifier_file == NULL) {
+        loginfo("error: couldn't open destination file for writing.\n");
+        curl_easy_cleanup(handle);
+        return dnld_rc;
+    }
+
+    /* setup full URL string */
+    snprintf(full_url, MAX_URL_LENGTH, "%s/%s", url, filename);
+
+    /* setup the curl URL, output file, callback function and error buffer */
+    memset(errbuf, 0x00, CURL_ERROR_SIZE);
+    curl_easy_setopt(handle, CURLOPT_URL, full_url);
+    curl_easy_setopt(handle, CURLOPT_WRITEDATA, classifier_file);
+    curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, upd_write_data);
+    curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, errbuf);
+    curl_easy_setopt(handle, CURLOPT_TIMEOUT, 20L);
+
+    /* execute the download */
+    curl_rc = curl_easy_perform(handle);
+    if (curl_rc == CURLE_OK) {
+        dnld_rc = upd_success;
+    } else {
+        size_t len = strlen(errbuf);
+
+        loginfo("error: libcurl: (%d) ", curl_rc);
+        if (len) {
+            loginfo("%s%s", errbuf, ((errbuf[len - 1] != '\n') ? "\n" : ""));
+        } else {
+            loginfo("%s\n", curl_easy_strerror(curl_rc));
+        }
+    }
+
+    /* clean up the curl handle and close the output file */
+    fclose(classifier_file);
+    curl_easy_cleanup(handle);
+
+    if (dnld_rc == upd_success) {
+        return (compute_md5_digest(filename));
+    } else {
+        return dnld_rc;
+    }
 }
 
 /*
@@ -285,13 +362,35 @@ static upd_return_codes_t update_radix_trie ()
  *        Updater is only active during live processing runs.
  *        Updater terminates automatically when pcap2flow exits due to the nature of
  *        how pthreads work.
- * \param ptr always NULL and not used, part of function prototype for pthread_create
+ * \param ptr always a pointer to the config structure
  * \return never return and the thread terminates when pcap2flow exits
  */
 void *updater_main (void *ptr)
 {
-    /* initialize Talos MD5 digest */
+    char params_splt[LINEMAX];
+    char params_bd[LINEMAX];
+    int num = 0;
+    int update_classifiers = 0;
+    struct configuration *config = ptr;
+
+    /* initialize MD5 digests */
     memset(talos_md5, 0x00, MD5_DIGEST_LENGTH);
+    memset(splt_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
+    memset(bd_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
+
+    /* check for remote classifier updates */
+    if (config->params_url && config->params_file) {
+        num = sscanf(config->params_file, "%[^=:]:%[^=:\n#]", params_splt, params_bd);
+        if (num != 2) {
+            loginfo("error: could not parse command \"%s\" into form param_splt:param_bd\n", config->params_file);
+            loginfo("Classifiers are not conifgured for continuous updating!\n");
+        } else {
+            loginfo("Classifiers are conifgured for continous updating!\n");
+            update_classifiers = 1;
+        }
+    } else {
+            loginfo("Classifiers are not conifgured for continous updating!\n");
+    }
 
     /* initialize the curl library as we need it for downloading updates */
     if (curl_global_init(CURL_GLOBAL_ALL)) {
@@ -304,6 +403,8 @@ void *updater_main (void *ptr)
     while (1) {
         /* let's only wake up and do work at specified intervals */
         pthread_mutex_lock(&work_in_process);
+      
+        /* check for Talos updates */
         if (dnload_talos_file() == upd_success) {
             if (!is_digest_same(md5_digest_result, talos_md5)) {
                loginfo("Talos file is different, update radix_trie\n");
@@ -315,6 +416,35 @@ void *updater_main (void *ptr)
         } else {
             loginfo("error: Talos file download failed, no work to do\n");
         }
+
+        /* check for SPLT classifier updates */
+        if (update_classifiers) {
+            if (dnload_classifier_file(config->params_url,params_splt) == upd_success) {
+                if (!is_digest_same(md5_digest_result, splt_classifier_md5)) {
+                   loginfo("SPLT classifier is different, updating\n");
+                   update_params(SPLT_PARAM_TYPE,params_splt);
+                   save_new_md5(md5_digest_result, splt_classifier_md5);
+                } else {
+                   loginfo("SPLT classifier is the same, no work to do\n");
+                }
+            } else {
+                loginfo("error: SPLT classifier download failed, no work to do\n");
+            }
+
+            /* check for BD classifier updates */
+            if (dnload_classifier_file(config->params_url,params_bd) == upd_success) {
+                if (!is_digest_same(md5_digest_result, bd_classifier_md5)) {
+                   loginfo("BD classifier is different, updating\n");
+                   update_params(BD_PARAM_TYPE,params_bd);
+                   save_new_md5(md5_digest_result, bd_classifier_md5);
+                } else {
+                   loginfo("BD classifier is the same, no work to do\n");
+                }
+            } else {
+                loginfo("error: BD classifier download failed, no work to do\n");
+            }
+        }
+
         pthread_mutex_unlock(&work_in_process);
         sleep (UPDATER_WORK_INTERVAL);
     }
