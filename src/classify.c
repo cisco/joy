@@ -535,38 +535,49 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
 /**
  * \fn void update_params (char *splt_params, char *bd_params)
  * \brief if a user supplies new parameter files, update parameters splt/bd
- * \param splt_params file name with new splt parameters
- * \param bd_params file name with new bd parameters
+ * \param param_type type of new parameters to update
+ * \param params file name with new parameters
  * \reutrn none
  */
-void update_params (char *splt_params, char *bd_params) {
+void update_params (classifier_type_codes_t param_type, char *param_file) {
     float param;
     FILE *fp;
     int count = 0;
 
-    fp = fopen(bd_params,"r");
-    if (fp != NULL) {
-        while (fscanf(fp, "%f", &param) != EOF) {
-            parameters_bd[count] = param;
-            count++;
-            if (count >= NUM_PARAMETERS_BD_LOGREG) {
-	               break;
+    switch (param_type) {
+        case (SPLT_PARAM_TYPE):
+            count = 0;
+            fp = fopen(param_file,"r");
+            if (fp != NULL) {
+                while (fscanf(fp, "%f", &param) != EOF) {
+                    parameters_splt[count] = param;
+                    count++;
+                    if (count >= NUM_PARAMETERS_SPLT_LOGREG) {
+	                break;
+                    }
+                }
+                fclose(fp);
             }
-        }
-        fclose(fp);
-    }
-
-    count = 0;
-    fp = fopen(splt_params,"r");
-    if (fp != NULL) {
-        while (fscanf(fp, "%f", &param) != EOF) {
-            parameters_splt[count] = param;
-            count++;
-            if (count >= NUM_PARAMETERS_SPLT_LOGREG) {
-	               break;
+            break;
+       
+        case (BD_PARAM_TYPE):
+            count = 0;
+            fp = fopen(param_file,"r");
+            if (fp != NULL) {
+                while (fscanf(fp, "%f", &param) != EOF) {
+                    parameters_bd[count] = param;
+                    count++;
+                    if (count >= NUM_PARAMETERS_BD_LOGREG) {
+                        break;
+                    }
+                }
+                fclose(fp);
             }
-        }
-        fclose(fp);
+            break;
+    
+        default:
+            fprintf(info, "error: unknown paramerter type (%d)", param_type);
+            break;
     }
 }
 

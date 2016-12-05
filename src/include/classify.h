@@ -53,9 +53,14 @@
 #define MAX_BIN_LEN 1500
 #define NUM_BD_VALUES 256
 
+/** Classifier parameter type codes */
+typedef enum {
+    SPLT_PARAM_TYPE = 0,
+    BD_PARAM_TYPE = 1
+} classifier_type_codes_t;
+
 extern float parameters_bd[NUM_PARAMETERS_BD_LOGREG];
 extern float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG];
-
 
 /* Classifier functions */
 float classify(const unsigned short *pkt_len, const struct timeval *pkt_time,
@@ -71,7 +76,7 @@ void merge_splt_arrays(const uint16_t *pkt_len, const struct timeval *pkt_time,
        uint16_t *merged_lens, uint16_t *merged_times,
        uint32_t max_num_pkt_len, uint32_t max_merged_num_pkts);
 
-void update_params(char *splt_params, char *bd_params);
+void update_params(classifier_type_codes_t param_type, char *param_file);
 
 #endif /* CLASSIFY_H */
 

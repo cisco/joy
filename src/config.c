@@ -171,6 +171,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "keyfile")) {
         parse_check(parse_string(&config->upload_key, arg, num));
 
+    } else if (match(command, "URLmodel")) {
+        parse_check(parse_string(&config->params_url, arg, num));
+
     } else if (match(command, "model")) {
         parse_check(parse_string(&config->params_file, arg, num));
 

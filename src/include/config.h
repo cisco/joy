@@ -89,6 +89,7 @@ struct configuration {
     char *anon_http_file;
     char *upload_servername;
     char *upload_key;
+    char *params_url;
     char *params_file;
     char *bpf_filter_exp;
     char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
