@@ -995,7 +995,9 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     }
 
     /* apply IP-specific feature processing */
-    update_all_ip_features(ip_feature_list);
+    if (record != NULL) {
+        update_all_ip_features(ip_feature_list);
+    }
 
     /*
      * if our packet is malformed TCP, UDP, or ICMP, then the process
