@@ -45,6 +45,7 @@
 
 #include <pcap.h>
 #include "output.h"
+#include "utils.h"
 
 /* constants for TLS awareness */
 #define MAX_CS 256
@@ -164,6 +165,7 @@ struct tls_certificate {
 };
 
 struct tls_information {
+    enum role role;
     unsigned int   tls_op;
     unsigned short tls_len[MAX_NUM_RCD_LEN];  /* array of TLS record lengths     */  
     struct timeval tls_time[MAX_NUM_RCD_LEN]; /* array of TLS arrival times      */
