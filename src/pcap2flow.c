@@ -1012,8 +1012,10 @@ int main (int argc, char **argv) {
     flocap_stats_output(info);
     // config_print(info, &config);
 
-    /* Flush any unsent exporter messages in Ipfix module */
-    ipfix_export_flush_message();
+    if (config.ipfix_export_port) {
+        /* Flush any unsent exporter messages in Ipfix module */
+        ipfix_export_flush_message();
+    }
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
     ipfix_module_cleanup();
 
