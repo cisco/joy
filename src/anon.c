@@ -541,7 +541,7 @@ enum status anon_http_init (const char *pathname, FILE *logfile, enum anon_mode 
 void zprintf_nbytes (zfile f, char *s, size_t len) {
     char tmp[1024];
   
-    if (len > 1024) {
+    if (len >= 1024) {
         zprintf(f, "error: string longer than fixed buffer (length: %zu)\n", len);
         return;
     }
@@ -561,7 +561,7 @@ void zprintf_anon_nbytes (zfile f, char *s, size_t len) {
     char tmp[1024];
     unsigned int i;
 
-    if (len > 1024) {
+    if (len >= 1024) {
         zprintf(f, "error: string longer than fixed buffer (length: %zu)\n", len);
         return;
     }
@@ -716,7 +716,7 @@ void zprintf_usernames (zfile f, struct matches *matches, char *text,
     zprintf(f, "\"usernames\":[");
     for (i=0; i < matches->count; i++) {
         size_t len = matches->stop[i] - matches->start[i] + 1;
-        if (len > 1024) {
+        if (len >= 1024) {
             break; /* error state */
         }
         if ((matches->start[i] == 0 || selector(text + matches->start[i] - 1)) && 
