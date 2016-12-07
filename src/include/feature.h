@@ -105,8 +105,9 @@
  * build of pcap2flow, add/remove it from this list.
  */
 #define ip_feature_list ip_id
+#define tcp_feature_list salt
 #define payload_feature_list wht, example, dns, ssh
-#define feature_list payload_feature_list, ip_feature_list
+#define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
 
 #define define_feature_config_uint(f) unsigned int report_##f = 0;
@@ -223,6 +224,11 @@ void F##_print_json(const F##_t *F,      \
  */
 #define update_ip_feature(f) if (f##_filter(key)) f##_update(&((record)->f), ip, ip_hdr_len, report_##f);
 
+/** The macro update_tcp_feature(f) processes a single packet, given
+ * a pointer to the TCP header, and updates the feature context
+ */
+#define update_tcp_feature(f) if (f##_filter(key)) f##_update(&((record)->f), transport_start, transport_len, report_##f);
+
 /** The macro print_feature(f) prints the feature as JSON 
  */
 #define print_feature(f) f##_print_json(&((rec)->f), (rec->twin ? &(rec->twin->f) : NULL), output);
@@ -276,6 +282,11 @@ void F##_print_json(const F##_t *F,      \
  * feature in list
  */
 #define update_all_ip_features(feature_list) MAP(update_ip_feature, feature_list)
+
+/** The macro update_all_features(list) invokes update_feature() for each
+ * feature in list
+ */
+#define update_all_tcp_features(feature_list) MAP(update_tcp_feature, feature_list)
 
 /** The macro print_all_features(list) invokes print_feature() for each
  * feature in list

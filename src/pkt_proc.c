@@ -981,6 +981,9 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     switch(proto) {
         case IPPROTO_TCP:
             record = process_tcp(header, transport_start, transport_len, &key);
+	    if (record) {
+	      update_all_tcp_features(tcp_feature_list);
+	    }
             break;
         case IPPROTO_UDP:
             record = process_udp(header, transport_start, transport_len, &key);

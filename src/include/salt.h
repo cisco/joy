@@ -35,19 +35,57 @@
  */
 
 /**
- * \file modules.h
+ * \file salt.h
  *
- * \brief module interface
+ * \brief SALT module using the generic programming interface defined
+ * in feature.h.
  *
  */
-#ifndef MODULES_H
-#define MODULES_H
+#ifndef SALT_H
+#define SALT_H
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* secure shell protocol         */
-#include "ip_id.h"        /* ipv4 identification field     */
-#include "salt.h"         /* seq of app lengths and times  */
+#include <stdio.h> 
+#include "output.h"
+#include "feature.h"
 
-#endif /* MODULES_H */
+#define MAX_NUM_PKT 200
+
+/** usage string */
+#define salt_usage "  salt=1                  include salt feature\n"
+
+/** salt filter key */
+#define salt_filter(key) 1
+  
+/** salt structure */
+typedef struct salt {
+    unsigned short pkt_len[MAX_NUM_PKT];  /*!< array of packet appdata lengths */  
+    struct timeval pkt_time[MAX_NUM_PKT]; /*!< array of arrival times          */
+    unsigned int ack[MAX_NUM_PKT];
+    unsigned int seq[MAX_NUM_PKT];
+    unsigned int np;
+} salt_t;
+
+
+declare_feature(salt);
+
+/** initialization function */
+void salt_init(struct salt *salt);
+
+/** update salt */
+void salt_update(struct salt *salt, 
+		 const void *data, 
+		 unsigned int len, 
+		 unsigned int report_salt);
+
+/** JSON print salt */
+void salt_print_json(const struct salt *w1, 
+		     const struct salt *w2,
+		     zfile f);
+
+/** delete salt */
+void salt_delete(struct salt *salt);
+
+/** salt unit test entry point */
+void salt_unit_test();
+
+#endif /* SALT_H */
