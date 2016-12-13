@@ -64,7 +64,7 @@
 #define MAX_FINGERPRINT_LEN (MAX_CS + MAX_EXTENSIONS)
 #define MAX_FINGERPRINT_LIBRARIES 64
 #define MAX_FINGERPRINT_LIBRARY_LEN 64
-#define FINGERPRINT_DIGEST_LEN 32 /* Num of bytes in Sha256 */
+#define MAX_FINGERPRINT_DESCRIPTION 64
 
 /** \remarks \verbatim
   structure for TLS awareness 
@@ -136,7 +136,7 @@ struct tls_extension {
 };
 
 typedef struct tls_fingerprint {
-    char description[64];
+    char description[MAX_FINGERPRINT_DESCRIPTION];
     char library_versions[MAX_FINGERPRINT_LIBRARIES][MAX_FINGERPRINT_LIBRARY_LEN];
     uint8_t library_count;
     unsigned short int fingerprint[MAX_FINGERPRINT_LEN];
