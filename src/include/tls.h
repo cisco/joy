@@ -46,6 +46,7 @@
 #include <pcap.h>
 #include "output.h"
 #include "utils.h"
+#include "fingerprint.h"
 
 /* constants for TLS awareness */
 #define MAX_CS 256
@@ -61,10 +62,6 @@
 #define MAX_CERT_EXTENSIONS 12
 #define MAX_CERTIFICATE_BUFFER 11000
 #define MAX_CKE_LEN 1024
-#define MAX_FINGERPRINT_LEN (MAX_CS + MAX_EXTENSIONS)
-#define MAX_FINGERPRINT_LIBRARIES 64
-#define MAX_FINGERPRINT_LIBRARY_LEN 64
-#define MAX_FINGERPRINT_DESCRIPTION 64
 
 /** \remarks \verbatim
   structure for TLS awareness 
@@ -135,14 +132,6 @@ struct tls_extension {
     void *data;
 };
 
-typedef struct tls_fingerprint {
-    char description[MAX_FINGERPRINT_DESCRIPTION];
-    char library_versions[MAX_FINGERPRINT_LIBRARIES][MAX_FINGERPRINT_LIBRARY_LEN];
-    uint8_t library_count;
-    unsigned short int fingerprint[MAX_FINGERPRINT_LEN];
-    uint16_t fingerprint_len;
-} tls_fingerprint_t;
-
 struct tls_certificate {
     unsigned short length;
     void *serial_number;
@@ -201,7 +190,7 @@ struct tls_information {
     unsigned short int sni_length;
     void *certificate_buffer;
     unsigned short certificate_offset;
-    tls_fingerprint_t tls_fingerprint;
+    fingerprint_t tls_fingerprint;
 };
 
 /* structures for parsing TLS content */
