@@ -1074,6 +1074,7 @@ struct tls_information *process_tls (const struct timeval ts,
 
     while (len > 0) {
         tls = start;
+
         tls_len = tls_header_get_length(tls);
 
         //if (start_cert) {
@@ -1159,9 +1160,8 @@ struct tls_information *process_tls (const struct timeval ts,
             if (r->tls_op < MAX_NUM_RCD_LEN) {
 	            r->tls_type[r->tls_op].handshake = tls->Handshake.HandshakeType;
             }      
-        } else if (tls->ContentType != change_cipher_spec || 
+        } else if (tls->ContentType != change_cipher_spec && 
 	        tls->ContentType != alert) {
-      
             /* 
              * we encountered an unknown contenttype, so this is not
              * actually a TLS record, so we bail on decoding it
