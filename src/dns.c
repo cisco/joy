@@ -387,6 +387,12 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, void **name, int 
      * may be an offset in the second name; this function must follow
      * each offset that appears and copy the names to outputname.
      */
+
+    /* robustness check */
+    if (*len <= 0 || outname > terminus || outname_len < 2) {
+      return dns_err_unterminated;
+    }
+
     outname[1] = 0;         /* set output to "", in case of error */
     while (*len > 0 && outname < terminus) {
         if (char_is_label(*c)) {

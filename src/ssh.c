@@ -131,7 +131,13 @@ unsigned int ssh_packet_parse(const void *pkt, unsigned int datalen, unsigned ch
     }
     *msg_code = ssh_packet->payload;
 
-    return length - ssh_packet->padding_length - 5;
+    /* robustness check */
+    length -= ssh_packet->padding_length - 5;
+    if (length > 32768) {
+      return 0;
+    }
+
+    return length;
 }
 
 unsigned int decode_uint32(const void *data) {
@@ -155,6 +161,12 @@ enum status decode_ssh_string(const void **dataptr, unsigned int *datalen, void 
 	return failure;
     }
     data += 4;
+
+    /* robustness check */
+    if (*datalen >= 1024) {
+      return failure;
+    }
+
     copy_printable_string(dst, dstlen, data, *datalen);    
     data += length;
     *datalen -= length;
@@ -275,6 +287,12 @@ void ssh_update(struct ssh *ssh,
 	}
 	switch (msg_code) {
 	case SSH_MSG_KEXINIT:
+
+	    /* robustness check */
+	    if ((ssh->c_encryption_algos[0] != 0) && (ssh->s_encryption_algos[0] != 0)) {
+	      return ;
+	    }
+
 	    ssh_parse_kexinit(ssh, data + sizeof(struct ssh_packet), length);
 	    break;
 	default:
