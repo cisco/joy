@@ -1087,12 +1087,19 @@ cleanup:
  * Use data from the current flow's \p tls_info to search
  * the known tls fingerprint database for any matches.
  * If any matches are found, relevant data is copied
- * into the \p tls_info for later retrieval.
+ * into the \p tls_info for later retrieval. The \p percent
+ * represents the users required percent of confidence in
+ * order for a match to occur, 0 to 100. 100 means an exact match
+ * (100% of fingerprint must be matched). 70 means a partial
+ * match (70% of fingerprint must be matched).
  *
  * @param tls_info The client TLS information
+ * @param percent The callers required percent of fingerprint match.
  *
  * return 0 for match
  */
+/* TODO re-enable this function for fingerprinting */
+#if 0
 static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
                                             uint8_t percent) {
     fingerprint_t *client_fingerprint = NULL;
@@ -1136,6 +1143,7 @@ static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
 
     return 0;
 }
+#endif
 
 #if 0
 static unsigned int TLSHandshake_get_length (const struct TLSHandshake *H) {
@@ -1336,7 +1344,10 @@ struct tls_information *process_tls (const struct timeval ts,
                 TLSClientHello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
                 TLSClientHello_get_extensions(&tls->Handshake.body, tls_len, r);
 
+                /* TODO enable fingerprint matching */
+#if 0
                 tls_client_fingerprint_match(r, 100);
+#endif
             } else if (tls->Handshake.HandshakeType == server_hello) {
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
