@@ -1393,9 +1393,21 @@ void tls_printf (const struct tls_information *data,
     const struct tls_information *data_twin, zfile f) {
     int i;
 
-    if (!data->tls_v && (data_twin == NULL || !data_twin->tls_v)) { // no reliable TLS information
-        return ;
+    /* sanity check tls data passed in */
+    if (data == NULL) {
+        return;
     }
+
+    /* make sure the tls info passed in is reliable */
+    if (!data->tls_v) {
+        return;
+    }
+
+    /* if a twin is present make sure its info is reliable */
+    if (data_twin != NULL && !data_twin->tls_v) {
+        return;
+    }
+
     zprintf(f, ",\"tls\":{");
 
     if (data->tls_v) {

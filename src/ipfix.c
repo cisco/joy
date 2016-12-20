@@ -108,18 +108,33 @@ static uint16_t xts_count = 0;
 static unsigned int splt_pkt_index = 0;
 
 /* Exporter object to send messages, alive until process termination */
+#ifdef DARWIN
+static struct ipfix_exporter gateway_export = {
+  {0,0,0,{'0'}},
+  {0,0,0,{'0'}},
+  0,0
+};
+#else
 static struct ipfix_exporter gateway_export = {
   {0,0,{0},{'0','0','0','0','0','0','0','0'}},
   {0,0,{0},{'0','0','0','0','0','0','0','0'}},
   0,0
 };
+#endif
 
 
 /* Collector object to receive messages, alive until process termination */
+#ifdef DARWIN
+static struct ipfix_collector gateway_collect = {
+  {0,0,0,{'0'}},
+  0,0
+};
+#else
 static struct ipfix_collector gateway_collect = {
   {0,0,{0},{'0','0','0','0','0','0','0','0'}},
   0,0
 };
+#endif
 
 /* Used for exporting formatted IPFIX messages */
 static struct ipfix_raw_message raw_message;

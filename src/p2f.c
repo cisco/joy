@@ -826,9 +826,13 @@ static void flow_record_delete (struct flow_record *r) {
     if (r->idp) {
         free(r->idp);
     }
-    tls_record_delete(r->tls_info);
-    free(r->tls_info);
-    r->tls_info = NULL;
+
+    /* cleanup TLS info structure */
+    if (r->tls_info != NULL) {
+        tls_record_delete(r->tls_info);
+        free(r->tls_info);
+        r->tls_info = NULL;
+    }
 
     http_delete(&r->http_data);
 
