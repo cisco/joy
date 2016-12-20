@@ -190,7 +190,7 @@ struct tls_information {
     unsigned short int sni_length;
     void *certificate_buffer;
     unsigned short certificate_offset;
-    fingerprint_t tls_fingerprint;
+    fingerprint_t *tls_fingerprint;
 };
 
 /* structures for parsing TLS content */

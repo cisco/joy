@@ -1102,7 +1102,7 @@ cleanup:
 #if 0
 static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
                                             uint8_t percent) {
-    fingerprint_t *client_fingerprint = NULL;
+    fingerprint_t client_fingerprint;
     fingerprint_t *db_fingerprint = NULL;
     size_t cs_byte_count = 0;
 
@@ -1112,32 +1112,29 @@ static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
                                                  8, 6, 3};
     cs_byte_count = sizeof(test_cs_vector);
 
-    /* Get pointer to the client's tls_fingerprint */
-    client_fingerprint = &tls_info->tls_fingerprint;
+    memset(&client_fingerprint, 0, sizeof(fingerprint_t));
 
     /*
      * Copy test data into client fingerprint.
      */
-    memcpy(client_fingerprint->fingerprint, test_cs_vector, cs_byte_count);
-    client_fingerprint->fingerprint_len = (cs_byte_count / sizeof(unsigned short int));
+    memcpy(client_fingerprint.fingerprint, test_cs_vector, cs_byte_count);
+    client_fingerprint.fingerprint_len = (cs_byte_count / sizeof(unsigned short int));
 
     if (percent == 100) {
         /* Find an exact database fingerprint match */
         db_fingerprint = fingerprint_db_match_exact(&tls_fingerprint_db,
-                                                    client_fingerprint);
+                                                    &client_fingerprint);
     } else {
         fprintf(stderr, "api-error: partial matching not supported yet");
         return 1;
     }
 
     if (db_fingerprint != NULL) {
-        /* Copy the known database entry into client_fingerprint */
-        fingerprint_copy(client_fingerprint, db_fingerprint);
+        /* Point to database entry in client tls info */
+        tls_info->tls_fingerprint = db_fingerprint;
+
 #if 0
         printf("FINGERPRINT MATCH!\n");
-        for (k = 0; k < client_fingerprint->label_count; k++) {
-            printf("\t library: %s\n", client_fingerprint->labels[k]);
-        }
 #endif
     }
 
