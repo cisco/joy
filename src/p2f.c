@@ -1902,6 +1902,9 @@ static void flow_record_list_find_twins (const struct timeval *expiration) {
 /** maxiumum lengnth of the upload URL string */
 #define MAX_UPLOAD_CMD_LENGTH 512
 
+/** maximum length of the upload file name */
+#define MAX_FILENAME_LENGTH 1024
+
 /** thread mutex for locking */
 pthread_mutex_t upload_in_process = PTHREAD_MUTEX_INITIALIZER;
 
@@ -1912,31 +1915,30 @@ pthread_cond_t upload_run_cond = PTHREAD_COND_INITIALIZER;
 int upload_can_run = 0;
 
 /** filename to be uploaded */
-char *upload_filename = NULL;
+char upload_filename[MAX_FILENAME_LENGTH];
 
 static int uploader_send_file (char *filename, char *servername, 
                                char *key, unsigned int retain) {
     int rc = 0;
     char cmd[MAX_UPLOAD_CMD_LENGTH];
 
-    snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"scp -C -i %s %s %s",key,filename,servername);
-    fprintf(info,"executing [%s]\n",cmd);
+    snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"scp -q -C -i %s %s %s",key,filename,servername);
     rc = system(cmd);
 
     /* see if the command was successful */
     if (rc == 0) { 
-       fprintf(info,"transfer of file [%s] successful!\n",filename);
+       fprintf(info,"uploader: transfer of file [%s] successful!\n",filename);
        /* see if we are allowed to delete the file after upload */
        if (retain == 0) {
             snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"rm %s","config.vars");
-            fprintf(info,"removing file [%s]\n","config.vars");
+            fprintf(info,"uploader: removing file [%s]\n","config.vars");
             rc = system(cmd);
             if (rc != 0) {
-                fprintf(info,"removing file [%s]failed!\n","config.vars");
+                fprintf(info,"uploader: removing file [%s]failed!\n","config.vars");
             }
         }
     } else {
-        fprintf(info,"transfer of file [%s] failed!\n",filename);
+        fprintf(info,"uploader: transfer of file [%s] failed!\n",filename);
     }
     
     return 0;
@@ -1955,6 +1957,9 @@ void *uploader_main(void *ptr)
 {
     struct configuration *config = ptr;
  
+    /* initialize the uploader filename container */
+    memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
+
     /* uploader stays alive until pcap2flow exists */
     while (1) {
 
@@ -1966,14 +1971,14 @@ void *uploader_main(void *ptr)
         }
 
         /* upload file now */
-        if (upload_filename != NULL) {
+        if (strlen(upload_filename) > 0) {
             fprintf(info,"uploader: uploading file [%s] ...\n", upload_filename);
             uploader_send_file(upload_filename, config->upload_servername, 
                                config->upload_key, config->retain_local);
         }
     
         /* we are done uploading the file, go back to sleep */
-        upload_filename = NULL;
+        memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
         upload_can_run = 0;
         pthread_mutex_unlock(&upload_in_process);
     }
@@ -1994,14 +1999,14 @@ int upload_file (char *filename) {
 
     /* sanity check we were passed in a file to upload */
     if (filename == NULL) {
-        fprintf(info, "error: could not upload file (output file not set\n");
+        fprintf(info, "error: uploader: could not upload file (output file not set\n");
         return failure;
     }
 
     /* wake up the uploader thread so it can do its work */
     pthread_mutex_lock(&upload_in_process);
+    memcpy(upload_filename, filename, (MAX_FILENAME_LENGTH-1));
     upload_can_run = 1;
-    upload_filename = filename;
     pthread_cond_signal(&upload_run_cond);
     pthread_mutex_unlock(&upload_in_process);
 
