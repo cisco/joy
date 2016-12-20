@@ -41,23 +41,47 @@ import subprocess
 import time
 
 
-def test_unix_os():
-    rc = 0
+def end_process(process):
+    if process.poll() is None:
+        # Gracefully terminate the process
+        process.terminate()
+        time.sleep(1)
+        if process.poll() is None:
+            # Hard kill the process
+            process.kill()
+            time.sleep(1)
+            if process.poll() is None:
+                # Runaway zombie process
+                print(str(__file__) + ' - error: subprocess ' + str(process) +
+                      ' turned zombie')
+                return 1
+    elif process.poll() != 0:
+        # Export process ended with bad exit code
+        print(str(__file__) + ' - error: subprocess ' + str(process) +
+              ' failed rc: ' + str(process.poll()))
+        return process.poll()
 
+    return 0
+
+
+def test_unix_os():
     cur_dir = os.path.dirname(__file__)
     exec_path = os.path.join(cur_dir, '../bin/pcap2flow')
     sample_input = os.path.join(cur_dir, '../sample.pcap')
+    collect_output = 'tmp-ipfix-collect.gz'
+    export_output = 'tmp-ipfix-export.gz'
+    rc_overall = 0
 
     # Start the ipfix collector
     proc_collect = subprocess.Popen([exec_path,
-                                     'output=test-ipfix-collect.gz',
+                                     'output=' + collect_output,
                                      'ipfix_collect_online=1',
                                      'ipfix_collect_port=4739'])
     time.sleep(1)
 
     # Start the ipfix exporter
     proc_export = subprocess.Popen([exec_path,
-                                    'output=test-ipfix-export.gz',
+                                    'output=' + export_output,
                                     'ipfix_export_port=2000',
                                     sample_input])
     proc_export.wait()
@@ -66,49 +90,26 @@ def test_unix_os():
     """
     Cleanup
     """
-    # End the ipfix exporting process
-    if proc_export.poll() is None:
-        # Gracefully terminate the process
-        proc_export.terminate()
-        time.sleep(1)
-        if proc_export.poll() is None:
-            # Hard kill the subprocess
-            proc_export.kill()
-            time.sleep(1)
-            if proc_export.poll() is None:
-                # Runaway zombie process
-                print(str(__file__) + ' - error: export subprocess turned zombie')
-                rc = 1
-    elif proc_export.poll() != 0:
-        # Export process ended with bad exit code
-        print(str(__file__) + ' - error: export subprocess failed rc: ' +
-              str(proc_export.poll()))
-        rc = 1
+    # End the ipfix exporting
+    rc_test = end_process(proc_export)
+    if rc_test != 0:
+        rc_overall = rc_test
 
-    # End the ipfix collecting process
-    if proc_collect.poll() is None:
-        # Gracefully terminate the process
-        proc_collect.terminate()
-        time.sleep(1)
-        if proc_collect.poll() is None:
-            # Hard kill the subprocess
-            proc_collect.kill()
-            time.sleep(1)
-            if proc_collect.poll() is None:
-                # Runaway zombie process
-                print(str(__file__) + ' - error: collect subprocess turned zombie')
-                rc = 1
-    elif proc_collect.poll() != 0:
-        # Collect process ended with bad exit code
-        print(str(__file__) + ' - error: collect subprocess failed rc: ' +
-              str(proc_collect.poll()))
-        rc = 1
+    # End the ipfix collecting
+    rc_test = end_process(proc_collect)
+    if rc_test != 0:
+        rc_overall = rc_test
 
-    # End of test
-    return rc
+    # Delete temporary files
+    if os.path.isfile(collect_output):
+        os.remove(collect_output)
+    if os.path.isfile(export_output):
+        os.remove(export_output)
+
+    return rc_overall
 
 
-if __name__ == "__main__":
+def main():
     os_platform = sys.platform
     unix_platforms = ['linux', 'linux2', 'darwin']
 
@@ -116,7 +117,12 @@ if __name__ == "__main__":
         status = test_unix_os()
         if status is not 0:
             print(str(__file__) + ' - FAILURE')
-            exit(status)
+            return status
 
     print(str(__file__) + ' - SUCCESS')
-    exit(0)
+    return 0
+
+
+if __name__ == "__main__":
+    rc_main = main()
+    exit(rc_main)
