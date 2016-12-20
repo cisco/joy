@@ -1919,7 +1919,8 @@ static int uploader_send_file (char *filename, char *servername,
     int rc = 0;
     char cmd[MAX_UPLOAD_CMD_LENGTH];
 
-    snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"scp -q -C -i %s %s %s",key,filename,servername);
+    snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"scp -C -i %s %s %s",key,filename,servername);
+    fprintf(info,"executing [%s]\n",cmd);
     rc = system(cmd);
 
     /* see if the command was successful */

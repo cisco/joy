@@ -1792,12 +1792,17 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         /* If packet has port 443 and nonzero data length, process it as TLS */
         if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
           struct timeval ts = {0}; /* Zeroize temporary timestamp */
-          if (record->tls_info != NULL) {
-              free(record->tls_info);
+
+          /* allocate TLS info struct if needed and initialize */
+          if (record->tls_info == NULL) {
+              record->tls_info = malloc(sizeof(struct tls_information));
+              if (record->tls_info != NULL) {
+                  tls_record_init(record->tls_info);
+              }
           }
-          record->tls_info = malloc(sizeof(struct tls_information));
+         
+          /* process tls information */
           if (record->tls_info != NULL) {
-              tls_record_init(record->tls_info);
               process_tls(ts, payload, size_payload, record->tls_info);
           } else {
               /* couldn't allocate TLS information structure, can't process */

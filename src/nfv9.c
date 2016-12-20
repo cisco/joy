@@ -535,12 +535,17 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
                 /* if packet has port 443 and nonzero data length, process it as TLS */
                 if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
                     struct timeval ts = {0}; /* Zeroize temporary timestamp */
-                    if (nf_record->tls_info != NULL) {
-                        free(nf_record->tls_info);
+
+                    /* allocate TLS info struct if needed and initialize */
+                    if (nf_record->tls_info == NULL) {
+                        nf_record->tls_info = malloc(sizeof(struct tls_information));
+                        if (nf_record->tls_info != NULL) {
+                            tls_record_init(nf_record->tls_info);
+                        }
                     }
-                    nf_record->tls_info = malloc(sizeof(struct tls_information));
+                   
+                    /* process tls information */
                     if (nf_record->tls_info != NULL) {
-                        tls_record_init(nf_record->tls_info);
                         process_tls(ts, payload, size_payload, nf_record->tls_info);
                     } else {
                         /* couldn't allocate TLS information structure, can't process */

@@ -918,6 +918,7 @@ int main (int argc, char **argv) {
 	                   */
 	                  zclose(output);
 	                  if (config.upload_servername) {
+                              fprintf(info,"Calling upload_file with [%s]\n",filename);
 	                      upload_file(filename);
 	                  }
 
