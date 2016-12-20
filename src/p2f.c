@@ -45,9 +45,7 @@
  */
 
 #include <stdlib.h>   
-#include <unistd.h>    /* for fork()                     */
-#include <sys/types.h> /* for waitpid()                  */
-#include <sys/wait.h>  /* for waitpid()                  */
+#include <pthread.h>   
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* pcap2flow data structures       */
 #include "err.h"      /* error codes and error reporting */
@@ -479,7 +477,8 @@ static void flow_record_init (/* @out@ */ struct flow_record *record,
     record->twin = NULL;
 
     /* initialize TLS data */
-    tls_record_init(&record->tls_info);
+    //tls_record_init(&record->tls_info);
+    record->tls_info = NULL;
 
     http_init(&record->http_data);
     init_all_features(feature_list);
@@ -827,7 +826,10 @@ static void flow_record_delete (struct flow_record *r) {
     if (r->idp) {
         free(r->idp);
     }
-    tls_record_delete(&r->tls_info);
+    tls_record_delete(r->tls_info);
+    free(r->tls_info);
+    r->tls_info = NULL;
+
     http_delete(&r->http_data);
 
     if (r->exe_name) {
@@ -1596,9 +1598,9 @@ static void flow_record_print_json (const struct flow_record *record) {
 
     if (include_tls) { 
         if (rec->twin) {
-            tls_printf(&rec->tls_info, &rec->twin->tls_info, output);
+            tls_printf(rec->tls_info, rec->twin->tls_info, output);
         } else {
-            tls_printf(&rec->tls_info, NULL, output);
+            tls_printf(rec->tls_info, NULL, output);
         }
     }
 
@@ -1890,69 +1892,110 @@ static void flow_record_list_find_twins (const struct timeval *expiration) {
 }
 #endif
 
-
 /* END flow monitoring */
+
+
+/** maxiumum lengnth of the upload URL string */
+#define MAX_UPLOAD_CMD_LENGTH 512
+
+/** thread mutex for locking */
+pthread_mutex_t upload_in_process = PTHREAD_MUTEX_INITIALIZER;
+
+/** thread condition to wait for */
+pthread_cond_t upload_run_cond = PTHREAD_COND_INITIALIZER;
+
+/** thread signal for execution */
+int upload_can_run = 0;
+
+/** filename to be uploaded */
+char *upload_filename = NULL;
+
+static int uploader_send_file (char *filename, char *servername, 
+                               char *key, unsigned int retain) {
+    int rc = 0;
+    char cmd[MAX_UPLOAD_CMD_LENGTH];
+
+    snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"scp -q -C -i %s %s %s",key,filename,servername);
+    rc = system(cmd);
+
+    /* see if the command was successful */
+    if (rc == 0) { 
+       fprintf(info,"transfer of file [%s] successful!\n",filename);
+       /* see if we are allowed to delete the file after upload */
+       if (retain == 0) {
+            snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"rm %s","config.vars");
+            fprintf(info,"removing file [%s]\n","config.vars");
+            system(cmd);
+        }
+    } else {
+        fprintf(info,"transfer of file [%s] failed!\n",filename);
+    }
+    
+    return 0;
+}
+
+/**
+ * \fn void *uploader_main (void *ptr)
+ * \brief Runs as a thread off of pcap2flow.
+ *        Uploader is only active during live processing runs.
+ *        Uploader terminates automatically when pcap2flow exits due to the nature of
+ *        how pthreads work.
+ * \param ptr always a pointer to the config structure
+ * \return never return and the thread terminates when pcap2flow exits
+ */
+void *uploader_main(void *ptr)
+{
+    struct configuration *config = ptr;
+ 
+    /* uploader stays alive until pcap2flow exists */
+    while (1) {
+
+        /* wait until we are signaled to do work */
+        pthread_mutex_lock(&upload_in_process);
+        while (!upload_can_run) {
+            fprintf(info,"uploader: waiting on signal...\n");
+            pthread_cond_wait(&upload_run_cond, &upload_in_process);
+        }
+
+        /* upload file now */
+        if (upload_filename != NULL) {
+            fprintf(info,"uploader: uploading file [%s] ...\n", upload_filename);
+            uploader_send_file(upload_filename, config->upload_servername, 
+                               config->upload_key, config->retain_local);
+        }
+    
+        /* we are done uploading the file, go back to sleep */
+        upload_filename = NULL;
+        upload_can_run = 0;
+        pthread_mutex_unlock(&upload_in_process);
+    }
+    return NULL;
+}
 
 /*
  * file uploading after rotation
  */
-// #define RSYNC_CMD    "rsync", "rsync", "-avz", "-e", 
-// #define RSYNC_CMD_RM "rsync", "rsync", "-avz", "-e", "scp -v -i upload-key -l data", "--remove-source-files"
-// #define SCP_CMD      "scp", "scp", "-C", "-i", "/etc/flocap/upload-key"
-#define SCP_CMD      "scp", "scp", "-C", "-i", config.upload_key
-
 /**
- * \fn int upload_file (const char *filename, const char *servername,
-    const char *key, unsigned int retain)
+ * \fn int upload_file (char *filename
  * \brief upload file to the storage server
  * \param filename file to upload
- * \param servername destination server
- * \param key crypto key used
- * \param retain flag to detemermine if file is kept after upload
  * \return failure/EXIT_FAILURE
- * \return -1 could not fork
  * \return 0 success
  */
-int upload_file (const char *filename, const char *servername,
-    const char *key, unsigned int retain) {
-    pid_t pid;
-    static pid_t previous_pid = 0;
-    int retval = -2;
+int upload_file (char *filename) {
 
-    if (filename == NULL || servername == NULL || key == NULL) {
-        fprintf(info, "error: could not upload file (output file, upload server, or keyfile not set\n");
+    /* sanity check we were passed in a file to upload */
+    if (filename == NULL) {
+        fprintf(info, "error: could not upload file (output file not set\n");
         return failure;
     }
 
-    pid = fork();
-    if (pid == -1) {
-        perror("error: could not fork");
-        return -1;
-    } else if (pid == 0) {
-    
-        /* we are the child process; exec command */
-        if (retain) {
-            retval = execlp(SCP_CMD, filename, servername, NULL);
-        } else {
-            retval = execlp(SCP_CMD, filename, servername, NULL);
-        }
-        if (retval == -1) {
-            fprintf(info,
-	              "error: could not exec command (rsync -avz [--remove-source-files] %s %s)",
-	              filename, servername);
-            exit(EXIT_FAILURE);
-        }
-
-    } else {
-    
-        /* we are the parent; check for previous zombie processes, then report success */    
-        if (previous_pid && (waitpid(previous_pid, NULL, WNOHANG) == -1)) {
-            perror("waitpid");
-            exit(EXIT_FAILURE);
-        }
-        previous_pid = pid;
-
-    }
+    /* wake up the uploader thread so it can do its work */
+    pthread_mutex_lock(&upload_in_process);
+    upload_can_run = 1;
+    upload_filename = filename;
+    pthread_cond_signal(&upload_run_cond);
+    pthread_mutex_unlock(&upload_in_process);
 
     return 0;
 }

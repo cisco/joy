@@ -391,6 +391,7 @@ int main (int argc, char **argv) {
     struct dirent *ent;
     enum operating_mode mode = mode_none;
     pthread_t upd_thread;
+    pthread_t uploader_thread;
     int upd_rc;
     pthread_t ipfix_cts_monitor_thread;
     int cts_monitor_thread_rc;
@@ -854,6 +855,18 @@ int main (int argc, char **argv) {
          }
 
         /*
+         * start up the uploader thread
+         *   uploader is only active during live capture runs
+         */
+         if (config.upload_servername) {
+             upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&config);
+             if (upd_rc) {
+	         fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
+	         return -7;
+             }
+         }
+
+        /*
          * flush "info" output stream to ensure log file accuracy
          */
         fflush(info);
@@ -905,7 +918,7 @@ int main (int argc, char **argv) {
 	                   */
 	                  zclose(output);
 	                  if (config.upload_servername) {
-	                      upload_file(filename, config.upload_servername, config.upload_key, config.retain_local);
+	                      upload_file(filename);
 	                  }
 
 	                  // printf("records: %d\tmax_records: %d\n", records_in_file, config.max_records);
