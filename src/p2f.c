@@ -1929,7 +1929,10 @@ static int uploader_send_file (char *filename, char *servername,
        if (retain == 0) {
             snprintf(cmd,MAX_UPLOAD_CMD_LENGTH,"rm %s","config.vars");
             fprintf(info,"removing file [%s]\n","config.vars");
-            system(cmd);
+            rc = system(cmd);
+            if (rc != 0) {
+                fprintf(info,"removing file [%s]failed!\n","config.vars");
+            }
         }
     } else {
         fprintf(info,"transfer of file [%s] failed!\n",filename);
