@@ -108,18 +108,33 @@ static uint16_t xts_count = 0;
 static unsigned int splt_pkt_index = 0;
 
 /* Exporter object to send messages, alive until process termination */
+#ifdef DARWIN
+static struct ipfix_exporter gateway_export = {
+  {0,0,0,{'0'}},
+  {0,0,0,{'0'}},
+  0,0
+};
+#else
 static struct ipfix_exporter gateway_export = {
   {0,0,{0},{'0','0','0','0','0','0','0','0'}},
   {0,0,{0},{'0','0','0','0','0','0','0','0'}},
   0,0
 };
+#endif
 
 
 /* Collector object to receive messages, alive until process termination */
+#ifdef DARWIN
+static struct ipfix_collector gateway_collect = {
+  {0,0,0,{'0'}},
+  0,0
+};
+#else
 static struct ipfix_collector gateway_collect = {
   {0,0,{0},{'0','0','0','0','0','0','0','0'}},
   0,0
 };
+#endif
 
 /* Used for exporting formatted IPFIX messages */
 static struct ipfix_raw_message raw_message;
@@ -1388,7 +1403,7 @@ static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info.tls_len[i] = ntohs(*((const uint16_t *)data));
+    ix_record->tls_info->tls_len[i] = ntohs(*((const uint16_t *)data));
 
     data += element_length;
     data_length -= element_length;
@@ -1419,11 +1434,11 @@ static void ipfix_process_tls_record_times(struct flow_record *ix_record,
 
   while (data_length > 0) {
     uint16_t value_time = ntohs(*((const uint16_t *)data));
-    ix_record->tls_info.tls_time[i].tv_sec =
+    ix_record->tls_info->tls_time[i].tv_sec =
       ((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
       + (ix_record->start.tv_usec / 1000)) / 1000;
 
-    ix_record->tls_info.tls_time[i].tv_usec =
+    ix_record->tls_info->tls_time[i].tv_usec =
       (((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
         + (ix_record->start.tv_usec/1000)) % 1000) * 1000;
 
@@ -1456,7 +1471,7 @@ static void ipfix_process_tls_content_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info.tls_type[i].content = *((const uint8_t *)data);
+    ix_record->tls_info->tls_type[i].content = *((const uint8_t *)data);
 
     data += element_length;
     data_length -= element_length;
@@ -1485,8 +1500,8 @@ static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info.tls_type[i].handshake = *((const uint8_t *)data);
-    ix_record->tls_info.tls_op += 1;
+    ix_record->tls_info->tls_type[i].handshake = *((const uint8_t *)data);
+    ix_record->tls_info->tls_op += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1515,8 +1530,8 @@ static void ipfix_process_tls_cipher_suites(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info.ciphersuites[i] = ntohs(*((const uint16_t *)data));
-    ix_record->tls_info.num_ciphersuites += 1;
+    ix_record->tls_info->ciphersuites[i] = ntohs(*((const uint16_t *)data));
+    ix_record->tls_info->num_ciphersuites += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1545,7 +1560,7 @@ static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info.tls_extensions[i].length = ntohs(*((const uint16_t *)data));
+    ix_record->tls_info->tls_extensions[i].length = ntohs(*((const uint16_t *)data));
 
     data += element_length;
     data_length -= element_length;
@@ -1574,9 +1589,9 @@ static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info.tls_extensions[i].type = ntohs(*((const uint16_t *)data));
-    ix_record->tls_info.tls_extensions[i].data = NULL;
-    ix_record->tls_info.num_tls_extensions += 1;
+    ix_record->tls_info->tls_extensions[i].type = ntohs(*((const uint16_t *)data));
+    ix_record->tls_info->tls_extensions[i].data = NULL;
+    ix_record->tls_info->num_tls_extensions += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1735,23 +1750,23 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         break;
 
       case IPFIX_TLS_VERSION:
-        ix_record->tls_info.tls_v = *(const uint8_t *)flow_data;
+        ix_record->tls_info->tls_v = *(const uint8_t *)flow_data;
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_KEY_LENGTH:
-        ix_record->tls_info.tls_client_key_length = ntohs(*(const uint16_t *)flow_data);
+        ix_record->tls_info->tls_client_key_length = ntohs(*(const uint16_t *)flow_data);
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_SESSION_ID:
-        ix_record->tls_info.tls_sid_len = min(field_length, 256);
-        memcpy(ix_record->tls_info.tls_sid, flow_data, ix_record->tls_info.tls_sid_len);
+        ix_record->tls_info->tls_sid_len = min(field_length, 256);
+        memcpy(ix_record->tls_info->tls_sid, flow_data, ix_record->tls_info->tls_sid_len);
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_RANDOM:
-        memcpy(ix_record->tls_info.tls_random, flow_data, 32);
+        memcpy(ix_record->tls_info->tls_random, flow_data, 32);
         flow_data += field_length;
         break;
 
@@ -1777,7 +1792,21 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         /* If packet has port 443 and nonzero data length, process it as TLS */
         if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
           struct timeval ts = {0}; /* Zeroize temporary timestamp */
-          process_tls(ts, payload, size_payload, &record->tls_info);
+
+          /* allocate TLS info struct if needed and initialize */
+          if (record->tls_info == NULL) {
+              record->tls_info = malloc(sizeof(struct tls_information));
+              if (record->tls_info != NULL) {
+                  tls_record_init(record->tls_info);
+              }
+          }
+         
+          /* process tls information */
+          if (record->tls_info != NULL) {
+              process_tls(ts, payload, size_payload, record->tls_info);
+          } else {
+              /* couldn't allocate TLS information structure, can't process */
+          }
         }
 
         /* If packet has port 80 and nonzero data length, process it as HTTP */

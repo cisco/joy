@@ -72,6 +72,10 @@ struct flow_key {
     unsigned short int prot;
 };
 
+/** Main entry point for the uploader thread */
+void *uploader_main(void* ptr);
+
+
 /*
  * default and maximum number of packets on which to report
  * lengths/times (actual value configurable on command line)
@@ -98,7 +102,7 @@ struct flow_record {
     double bd_mean;
     double bd_variance;
     header_description_t hd;         /*!< header description (proto ident)    */
-    struct tls_information tls_info;      /*!< TLS awareness                       */
+    struct tls_information *tls_info;      /*!< TLS awareness                       */
     http_data_t http_data;           /*!< HTTP header information             */
     //  char *dns_name[MAX_NUM_PKT_LEN];       /*!< array of DNS names                 */
     // struct dns dns;
@@ -288,7 +292,7 @@ enum SALT_algorithm {
   rle = 4
 };
 
-int upload_file(const char *filename, const char *servername, const char *key, unsigned int retain); 
+int upload_file(char *filename); 
 
 
 void flow_record_list_unit_test();

@@ -56,8 +56,8 @@
 #define MAX_URL_LENGTH 512
 
 /** Work interval defined for the updater main processing loop */
-//#define UPDATER_WORK_INTERVAL (86400) /* (60*60*24) = 86400 mins, 24 hours */
-#define UPDATER_WORK_INTERVAL (20)
+#define UPDATER_WORK_INTERVAL (86400) /* (60*60*24) = 86400 mins, 24 hours */
+//#define UPDATER_WORK_INTERVAL (20) /* for testing - 20 second interval */
 
 /** URL for the Talos malware feed */
 #define TALOS_URL "http://www.talosintelligence.com/feeds/ip-filter.blf"
