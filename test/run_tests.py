@@ -35,17 +35,30 @@
  *
 """
 
+import logging
+import argparse
 import test_ipfix
 
 
 if __name__ == "__main__":
-    test_suite = [test_ipfix.main, ]
+    parser = argparse.ArgumentParser(
+        description='Joy ALL program execution tests'
+    )
+    parser.add_argument('-l', '--log',
+                        dest='log_level',
+                        choices=['debug', 'info', 'warning', 'error', 'critical'],
+                        help='Set the logging level')
+    args = parser.parse_args()
+    if args.log_level:
+        logger = logging.getLogger(__name__)
+        logging.basicConfig(level=args.log_level.upper())
 
+    test_suite = [test_ipfix.main, ]
     for test in test_suite:
-        rc_main = test()
+        rc_main = test(child_log=True)
         if rc_main != 0:
-            print(str(__file__) + ' - FAILURE')
+            logging.warning('FAILED')
             exit(rc_main)
 
-    print(str(__file__) + ' - SUCCESS')
+    logging.warning('SUCCESS')
     exit(0)

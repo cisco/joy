@@ -39,6 +39,8 @@ import os
 import sys
 import subprocess
 import time
+import logging
+import argparse
 
 
 def end_process(process):
@@ -52,22 +54,16 @@ def end_process(process):
             time.sleep(1)
             if process.poll() is None:
                 # Runaway zombie process
-                print(str(__file__) + ' - error: subprocess ' + str(process) +
-                      ' turned zombie')
+                logging.error('subprocess ' + str(process) + 'turned zombie')
                 return 1
     elif process.poll() != 0:
         # Export process ended with bad exit code
-        print(str(__file__) + ' - error: subprocess ' + str(process) +
-              ' failed rc: ' + str(process.poll()))
         return process.poll()
 
     return 0
 
 
-def test_unix_os():
-    cur_dir = os.path.dirname(__file__)
-    exec_path = os.path.join(cur_dir, '../bin/pcap2flow')
-    sample_input = os.path.join(cur_dir, '../sample.pcap')
+def intraop_export_to_collect(exec_path, pcap_path):
     collect_output = 'tmp-ipfix-collect.gz'
     export_output = 'tmp-ipfix-export.gz'
     rc_overall = 0
@@ -83,7 +79,7 @@ def test_unix_os():
     proc_export = subprocess.Popen([exec_path,
                                     'output=' + export_output,
                                     'ipfix_export_port=2000',
-                                    sample_input])
+                                    pcap_path])
     proc_export.wait()
     time.sleep(1)
 
@@ -109,20 +105,52 @@ def test_unix_os():
     return rc_overall
 
 
-def main():
+def test_unix_os():
+    rc_unix_overall = 0
+    cur_dir = os.path.dirname(__file__)
+    exec_path = os.path.join(cur_dir, '../bin/pcap2flow')
+    pcap_path = os.path.join(cur_dir, '../sample.pcap')
+
+    rc_unix_test = intraop_export_to_collect(exec_path=exec_path,
+                                             pcap_path=pcap_path)
+    if rc_unix_test != 0:
+        rc_unix_overall = rc_unix_test
+        logging.warning(str(intraop_export_to_collect) +
+                        ' failed with return code ' + str(rc_unix_test))
+
+    return rc_unix_overall
+
+
+def main(child_log=False):
+    # There is a parent logger, get a local module logger
+    if child_log is True:
+        logging.getLogger(__name__)
+
     os_platform = sys.platform
     unix_platforms = ['linux', 'linux2', 'darwin']
 
     if os_platform in unix_platforms:
         status = test_unix_os()
         if status is not 0:
-            print(str(__file__) + ' - FAILURE')
+            logging.warning('FAILED')
             return status
 
-    print(str(__file__) + ' - SUCCESS')
+    logging.warning('SUCCESS')
     return 0
 
 
 if __name__ == "__main__":
+    # This argparse will only work when file is being run through command
+    parser = argparse.ArgumentParser(
+        description='Joy IPFix program execution tests'
+    )
+    parser.add_argument('-l', '--log',
+                        dest='log_level',
+                        choices=['debug', 'info', 'warning', 'error', 'critical'],
+                        help='Set the logging level')
+    args = parser.parse_args()
+    if args.log_level:
+        logging.basicConfig(level=args.log_level.upper())
+
     rc_main = main()
     exit(rc_main)
