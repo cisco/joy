@@ -695,7 +695,20 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
     
     /* if packet has port 443 and nonzero data length, process it as TLS */
     if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-        process_tls(h->ts, payload, size_payload, &record->tls_info);
+        /* allocate TLS info struct if needed and initialize */
+        if (record->tls_info == NULL) {
+            record->tls_info = malloc(sizeof(struct tls_information));
+            if (record->tls_info != NULL) {
+                tls_record_init(record->tls_info);
+            }
+        }
+         
+        /* process tls information */
+        if (record->tls_info != NULL) {
+            process_tls(h->ts, payload, size_payload, record->tls_info);
+        } else {
+            /* couldn't allocate TLS information structure, can't process */
+        }
     }
   
     /* if packet has port 80 and nonzero data length, process it as HTTP */
