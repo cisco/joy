@@ -443,9 +443,9 @@ enum status anon_string (const char *s, unsigned int len, char *outhex, unsigned
  * \return failure
  */
 enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsigned int outlen) {
-    unsigned char *pt = (unsigned char *)s;
     unsigned char c[16];
-    int i;
+    unsigned char pt[16];
+    struct in_addr *addr = (struct in_addr *)pt;
 
     if (len != 32 || outlen < 16) {
         return failure;
@@ -459,19 +459,8 @@ enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsi
     }
 
     AES_decrypt(c, pt, &key.dec_key);
-
-    for (i=0; i<16; i++) {
-        if (!isprint(pt[i])) {
-            break;
-        }
-    }
-    for (  ; i<16; i++) {
-        if (pt[i] != 0xff) {
-            return failure;
-        }
-        pt[i] = 0;
-    }
-   return ok;
+    strncpy(s, inet_ntoa(*addr), outlen);
+    return ok; 
 }
 
 #if 0

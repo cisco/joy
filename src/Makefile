@@ -76,7 +76,7 @@ endif
 
 .PHONY: print
 
-all:	print pcap2flow jfd-anon unit_test str_match_test
+all:	print pcap2flow jfd-anon unit_test str_match_test joy-anon
 
 print:
 	@echo "Makefile variables:"
@@ -91,6 +91,9 @@ pcap2flow: pcap2flow.c $(PCAP2FLOW_SRC)
 
 jfd-anon: jfd-anon.c $(JFDANON_SRC)
 	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+
+joy-anon: joy-anon.c $(JFDANON_SRC)
+	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
 unit_test: unit_test.c $(PCAP2FLOW_SRC)
 	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
