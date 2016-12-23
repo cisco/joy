@@ -50,6 +50,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include "p2f.h"
+#include "utils.h"
 
 
 /* @brief @verbatim
@@ -441,8 +442,6 @@ struct ipfix_exporter {
 };
 
 
-#define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
-
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
 #define min(a,b) \
@@ -530,6 +529,10 @@ enum ipfix_entities {
   IPFIX_POST_MCAST_OCTET_DELTA_COUNT =              20,
   IPFIX_FLOW_END_SYS_UP_TIME =                      21,
   IPFIX_FLOW_START_SYS_UP_TIME =                    22,
+  IPFIX_FLOW_START_SECONDS =                        150,
+  IPFIX_FLOW_END_SECONDS =                          151,
+  IPFIX_FLOW_START_MILLISECONDS =                   152,
+  IPFIX_FLOW_END_MILLISECONDS =                     153,
   IPFIX_BASIC_LIST =                                291,
   IPFIX_IDP =                                       16386,
   IPFIX_BYTE_DISTRIBUTION =                         16390,
