@@ -46,6 +46,7 @@
 #include <pcap.h>
 #include "output.h"
 #include "utils.h"
+#include "fingerprint.h"
 
 /* constants for TLS awareness */
 #define MAX_CS 256
@@ -189,6 +190,7 @@ struct tls_information {
     unsigned short int sni_length;
     void *certificate_buffer;
     unsigned short certificate_offset;
+    fingerprint_t *tls_fingerprint;
 };
 
 /* structures for parsing TLS content */
@@ -279,6 +281,8 @@ struct tls_information *process_tls(const struct timeval ts, const void *start,
 
 /** print out the TLS information to the destination file */
 void tls_printf(const struct tls_information *data, const struct tls_information *data_twin, zfile f);
+
+int tls_load_fingerprints(void);
 
 #endif /* TLS_H */
 
