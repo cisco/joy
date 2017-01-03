@@ -44,6 +44,13 @@ import argparse
 
 
 def end_process(process):
+    """
+    Takes care of the end-of-life stage of a process.
+    If the process is still running, end it.
+    The process EOL return code is collected and passed back.
+    :param process: A python subprocess object, i.e. subprocess.Popen()
+    :return: 0 for process success
+    """
     if process.poll() is None:
         # Gracefully terminate the process
         process.terminate()
@@ -54,7 +61,7 @@ def end_process(process):
             time.sleep(1)
             if process.poll() is None:
                 # Runaway zombie process
-                logging.error('subprocess ' + str(process) + 'turned zombie')
+                logger.error('subprocess ' + str(process) + 'turned zombie')
                 return 1
     elif process.poll() != 0:
         # Export process ended with bad exit code
@@ -106,6 +113,11 @@ def intraop_export_to_collect(exec_path, pcap_path):
 
 
 def test_unix_os():
+    """
+    Prepare the module for testing within a UNIX-like enviroment,
+    and then run the appropriate test functions.
+    :return: 0 for success
+    """
     rc_unix_overall = 0
     cur_dir = os.path.dirname(__file__)
     exec_path = os.path.join(cur_dir, '../bin/pcap2flow')
@@ -115,16 +127,18 @@ def test_unix_os():
                                              pcap_path=pcap_path)
     if rc_unix_test != 0:
         rc_unix_overall = rc_unix_test
-        logging.warning(str(intraop_export_to_collect) +
+        logger.warning(str(intraop_export_to_collect) +
                         ' failed with return code ' + str(rc_unix_test))
 
     return rc_unix_overall
 
 
-def main(child_log=False):
-    # There is a parent logger, get a local module logger
-    if child_log is True:
-        logging.getLogger(__name__)
+def main():
+    """
+    Main function to run any test within module.
+    :return: 0 for success
+    """
+    logger = logging.getLogger(__name__)
 
     os_platform = sys.platform
     unix_platforms = ['linux', 'linux2', 'darwin']
@@ -132,15 +146,17 @@ def main(child_log=False):
     if os_platform in unix_platforms:
         status = test_unix_os()
         if status is not 0:
-            logging.warning('FAILED')
+            logger.warning('FAILED')
             return status
 
-    logging.warning('SUCCESS')
+    logger.warning('SUCCESS')
     return 0
 
 
 if __name__ == "__main__":
-    # This argparse will only work when file is being run through command
+    """
+    test_ipfix.py executing through shell
+    """
     parser = argparse.ArgumentParser(
         description='Joy IPFix program execution tests'
     )
@@ -149,8 +165,12 @@ if __name__ == "__main__":
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level')
     args = parser.parse_args()
+
+    # Configure root logging
     if args.log_level:
         logging.basicConfig(level=args.log_level.upper())
+    else:
+        logging.basicConfig()
 
     rc_main = main()
     exit(rc_main)

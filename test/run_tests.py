@@ -49,16 +49,26 @@ if __name__ == "__main__":
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level')
     args = parser.parse_args()
-    if args.log_level:
-        logger = logging.getLogger(__name__)
-        logging.basicConfig(level=args.log_level.upper())
 
+    # Configure root logging
+    if args.log_level:
+        logging.basicConfig(level=args.log_level.upper())
+    else:
+        logging.basicConfig()
+
+    logger = logging.getLogger(__name__)
+
+    """
+    Add a new test:
+    1: Import the module that contains test
+    2: Add the test function reference to the 'test_suite' list below
+    """
     test_suite = [test_ipfix.main, ]
     for test in test_suite:
-        rc_main = test(child_log=True)
+        rc_main = test()
         if rc_main != 0:
-            logging.warning('FAILED')
+            logger.warning('FAILED')
             exit(rc_main)
 
-    logging.warning('SUCCESS')
+    logger.warning('SUCCESS')
     exit(0)
