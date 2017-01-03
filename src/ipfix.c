@@ -2000,105 +2000,6 @@ static inline void ipfix_delete_exp_template(struct ipfix_exporter_template *tem
 
 
 /*
- * @brief Allocate heap memory for an exporter data field.
- *
- * @param value_length Length in bytes of the data value. The value attribute
- *                     within the the new data_field will be allocated according
- *                     to the given \p value_length, and be able to hold up to that
- *                     amount of bytes.
- *
- * @return A newly allocated ipfix_exporter_data_field
- */
-static struct ipfix_exporter_data_field *ipfix_exp_data_field_malloc(uint16_t value_length) {
-  struct ipfix_exporter_data_field *field = NULL;
-
-  /* Init a new exporter template on the heap */
-  field = malloc(sizeof(struct ipfix_exporter_data_field));
-
-  if (field != NULL) {
-    memset(field, 0, sizeof(struct ipfix_exporter_data_field));
-
-    field->value = malloc((size_t)value_length);
-    if (field->value != NULL) {
-      memset(field->value, 0, (size_t)value_length);
-      field->length = value_length;
-    } else {
-      loginfo("error: field value malloc failed");
-    }
-  } else {
-    loginfo("error: malloc failed");
-  }
-
-  return field;
-}
-
-
-/*
- * @brief Free an allocated exporter data field.
- *
- * @param template IPFIX exporter data field that will have it's heap memory freed.
- */
-static inline void ipfix_delete_exp_data_field(struct ipfix_exporter_data_field *data_field) {
-  if (data_field == NULL) {
-    loginfo("api-error: data field is null");
-    return;
-  }
-
-  if (data_field->value) {
-    memset(data_field->value, 0, (size_t)data_field->length);
-    free(data_field->value);
-  }
-
-  /* Free the data record */
-  memset(data_field, 0, sizeof(struct ipfix_exporter_data_field));
-  free(data_field);
-}
-
-
-/*
- * @brief Append to the list of fields attached to the data record.
- *
- * The \p data_record contains the head/tail of a list of related data fields.
- * Here \p data_field will be added to that list.
- *
- * @param data_record Pointer to an ipfix_exporter_data in memory.
- * @param data_field IPFIX exporter data field that will be appended.
- *
- * @return 0 for success, 1 for failure
- */
-static int ipfix_exp_data_record_add(struct ipfix_exporter_data *data_record,
-                                     struct ipfix_exporter_data_field *data_field) {
-
-  if (data_record == NULL || data_field == NULL) {
-    loginfo("api-error: data record or field is null");
-    return 1;
-  }
-
-  /*
-   * Append the data_field to the list attached to data_record.
-   */
-  if (data_record->fields_head == NULL) {
-    /* This is the first field in the data record */
-    data_record->fields_head = data_field;
-  } else {
-    /* Append to the end of fields list */
-    data_record->fields_tail->next = data_field;
-  }
-
-  /* Update the tail */
-  data_record->fields_tail = data_field;
-
-  /* Update the data record length with total size of field */
-  data_record->length += data_field->length;
-
-  /* Increment the field count */
-  data_record->field_count += 1;
-
-  return 0;
-}
-
-
-/*
  * @brief Allocate heap memory for an exporter data record.
  *
  * @return A newly allocated ipfix_exporter_data
@@ -2120,37 +2021,6 @@ static struct ipfix_exporter_data *ipfix_exp_data_record_malloc(void) {
 
 
 /*
- * @brief Cleanup a data record by freeing any allocated memory that's been attached.
- *
- * A \p data_record contains a list of data fields that have been allocated on
- * the heap. This function takes care of freeing up that list.
- *
- * @param set Pointer to an ipfix_exporter_data in memory.
- */
-static void ipfix_exp_data_record_cleanup(struct ipfix_exporter_data *data_record) {
-  struct ipfix_exporter_data_field *this_data_field;
-  struct ipfix_exporter_data_field *next_data_field;
-
-  if (data_record->fields_head == NULL) {
-    return;
-  }
-
-  this_data_field = data_record->fields_head;
-  next_data_field = this_data_field->next;
-
-  /* Free the first data field */
-  ipfix_delete_exp_data_field(this_data_field);
-
-  while (next_data_field) {
-    this_data_field = next_data_field;
-    next_data_field = this_data_field->next;
-
-    ipfix_delete_exp_data_field(this_data_field);
-  }
-}
-
-
-/*
  * @brief Free an allocated exporter data record.
  *
  * @param template IPFIX exporter data record that will have it's heap memory freed.
@@ -2160,8 +2030,6 @@ static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data
     loginfo("api-error: data record is null");
     return;
   }
-
-  ipfix_exp_data_record_cleanup(data_record);
 
   /* Free the data record */
   memset(data_record, 0, sizeof(struct ipfix_exporter_data));
@@ -3122,60 +2990,46 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
 (const struct flow_record *fr_record) {
   struct ipfix_exporter_data *data_record = NULL;
-  struct ipfix_exporter_data_field *data_field = NULL;
   uint8_t protocol = 0;
-  uint64_t start_milli = 0;
-  uint64_t end_milli = 0;
 
   data_record = ipfix_exp_data_record_malloc();
 
   if (data_record != NULL) {
     /*
-     * Add and encode the data fields
+     * Assign the data fields
      */
     /* IPFIX_SOURCE_IPV4_ADDRESS */
-    data_field = ipfix_exp_data_field_malloc(sizeof(uint32_t));
-    memcpy(data_field->value, &fr_record->key.sa.s_addr, sizeof(uint32_t));
-    ipfix_exp_data_record_add(data_record, data_field);
+    data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
 
     /* IPFIX_DESTINATION_IPV4_ADDRESS */
-    data_field = ipfix_exp_data_field_malloc(sizeof(uint32_t));
-    memcpy(data_field->value, &fr_record->key.da.s_addr, sizeof(uint32_t));
-    ipfix_exp_data_record_add(data_record, data_field);
+    data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
 
     /* IPFIX_SOURCE_TRANSPORT_PORT */
-    data_field = ipfix_exp_data_field_malloc(sizeof(uint16_t));
-    memcpy(data_field->value, &fr_record->key.sp, sizeof(uint16_t));
-    ipfix_exp_data_record_add(data_record, data_field);
+    data_record->record.simple.source_transport_port = fr_record->key.sp;
 
     /* IPFIX_DESTINATION_TRANSPORT_PORT */
-    data_field = ipfix_exp_data_field_malloc(sizeof(uint16_t));
-    memcpy(data_field->value, &fr_record->key.dp, sizeof(uint16_t));
-    ipfix_exp_data_record_add(data_record, data_field);
+    data_record->record.simple.destination_transport_port = fr_record->key.dp;
 
     /* IPFIX_PROTOCOL_IDENTIFIER */
-    data_field = ipfix_exp_data_field_malloc(sizeof(uint8_t));
     protocol = (uint8_t)(fr_record->key.prot & 0xff);
-    memcpy(data_field->value, &protocol, sizeof(uint8_t));
-    ipfix_exp_data_record_add(data_record, data_field);
+    data_record->record.simple.protocol_identifier = protocol;
 
     /* IPFIX_FLOW_START_MILLISECONDS */
-    data_field = ipfix_exp_data_field_malloc(sizeof(uint64_t));
-    start_milli = (fr_record->start.tv_sec * 1000) + (fr_record->start.tv_usec / 1000);
-    memcpy(data_field->value, &start_milli, sizeof(uint64_t));
-    ipfix_exp_data_record_add(data_record, data_field);
+    data_record->record.simple.flow_start_milliseconds =
+      (fr_record->start.tv_sec * 1000) + (fr_record->start.tv_usec / 1000);
 
     /* IPFIX_FLOW_END_MILLISECONDS */
-    data_field = ipfix_exp_data_field_malloc(sizeof(uint64_t));
-    end_milli = (fr_record->end.tv_sec * 1000) + (fr_record->end.tv_usec / 1000);
-    memcpy(data_field->value, &end_milli, sizeof(uint64_t));
-    ipfix_exp_data_record_add(data_record, data_field);
+    data_record->record.simple.flow_end_milliseconds =
+      (fr_record->end.tv_sec * 1000) + (fr_record->end.tv_usec / 1000);
   } else {
     loginfo("error: unable to malloc data record");
   }
 
   /* Set the type of template for identification */
   data_record->type = IPFIX_SIMPLE_TEMPLATE;
+
+  /* Set the length (number of bytes) of the data record */
+  data_record->length = SIZE_IPFIX_DATA_SIMPLE;
 
   return data_record;
 }
@@ -3436,13 +3290,9 @@ static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set
  */
 static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_record,
                                                unsigned char *message_buf) {
-  struct ipfix_exporter_data_field *field = NULL;
   unsigned char *ptr = NULL;
-  uint32_t bigend_src_addr = 0;
-  uint32_t bigend_dest_addr = 0;
   uint16_t bigend_src_port = 0;
   uint16_t bigend_dest_port = 0;
-  uint8_t protocol = 0;
   uint64_t bigend_end_time = 0;
   uint64_t bigend_start_time = 0;
 
@@ -3456,86 +3306,39 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
     return 1;
   }
 
-  if (data_record->field_count != 7) {
-    loginfo("error: invalid field_count, must equal 7");
-    return 1;
-  }
-
+  /* Get starting position in target message buffer */
   ptr = message_buf;
 
-  /*
-   * Encode the data fields into message buffer
-   */
-  if (data_record->fields_head != NULL) {
-    field = data_record->fields_head;
-  } else {
-    loginfo("error: no fields attached to data record");
-    return 1;
-  }
-
   /* IPFIX_SOURCE_IPV4_ADDRESS */
-  bigend_src_addr = *(const uint32_t *)field->value;
-  memcpy(ptr, &bigend_src_addr, field->length);
-  ptr += field->length;
-
-  if (!(field = field->next)) {
-    loginfo("error: expected field missing from list");
-    return 1;
-  }
+  memcpy(ptr, &data_record->record.simple.source_ipv4_address, sizeof(uint32_t));
+  ptr += sizeof(uint32_t);
 
   /* IPFIX_DESTINATION_IPV4_ADDRESS */
-  bigend_dest_addr = *(const uint32_t *)field->value;
-  memcpy(ptr, &bigend_dest_addr, field->length);
-  ptr += field->length;
-
-  if (!(field = field->next)) {
-    loginfo("error: expected field missing from list");
-    return 1;
-  }
+  memcpy(ptr, &data_record->record.simple.destination_ipv4_address, sizeof(uint32_t));
+  ptr += sizeof(uint32_t);
 
   /* IPFIX_SOURCE_TRANSPORT_PORT */
-  bigend_src_port = htons(*(const uint16_t *)field->value);
-  memcpy(ptr, &bigend_src_port, field->length);
-  ptr += field->length;
-
-  if (!(field = field->next)) {
-    loginfo("error: expected field missing from list");
-    return 1;
-  }
+  bigend_src_port = htons(data_record->record.simple.source_transport_port);
+  memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
+  ptr += sizeof(uint16_t);
 
   /* IPFIX_DESTINATION_TRANSPORT_PORT */
-  bigend_dest_port = htons(*(const uint16_t *)field->value);
-  memcpy(ptr, &bigend_dest_port, field->length);
-  ptr += field->length;
-
-  if (!(field = field->next)) {
-    loginfo("error: expected field missing from list");
-    return 1;
-  }
+  bigend_dest_port = htons(data_record->record.simple.destination_transport_port);
+  memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
+  ptr += sizeof(uint16_t);
 
   /* IPFIX_PROTOCOL_IDENTIFIER */
-  protocol = *(const uint8_t *)field->value;
-  memcpy(ptr, &protocol, field->length);
-  ptr += field->length;
-
-  if (!(field = field->next)) {
-    loginfo("error: expected field missing from list");
-    return 1;
-  }
+  memcpy(ptr, &data_record->record.simple.protocol_identifier, sizeof(uint8_t));
+  ptr += sizeof(uint8_t);
 
   /* IPFIX_FLOW_START_MILLISECONDS */
-  bigend_start_time = hton64(*(const uint64_t *)field->value);
-  memcpy(ptr, &bigend_start_time, field->length);
-  ptr += field->length;
-
-  if (!(field = field->next)) {
-    loginfo("error: expected field missing from list");
-    return 1;
-  }
+  bigend_start_time = hton64(data_record->record.simple.flow_start_milliseconds);
+  memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
+  ptr += sizeof(uint64_t);
 
   /* IPFIX_FLOW_END_MILLISECONDS */
-  bigend_end_time = hton64(*(const uint64_t *)field->value);
-  memcpy(ptr, &bigend_end_time, field->length);
+  bigend_end_time = hton64(data_record->record.simple.flow_end_milliseconds);
+  memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
 
   /*
    * All fields were encoded into message!
