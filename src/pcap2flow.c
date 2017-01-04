@@ -766,6 +766,17 @@ int main (int argc, char **argv) {
         argv[1+opt_count] = ifile; 
     }
 
+    if (config.include_tls) {
+        /*
+         * Load the TLS fingerprints into memory
+         * for use in any mode.
+         */
+        if (tls_load_fingerprints()) {
+            fprintf(info, "error: could not load tls_fingerprint.json file\n");
+            return -1;
+        }
+    }
+
     if (mode == mode_online) {   /* live capture */
         int linktype;
 
@@ -1082,7 +1093,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     /* loop over all packets in capture file */
     pcap_loop(handle, GET_ALL_PACKETS, process_packet, NULL);
-  
+
     /* cleanup */
   
     if (output_level > none) { 

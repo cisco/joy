@@ -47,6 +47,11 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include "tls.h"
+#include "parson.h"
+#include "fingerprint.h"
+
+/* Store the tls_fingerprint.json data */
+static fingerprint_db_t tls_fingerprint_db;
 
 /* local prototypes */
 static void parse_san(const void *x, int len, struct tls_certificate *r);
@@ -931,6 +936,212 @@ static void TLSServerHello_get_extensions (const void *x, int len,
     }
 }
 
+/*
+ * @brief Load the tls_fingerprint.json data into the running process.
+ *
+ * Load the tls_fingerprint.json file into this processes memory,
+ * which contains a known dataset that is used for TLS connection
+ * fingerprinting.
+ *
+ * return 0 for success, 1 for failure
+ */
+int tls_load_fingerprints(void) {
+    JSON_Value *root_value = NULL;
+    JSON_Object *root_obj = NULL;
+    JSON_Object *data_obj = NULL;
+    JSON_Array *tls_libraries = NULL;
+    JSON_Object *library_obj = NULL;
+    JSON_Value *library_name = NULL;
+    JSON_Array *cipher_suites = NULL;
+    JSON_Array *extensions = NULL;
+    const char *lib_name_str = NULL;
+    const char *cipher_suite_str = NULL;
+    const char *extension_str = NULL;
+    const char *fingerprint_file = "tls_fingerprint.json";
+    size_t i = 0;
+    int rc = 1;
+
+    /* Parse the Json file and validate */
+    root_value = json_parse_file(fingerprint_file);
+    if (json_value_get_type(root_value) != JSONObject) {
+        fprintf(stderr, "error: expected JSON object\n");
+        goto cleanup;
+    }
+
+    /* Get the root object */
+    root_obj = json_value_get_object(root_value);
+
+    /* Get the data object */
+    data_obj = json_object_get_object(root_obj, "data");
+
+    /* Get the tls libraries list */
+    tls_libraries = json_object_get_array(data_obj, "tls_libraries");
+
+    /*
+     * Iterate through each individual library
+     */
+    for (i = 0; i < json_array_get_count(tls_libraries); i++) {
+        fingerprint_t fp_local;
+        fingerprint_t *fp_match = NULL;
+        unsigned short int cs_val = 0;
+        unsigned short int ext_val = 0;
+        uint16_t cs_count = 0;
+        uint16_t ext_count = 0;
+        size_t k = 0;
+
+        library_obj = json_array_get_object(tls_libraries, i);
+        library_name = json_object_get_value(library_obj, "library_name");
+        cipher_suites = json_object_get_array(library_obj, "cipher_suites");
+        extensions = json_object_get_array(library_obj, "extensions");
+
+        /* Get the library version name */
+        lib_name_str = json_value_get_string(library_name);
+
+        /* Get the number of cipher suites and extensions */
+        cs_count = json_array_get_count(cipher_suites);
+        ext_count = json_array_get_count(extensions);
+
+        if (cs_count + ext_count >= MAX_FINGERPRINT_LEN) {
+            fprintf(stderr, "error: cs+ext larger than allowed fingerprint size\n");
+            goto cleanup;
+        }
+
+        /* Prepare the local fingerprint for use */
+        memset(&fp_local, 0, sizeof(fingerprint_t));
+
+        /* Fill the local fingerprint buffer */
+        for (k = 0; k < cs_count; k++) {
+            cipher_suite_str = json_value_get_string(json_array_get_value(cipher_suites, k));
+            /* Convert the current hex string to a 2-byte value */
+            sscanf(cipher_suite_str, "%hx", &cs_val);
+            /* Copy into the functions local fingerprint */
+            fp_local.fingerprint[fp_local.fingerprint_len] = cs_val;
+            fp_local.fingerprint_len += 1;
+        }
+        for (k = 0; k < ext_count; k++) {
+            extension_str = json_value_get_string(json_array_get_value(extensions, k));
+            /* Convert the current hex string to a 2-byte value */
+            sscanf(extension_str, "%hx", &ext_val);
+            /* Copy into the functions local fingerprint */
+            fp_local.fingerprint[fp_local.fingerprint_len] = ext_val;
+            fp_local.fingerprint_len += 1;
+        }
+
+        /*
+         * Check if the fingerprint already exists in the database.
+         */
+        fp_match = fingerprint_db_match_exact(&tls_fingerprint_db, &fp_local); 
+
+        if (fp_match != NULL) {
+            /*
+             * Found an existing fingerprint entry.
+             */
+            uint16_t label_count = fp_match->label_count;
+
+            if (label_count == (MAX_FINGERPRINT_LABELS - 1)) {
+                fprintf(stderr, "warning: tls_fingerprint_t is at max label capacity");
+            } else {
+                strncpy(fp_match->labels[label_count], lib_name_str,
+                        MAX_FINGERPRINT_LABEL_LEN);
+                fp_match->labels[label_count][MAX_FINGERPRINT_LABEL_LEN - 1] = '\0';
+                fp_match->label_count += 1;
+            }
+        } else {
+            /*
+             * This is a new fingerprint database entry.
+             */
+            uint16_t db_count = tls_fingerprint_db.fingerprint_count;
+            if (db_count < MAX_FINGERPRINT_DB) {
+                /* Copy the library name label into local fingerprint */
+                strncpy(fp_local.labels[0], lib_name_str,
+                        MAX_FINGERPRINT_LABEL_LEN);
+                fp_local.labels[0][MAX_FINGERPRINT_LABEL_LEN - 1] = '\0';
+                fp_local.label_count += 1;
+
+                /* Copy local fingerprint to the database */
+                fingerprint_copy(&tls_fingerprint_db.fingerprints[db_count],
+                                 &fp_local);
+
+                /* Increment database count */
+                tls_fingerprint_db.fingerprint_count += 1;
+            } else {
+                fprintf(stderr, "warning: tls_fingerprint_store is at max capacity");
+            }
+        }
+    }
+
+    rc = 0;
+
+cleanup:
+    /* Free the internal json memory */
+    if (root_value) {
+        json_value_free(root_value);
+    }
+
+    return rc;
+}
+
+/*
+ * @brief Find a client TLS fingerprint match.
+ *
+ * Use data from the current flow's \p tls_info to search
+ * the known tls fingerprint database for any matches.
+ * If any matches are found, relevant data is copied
+ * into the \p tls_info for later retrieval. The \p percent
+ * represents the users required percent of confidence in
+ * order for a match to occur, 0 to 100. 100 means an exact match
+ * (100% of fingerprint must be matched). 70 means a partial
+ * match (70% of fingerprint must be matched).
+ *
+ * @param tls_info The client TLS information
+ * @param percent The callers required percent of fingerprint match.
+ *
+ * return 0 for match
+ */
+/* TODO re-enable this function for fingerprinting */
+#if 0
+static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
+                                            uint8_t percent) {
+    fingerprint_t client_fingerprint;
+    fingerprint_t *db_fingerprint = NULL;
+    size_t cs_byte_count = 0;
+
+    const unsigned short int test_cs_vector[] = {57, 56, 53, 22, 19, 10, 51, 50,
+                                                 47, 7, 102, 5, 4, 99, 98, 97,
+                                                 21, 18, 9, 101, 100, 96, 20, 17,
+                                                 8, 6, 3};
+    cs_byte_count = sizeof(test_cs_vector);
+
+    memset(&client_fingerprint, 0, sizeof(fingerprint_t));
+
+    /*
+     * Copy test data into client fingerprint.
+     */
+    memcpy(client_fingerprint.fingerprint, test_cs_vector, cs_byte_count);
+    client_fingerprint.fingerprint_len = (cs_byte_count / sizeof(unsigned short int));
+
+    if (percent == 100) {
+        /* Find an exact database fingerprint match */
+        db_fingerprint = fingerprint_db_match_exact(&tls_fingerprint_db,
+                                                    &client_fingerprint);
+    } else {
+        fprintf(stderr, "api-error: partial matching not supported yet");
+        return 1;
+    }
+
+    if (db_fingerprint != NULL) {
+        /* Point to database entry in client tls info */
+        tls_info->tls_fingerprint = db_fingerprint;
+
+#if 0
+        printf("FINGERPRINT MATCH!\n");
+#endif
+    }
+
+    return 0;
+}
+#endif
+
 #if 0
 static unsigned int TLSHandshake_get_length (const struct TLSHandshake *H) {
     return H->lengthLo + ((unsigned int) H->lengthMid) * 0x100 
@@ -1130,6 +1341,11 @@ struct tls_information *process_tls (const struct timeval ts,
 		r->role = role_client;
                 TLSClientHello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
                 TLSClientHello_get_extensions(&tls->Handshake.body, tls_len, r);
+
+                /* TODO enable fingerprint matching */
+#if 0
+                tls_client_fingerprint_match(r, 100);
+#endif
             } else if (tls->Handshake.HandshakeType == server_hello) {
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
