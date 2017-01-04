@@ -347,8 +347,8 @@ struct ipfix_exporter_data_simple {
   uint16_t source_transport_port;
   uint16_t destination_transport_port;
   uint8_t protocol_identifier;
-  uint64_t flow_start_milliseconds;
-  uint64_t flow_end_milliseconds;
+  uint64_t flow_start_microseconds;
+  uint64_t flow_end_microseconds;
 };
 
 
@@ -538,6 +538,8 @@ enum ipfix_entities {
   IPFIX_FLOW_END_SECONDS =                          151,
   IPFIX_FLOW_START_MILLISECONDS =                   152,
   IPFIX_FLOW_END_MILLISECONDS =                     153,
+  IPFIX_FLOW_START_MICROSECONDS =                   154,
+  IPFIX_FLOW_END_MICROSECONDS =                     155,
   IPFIX_BASIC_LIST =                                291,
   IPFIX_IDP =                                       16386,
   IPFIX_BYTE_DISTRIBUTION =                         16390,

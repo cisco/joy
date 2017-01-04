@@ -1221,6 +1221,42 @@ static int ipfix_process_flow_time_milli(const void *flow_data,
 
 
 /*
+ * @brief Process the flow's absolute start or ending time in microseconds.
+ *
+ * @param flow_data Contains the exported start/end flow time.
+ * @param ix_record IPFIX flow record being encoded.
+ * @param flag_end Signals whether the end or start time is being encoded.
+ *        0 for start, 1 for end, anything else is invalid.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_process_flow_time_micro(const void *flow_data,
+                                         struct flow_record *ix_record,
+                                         int flag_end) {
+  struct timeval *time;
+  switch (flag_end) {
+    case 0:
+      time = &ix_record->start;
+      break;
+    case 1:
+      time = &ix_record->end;
+      break;
+    default:
+      loginfo("api-error: invalid value for flag_end, must be 0 or 1");
+      return 1;
+  }
+  if (time->tv_sec + time->tv_usec == 0) {
+    time->tv_sec =
+      (time_t)((uint32_t)(ntoh64(*(const uint64_t *)flow_data) >> 32));
+
+    time->tv_usec =
+      (time_t)((uint64_t)ntoh64(*(const uint64_t *)flow_data) & 0x00000000FFFFFFFF);
+  }
+  return 0;
+}
+
+
+/*
  * @brief Process byte distribution related data.
  *
  * @param ix_record IPFIX flow record being encoded.
@@ -1793,6 +1829,18 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
 
       case IPFIX_FLOW_END_MILLISECONDS:
         ipfix_process_flow_time_milli(flow_data, ix_record, 1);
+
+        flow_ptr += field_length;
+        break;
+
+      case IPFIX_FLOW_START_MICROSECONDS:
+        ipfix_process_flow_time_micro(flow_data, ix_record, 0);
+
+        flow_ptr += field_length;
+        break;
+
+      case IPFIX_FLOW_END_MICROSECONDS:
+        ipfix_process_flow_time_micro(flow_data, ix_record, 1);
 
         flow_ptr += field_length;
         break;
@@ -3014,13 +3062,22 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
     protocol = (uint8_t)(fr_record->key.prot & 0xff);
     data_record->record.simple.protocol_identifier = protocol;
 
-    /* IPFIX_FLOW_START_MILLISECONDS */
-    data_record->record.simple.flow_start_milliseconds =
-      (fr_record->start.tv_sec * 1000) + (fr_record->start.tv_usec / 1000);
+    /*
+     * IPFIX_FLOW_START_MICROSECONDS
+     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+     * and pack the fractional microseconds into the least-significant 32 bits.
+     */
+    data_record->record.simple.flow_start_microseconds = fr_record->start.tv_sec << 32;
+    data_record->record.simple.flow_start_microseconds |= fr_record->start.tv_usec;
 
-    /* IPFIX_FLOW_END_MILLISECONDS */
-    data_record->record.simple.flow_end_milliseconds =
-      (fr_record->end.tv_sec * 1000) + (fr_record->end.tv_usec / 1000);
+    /*
+     * IPFIX_FLOW_END_MICROSECONDS
+     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+     * and pack the fractional microseconds into the least-significant 32 bits.
+     */
+    data_record->record.simple.flow_end_microseconds = fr_record->end.tv_sec << 32;
+    data_record->record.simple.flow_end_microseconds |= fr_record->start.tv_usec;
+
   } else {
     loginfo("error: unable to malloc data record");
   }
@@ -3124,10 +3181,11 @@ static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
         ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
 
     ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_FLOW_START_MILLISECONDS, 8));
+        ipfix_exp_template_field_macro(IPFIX_FLOW_START_MICROSECONDS, 8));
 
     ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_FLOW_END_MILLISECONDS, 8));
+        ipfix_exp_template_field_macro(IPFIX_FLOW_END_MICROSECONDS, 8));
+
   } else {
     loginfo("error: template is null");
   }
@@ -3331,18 +3389,15 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
   memcpy(ptr, &data_record->record.simple.protocol_identifier, sizeof(uint8_t));
   ptr += sizeof(uint8_t);
 
-  /* IPFIX_FLOW_START_MILLISECONDS */
-  bigend_start_time = hton64(data_record->record.simple.flow_start_milliseconds);
+  /* IPFIX_FLOW_START_MICROSECONDS */
+  bigend_start_time = hton64(data_record->record.simple.flow_start_microseconds);
   memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
   ptr += sizeof(uint64_t);
 
-  /* IPFIX_FLOW_END_MILLISECONDS */
-  bigend_end_time = hton64(data_record->record.simple.flow_end_milliseconds);
+  /* IPFIX_FLOW_END_MICROSECONDS */
+  bigend_end_time = hton64(data_record->record.simple.flow_end_microseconds);
   memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
 
-  /*
-   * All fields were encoded into message!
-   */
   return 0;
 }
 
