@@ -1225,6 +1225,7 @@ static void flow_record_print_json (const struct flow_record *record) {
     records_in_file++;
 
     if (record->twin != NULL) {
+        // Use the smaller of the 2 time values
         if (timer_lt(&record->start, &record->twin->start)) {
             ts_start = record->start;
             rec = record;
@@ -1232,10 +1233,11 @@ static void flow_record_print_json (const struct flow_record *record) {
             ts_start = record->twin->start;
             rec = record->twin;
         }
+        // Use the larger of the 2 time values
         if (timer_lt(&record->end, &record->twin->end)) {
-            ts_end = record->end;
-        } else {
             ts_end = record->twin->end;
+        } else {
+            ts_end = record->end;
         }
     } else {
         ts_start = record->start;
