@@ -3076,7 +3076,7 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
     data_record->record.simple.flow_end_microseconds = fr_record->end.tv_sec << 32;
-    data_record->record.simple.flow_end_microseconds |= fr_record->start.tv_usec;
+    data_record->record.simple.flow_end_microseconds |= fr_record->end.tv_usec;
 
   } else {
     loginfo("error: unable to malloc data record");
