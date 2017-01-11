@@ -50,6 +50,7 @@
 #include <netinet/in.h>
 #include <pthread.h>
 #include "p2f.h"
+#include "utils.h"
 
 
 /* @brief @verbatim
@@ -322,14 +323,6 @@ struct ipfix_exporter_template_field {
 };
 
 
-struct ipfix_exporter_data_field {
-  unsigned char *value;
-  uint16_t length; /**< length of the value */
-
-  struct ipfix_exporter_data_field *next;
-};
-
-
 /*
  * @brief Structure representing an IPFIX Exporter Template.
  */
@@ -346,14 +339,27 @@ struct ipfix_exporter_template {
 };
 
 
+#define SIZE_IPFIX_DATA_SIMPLE 29
+
+struct ipfix_exporter_data_simple {
+  uint32_t source_ipv4_address;
+  uint32_t destination_ipv4_address;
+  uint16_t source_transport_port;
+  uint16_t destination_transport_port;
+  uint8_t protocol_identifier;
+  uint64_t flow_start_microseconds;
+  uint64_t flow_end_microseconds;
+};
+
+
 /*
  * @brief Structure representing an IPFIX Exporter Data record.
  */
 struct ipfix_exporter_data {
-  struct ipfix_exporter_data_field *fields_head;
-  struct ipfix_exporter_data_field *fields_tail;
+  union {
+    struct ipfix_exporter_data_simple simple;
+  } record;
   enum ipfix_template_type type;
-  uint16_t field_count; /**< number of field values in list */
   uint16_t length; /**< total length the data record */
 
   struct ipfix_exporter_data *next;
@@ -440,8 +446,6 @@ struct ipfix_exporter {
     unsigned int msg_count;
 };
 
-
-#define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
 
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
@@ -530,6 +534,12 @@ enum ipfix_entities {
   IPFIX_POST_MCAST_OCTET_DELTA_COUNT =              20,
   IPFIX_FLOW_END_SYS_UP_TIME =                      21,
   IPFIX_FLOW_START_SYS_UP_TIME =                    22,
+  IPFIX_FLOW_START_SECONDS =                        150,
+  IPFIX_FLOW_END_SECONDS =                          151,
+  IPFIX_FLOW_START_MILLISECONDS =                   152,
+  IPFIX_FLOW_END_MILLISECONDS =                     153,
+  IPFIX_FLOW_START_MICROSECONDS =                   154,
+  IPFIX_FLOW_END_MICROSECONDS =                     155,
   IPFIX_BASIC_LIST =                                291,
   IPFIX_IDP =                                       16386,
   IPFIX_BYTE_DISTRIBUTION =                         16390,

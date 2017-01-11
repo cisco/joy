@@ -43,14 +43,13 @@
 #define PKT_H
 
 #include <netinet/in.h> 
+#include "utils.h"
 
 #ifdef LINUX
 #include <endian.h>
 #else /* SYSNAME=DARWIN */
 // no special include needed
 #endif
-
-#define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
 
 /** ethernet header */
 #define ETHERNET_HDR_LEN 14

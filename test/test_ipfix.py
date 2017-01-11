@@ -41,6 +41,8 @@ import subprocess
 import time
 import logging
 import argparse
+import json
+import gzip
 
 
 def end_process(process):
@@ -70,46 +72,175 @@ def end_process(process):
     return 0
 
 
-def intraop_export_to_collect(exec_path, pcap_path):
-    collect_output = 'tmp-ipfix-collect.gz'
-    export_output = 'tmp-ipfix-export.gz'
-    rc_overall = 0
-
-    # Start the ipfix collector
-    proc_collect = subprocess.Popen([exec_path,
-                                     'output=' + collect_output,
-                                     'ipfix_collect_online=1',
-                                     'ipfix_collect_port=4739'])
-    time.sleep(1)
-
-    # Start the ipfix exporter
-    proc_export = subprocess.Popen([exec_path,
-                                    'output=' + export_output,
-                                    'ipfix_export_port=2000',
-                                    pcap_path])
-    proc_export.wait()
-    time.sleep(1)
-
+class ValidateExporter(object):
     """
-    Cleanup
+    Class suite to validate the data produced by Joy's Ipfix exporter and consumption
+    by the collector. The exporter and collector each use their own system process.
     """
-    # End the ipfix exporting
-    rc_test = end_process(proc_export)
-    if rc_test != 0:
-        rc_overall = rc_test
+    def __init__(self, cli_paths, compare_keys=['sa','da','sp','dp','pr']):
+        self.cli_paths = cli_paths
+        self.compare_keys = compare_keys
+        self.exported_flows = list()
+        self.sniffed_flows = list()
+        self.corrupt_flows = list()
+        self.export_output = 'tmp-ipfix-export.json.gz'
+        self.collect_output = 'tmp-ipfix-collect.json.gz'
 
-    # End the ipfix collecting
-    rc_test = end_process(proc_collect)
-    if rc_test != 0:
-        rc_overall = rc_test
+    def __cleanup_tmp_files(self):
+        """
+        Delete any existing temporary files.
+        :return:
+        """
+        # Delete temporary files
+        if os.path.isfile(self.collect_output):
+            os.remove(self.collect_output)
+        if os.path.isfile(self.export_output):
+            os.remove(self.export_output)
 
-    # Delete temporary files
-    if os.path.isfile(collect_output):
-        os.remove(collect_output)
-    if os.path.isfile(export_output):
-        os.remove(export_output)
+    def __intraop_export_to_collect(self):
+        """
+        Perform intraoperation test between the Joy Ipfix exporter and collector.
+        The flow data gathered by the collector is recorded in the self.exported_flows list.
+        :return: 0 for success
+        """
+        exec_path = self.cli_paths['exec_path']
+        pcap_path = self.cli_paths['pcap_path']
+        rc_overall = 0
 
-    return rc_overall
+        # Start the ipfix collector
+        proc_collect = subprocess.Popen([exec_path,
+                                         'output=' + self.collect_output,
+                                         'ipfix_collect_online=1',
+                                         'ipfix_collect_port=4739'])
+        time.sleep(0.5)
+
+        # Start the ipfix exporter
+        proc_export = subprocess.Popen([exec_path,
+                                        'output=' + self.export_output,
+                                        'ipfix_export_port=2000',
+                                        pcap_path])
+        proc_export.wait()
+        time.sleep(0.5)
+
+        """
+        Cleanup
+        """
+        # End the ipfix exporting
+        rc_proc = end_process(proc_export)
+        if rc_proc != 0:
+            rc_overall = rc_proc
+
+        # End the ipfix collecting
+        rc_proc = end_process(proc_collect)
+        if rc_proc != 0:
+            rc_overall = rc_proc
+
+        with gzip.open(self.collect_output, 'r') as f:
+            for line in f:
+                try:
+                    flow = json.loads(line)
+                    self.exported_flows.append(flow)
+                except:
+                    continue
+
+        return rc_overall
+
+    def __sniff_pcap(self):
+        """
+        Perform a direct sniff on a sample pcap file using the Joy Ipfix collector.
+        The flow data gathered by the collector is recorded in the self.sniffed_flows list.
+        :return: 0 for success
+        """
+        exec_path = self.cli_paths['exec_path']
+        pcap_path = self.cli_paths['pcap_path']
+        rc_overall = 0
+
+        # Start the ipfix collector
+        proc_collect = subprocess.Popen([exec_path,
+                                         'output=' + self.collect_output,
+                                         'ipfix_collect_port=4739',
+                                         pcap_path])
+        time.sleep(0.5)
+
+        """
+        Cleanup
+        """
+        # End the ipfix collecting process
+        rc_proc = end_process(proc_collect)
+        if rc_proc != 0:
+            rc_overall = rc_proc
+
+        with gzip.open(self.collect_output, 'r') as f:
+            for line in f:
+                try:
+                    flow = json.loads(line)
+                    self.sniffed_flows.append(flow)
+                except:
+                    continue
+
+        return rc_overall
+
+    def validate_export_against_sniff(self):
+        """
+        Use a set
+        :return: 0 for success
+        """
+        # Exporter -> collector
+        rc_overall = self.__intraop_export_to_collect()
+        if rc_overall != 0:
+            logger.warning(str(self.__intraop_export_to_collect) + 'failed')
+            return rc_overall
+
+        # Pcap -> collector
+        rc_overall = self.__sniff_pcap()
+        if rc_overall != 0:
+            logger.warning(str(self.__sniff_pcap) + 'failed')
+            return rc_overall
+
+        # Compare the two results
+        for flow in self.exported_flows:
+            corrupt = True
+            if not 'sa' in flow:
+                # Optimize prelim check to see if a flow object
+                continue
+            elif flow['dp'] == 4739:
+                # Ignore the exporter -> collector initial packet
+                continue
+
+            for sniff_flow in self.sniffed_flows:
+                if not 'sa' in sniff_flow:
+                    # Optimize prelim check to see if a flow object
+                    continue
+
+                match = True
+                for key in self.compare_keys:
+                    try:
+                        if not flow[key] == sniff_flow[key]:
+                            # One of the key/value pairs did not match
+                            match = False
+                            break
+                    except KeyError:
+                        # This json object is not a flow, skip
+                        break
+
+                if match is True:
+                    # All of the key/value pairs matched
+                    corrupt = False
+                    break
+
+            if corrupt is True:
+                self.corrupt_flows.append(flow)
+                rc_overall = 1
+
+        if self.corrupt_flows:
+            # Info log the corrupt flows
+            for flow in self.corrupt_flows:
+                logger.info('CORRUPT FLOW: ' + str(flow))
+
+        # Delete temporary files
+        self.__cleanup_tmp_files()
+
+        return rc_overall
 
 
 def test_unix_os():
@@ -120,15 +251,18 @@ def test_unix_os():
     """
     rc_unix_overall = 0
     cur_dir = os.path.dirname(__file__)
-    exec_path = os.path.join(cur_dir, '../bin/pcap2flow')
-    pcap_path = os.path.join(cur_dir, '../sample.pcap')
 
-    rc_unix_test = intraop_export_to_collect(exec_path=exec_path,
-                                             pcap_path=pcap_path)
+    cli_paths = dict()
+    cli_paths['exec_path'] = os.path.join(cur_dir, '../bin/pcap2flow')
+    cli_paths['pcap_path'] = os.path.join(cur_dir, '../sample.pcap')
+
+    validate_exporter = ValidateExporter(cli_paths=cli_paths)
+
+    rc_unix_test = validate_exporter.validate_export_against_sniff()
     if rc_unix_test != 0:
         rc_unix_overall = rc_unix_test
-        logger.warning(str(intraop_export_to_collect) +
-                        ' failed with return code ' + str(rc_unix_test))
+        logger.warning(str(validate_exporter.validate_export_against_sniff) +
+                       ' failed with return code ' + str(rc_unix_test))
 
     return rc_unix_overall
 
@@ -138,6 +272,7 @@ def main():
     Main function to run any test within module.
     :return: 0 for success
     """
+    global logger
     logger = logging.getLogger(__name__)
 
     os_platform = sys.platform

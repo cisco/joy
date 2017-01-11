@@ -42,6 +42,21 @@
 #ifndef P2FUTILS
 #define P2FUTILS
 
+#define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
+
+#if CPU_IS_BIG_ENDIAN
+# define ntoh64(x) x
+# define hton64(x) x
+#else
+# ifdef WIN32
+#   define ntoh64(x) _byteswap_uint64(x)
+#   define hton64(x) _byteswap_uint64(x)
+# else
+#   define ntoh64(x) __builtin_bswap64(x)
+#   define hton64(x) __builtin_bswap64(x)
+# endif
+#endif
+
 enum role {
   role_unknown = 0,
   role_client  = 1,
