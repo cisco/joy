@@ -290,6 +290,20 @@ elif [ "$sysname" == "Linux" ]; then
 
     echo "found $sysname, installing pcap2flow ..."
 
+    # Default to sysv for daemon management system
+    daemon_system='sysv'
+    if [ -f /sbin/init ]; then
+        # Check if the file is a symbolic link
+        if [ -h /sbin/init ]; then
+            # Check whether linked to systemd
+            file /sbin/init | grep 'systemd'
+            retval=$?
+            if [ $retval == "0" ]; then
+                daemon_system='systemd'
+            fi
+        fi
+    fi
+
     # stop service, if a previous version is already running
     echo "stopping service (this might take some time)" 
     service pcap2flow stop 

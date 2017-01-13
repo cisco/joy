@@ -1,0 +1,15 @@
+[Unit]
+Description=Advanced network flow data capture
+Documentation=man:pcap2flow(1)
+After=network.target
+
+[Service]
+EnvironmentFile=/etc/p2f/linux.cfg
+ExecStart=/usr/bin/pcap2flow $OPTIONS
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+RestartSec=60s
+
+[Install]
+WantedBy=multi-user.target
