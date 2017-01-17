@@ -1,0 +1,186 @@
+#!/bin/bash
+#
+# uninstall-sh
+#
+# note: this file is not named uninstall.sh to avoid unwanted behavior
+# due to implicit rules with "make"
+#
+# uninstaller for pcap2flow and related files
+
+sysname=`uname -s`
+
+if [ "$sysname" == "Darwin" ]; then
+    ##
+    # Darwin operating system detected
+    ##
+    echo "System $sysname (Mac OS X) uninstalling ..."
+
+    # Stop the daemon
+    launchctl unload /System/Library/LaunchDaemons/pcap2flow.plist
+
+    # Delete the application files
+    if [ -f /usr/libexec/pcap2flow ]; then
+        rm /usr/libexec/pcap2flow
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete file /usr/libexec/pcap2flow"
+        else
+            echo "deleted file /usr/libexec/pcap2flow"
+        fi
+    fi
+
+    if [ -d /etc/p2f ]; then
+        rm -rf /etc/p2f
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete directory /etc/p2f"
+        else
+            echo "deleted directory /etc/p2f"
+        fi
+    fi
+
+    if [ -f /System/Library/LaunchDaemons/pcap2flow.plist ]; then
+        rm /System/Library/LaunchDaemons/pcap2flow.plist
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete file /System/Library/LaunchDaemons/pcap2flow.plist"
+        else
+            echo "deleted file /System/Library/LaunchDaemons/pcap2flow.plist"
+        fi
+    fi
+
+    if [ -f /usr/share/man/man1/pcap2flow.1 ]; then
+        rm /usr/share/man/man1/pcap2flow.1
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete file /usr/share/man/man1/pcap2flow.1"
+        else
+            echo "deleted file /usr/share/man/man1/pcap2flow.1"
+        fi
+    fi
+
+    echo "... done"
+    echo
+elif [ "$sysname" == "Linux" ]; then
+    ##
+    # Linux operating system detected
+    ##
+    echo "System $sysname (Linux) uninstalling ..."
+
+    # Default to sysv for daemon management system
+    daemon_system='sysv'
+    if [ -f /sbin/init ]; then
+        # Check if the file is a symbolic link
+        if [ -h /sbin/init ]; then
+            # Check whether linked to systemd
+            file /sbin/init | grep 'systemd'
+            retval=$?
+            if [ $retval == "0" ]; then
+                daemon_system='systemd'
+            fi
+        fi
+    fi
+
+    # Stop and disable the service
+    if [ "$daemon_system" == "sysv" ]; then
+        echo "stopping service (this might take some time)"
+        service pcap2flow stop
+        update-rc.d pcap2flow remove
+        service pcap2flow status
+    elif [ "$daemon_system" == "systemd" ]; then
+        echo "stopping service (this might take some time)"
+        systemctl stop pcap2flow.service
+        systemctl disable pcap2flow.service
+        systemctl status pcap2flow.service
+    fi
+
+    # Delete the application files
+    if [ -f /usr/bin/pcap2flow ]; then
+        rm /usr/bin/pcap2flow
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete file /usr/bin/pcap2flow"
+        else
+            echo "deleted file /usr/bin/pcap2flow"
+        fi
+    fi
+
+    if [ -f /usr/bin/query.py ]; then
+        rm /usr/bin/query.py
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete file /usr/bin/query.py"
+        else
+            echo "deleted file /usr/bin/query.py"
+        fi
+    fi
+
+    if [ -d /usr/share/joy/data ]; then
+        rm -rf /usr/share/joy/data
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete directory /usr/share/joy/data"
+        else
+            echo "deleted directory /usr/share/joy/data"
+        fi
+    fi
+
+    if [ -d /etc/p2f ]; then
+        rm -rf /etc/p2f
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete directory /etc/p2f"
+        else
+            echo "deleted directory /etc/p2f"
+        fi
+    fi
+
+    if [ -f /usr/share/man/man1/pcap2flow.1 ]; then
+        rm /usr/share/man/man1/pcap2flow.1
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete file /usr/share/man/man1/pcap2flow.1"
+        else
+            echo "deleted file /usr/share/man/man1/pcap2flow.1"
+        fi
+    fi
+
+    # Delete daemon specific files
+    if [ "$daemon_system" == "sysv" ]; then
+        if [ -f /etc/init.d/pcap2flow ]; then
+            rm /etc/init.d/pcap2flow
+            retval=$?
+            if [ $retval != "0" ]; then
+                echo "error: could not delete file /etc/init.d/pcap2flow"
+            else
+                echo "deleted file /etc/init.d/pcap2flow"
+            fi
+        fi
+    elif [ "$daemon_system" == "systemd" ]; then
+        if [ -f /etc/systemd/system/pcap2flow.service ]; then
+            rm /etc/systemd/system/pcap2flow.service
+            retval=$?
+            if [ $retval != "0" ]; then
+                echo "error: could not delete file /etc/systemd/system/pcap2flow.service"
+            else
+                echo "deleted file /etc/systemd/system/pcap2flow.service"
+            fi
+        fi
+
+        if [ -f /etc/systemd/system/pcap2flow.service.d/pcap2flow_env.conf ]; then
+            rm /etc/systemd/system/pcap2flow.service
+            retval=$?
+            if [ $retval != "0" ]; then
+                echo "error: could not delete file /etc/systemd/system/pcap2flow.service.d/pcap2flow_env.conf"
+            else
+                echo "deleted file /etc/systemd/system/pcap2flow.service.d/pcap2flow_env.conf"
+            fi
+        fi
+    fi
+
+    echo "... done"
+    echo
+else
+    echo "error: unknown system ($sysname)"
+    exit
+fi

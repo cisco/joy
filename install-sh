@@ -183,7 +183,9 @@ fi
 sysname=`uname -s`
 
 if [ "$sysname" == "Darwin" ]; then
-
+    ##
+    # Darwin operating system detected
+    ##
     echo "found $sysname (Mac OS X), installing pcap2flow ..."
 
     cp bin/pcap2flow /usr/libexec/
@@ -287,8 +289,10 @@ if [ "$sysname" == "Darwin" ]; then
     exit
 
 elif [ "$sysname" == "Linux" ]; then 
-
-    echo "found $sysname, installing pcap2flow ..."
+    ##
+    # Linux operating system detected
+    ##
+    echo "found $sysname (Linux), installing pcap2flow ..."
 
     # Default to sysv for daemon management system
     daemon_system='sysv'
@@ -304,142 +308,189 @@ elif [ "$sysname" == "Linux" ]; then
         fi
     fi
 
-    # stop service, if a previous version is already running
-    echo "stopping service (this might take some time)" 
-    service pcap2flow stop 
+    # Stop service, if a previous version is already running
+    if [ "$daemon_system" == "sysv" ]; then
+        echo "stopping service (this might take some time)" 
+        service pcap2flow stop 
+    elif [ "$daemon_system" == "systemd" ]; then
+        echo "stopping service (this might take some time)" 
+        systemctl stop pcap2flow.service
+    fi
 
+    # Install the binary executable
     cp bin/pcap2flow /usr/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not copy to /usr/bin/"
-	exit
+        echo "error: could not copy to /usr/bin/"
+        exit
     fi
 
+    # Create /var/p2f directory if it does not currently exist
     if [ ! -d /var/p2f ]; then
 	mkdir /var/p2f
 	retval=$?
 	if [ $retval -ne "0" ]; then
-	    echo "error: could not make directory /var/p2f"
-	    exit
+        echo "error: could not make directory /var/p2f"
+        exit
 	fi
     else
-	echo "directory /var/p2f/ already exists"
+        echo "directory /var/p2f/ already exists"
     fi
 
+    # Create /etc/p2f directory if it does not currently exist
     if [ ! -d /etc/p2f ]; then
-	mkdir /etc/p2f
-	retval=$?
-	if [ $retval -ne "0" ]; then
-	    echo "error: could not make directory /etc/p2f"
-	    exit
-	fi
+        mkdir /etc/p2f
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not make directory /etc/p2f"
+            exit
+        fi
     else
-	echo "directory /etc/p2f/ already exists"
+        echo "directory /etc/p2f/ already exists"
     fi
 
     if [ -f /etc/p2f/linux.cfg ]; then
-	echo "warning: file /etc/p2f/linux.cfg exists; renaming that file to linux.cfg.bak"
-	mv /etc/p2f/linux.cfg /etc/p2f/linux.cfg.bak 
+        echo "warning: file /etc/p2f/linux.cfg exists; renaming that file to linux.cfg.bak"
+        mv /etc/p2f/linux.cfg /etc/p2f/linux.cfg.bak 
     else
-	cp ${CONFIGFILE} /etc/p2f/linux.cfg
-	retval=$?
-	if [ $retval -ne "0" ]; then
-	    echo "error: could not copy to /etc/p2f"
-	    exit
-	fi
+        cp ${CONFIGFILE} /etc/p2f/linux.cfg
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy to /etc/p2f"
+            exit
+        fi
     fi
 
+    # Install the anonymization file
     if [ -f /etc/p2f/${ANONFILE} ]; then
-	echo "file /etc/p2f/${ANONFILE} exists; not installing subnet file"
+        echo "file /etc/p2f/${ANONFILE} exists; not installing subnet file"
     else
-	cp ${ANONFILE} /etc/p2f/
-	retval=$?
-	if [ $retval -ne "0" ]; then
-	    echo "error: could not copy to /etc/p2f"
-	    exit
-	fi
+        cp ${ANONFILE} /etc/p2f/
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy to /etc/p2f"
+            exit
+        fi
     fi
 
+    # Install the ssh key file
     mv ${KEYFILE} /etc/p2f/
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not move ${KEYFILE} to /etc/p2f"
-	exit
+        echo "error: could not move ${KEYFILE} to /etc/p2f"
+        exit
     fi
     chmod 600 /etc/p2f/${KEYFILE}
 
-   if [ -f /etc/p2f/${WATCHFILE} ]; then
-	echo "file /etc/p2f/${WATCHFILE} exists; overwriting with recent file"
-   fi
-   cp ${WATCHFILE} /etc/p2f/
-   retval=$?
-   if [ $retval -ne "0" ]; then
-       echo "error: could not copy to /etc/p2f"
-       exit
-   fi
-
-    cp pcap2flow.rc /etc/init.d/pcap2flow
+    # Install the watch file
+    if [ -f /etc/p2f/${WATCHFILE} ]; then
+        echo "file /etc/p2f/${WATCHFILE} exists; overwriting with recent file"
+    fi
+    cp ${WATCHFILE} /etc/p2f/
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not copy to /etc/init.d"
-	exit
-    fi
-    chmod +x /etc/init.d/pcap2flow
-    retval=$?
-    if [ $retval -ne "0" ]; then
-	echo "error: could not chmod +x /etc/init.d/pcap2flow"
-	exit
+        echo "error: could not copy to /etc/p2f"
+        exit
     fi
 
-    # configure to run automatically at boot time
-    #
-    update-rc.d pcap2flow defaults
-    retval=$?
-    if [ $retval -ne "0" ]; then
-	echo "error: update-rc.d failed (return value: $retval)"
-	exit
-    fi
-    # start service 
-    service pcap2flow start
-
+    # Install the manpage documentation
     cp doc/pcap2flow.1 /usr/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not copy to /usr/share/man/man1/"
-	exit
+        echo "error: could not copy to /usr/share/man/man1/"
+        exit
     fi
     mandb >/dev/null
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not run mandb (man page will be unavailable)"
-	# exit
+        echo "error: could not run mandb (man page will be unavailable)"
+        # exit
     fi
 
-    # install query
+    # Install query
     cp query.py /usr/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not copy to /usr/bin/"
-	exit
+        echo "error: could not copy to /usr/bin/"
+        exit
     fi
 
     if [ ! -d "/usr/share/joy" ]; then
-	mkdir /usr/share/joy
+        mkdir /usr/share/joy
     else
-	echo "directory /usr/share/joy already exists"
+        echo "directory /usr/share/joy already exists"
     fi
     if [ ! -d "/usr/share/joy/data" ]; then
-	mkdir /usr/share/joy/data
+        mkdir /usr/share/joy/data
     else
-	echo "directory /usr/share/joy/data already exists"
+        echo "directory /usr/share/joy/data already exists"
     fi
     cp data/* /usr/share/joy/data
     retval=$?
     if [ $retval -ne "0" ]; then
-	echo "error: could not copy data files into directory /usr/share/joy/data"
-	exit
-    fi    
+        echo "error: could not copy data files into directory /usr/share/joy/data"
+        exit
+    fi
 
+    ##
+    # Copy the daemon service files and start it
+    ##
+    if [ "$daemon_system" == "sysv" ]; then
+        cp pcap2flow.rc /etc/init.d/pcap2flow
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy to /etc/init.d"
+            exit
+        fi
+        chmod +x /etc/init.d/pcap2flow
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not chmod +x /etc/init.d/pcap2flow"
+            exit
+        fi
+
+        # Configure to run automatically at boot time
+        update-rc.d pcap2flow defaults
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: update-rc.d failed (return value: $retval)"
+            exit
+        fi
+
+        # Start service 
+        service pcap2flow start
+    elif [ "$daemon_system" == "systemd" ]; then
+        cp pcap2flow.service /etc/systemd/system
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy pcap2flow.service to /etc/systemd/system"
+            exit
+        fi
+        chmod +x /etc/init.d/pcap2flow
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not chmod +x /etc/systemd/system/pcap2flow.service"
+            exit
+        fi
+
+        if [ ! -d "/etc/systemd/system/pcap2flow.service.d" ]; then
+            mkdir /etc/systemd/system/pcap2flow.service.d
+        fi
+
+        cp pcap2flow_env.conf /etc/systemd/system/pcap2flow.service.d
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy pcap2flow_env.conf to /etc/systemd/system/pcap2flow.service.d"
+            exit
+        fi
+
+        # Configure to run at boot time
+        systemctl enable pcap2flow.service
+
+        # Start service
+        systemctl start pcap2flow.service
+    fi
+
+    # List all the installed files
     ls -l /usr/bin/pcap2flow
     ls -l /usr/bin/query.py
     ls -l /usr/share/joy/data/*
@@ -447,9 +498,16 @@ elif [ "$sysname" == "Linux" ]; then
     ls -l /etc/p2f/${ANONFILE}
     ls -l /etc/p2f/${KEYFILE}
     ls -l /etc/p2f/${WATCHFILE}
-    ls -l /etc/init.d/pcap2flow
     ls -l /usr/share/man/man1/pcap2flow.1
-    service pcap2flow status
+
+    if [ "$daemon_system" == "sysv" ]; then
+        ls -l /etc/init.d/pcap2flow
+        service pcap2flow status
+    elif [ "$daemon_system" == "systemd" ]; then
+        ls -l /etc/systemd/system/pcap2flow.service
+        ls -l /etc/systemd/system/pcap2flow.service.d/pcap2flow_env.conf
+        systemctl status pcap2flow.service
+    fi
 
     echo "done" 
     
