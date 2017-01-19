@@ -57,7 +57,6 @@
 /*
  * external variables, defined in pcap2flow
  */
-extern FILE *output;
 extern FILE *info;
 extern unsigned int num_pkt_len;
 extern unsigned int output_level;
@@ -110,34 +109,34 @@ void print_hex_ascii_line (const unsigned char *data, int len, int offset) {
     const unsigned char *d;
     int i, j;
 
-    fprintf(output, "%05d   ", offset);	
+    fprintf(info, "%05d   ", offset);	
     d = data;
     for(i = 0; i < len; i++) {
-        fprintf(output, "%02x ", *d);
+        fprintf(info, "%02x ", *d);
         d++;
         if (i == 7)
-            fprintf(output, " ");
+            fprintf(info, " ");
     }
     if (len < 8)
-        fprintf(output, " ");
+        fprintf(info, " ");
 	
     if (len < 16) {
         j = 16 - len;
         for (i = 0; i < j; i++) {
-            fprintf(output, "   ");
+            fprintf(info, "   ");
         }
     }
-    fprintf(output, "   ");
+    fprintf(info, "   ");
 	
     d = data;
     for(i = 0; i < len; i++) {
         if (isprint(*d))
-            fprintf(output, "%c", *d);
+            fprintf(info, "%c", *d);
         else
-            fprintf(output, ".");
+            fprintf(info, ".");
         d++;
     }
-    fprintf(output, "\n");
+    fprintf(info, "\n");
 
     return;
 }
@@ -201,7 +200,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
 	                  }
 	                  (record->pkt_len[record->op])--;
 	                  record->pkt_time[record->op] = *time;
-	                  // fprintf(output, " == pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
+	                  // fprintf(info, " == pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
                 } else {
 	                  if (record->pkt_len[record->op] != 0) {
 	                      record->op++;
@@ -209,7 +208,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
 	                  record->pkt_len[record->op] = length;
 	                  record->pkt_time[record->op] = *time;
 	                  record->last_pkt_len = length;
-	                  // fprintf(output, " != pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
+	                  // fprintf(info, " != pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
                 }
             }
             break;
@@ -297,12 +296,12 @@ enum status process_ipfix(const void *start,
   /* debugging output */
   if (output_level > none) {
     fprintf(info, "processing ipfix packet\n");
-    fprintf(output, "   protocol: ipfix");
-    fprintf(output, " packet len: %u\n", len);
+    fprintf(info, "   protocol: ipfix");
+    fprintf(info, " packet len: %u\n", len);
 
     if (output_level > packet_summary) {
       if (len > 0) {
-        fprintf(output, "    payload:\n");
+        fprintf(info, "    payload:\n");
         print_payload(start, len);
       }
     }
@@ -318,7 +317,7 @@ enum status process_ipfix(const void *start,
   /*
    * Parse IPFIX message for template, options, or data sets.
    */
-  while (message_len > 0) {
+  while (message_len > sizeof(struct ipfix_set_hdr)) {
     ipfix_sh = start;
     uint16_t set_id = ntohs(ipfix_sh->set_id);
 
@@ -379,12 +378,12 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
     /* debugging output */
     if (output_level > none) {
         fprintf(info, "processing nfv9 packet\n");
-        fprintf(output, "   protocol: nfv9");
-        fprintf(output, " packet len: %u\n", len);
+        fprintf(info, "   protocol: nfv9");
+        fprintf(info, " packet len: %u\n", len);
 
         if (output_level > packet_summary) {
             if (len > 0) {
-	              fprintf(output, "    payload:\n");
+	              fprintf(info, "    payload:\n");
 	              print_payload(start, len);
             }
         }
@@ -407,7 +406,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
     start += 20;
     len -= 20;
     const struct nfv9_flowset_hdr *nfv9_fh;
-    while (len > 0) {
+    while (len > sizeof(struct nfv9_flowset_hdr)) {
         flowset_num += 1;
         nfv9_fh = start;
 
@@ -561,13 +560,13 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
     unsigned int cur_itr = 0;
   
     if (output_level > none) {
-        fprintf(output, "   protocol: TCP\n");
+        fprintf(info, "   protocol: TCP\n");
     }
 
     //  tcp_hdr_len = TCP_OFF(tcp)*4;
     tcp_hdr_len = tcp_hdr_length(tcp);
     if (tcp_hdr_len < 20 || tcp_hdr_len > tcp_len) {
-        // fprintf(output, "   * Invalid TCP header length: %u bytes\n", tcp_hdr_len);
+        // fprintf(info, "   * Invalid TCP header length: %u bytes\n", tcp_hdr_len);
         return NULL;
     }
     
@@ -578,25 +577,25 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
     size_payload = tcp_len - tcp_hdr_len;
 
     if (output_level > none) {
-        fprintf(output, "   src port: %d\n", ntohs(tcp->src_port));
-        fprintf(output, "   dst port: %d\n", ntohs(tcp->dst_port));
-        fprintf(output, "payload len: %u\n", size_payload);
-        fprintf(output, "    tcp len: %u\n", tcp_len);
-        fprintf(output, "tcp hdr len: %u\n", tcp_hdr_len);
-        fprintf(output, "      flags:");
-        if (tcp->tcp_flags & TCP_FIN) { fprintf(output, "FIN "); }
-        if (tcp->tcp_flags & TCP_SYN) { fprintf(output, "SYN "); }
-        if (tcp->tcp_flags & TCP_RST) { fprintf(output, "RST "); }
-        if (tcp->tcp_flags & TCP_PSH) { fprintf(output, "PSH "); }
-        if (tcp->tcp_flags & TCP_ACK) { fprintf(output, "ACK "); }
-        if (tcp->tcp_flags & TCP_URG) { fprintf(output, "URG "); }
-        if (tcp->tcp_flags & TCP_ECE) { fprintf(output, "ECE "); }
-        if (tcp->tcp_flags & TCP_CWR) { fprintf(output, "CWR "); }
-        fprintf(output, "\n");
+        fprintf(info, "   src port: %d\n", ntohs(tcp->src_port));
+        fprintf(info, "   dst port: %d\n", ntohs(tcp->dst_port));
+        fprintf(info, "payload len: %u\n", size_payload);
+        fprintf(info, "    tcp len: %u\n", tcp_len);
+        fprintf(info, "tcp hdr len: %u\n", tcp_hdr_len);
+        fprintf(info, "      flags:");
+        if (tcp->tcp_flags & TCP_FIN) { fprintf(info, "FIN "); }
+        if (tcp->tcp_flags & TCP_SYN) { fprintf(info, "SYN "); }
+        if (tcp->tcp_flags & TCP_RST) { fprintf(info, "RST "); }
+        if (tcp->tcp_flags & TCP_PSH) { fprintf(info, "PSH "); }
+        if (tcp->tcp_flags & TCP_ACK) { fprintf(info, "ACK "); }
+        if (tcp->tcp_flags & TCP_URG) { fprintf(info, "URG "); }
+        if (tcp->tcp_flags & TCP_ECE) { fprintf(info, "ECE "); }
+        if (tcp->tcp_flags & TCP_CWR) { fprintf(info, "CWR "); }
+        fprintf(info, "\n");
 
         if (output_level > packet_summary) {
             if (size_payload > 0) {
-	              fprintf(output, "    payload:\n");
+	              fprintf(info, "    payload:\n");
 	              print_payload(payload, size_payload);
             }
         }
@@ -610,10 +609,10 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
         return NULL;
     }
     if (output_level > none) {
-        fprintf(output, "   SEQ:      %d\trelative SEQ: %d\n", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->seq);
-        fprintf(output, "   ACK:      %d\trelative ACK: %d\n", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->ack);
-        // fprintf(output, "   SEQ:      %d\n", ntohl(tcp->tcp_seq) - record->seq);
-        // fprintf(output, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
+        fprintf(info, "   SEQ:      %d\trelative SEQ: %d\n", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->seq);
+        fprintf(info, "   ACK:      %d\trelative ACK: %d\n", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->ack);
+        // fprintf(info, "   SEQ:      %d\n", ntohl(tcp->tcp_seq) - record->seq);
+        // fprintf(info, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
     }
 
     if (size_payload > 0) {
@@ -736,21 +735,21 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
     struct flow_record *record = NULL;
   
     if (output_level > none) {
-        fprintf(output, "   protocol: UDP\n");
+        fprintf(info, "   protocol: UDP\n");
     }
 
     udp_hdr_len = 8;
     if (udp_len < 8) {
-        // fprintf(output, "   * Invalid UDP packet length: %u bytes\n", udp_len);
+        // fprintf(info, "   * Invalid UDP packet length: %u bytes\n", udp_len);
         return NULL;
     }
   
     payload = (unsigned char *)(udp_start + udp_hdr_len);  
     size_payload = udp_len - udp_hdr_len;
     if (output_level > none) {
-        fprintf(output, "   src port: %d\n", ntohs(udp->src_port));
-        fprintf(output, "   dst port: %d\n", ntohs(udp->dst_port));
-        fprintf(output, "payload len: %d\n", size_payload);
+        fprintf(info, "   src port: %d\n", ntohs(udp->src_port));
+        fprintf(info, "   dst port: %d\n", ntohs(udp->dst_port));
+        fprintf(info, "payload len: %d\n", size_payload);
     }
   
     /*
@@ -759,7 +758,7 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
      */
     if (size_payload > 0) {
         if (output_level > packet_summary) {
-            fprintf(output, "   payload (%d bytes):\n", size_payload);
+            fprintf(info, "   payload (%d bytes):\n", size_payload);
             print_payload(payload, size_payload);
         }
     }
@@ -806,18 +805,18 @@ process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct fl
     struct flow_record *record = NULL;
   
     if (output_level > none) {
-        fprintf(output, "   protocol: ICMP\n");
+        fprintf(info, "   protocol: ICMP\n");
     }
 
     size_icmp_hdr = 8;
     if (len < size_icmp_hdr) {
-        // fprintf(output, "   * Invalid ICMP packet length: %u bytes\n", len);
+        // fprintf(info, "   * Invalid ICMP packet length: %u bytes\n", len);
         return NULL;
     }
   
     if (output_level > none) {
-        fprintf(output, "   type: %d\n", icmp->type);
-        fprintf(output, "   code: %d\n", icmp->code);
+        fprintf(info, "   type: %d\n", icmp->type);
+        fprintf(info, "   code: %d\n", icmp->code);
     }
     payload = (unsigned char *)(start + size_icmp_hdr);  
     size_payload = len - size_icmp_hdr;
@@ -828,7 +827,7 @@ process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct fl
      */
     if (size_payload > 0) {
         if (output_level > packet_summary) {
-            fprintf(output, "   payload (%d bytes):\n", size_payload);
+            fprintf(info, "   payload (%d bytes):\n", size_payload);
             print_payload(payload, size_payload);
         }
     }
@@ -871,7 +870,7 @@ process_ip (const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struc
     struct flow_record *record = NULL;
 
     if (output_level > none) {
-        fprintf(output, "   protocol: IP\n");
+        fprintf(info, "   protocol: IP\n");
     }
 
     payload = (unsigned char *)(ip_start);  
@@ -883,7 +882,7 @@ process_ip (const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struc
      */
     if (size_payload > 0) {
         if (output_level > packet_summary) {
-            fprintf(output, "   payload (%d bytes):\n", size_payload);
+            fprintf(info, "   payload (%d bytes):\n", size_payload);
             print_payload(payload, size_payload);
         }
     }
@@ -936,7 +935,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     
     flocap_stats_incr_num_packets();
     if (output_level > none) {
-        fprintf(output, "\npacket number %lu:\n", flocap_stats_get_num_packets());
+        fprintf(info, "\npacket number %lu:\n", flocap_stats_get_num_packets());
     }
     //  packet_count++;
   
@@ -947,7 +946,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         if (output_level > none) { 
-            fprintf(output, "   * Invalid IP header length: %u bytes\n", ip_hdr_len);
+            fprintf(info, "   * Invalid IP header length: %u bytes\n", ip_hdr_len);
         }
         return;
     }
@@ -964,10 +963,10 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
 
     /* print source and destination IP addresses */
     if (output_level > none) {
-        fprintf(output, "       from: %s\n", inet_ntoa(ip->ip_src));
-        fprintf(output, "         to: %s\n", inet_ntoa(ip->ip_dst));
-        fprintf(output, "     ip len: %u\n", ntohs(ip->ip_len));
-        fprintf(output, " ip hdr len: %u\n", ip_hdr_len);
+        fprintf(info, "       from: %s\n", inet_ntoa(ip->ip_src));
+        fprintf(info, "         to: %s\n", inet_ntoa(ip->ip_dst));
+        fprintf(info, "     ip len: %u\n", ntohs(ip->ip_len));
+        fprintf(info, " ip hdr len: %u\n", ip_hdr_len);
     }
 
     if (ip_fragment_offset(ip) == 0) {
@@ -1066,7 +1065,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         record->idp = malloc(record->idp_len);
         memcpy(record->idp, ip, record->idp_len);
         if (output_level > none) {
-            fprintf(output, "stashed %u bytes of IDP\n", record->idp_len);
+            fprintf(info, "stashed %u bytes of IDP\n", record->idp_len);
         }
     }
 
