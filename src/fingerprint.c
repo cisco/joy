@@ -85,6 +85,10 @@ fingerprint_t *fingerprint_db_match_exact(fingerprint_db_t *db,
     size_t i = 0;
     int match = -1;
 
+    if (db == NULL) {
+      return NULL;
+    }
+
     db_count = db->fingerprint_count;
 
     /* Iterate through the db->fingerprints */

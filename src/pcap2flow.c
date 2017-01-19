@@ -772,8 +772,8 @@ int main (int argc, char **argv) {
          * for use in any mode.
          */
         if (tls_load_fingerprints()) {
-            fprintf(info, "error: could not load tls_fingerprint.json file\n");
-            return -1;
+            fprintf(info, "info: could not load tls_fingerprint.json file\n");
+	    //            return -1;
         }
     }
 
