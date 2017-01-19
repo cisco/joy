@@ -16,46 +16,46 @@ if [ "$sysname" == "Darwin" ]; then
     echo "System $sysname (Mac OS X) uninstalling ..."
 
     # Stop the daemon
-    launchctl unload /System/Library/LaunchDaemons/pcap2flow.plist
+    launchctl unload /Library/LaunchDaemons/pcap2flow.plist
 
     # Delete the application files
-    if [ -f /usr/libexec/pcap2flow ]; then
-        rm /usr/libexec/pcap2flow
+    if [ -f /usr/local/bin/pcap2flow ]; then
+        rm /usr/local/bin/pcap2flow
         retval=$?
         if [ $retval != "0" ]; then
-            echo "error: could not delete file /usr/libexec/pcap2flow"
+            echo "error: could not delete file /usr/local/bin/pcap2flow"
         else
-            echo "deleted file /usr/libexec/pcap2flow"
+            echo "deleted file /usr/local/bin/pcap2flow"
         fi
     fi
 
-    if [ -d /etc/p2f ]; then
-        rm -rf /etc/p2f
+    if [ -d /usr/local/etc/p2f ]; then
+        rm -rf /usr/local/etc/p2f
         retval=$?
         if [ $retval != "0" ]; then
-            echo "error: could not delete directory /etc/p2f"
+            echo "error: could not delete directory /usr/local/etc/p2f"
         else
-            echo "deleted directory /etc/p2f"
+            echo "deleted directory /usr/local/etc/p2f"
         fi
     fi
 
-    if [ -f /System/Library/LaunchDaemons/pcap2flow.plist ]; then
-        rm /System/Library/LaunchDaemons/pcap2flow.plist
+    if [ -f /Library/LaunchDaemons/pcap2flow.plist ]; then
+        rm /Library/LaunchDaemons/pcap2flow.plist
         retval=$?
         if [ $retval != "0" ]; then
-            echo "error: could not delete file /System/Library/LaunchDaemons/pcap2flow.plist"
+            echo "error: could not delete file /Library/LaunchDaemons/pcap2flow.plist"
         else
-            echo "deleted file /System/Library/LaunchDaemons/pcap2flow.plist"
+            echo "deleted file /Library/LaunchDaemons/pcap2flow.plist"
         fi
     fi
 
-    if [ -f /usr/share/man/man1/pcap2flow.1 ]; then
-        rm /usr/share/man/man1/pcap2flow.1
+    if [ -f /usr/local/share/man/man1/pcap2flow.1 ]; then
+        rm /usr/local/share/man/man1/pcap2flow.1
         retval=$?
         if [ $retval != "0" ]; then
-            echo "error: could not delete file /usr/share/man/man1/pcap2flow.1"
+            echo "error: could not delete file /usr/local/share/man/man1/pcap2flow.1"
         else
-            echo "deleted file /usr/share/man/man1/pcap2flow.1"
+            echo "deleted file /usr/local/share/man/man1/pcap2flow.1"
         fi
     fi
 
