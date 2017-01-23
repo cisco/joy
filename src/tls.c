@@ -52,6 +52,7 @@
 
 /* Store the tls_fingerprint.json data */
 static fingerprint_db_t tls_fingerprint_db;
+static uint8_t tls_fingerprint_db_loaded = 0;
 
 /* local prototypes */
 static void parse_san(const void *x, int len, struct tls_certificate *r);
@@ -1070,6 +1071,7 @@ int tls_load_fingerprints(void) {
         }
     }
 
+    tls_fingerprint_db_loaded = 1;
     rc = 0;
 
 cleanup:
@@ -1105,6 +1107,11 @@ static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
     fingerprint_t client_fingerprint;
     fingerprint_t *db_fingerprint = NULL;
     size_t cs_byte_count = 0;
+
+    if (!tls_fingerprint_db_loaded) {
+        /* The fingerprint database is empty, bail out */
+        return 1;
+    }
 
     const unsigned short int test_cs_vector[] = {57, 56, 53, 22, 19, 10, 51, 50,
                                                  47, 7, 102, 5, 4, 99, 98, 97,
