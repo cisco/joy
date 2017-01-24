@@ -50,6 +50,11 @@
 #include "parson.h"
 #include "fingerprint.h"
 
+/*
+ * External objects, defined in pcap2flow.c
+ */
+extern char *tls_fingerprint_file;
+
 /* Store the tls_fingerprint.json data */
 static fingerprint_db_t tls_fingerprint_db;
 
@@ -957,9 +962,17 @@ int tls_load_fingerprints(void) {
     const char *lib_name_str = NULL;
     const char *cipher_suite_str = NULL;
     const char *extension_str = NULL;
-    const char *fingerprint_file = "tls_fingerprint.json";
+    const char *fingerprint_file = NULL;
     size_t i = 0;
     int rc = 1;
+
+    if (tls_fingerprint_file != NULL) {
+        /* Use the provided file path */
+        fingerprint_file = tls_fingerprint_file;
+    } else {
+        /* Use the package source location */
+        fingerprint_file = "tls_fingerprint.json";
+    }
 
     /* Parse the Json file and validate */
     root_value = json_parse_file(fingerprint_file);
