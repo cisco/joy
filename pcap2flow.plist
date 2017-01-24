@@ -14,11 +14,11 @@
 
     <array>
 
-        <string>/usr/libexec/pcap2flow</string>
+        <string>/usr/local/bin/pcap2flow</string>
 
         <string>-x</string>
 
-        <string>/etc/p2f/macosx.cfg</string>
+        <string>/usr/local/etc/p2f/macosx.cfg</string>
 
     </array>
 
