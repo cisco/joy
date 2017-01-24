@@ -35,7 +35,7 @@
  */
 
 /**
- * \file pcap2flow.c
+ * \file joy.c
  *
  * \brief converts pcap files or live packet capture using libpcap into
  * flow/intraflow data in JSON format
@@ -64,7 +64,7 @@
 #include <pthread.h>    
 
 #include "pkt_proc.h" /* packet processing               */
-#include "p2f.h"      /* pcap2flow data structures       */
+#include "p2f.h"      /* joy data structures       */
 #include "config.h"   /* configuration                   */
 #include "err.h"      /* error codes and error reporting */
 #include "anon.h"     /* address anonymization           */
@@ -362,7 +362,7 @@ static int usage (char *s) {
 
 /**
  \fn int main (int argc, char **argv)
- \brief main entry point for pcap2flow
+ \brief main entry point for joy
  \param argc command line argument count
  \param argv command line arguments
  \return o

@@ -144,7 +144,7 @@ static struct ipfix_message *export_message = NULL;
 
 
 /*
- * External objects, defined in pcap2flow
+ * External objects, defined in joy
  */
 extern unsigned int ipfix_collect_port;
 extern unsigned int ipfix_export_port;
@@ -432,16 +432,16 @@ static int ipfix_cts_scan_expired(void) {
 
 /*
  * @brief Monitor the collector template store (cts) running
- *        as a thread off of pcap2flow.
+ *        as a thread off of joy.
  *
  * Monitoring is only active during live processing runs.
- * Monitor terminates automatically when pcap2flow exits due
+ * Monitor terminates automatically when joy exits due
  * to the nature of how pthreads work.
  *
  * @param ptr Always NULL and not used, part of function
  *            prototype for pthread_create.
  *
- * @return Never return and the thread terminates when pcap2flow exits.
+ * @return Never return and the thread terminates when joy exits.
  */
 void *ipfix_cts_monitor(void *ptr) {
   uint16_t num_expired;

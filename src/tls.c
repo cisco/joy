@@ -51,7 +51,7 @@
 #include "fingerprint.h"
 
 /*
- * External objects, defined in pcap2flow.c
+ * External objects, defined in joy.c
  */
 extern char *tls_fingerprint_file;
 

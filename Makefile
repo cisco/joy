@@ -53,9 +53,9 @@ all:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
-pcap2flow:
+joy:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
-	@cd src; $(MAKE) $(MAKEFLAGS) pcap2flow
+	@cd src; $(MAKE) $(MAKEFLAGS) joy
 
 unit_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
@@ -72,9 +72,9 @@ str_match_test:
 ##
 # testing
 ##
-test: pcap2flow pcap2flow_test.sh
+test: joy joy_test.sh
 	$(BINDIR)/unit_test
-	./pcap2flow_test.sh
+	./joy_test.sh
 
 ##
 # cscope
@@ -86,25 +86,25 @@ cscope:
 ##
 # DOCUMENTATION
 ##
-man: $(DOCDIR)/pcap2flow.1
-	man $(DOCDIR)/pcap2flow.1 > $(DOCDIR)/pcap2flow.txt 
-#	man -Tdvi $(DOCDIR)/pcap2flow.1 > $(DOCDIR)/pcap2flow.dvi 
-#	dvipdf $(DOCDIR)/pcap2flow.dvi
-#	rm -f $(DOCDIR)/pcap2flow.dvi
+man: $(DOCDIR)/joy.1
+	man $(DOCDIR)/joy.1 > $(DOCDIR)/joy.txt 
+#	man -Tdvi $(DOCDIR)/joy.1 > $(DOCDIR)/joy.dvi 
+#	dvipdf $(DOCDIR)/joy.dvi
+#	rm -f $(DOCDIR)/joy.dvi
 
 ##
 # housekeeping
 ##
 clean: 
 	rm -f cscope.out cscope.files
-	rm -f "$(DOCDIR)/pcap2flow.txt"
+	rm -f "$(DOCDIR)/joy.txt"
 	@cd src; $(MAKE) clean
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 
 ##
 # installation via shell script
 ##
-install: $(BINDIR)/pcap2flow $(BINDIR)/unit_test test
+install: $(BINDIR)/joy $(BINDIR)/unit_test test
 	./install-sh
 
 # EOF

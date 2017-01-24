@@ -1,9 +1,9 @@
-.TH pcap2flow 1 2015\-8\-02 "" ""
+.TH joy 1 2015\-8\-02 "" ""
 .SH NAME
-pcap2flow \- capture and report intraflow data from an interface or PCAP file
+joy \- capture and report intraflow data from an interface or PCAP file
 .SH SYNOPSIS
 .HP 5
-.B pcap2flow [OPTIONS] [ FILES ]
+.B joy [OPTIONS] [ FILES ]
 
 where OPTIONS are as follows:
 
@@ -47,7 +47,7 @@ Data feature options
 
 
 .SH DESCRIPTION
-.B pcap2flow
+.B joy
 observes packets from a live interface (in online mode, when
 configured with the interface=value command) or from a PCAP file (in
 offline mode, using the files listed on the command line after the
@@ -58,13 +58,13 @@ systems, but offline mode does not.
 Intraflow data extends traditional flow data by including more
 information about events within each flow, such as the length and
 times of messages, the distribution of bytes, and values extracted
-from packets.  By default, pcap2flow reports only flow data, but the
+from packets.  By default, joy reports only flow data, but the
 command line options can be used to select the intraflow data to be
 captured and reported.  This data is reported using JavaScript Object
 Notation (JSON); the format of this output is documented in the JSON
 FLOW DATA FORMAT section.
 
-pcap2flow uses two output streams.  The main output is for flow
+joy uses two output streams.  The main output is for flow
 records (and packet information if \fBverbosity\fR > 0); in offline
 mode, this is stdout by default, but it can be set to file F by the
 \fBoutput=F\fR command on the command line or in the configuration
@@ -81,7 +81,7 @@ described below).
 The secondary output is used for errors, warnings, information, and
 debugging.  In offline mode, the secondary output defaults to stderr.
 In online mode, the secondary output defaults to /var/log/flocap.
-pcap2flow will write its running configuration and high level
+joy will write its running configuration and high level
 statistics to the secondary output upon startup, and upon receiving
 the SIGTSTP (Cntl-Z) or SIGHUP (kill -HUP <PID>) signal.  When Cntl-Z
 is used in online mode, note that the output will \fInot\fR appear in
@@ -102,13 +102,13 @@ the configuration file.
 
 .SH EXAMPLES
 .TP 3
-.B pcap2flow \-x \fIconfiguration\-file \fR 
-Runs pcap2flow with the configuration defined the file
+.B joy \-x \fIconfiguration\-file \fR 
+Runs joy with the configuration defined the file
 \fIconfiguration\-file\fR; this only supports online mode.
 
 .TP 3
-.B pcap2flow bidir=1 output=\fIoutput\-file \fR \fIinput\-file \fR 
-Runs pcap2flow bidirectional flows and generates JSON output, writing
+.B joy bidir=1 output=\fIoutput\-file \fR \fIinput\-file \fR 
+Runs joy bidirectional flows and generates JSON output, writing
 output to \fIoutput\-file\fR and reading intput from the PCAP file
 \fIinput\-file\fR; this example uses offline mode.
 
@@ -117,7 +117,7 @@ output to \fIoutput\-file\fR and reading intput from the PCAP file
 
 .SH MODEL
 
-Internally, pcap2flow models a complete flow monitoring system that
+Internally, joy models a complete flow monitoring system that
 incorporates both a flow exporter and a flow collector.  Packets are
 observed, and information about those packets are stored in
 unidirectional flow records; the flow key is the conventional (source
@@ -637,7 +637,7 @@ effects of man page formatting).
 
                           "version" : {"type" : "string",
 
-                                       "description" : "Version number of pcap2flow used to collect the flows."
+                                       "description" : "Version number of joy used to collect the flows."
 
 				      },
 
@@ -767,13 +767,13 @@ effects of man page formatting).
 
 .SH CONTRIBUTORS
 
-.B pcap2flow 
+.B joy 
 was implemented by David McGrew and Blake Anderson.  Thanks are due to
 Alison Kendler for help with TLS parsing.  
 
 .SH BUGS
 
-pcap2flow is at an alpha/beta stage in its development, and as such,
+joy is at an alpha/beta stage in its development, and as such,
 it may exhibit strange or undesirable behavior.  This program has been
 exhaustively tested, but only in the sense that when evalutation was
 completed, the tester was exhausted.  Please patiently report bugs to

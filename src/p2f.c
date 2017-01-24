@@ -47,7 +47,7 @@
 #include <stdlib.h>   
 #include <pthread.h>   
 #include "pkt_proc.h" /* packet processing               */
-#include "p2f.h"      /* pcap2flow data structures       */
+#include "p2f.h"      /* joy data structures       */
 #include "err.h"      /* error codes and error reporting */
 #include "anon.h"     /* address anonymization           */
 #include "tls.h"      /* TLS awareness                   */
@@ -1950,12 +1950,12 @@ static int uploader_send_file (char *filename, char *servername,
 
 /**
  * \fn void *uploader_main (void *ptr)
- * \brief Runs as a thread off of pcap2flow.
+ * \brief Runs as a thread off of joy.
  *        Uploader is only active during live processing runs.
- *        Uploader terminates automatically when pcap2flow exits due to the nature of
+ *        Uploader terminates automatically when joy exits due to the nature of
  *        how pthreads work.
  * \param ptr always a pointer to the config structure
- * \return never return and the thread terminates when pcap2flow exits
+ * \return never return and the thread terminates when joy exits
  */
 void *uploader_main(void *ptr)
 {
@@ -1964,7 +1964,7 @@ void *uploader_main(void *ptr)
     /* initialize the uploader filename container */
     memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
 
-    /* uploader stays alive until pcap2flow exists */
+    /* uploader stays alive until joy exists */
     while (1) {
 
         /* wait until we are signaled to do work */

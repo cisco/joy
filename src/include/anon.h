@@ -68,7 +68,7 @@ enum anon_mode {
 };
 
 /** default key file name */
-#define ANON_KEYFILE_DEFAULT "pcap2flow.bin"
+#define ANON_KEYFILE_DEFAULT "joy.bin"
 
 /** maximum number of subnets that can be anonymized */
 #define MAX_ANON_SUBNETS 256

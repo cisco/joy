@@ -37,20 +37,20 @@
 /**
  * \file feature.h
  *
- * \brief pcap2flow internal interface for data feature modules
+ * \brief joy internal interface for data feature modules
  *
  * \remarks
  * \verbatim
  * Overview: this interface provides a way to implement a new feature
  * (that is, a new network data feature that will be captured and
  * reported on by the Joy package) without altering any of the core
- * files of the pcap2flow program.  This extensibility is achieved by
+ * files of the joy program.  This extensibility is achieved by
  * using preprocessor macros in a generic programming style, using the
  * MAP() define from map.h.  In essence, there are macros inside
- * pcap2flow that provide hooks that will define the feature and call
+ * joy that provide hooks that will define the feature and call
  * the functions at the appropriate time; by adding a feature to the
  * feature_list, it is hooked into the system without any need to
- * modify any of the core pcap2flow source code files.
+ * modify any of the core joy source code files.
  *
  *  A new feature with the name of "F" * is added by:
  * 
@@ -102,7 +102,7 @@
 
 /** The feature_list macro defines all of the features that will be
  * included in the flow_record.  To include/exclude a feature in a
- * build of pcap2flow, add/remove it from this list.
+ * build of joy, add/remove it from this list.
  */
 #define ip_feature_list ip_id
 #define tcp_feature_list salt

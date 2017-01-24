@@ -1,6 +1,6 @@
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          pcap2flow
+# Provides:          joy
 # Required-Start:    $remote_fs $syslog
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
@@ -14,8 +14,8 @@
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="advanced network flow data capture using pcap2flow"
-NAME=pcap2flow
+DESC="advanced network flow data capture using joy"
+NAME=joy
 DAEMON=/usr/sbin/$NAME
 DAEMON_ARGS="-x /etc/p2f/linux.cfg"
 PIDFILE=/var/run/$NAME.pid

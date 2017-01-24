@@ -15,7 +15,7 @@ TMP = $(shell pwd)
 CWD = $(shell basename $(TMP))
 
 ##
-# required libraries for pcap2flow
+# required libraries for joy
 ##
 LIBS = -lpcap     # packet capture library; hard requirement
 LIBS += -lm       # math library; logf() used in entropy computation
@@ -54,10 +54,10 @@ CFLAGS = -Wall -Wno-deprecated-declarations -g -O3  # -pg # -g # -fstack-protect
 ##
 # variables to make source file handling easier
 ##
-PCAP2FLOW_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c updater.c ipfix.c ssh.c ip_id.c salt.c parson.c fingerprint.c
+JOY_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c updater.c ipfix.c ssh.c ip_id.c salt.c parson.c fingerprint.c
 JFDANON_SRC = anon.c addr.c str_match.c acsm.c
 ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h updater.h ipfix.h ssh.h ip_id.h salt.h parson.h fingerprint.h
-ALL_FILES = pcap2flow.c jfd-anon.c unit_test.c str_match_test.c $(PCAP2FLOW_SRC) $(JFDANON_SRC) $(ALL_HEADER_FILES)
+ALL_FILES = joy.c jfd-anon.c unit_test.c str_match_test.c $(JOY_SRC) $(JFDANON_SRC) $(ALL_HEADER_FILES)
 
 ##
 # additional CFLAG options
@@ -76,7 +76,7 @@ endif
 
 .PHONY: print
 
-all:	print pcap2flow jfd-anon unit_test str_match_test joy-anon
+all:	print joy jfd-anon unit_test str_match_test joy-anon
 
 print:
 	@echo "Makefile variables:"
@@ -85,9 +85,9 @@ print:
 	@echo "version="$(JOY_VERSION)
 	@echo "cwd="$(CWD)
 
-pcap2flow: pcap2flow.c $(PCAP2FLOW_SRC)
-	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/pcap2flow" $(INCLUDEDIR) pcap2flow.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS)  
-#	strip pcap2flow
+joy: joy.c $(JOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/joy" $(INCLUDEDIR) joy.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS)  
+#	strip joy
 
 jfd-anon: jfd-anon.c $(JFDANON_SRC)
 	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
@@ -95,11 +95,11 @@ jfd-anon: jfd-anon.c $(JFDANON_SRC)
 joy-anon: joy-anon.c $(JFDANON_SRC)
 	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
-unit_test: unit_test.c $(PCAP2FLOW_SRC)
-	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
+unit_test: unit_test.c $(JOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 
-str_match_test: str_match_test.c $(PCAP2FLOW_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/str_match_test" str_match_test.c $(PCAP2FLOW_SRC) $(LIBRARYPATH) $(LIBS) 
+str_match_test: str_match_test.c $(JOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 
 
 ##

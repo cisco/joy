@@ -5,7 +5,7 @@
 # note: this file is not named install.sh to avoid unwanted behavior
 # due to implicit rules with "make"
 #
-# installer for pcap2flow and related files
+# installer for joy and related files
 
 usage() { 
     echo "usage:"
@@ -14,7 +14,7 @@ usage() {
     echo ""
     echo "where the options are as follows"
     echo ""
-    echo "   configfile is the name of a pcap2flow configuration file; if no" 
+    echo "   configfile is the name of a joy configuration file; if no" 
     echo "   such file is provided, then the default configuration p2f.cfg is used"
     echo ""
     echo "   anonfile is the name of a file containing subnets to be anonymized; if no" 
@@ -29,7 +29,7 @@ usage() {
     echo "   is provided, then an SSH file with the default name of upload-key is created" 
     echo ""
     echo "for more information about these files and their formats, please read the" 
-    echo "pcap2flow man page"
+    echo "joy man page"
     echo ""
     exit
 } 
@@ -44,7 +44,7 @@ KEYFILE=""
 TLS_FINGERPRINT_FILE=tls_fingerprint.json
 
 echo
-echo PCAP2FLOW INSTALL-SH
+echo JOY INSTALL-SH
 echo --------------------
 echo
 
@@ -92,18 +92,18 @@ fi
 
 # check for the presence of required files
 #
-if [ ! -x bin/pcap2flow ]; then
-    echo "error: could not find executable file pcap2flow (please run \"make\")"
+if [ ! -x bin/joy ]; then
+    echo "error: could not find executable file joy (please run \"make\")"
     exit
 fi
 
-if [ ! -f doc/pcap2flow.1 ]; then
-    echo "error: could not find manual page pcap2flow.1"
+if [ ! -f doc/joy.1 ]; then
+    echo "error: could not find manual page joy.1"
     exit
 fi
 
-if [ ! -f ./pcap2flow.rc ]; then
-    echo "error: could not find script pcap2flow.rc"
+if [ ! -f ./joy.rc ]; then
+    echo "error: could not find script joy.rc"
     exit
 fi
 
@@ -164,7 +164,7 @@ if [ "$sysname" == "Darwin" ]; then
     ##
     # Darwin operating system detected
     ##
-    echo "found $sysname (Mac OS X), installing pcap2flow ..."
+    echo "found $sysname (Mac OS X), installing joy ..."
 
     # Create /usr/local/bin directory if it does not currently exist
     create_directory /usr/local/bin
@@ -194,10 +194,10 @@ if [ "$sysname" == "Darwin" ]; then
     create_directory /usr/local/share/man/man1
 
     # Install the binary executable
-    cp bin/pcap2flow /usr/local/bin
+    cp bin/joy /usr/local/bin
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy bin/pcap2flow to /usr/local/bin"
+        echo "error: could not copy bin/joy to /usr/local/bin"
         exit
     fi
 
@@ -270,32 +270,32 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install the Launchd script for daemon management
-    cp pcap2flow.plist /Library/LaunchDaemons/
+    cp joy.plist /Library/LaunchDaemons/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy pcap2flow.plist to /Library/LaunchDaemons"
+        echo "error: could not copy joy.plist to /Library/LaunchDaemons"
         exit
     fi
 
     # Install the manpage documentation
-    cp doc/pcap2flow.1 /usr/local/share/man/man1/
+    cp doc/joy.1 /usr/local/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/share/man/man1 (man page will be unavailable)"
         exit
     fi
 
-    ls -l /usr/local/bin/pcap2flow
+    ls -l /usr/local/bin/joy
     ls -l /usr/local/bin/query.py
     ls -l /usr/local/etc/p2f/*
-    ls -l /usr/local/share/man/man1/pcap2flow.1
-    ls -l /Library/LaunchDaemons/pcap2flow.plist
+    ls -l /usr/local/share/man/man1/joy.1
+    ls -l /Library/LaunchDaemons/joy.plist
 
     echo "stopping flow capture daemon (just in case one is already running)"
-    launchctl unload /Library/LaunchDaemons/pcap2flow.plist
+    launchctl unload /Library/LaunchDaemons/joy.plist
 
     echo "starting flow capture daemon"
-    launchctl load /Library/LaunchDaemons/pcap2flow.plist
+    launchctl load /Library/LaunchDaemons/joy.plist
 
     echo "...done"
     echo
@@ -304,7 +304,7 @@ elif [ "$sysname" == "Linux" ]; then
     ##
     # Linux operating system detected
     ##
-    echo "found $sysname (Linux), installing pcap2flow ..."
+    echo "found $sysname (Linux), installing joy ..."
 
     # Default to sysv for daemon management system
     daemon_system='sysv'
@@ -356,13 +356,13 @@ elif [ "$sysname" == "Linux" ]; then
     # Stop service, if a previous version is already running
     echo "stopping service (this might take some time)" 
     if [ "$daemon_system" == "sysv" ]; then
-        service pcap2flow stop 
+        service joy stop 
     elif [ "$daemon_system" == "systemd" ]; then
-        systemctl stop pcap2flow.service
+        systemctl stop joy.service
     fi
 
     # Install the binary executable
-    cp bin/pcap2flow /usr/local/bin/
+    cp bin/joy /usr/local/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/bin/"
@@ -437,7 +437,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the manpage documentation
-    cp doc/pcap2flow.1 /usr/local/share/man/man1/
+    cp doc/joy.1 /usr/local/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/share/man/man1/"
@@ -461,21 +461,21 @@ elif [ "$sysname" == "Linux" ]; then
     # Copy the daemon service files and start it
     ##
     if [ "$daemon_system" == "sysv" ]; then
-        cp pcap2flow.rc /etc/init.d/pcap2flow
+        cp joy.rc /etc/init.d/joy
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: could not copy to /etc/init.d"
             exit
         fi
-        chmod +x /etc/init.d/pcap2flow
+        chmod +x /etc/init.d/joy
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not chmod +x /etc/init.d/pcap2flow"
+            echo "error: could not chmod +x /etc/init.d/joy"
             exit
         fi
 
         # Configure to run automatically at boot time
-        update-rc.d pcap2flow defaults
+        update-rc.d joy defaults
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: update-rc.d failed (return value: $retval)"
@@ -483,52 +483,52 @@ elif [ "$sysname" == "Linux" ]; then
         fi
 
         # Start service 
-        service pcap2flow start
+        service joy start
     elif [ "$daemon_system" == "systemd" ]; then
-        cp pcap2flow.service /etc/systemd/system
+        cp joy.service /etc/systemd/system
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy pcap2flow.service to /etc/systemd/system"
+            echo "error: could not copy joy.service to /etc/systemd/system"
             exit
         fi
-        chmod +x /etc/systemd/system/pcap2flow.service
+        chmod +x /etc/systemd/system/joy.service
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not chmod +x /etc/systemd/system/pcap2flow.service"
+            echo "error: could not chmod +x /etc/systemd/system/joy.service"
             exit
         fi
 
-        if [ ! -d "/etc/systemd/system/pcap2flow.service.d" ]; then
-            mkdir /etc/systemd/system/pcap2flow.service.d
+        if [ ! -d "/etc/systemd/system/joy.service.d" ]; then
+            mkdir /etc/systemd/system/joy.service.d
         fi
 
-        cp pcap2flow_env.conf /etc/systemd/system/pcap2flow.service.d
+        cp joy.conf /etc/systemd/system/joy.service.d
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy pcap2flow_env.conf to /etc/systemd/system/pcap2flow.service.d"
+            echo "error: could not copy joy.conf to /etc/systemd/system/joy.service.d"
             exit
         fi
 
         # Configure to run at boot time
-        systemctl enable pcap2flow.service
+        systemctl enable joy.service
 
         # Start service
-        systemctl start pcap2flow.service
+        systemctl start joy.service
     fi
 
     # List all the installed files
-    ls -l /usr/local/bin/pcap2flow
+    ls -l /usr/local/bin/joy
     ls -l /usr/local/bin/query.py
     ls -l /usr/local/etc/p2f/*
     ls -l /usr/local/share/joy/data/*
-    ls -l /usr/local/share/man/man1/pcap2flow.1
+    ls -l /usr/local/share/man/man1/joy.1
 
     if [ "$daemon_system" == "sysv" ]; then
-        ls -l /etc/init.d/pcap2flow
-        service pcap2flow status
+        ls -l /etc/init.d/joy
+        service joy status
     elif [ "$daemon_system" == "systemd" ]; then
-        ls -l /etc/systemd/system/pcap2flow.service
-        ls -l /etc/systemd/system/pcap2flow.service.d/pcap2flow_env.conf
-        systemctl status pcap2flow.service
+        ls -l /etc/systemd/system/joy.service
+        ls -l /etc/systemd/system/joy.service.d/joy.conf
+        systemctl status joy.service
     fi
 
     echo "done" 

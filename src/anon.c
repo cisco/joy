@@ -131,7 +131,7 @@ enum status key_init (char *ANON_KEYFILE) {
 
         fd = open(ANON_KEYFILE, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
         if (fd < 0) {
-            perror("error: could not create pcap2flow.bin");
+            perror("error: could not create joy.bin");
         } else {
             bytes = write(fd, c, MAX_KEY_SIZE);
             close(fd);

@@ -41,7 +41,7 @@
  *
  ** This file contains the main entry point and all of the subordinate
  *  functions required to handle the updating of the labeled subnets
- *  and the classifiers for pcap2flow.
+ *  and the classifiers for joy.
  */
 #include "updater.h"
 #include "classify.h"
@@ -358,12 +358,12 @@ static upd_return_codes_t update_radix_trie ()
 
 /**
  * \fn void *updater_main (void *ptr)
- * \brief Runs as a thread off of pcap2flow.
+ * \brief Runs as a thread off of joy.
  *        Updater is only active during live processing runs.
- *        Updater terminates automatically when pcap2flow exits due to the nature of
+ *        Updater terminates automatically when joy exits due to the nature of
  *        how pthreads work.
  * \param ptr always a pointer to the config structure
- * \return never return and the thread terminates when pcap2flow exits
+ * \return never return and the thread terminates when joy exits
  */
 void *updater_main (void *ptr)
 {
@@ -399,7 +399,7 @@ void *updater_main (void *ptr)
         return NULL;
     }
 
-    /* forever loop. Updater will die when the main pcap2flow process exits */
+    /* forever loop. Updater will die when the main joy process exits */
     while (1) {
         /* let's only wake up and do work at specified intervals */
         pthread_mutex_lock(&work_in_process);
