@@ -491,7 +491,7 @@ elif [ "$sysname" == "Linux" ]; then
             echo "error: could not copy pcap2flow.service to /etc/systemd/system"
             exit
         fi
-        chmod +x /etc/init.d/pcap2flow
+        chmod +x /etc/systemd/system/pcap2flow.service
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: could not chmod +x /etc/systemd/system/pcap2flow.service"
@@ -544,7 +544,7 @@ fi
 if [ "$NEWKEY" -eq "1" ]; then
 
     echo "A new SSH key was generated, and its private key was installed in"
-    echo "the /etc/p2f directory.  To use this key to authenticate scp"
+    echo "the /usr/local/etc/p2f directory.  To use this key to authenticate scp"
     echo "connections to a server that copy the JSON files, you will need to"
     echo "provide the public key ${KEYFILE}.pub to the server administrator,"
     echo "as it needs to be installed in the ./ssh/known_hosts file."
