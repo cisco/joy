@@ -255,7 +255,7 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "useranon")) {
         parse_check(parse_string(&config->anon_http_file, arg, num));
 
-    } else if (match(command, "tls_fingerprint_file")) {
+    } else if (match(command, "fingerprint_file_tls")) {
         parse_check(parse_string(&config->tls_fingerprint_file, arg, num));
 
     } else if (match(command, "exe")) {

@@ -323,7 +323,7 @@ static int usage (char *s) {
            "  ipfix_export_remote_host=\"host\"\n"
            "                             Use \"host\" as the remote server target for the IPFIX exporter\n"
            "                             Default=\"127.0.0.1\" (localhost)\n"
-           "  tls_fingerprint_file=F\n   Use json file F as the known dataset for TLS fingerprinting\n"
+           "  fingerprint_file_tls=F\n   Use json file F as the known dataset for TLS fingerprinting\n"
            "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
