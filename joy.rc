@@ -13,7 +13,6 @@
 # Author: David McGrew <mcgrew@cisco.com>
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
-<<<<<<< Updated upstream:joy.rc
 PATH=/sbin:/usr/sbin:/bin:/usr/bin/usr/local/bin
 DESC="advanced network flow data capture using joy"
 NAME=joy
