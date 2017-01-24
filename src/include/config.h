@@ -49,7 +49,7 @@
 #include "feature.h"
 
 /** maximum line length */
-#define LINEMAX 256
+#define LINEMAX 512
 
 #define NULL_KEYWORD "none"
 

@@ -491,10 +491,10 @@ elif [ "$sysname" == "Linux" ]; then
             echo "error: could not copy joy.service to /etc/systemd/system"
             exit
         fi
-        chmod +x /etc/systemd/system/joy.service
+        chmod 644 /etc/systemd/system/joy.service
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not chmod +x /etc/systemd/system/joy.service"
+            echo "error: could not chmod 644 /etc/systemd/system/joy.service"
             exit
         fi
 

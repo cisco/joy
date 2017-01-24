@@ -13,11 +13,12 @@
 # Author: David McGrew <mcgrew@cisco.com>
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
-PATH=/sbin:/usr/sbin:/bin:/usr/bin
+<<<<<<< Updated upstream:joy.rc
+PATH=/sbin:/usr/sbin:/bin:/usr/bin/usr/local/bin
 DESC="advanced network flow data capture using joy"
 NAME=joy
-DAEMON=/usr/sbin/$NAME
-DAEMON_ARGS="-x /etc/p2f/linux.cfg"
+DAEMON=/usr/local/bin/$NAME
+DAEMON_ARGS="-x /usr/local/etc/p2f/linux.cfg"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 

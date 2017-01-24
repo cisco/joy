@@ -4,7 +4,7 @@ Documentation=man:joy(1)
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/joy $OPTIONS
+ExecStart=/usr/local/bin/joy $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure
