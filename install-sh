@@ -491,10 +491,10 @@ elif [ "$sysname" == "Linux" ]; then
             echo "error: could not copy joy.service to /etc/systemd/system"
             exit
         fi
-        chmod +x /etc/systemd/system/joy.service
+        chmod 644 /etc/systemd/system/joy.service
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not chmod +x /etc/systemd/system/joy.service"
+            echo "error: could not chmod 644 /etc/systemd/system/joy.service"
             exit
         fi
 
@@ -502,9 +502,9 @@ elif [ "$sysname" == "Linux" ]; then
             mkdir /etc/systemd/system/joy.service.d
         fi
 
-        cp joy.conf /etc/systemd/system/joy.service.d
+        cp joy_env.conf /etc/systemd/system/joy.service.d
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy joy.conf to /etc/systemd/system/joy.service.d"
+            echo "error: could not copy joy_env.conf to /etc/systemd/system/joy.service.d"
             exit
         fi
 
@@ -527,7 +527,7 @@ elif [ "$sysname" == "Linux" ]; then
         service joy status
     elif [ "$daemon_system" == "systemd" ]; then
         ls -l /etc/systemd/system/joy.service
-        ls -l /etc/systemd/system/joy.service.d/joy.conf
+        ls -l /etc/systemd/system/joy.service.d/joy_env.conf
         systemctl status joy.service
     fi
 
