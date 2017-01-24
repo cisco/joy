@@ -1,6 +1,6 @@
 ------------------------------------------------------------
   LAUI - Local Analytics User Interface, a tool for viewing
-         and classifying flows collected from pcap2flow
+         and classifying flows collected from joy
 ------------------------------------------------------------
 
 
@@ -33,13 +33,13 @@ click Start Upload
 results should then be displayed
 
 
-TESTING (pcap2flow integration)
+TESTING (joy integration)
 
-follow the pcap2flow instruction to begin a local capture
+follow the joy instruction to begin a local capture
 
-allow enough time for pcap2flow to generate json files
+allow enough time for joy to generate json files
 
-make sure that the output location of pcap2flow is the same as is
+make sure that the output location of joy is the same as is
      specified in flocap.cfg (LAUI looks in flocap.cfg for the
      output dir)
 

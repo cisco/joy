@@ -1,10 +1,10 @@
 [Unit]
 Description=Advanced network flow data capture
-Documentation=man:pcap2flow(1)
+Documentation=man:joy(1)
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/pcap2flow $OPTIONS
+ExecStart=/usr/bin/joy $OPTIONS
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure

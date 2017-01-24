@@ -36,7 +36,7 @@
 /*
  * utils.h
  *
- * utilites that can be used by pcap2flow feature modules 
+ * utilites that can be used by joy feature modules 
  */
 
 #ifndef P2FUTILS

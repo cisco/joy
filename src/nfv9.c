@@ -56,7 +56,7 @@
 #include "config.h"
 
 /*
- * External objects, defined in pcap2flow
+ * External objects, defined in joy
  */
 extern unsigned int include_tls;
 extern struct configuration config;

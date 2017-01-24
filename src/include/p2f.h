@@ -37,7 +37,7 @@
 /**
  * \file p2f.h
  *
- * \brief header file for pcap2flow
+ * \brief header file for joy
  * 
  */
 

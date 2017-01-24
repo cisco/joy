@@ -8,13 +8,13 @@
 
     <key>Label</key>
 
-    <string>org.p2f.pcap2flow</string>
+    <string>org.p2f.joy</string>
 
     <key>ProgramArguments</key>
 
     <array>
 
-        <string>/usr/local/bin/pcap2flow</string>
+        <string>/usr/local/bin/joy</string>
 
         <string>-x</string>
 

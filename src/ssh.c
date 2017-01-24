@@ -336,21 +336,22 @@ void ssh_delete(struct ssh *ssh) {
 void ssh_unit_test() {
     struct ssh ssh;
     zfile output;
+    char *msg = "should use a valid KEXT ssh msg here";
 
     output = zattach(stdout, "w");
     if (output == NULL) {
 	fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
     }
     ssh_init(&ssh);
-    ssh_update(&ssh, NULL, 1, 1);
-    ssh_update(&ssh, NULL, 2, 1);
-    ssh_update(&ssh, NULL, 3, 1);
-    ssh_update(&ssh, NULL, 4, 1);
-    ssh_update(&ssh, NULL, 5, 1);
-    ssh_update(&ssh, NULL, 6, 1);
-    ssh_update(&ssh, NULL, 7, 1);
-    ssh_update(&ssh, NULL, 8, 1);
-    ssh_update(&ssh, NULL, 9, 1);
+    ssh_update(&ssh, msg, 1, 1);
+    ssh_update(&ssh, msg, 2, 1);
+    ssh_update(&ssh, msg, 3, 1);
+    ssh_update(&ssh, msg, 4, 1);
+    ssh_update(&ssh, msg, 5, 1);
+    ssh_update(&ssh, msg, 6, 1);
+    ssh_update(&ssh, msg, 7, 1);
+    ssh_update(&ssh, msg, 8, 1);
+    ssh_update(&ssh, msg, 9, 1);
     ssh_print_json(&ssh, NULL, output);
  
 } 

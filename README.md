@@ -115,7 +115,7 @@ Mac OSX 10.11 has more dependencies than 10.10; the OpenSSL header
 files are needed to build this package. You can install these
 header files via Mac Ports (https://www.macports.org/install.php)
 using the command "sudo port install openssl". Version 10.11 broke
-the run-on-boot feature of pcap2flow (and many other programs that
+the run-on-boot feature of joy (and many other programs that
 relied on /System/Library/LaunchDaemons), so for now that program
 can only perform live capture from the command line.
 
@@ -126,7 +126,7 @@ There are many tools that can be used to work with gzip-compressed
 output, such as zless, gunzip, etc.  
 
 The main program for extracting data features from pcap files or
-live packet captures is the program pcap2flow, which occupies the
+live packet captures is the program joy, which occupies the
 src/ subdirectory. It is copied into the main joy directory after
 a successful build. It can be run from that directory, or
 installed so that it will automatically run as a daemon on Linux or
@@ -134,18 +134,18 @@ Mac OSX.
 
 #### Running and Configuration
 
-To understand how pcap2flow is configured, read one of the
+To understand how joy is configured, read one of the
 configuration files (linux.cfg or macosx.cfg).  To process a pcap
 file in offline mode, run
 
 ```
-[joy]$ bin/pcap2flow [ OPTIONS ] filename [ filename2 ... ]
+[joy]$ bin/joy [ OPTIONS ] filename [ filename2 ... ]
 ```
 
 For instance,
 
 ```
-[joy]$ bin/pcap2flow bidir=1 output=data.json filename
+[joy]$ bin/joy bidir=1 output=data.json filename
 ```
 
 To run the packet capture in online mode, use the same command
@@ -153,7 +153,7 @@ form, but have OPTIONS include an interface=<value> command, and
 omit the filename(s) from the command line.  For instance,
 
 ```
-[joy]$ sudo bin/pcap2flow interface=eth0 bidir=1 output=data.json
+[joy]$ sudo bin/joy interface=eth0 bidir=1 output=data.json
 ```
 
 There are many command line options, so instead of typing them all
@@ -206,12 +206,12 @@ to see the help or "usage" message.
 #### Documentation
 
 A man page will be built and installed automatically as part of the
-package.  See the file pcap2flow.1, or after the install-sh script
-has been run, access the man page through "man pcap2flow".
+package.  See the file joy.1, or after the install-sh script
+has been run, access the man page through "man joy".
 
 
 #### Testing
 
-Run the script ./pcap2flow_test.sh and the utility bin/unit_test to
+Run the script ./joy.sh and the utility bin/unit_test to
 test the programs.  These programs will indicate success or failure
 on the command line.

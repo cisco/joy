@@ -1,8 +1,8 @@
 #!/bin/sh 
 #
-# pcap2flow_test.sh
+# joy_test.sh
 #
-# test driver for pcap2flow program
+# test driver for joy program
 
 BINDIR=bin
 
@@ -53,8 +53,8 @@ for args in "output=tmpfile"                                     \
             "output=tmpfile bidir=1 dns=1"                       \
             "output=tmpfile bidir=1 bpf=tcp"                     \
             "output=tmpfile bidir=1 type=1"; do
-    echo -n "testing pcap2flow with arguments" $args "... "
-    if ./$BINDIR/pcap2flow $args $data; then
+    echo -n "testing joy with arguments" $args "... "
+    if ./$BINDIR/joy $args $data; then
 	if ./query.py tmpfile > tmpfile2; then
 	    echo "passed"
 	else
@@ -62,7 +62,7 @@ for args in "output=tmpfile"                                     \
 	    exit
 	fi
     else
-	echo "failed: pcap2flow internal failure (see file tmpfile)"
+	echo "failed: joy internal failure (see file tmpfile)"
 	exit
     fi
 done

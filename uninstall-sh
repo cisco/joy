@@ -5,10 +5,10 @@
 # note: this file is not named uninstall.sh to avoid unwanted behavior
 # due to implicit rules with "make"
 #
-# uninstaller for pcap2flow and related files
+# uninstaller for joy and related files
 
 echo
-echo PCAP2FLOW UNINSTALL-SH
+echo JOY UNINSTALL-SH
 echo --------------------
 echo
 
@@ -45,18 +45,18 @@ if [ "$sysname" == "Darwin" ]; then
     echo "System $sysname (Mac OS X) uninstalling ..."
 
     # Stop the daemon
-    launchctl unload /Library/LaunchDaemons/pcap2flow.plist
+    launchctl unload /Library/LaunchDaemons/joy.plist
 
     # Delete the application files
-    delete_file /usr/local/bin/pcap2flow
+    delete_file /usr/local/bin/joy
 
     delete_file /usr/local/bin/query.py
 
     delete_directory /usr/local/etc/p2f
 
-    delete_file /Library/LaunchDaemons/pcap2flow.plist
+    delete_file /Library/LaunchDaemons/joy.plist
 
-    delete_file /usr/local/share/man/man1/pcap2flow.1
+    delete_file /usr/local/share/man/man1/joy.1
 
     echo "... done"
     echo
@@ -83,18 +83,18 @@ elif [ "$sysname" == "Linux" ]; then
     # Stop and disable the service
     if [ "$daemon_system" == "sysv" ]; then
         echo "stopping service (this might take some time)"
-        service pcap2flow stop
-        update-rc.d pcap2flow remove
-        service pcap2flow status
+        service joy stop
+        update-rc.d joy remove
+        service joy status
     elif [ "$daemon_system" == "systemd" ]; then
         echo "stopping service (this might take some time)"
-        systemctl stop pcap2flow.service
-        systemctl disable pcap2flow.service
-        systemctl status pcap2flow.service
+        systemctl stop joy.service
+        systemctl disable joy.service
+        systemctl status joy.service
     fi
 
     # Delete the application files
-    delete_file /usr/local/bin/pcap2flow
+    delete_file /usr/local/bin/joy
 
     delete_file /usr/local/bin/query.py
 
@@ -103,15 +103,15 @@ elif [ "$sysname" == "Linux" ]; then
     delete_directory /usr/local/share/joy
     delete_directory /usr/local/share/joy/data
 
-    delete_file /usr/local/share/man/man1/pcap2flow.1
+    delete_file /usr/local/share/man/man1/joy.1
 
     # Delete daemon specific files
     if [ "$daemon_system" == "sysv" ]; then
-        delete_file /etc/init.d/pcap2flow
+        delete_file /etc/init.d/joy
 
     elif [ "$daemon_system" == "systemd" ]; then
-        delete_file /etc/systemd/system/pcap2flow.service
-        delete_directory /etc/systemd/system/pcap2flow.service.d
+        delete_file /etc/systemd/system/joy.service
+        delete_directory /etc/systemd/system/joy.service.d
     fi
 
     echo "... done"

@@ -55,7 +55,7 @@
 #include "config.h"
 
 /*
- * external variables, defined in pcap2flow
+ * external variables, defined in joy
  */
 extern FILE *info;
 extern unsigned int num_pkt_len;
