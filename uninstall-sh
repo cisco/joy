@@ -52,7 +52,7 @@ if [ "$sysname" == "Darwin" ]; then
 
     delete_file /usr/local/bin/query.py
 
-    delete_directory /usr/local/etc/p2f
+    delete_directory /usr/local/etc/joy
 
     delete_file /Library/LaunchDaemons/joy.plist
 
@@ -98,7 +98,7 @@ elif [ "$sysname" == "Linux" ]; then
 
     delete_file /usr/local/bin/query.py
 
-    delete_directory /usr/local/etc/p2f
+    delete_directory /usr/local/etc/joy
 
     delete_directory /usr/local/share/joy
     delete_directory /usr/local/share/joy/data

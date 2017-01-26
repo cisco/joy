@@ -57,10 +57,10 @@ classifiers_to_display = []
 classifier_names = []
 
 paramserver = '' 
-out_dir = '/var/p2f/'
+out_dir = '/usr/local/var/joy/'
 count_flocap = 100
 try:
-    fp = open('../linux.cfg','r')
+    fp = open('../options.cfg','r')
     for line in fp:
         if line.startswith("outdir"):
             out_dir = line.split()[2]
@@ -69,7 +69,7 @@ try:
         elif line.startswith("count"):
             count_flocap = int(line.split()[2])
 except:
-    out_dir = '/var/p2f/'
+    out_dir = '/usr/local/var/joy/'
 
 # read in ciphersutie information
 fp = open('ciphersuites.txt','r')

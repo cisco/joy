@@ -17,7 +17,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin/usr/local/bin
 DESC="advanced network flow data capture using joy"
 NAME=joy
 DAEMON=/usr/local/bin/$NAME
-DAEMON_ARGS="-x /usr/local/etc/p2f/linux.cfg"
+DAEMON_ARGS="-x /usr/local/etc/joy/options.cfg"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 

@@ -153,9 +153,6 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "promisc")) {
         parse_check(parse_bool(&config->promisc, arg, num));
 
-    } else if (match(command, "daemon")) {
-        parse_check(parse_bool(&config->daemon, arg, num));
-
     } else if (match(command, "output")) {
         parse_check(parse_string(&config->filename, arg, num));
 

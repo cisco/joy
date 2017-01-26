@@ -68,7 +68,6 @@ struct configuration {
     // unsigned int dns;
     unsigned int http;
     unsigned int promisc;
-    unsigned int daemon;
     unsigned int num_pkts;
     unsigned int type;           /*!< 1=SPLT, 2=SALT */
     unsigned int retain_local;

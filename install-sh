@@ -15,7 +15,7 @@ usage() {
     echo "where the options are as follows"
     echo ""
     echo "   configfile is the name of a joy configuration file; if no" 
-    echo "   such file is provided, then the default configuration p2f.cfg is used"
+    echo "   such file is provided, then the default configuration options.cfg is used"
     echo ""
     echo "   anonfile is the name of a file containing subnets to be anonymized; if no" 
     echo "   such file is provided, then the default file anon.cfg is used"
@@ -36,8 +36,7 @@ usage() {
 
 # set defaults
 #
-CONFIGFILE=linux.cfg
-MACOSX_CONFIGFILE=macosx.cfg
+CONFIGFILE=options.cfg
 ANONFILE=internal.net
 WATCHFILE=""
 KEYFILE=""
@@ -55,7 +54,6 @@ while getopts "c:a:w:k:" arg; do
 	c)
 	    echo "-c was triggered with option ${OPTARG}" 
 	    CONFIGFILE=${OPTARG}
-	    MACOSX_CONFIGFILE=${OPTARG}
 	    ;;
 	a)
 	    echo "-a was triggered with option ${OPTARG}" 
@@ -109,11 +107,6 @@ fi
 
 if [ ! -f $CONFIGFILE ]; then
     echo "error: could not find configuration file $CONFIGFILE"
-    exit
-fi
-
-if [ ! -f $MACOSX_CONFIGFILE ]; then
-    echo "error: could not find configuration file $MACOSX_CONFIGFILE"
     exit
 fi
 
@@ -172,8 +165,8 @@ if [ "$sysname" == "Darwin" ]; then
     # Create /usr/local/var directory if it does not currently exist
     create_directory /usr/local/var
 
-    # Create /usr/local/var/p2f directory if it does not currently exist
-    create_directory /usr/local/var/p2f
+    # Create /usr/local/var/joy directory if it does not currently exist
+    create_directory /usr/local/var/joy
 
     # Create /usr/local/var/log directory if it does not currently exist
     create_directory /usr/local/var/log
@@ -181,8 +174,8 @@ if [ "$sysname" == "Darwin" ]; then
     # Create /usr/local/etc directory if it does not currently exist
     create_directory /usr/local/etc
 
-    # Create /usr/local/etc/p2f directory if it does not currently exist
-    create_directory /usr/local/etc/p2f
+    # Create /usr/local/etc/joy directory if it does not currently exist
+    create_directory /usr/local/etc/joy
 
     # Create /usr/local/share directory if it does not currently exist
     create_directory /usr/local/share
@@ -209,62 +202,62 @@ if [ "$sysname" == "Darwin" ]; then
         exit
     fi
 
-    # Install the macosx configuration file
-    if [ -f /usr/local/etc/p2f/macosx.cfg ]; then
-        echo "warning: file /usr/local/etc/p2f/macosx.cfg exists; renaming that file to macosx.cfg.bak"
-        mv /usr/local/etc/p2f/macosx.cfg /usr/local/etc/p2f/macosx.cfg.bak 
+    # Install the configuration file
+    if [ -f /usr/local/etc/joy/options.cfg ]; then
+        echo "warning: file /usr/local/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
+        mv /usr/local/etc/joy/options.cfg /usr/local/etc/joy/options.cfg.bak 
     else
-        cp ${MACOSX_CONFIGFILE} /usr/local/etc/p2f/macosx.cfg
+        cp ${CONFIGFILE} /usr/local/etc/joy/options.cfg
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${MACOSX_CONFIGFILE} to /usr/local/etc/p2f"
+            echo "error: could not copy ${CONFIGFILE} to /usr/local/etc/joy"
             exit
         fi
     fi
 
     # Install the tls fingerprint file
-    if [ -f /usr/local/etc/p2f/${TLS_FINGERPRINT_FILE} ]; then
-        echo "file /usr/local/etc/p2f/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
+    if [ -f /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} ]; then
+        echo "file /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
     else
-        cp ${TLS_FINGERPRINT_FILE} /usr/local/etc/p2f/
+        cp ${TLS_FINGERPRINT_FILE} /usr/local/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to /usr/local/etc/p2f"
+            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to /usr/local/etc/joy"
             exit
         fi
     fi
 
     # Install the anonymization file
-    if [ -f /usr/local/etc/p2f/${ANONFILE} ]; then
-        echo "file /usr/local/etc/p2f/${ANONFILE} exists; not installing anonymization subnet file"
+    if [ -f /usr/local/etc/joy/${ANONFILE} ]; then
+        echo "file /usr/local/etc/joy/${ANONFILE} exists; not installing anonymization subnet file"
     else
-        cp ${ANONFILE} /usr/local/etc/p2f/
+        cp ${ANONFILE} /usr/local/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${ANONFILE} to /usr/local/etc/p2f"
+            echo "error: could not copy ${ANONFILE} to /usr/local/etc/joy"
             exit
         fi
     fi
 
     # Install the ssh key file
-    mv ${KEYFILE} /usr/local/etc/p2f/
+    mv ${KEYFILE} /usr/local/etc/joy/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not move ${KEYFILE} to /usr/local/etc/p2f"
+        echo "error: could not move ${KEYFILE} to /usr/local/etc/joy"
         exit
     fi
-    chmod 600 /usr/local/etc/p2f/${KEYFILE}
+    chmod 600 /usr/local/etc/joy/${KEYFILE}
 
 
     if [ "${WATCHFILE}" != "" ]; then
         # Install the watch file
-        if [ -f /usr/local/etc/p2f/${WATCHFILE} ]; then
-            echo "file /etc/p2f/${WATCHFILE} exists; overwriting with recent file"
+        if [ -f /usr/local/etc/joy/${WATCHFILE} ]; then
+            echo "file /etc/joy/${WATCHFILE} exists; overwriting with recent file"
         fi
-        cp ${WATCHFILE} /usr/local/etc/p2f/
+        cp ${WATCHFILE} /usr/local/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${WATCHFILE} to /usr/local/etc/p2f"
+            echo "error: could not copy ${WATCHFILE} to /usr/local/etc/joy"
             exit
         fi
     fi
@@ -287,7 +280,7 @@ if [ "$sysname" == "Darwin" ]; then
 
     ls -l /usr/local/bin/joy
     ls -l /usr/local/bin/query.py
-    ls -l /usr/local/etc/p2f/*
+    ls -l /usr/local/etc/joy/*
     ls -l /usr/local/share/man/man1/joy.1
     ls -l /Library/LaunchDaemons/joy.plist
 
@@ -326,8 +319,8 @@ elif [ "$sysname" == "Linux" ]; then
     # Create /usr/local/var directory if it does not currently exist
     create_directory /usr/local/var
 
-    # Create /usr/local/var/p2f directory if it does not currently exist
-    create_directory /usr/local/var/p2f
+    # Create /usr/local/var/joy directory if it does not currently exist
+    create_directory /usr/local/var/joy
 
     # Create /usr/local/var/log directory if it does not currently exist
     create_directory /usr/local/var/log
@@ -335,8 +328,8 @@ elif [ "$sysname" == "Linux" ]; then
     # Create /usr/local/etc directory if it does not currently exist
     create_directory /usr/local/etc
 
-    # Create /usr/local/etc/p2f directory if it does not currently exist
-    create_directory /usr/local/etc/p2f
+    # Create /usr/local/etc/joy directory if it does not currently exist
+    create_directory /usr/local/etc/joy
 
     # Create /usr/local/share directory if it does not currently exist
     create_directory /usr/local/share
@@ -377,61 +370,61 @@ elif [ "$sysname" == "Linux" ]; then
         exit
     fi
 
-    # Install the linux configuration file
-    if [ -f /usr/local/etc/p2f/linux.cfg ]; then
-        echo "warning: file /usr/local/etc/p2f/linux.cfg exists; renaming that file to linux.cfg.bak"
-        mv /usr/local/etc/p2f/linux.cfg /usr/local/etc/p2f/linux.cfg.bak 
+    # Install the configuration file
+    if [ -f /usr/local/etc/joy/options.cfg ]; then
+        echo "warning: file /usr/local/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
+        mv /usr/local/etc/joy/options.cfg /usr/local/etc/joy/options.cfg.bak 
     else
-        cp ${CONFIGFILE} /usr/local/etc/p2f/linux.cfg
+        cp ${CONFIGFILE} /usr/local/etc/joy/options.cfg
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy to /usr/local/etc/p2f"
+            echo "error: could not copy to /usr/local/etc/joy"
             exit
         fi
     fi
 
     # Install the tls fingerprint file
-    if [ -f /usr/local/etc/p2f/${TLS_FINGERPRINT_FILE} ]; then
-        echo "file /usr/local/etc/p2f/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
+    if [ -f /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} ]; then
+        echo "file /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
     else
-        cp ${TLS_FINGERPRINT_FILE} /usr/local/etc/p2f/
+        cp ${TLS_FINGERPRINT_FILE} /usr/local/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to /usr/local/etc/p2f"
+            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to /usr/local/etc/joy"
             exit
         fi
     fi
 
     # Install the anonymization file
-    if [ -f /usr/local/etc/p2f/${ANONFILE} ]; then
-        echo "file /usr/local/etc/p2f/${ANONFILE} exists; not installing subnet file"
+    if [ -f /usr/local/etc/joy/${ANONFILE} ]; then
+        echo "file /usr/local/etc/joy/${ANONFILE} exists; not installing subnet file"
     else
-        cp ${ANONFILE} /usr/local/etc/p2f/
+        cp ${ANONFILE} /usr/local/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy to /usr/local/etc/p2f"
+            echo "error: could not copy to /usr/local/etc/joy"
             exit
         fi
     fi
 
     # Install the ssh key file
-    mv ${KEYFILE} /usr/local/etc/p2f/
+    mv ${KEYFILE} /usr/local/etc/joy/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not move ${KEYFILE} to /usr/local/etc/p2f"
+        echo "error: could not move ${KEYFILE} to /usr/local/etc/joy"
         exit
     fi
-    chmod 600 /usr/local/etc/p2f/${KEYFILE}
+    chmod 600 /usr/local/etc/joy/${KEYFILE}
 
     if [ "${WATCHFILE}" != "" ]; then
         # Install the watch file
-        if [ -f /usr/local/etc/p2f/${WATCHFILE} ]; then
-            echo "file /usr/local/etc/p2f/${WATCHFILE} exists; overwriting with recent file"
+        if [ -f /usr/local/etc/joy/${WATCHFILE} ]; then
+            echo "file /usr/local/etc/joy/${WATCHFILE} exists; overwriting with recent file"
         fi
-        cp ${WATCHFILE} /usr/local/etc/p2f/
+        cp ${WATCHFILE} /usr/local/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy to /usr/local/etc/p2f"
+            echo "error: could not copy to /usr/local/etc/joy"
             exit
         fi
     fi
@@ -518,7 +511,7 @@ elif [ "$sysname" == "Linux" ]; then
     # List all the installed files
     ls -l /usr/local/bin/joy
     ls -l /usr/local/bin/query.py
-    ls -l /usr/local/etc/p2f/*
+    ls -l /usr/local/etc/joy/*
     ls -l /usr/local/share/joy/data/*
     ls -l /usr/local/share/man/man1/joy.1
 
@@ -544,7 +537,7 @@ fi
 if [ "$NEWKEY" -eq "1" ]; then
 
     echo "A new SSH key was generated, and its private key was installed in"
-    echo "the /usr/local/etc/p2f directory.  To use this key to authenticate scp"
+    echo "the /usr/local/etc/joy directory.  To use this key to authenticate scp"
     echo "connections to a server that copy the JSON files, you will need to"
     echo "provide the public key ${KEYFILE}.pub to the server administrator,"
     echo "as it needs to be installed in the ./ssh/known_hosts file."
