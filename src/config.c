@@ -153,9 +153,6 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "promisc")) {
         parse_check(parse_bool(&config->promisc, arg, num));
 
-    } else if (match(command, "daemon")) {
-        parse_check(parse_bool(&config->daemon, arg, num));
-
     } else if (match(command, "output")) {
         parse_check(parse_string(&config->filename, arg, num));
 
@@ -423,7 +420,6 @@ void config_print (FILE *f, const struct configuration *c) {
 
     fprintf(f, "interface = %s\n", val(c->interface));
     fprintf(f, "promisc = %u\n", c->promisc);
-    fprintf(f, "daemon = %u\n", c->daemon);
     fprintf(f, "output = %s\n", val(c->filename));
     fprintf(f, "outputdir = %s\n", val(c->outputdir));
     fprintf(f, "count = %u\n", c->max_records); 
@@ -468,7 +464,6 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "{\"version\":\"%s\",", VERSION);
     zprintf(f, "\"interface\":\"%s\",", val(c->interface));
     zprintf(f, "\"promisc\":%u,", c->promisc);
-    zprintf(f, "\"daemon\":%u,", c->daemon);
     zprintf(f, "\"output\":\"%s\",", val(c->filename));
     zprintf(f, "\"outputdir\":\"%s\",", val(c->outputdir));
     zprintf(f, "\"info\":\"%s\",", val(c->logfile));

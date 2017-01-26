@@ -134,8 +134,8 @@ Mac OSX.
 
 #### Running and Configuration
 
-To understand how joy is configured, read one of the
-configuration files (linux.cfg or macosx.cfg).  To process a pcap
+To understand how joy is configured, read the
+configuration file "options.cfg".  To process a pcap
 file in offline mode, run
 
 ```
@@ -158,8 +158,8 @@ omit the filename(s) from the command line.  For instance,
 
 There are many command line options, so instead of typing them all
 onto the command line, you may want to have the program read a
-configuration file.  Two such files come with the distribution,
-linux.cfg and macosx.cfg.  If you want to change the program
+configuration file.  Such a file comes with the distribution,
+options.cfg.  If you want to change the program
 defaults (and you probably do, in order to capture exactly the data
 of interest to you), then make a copy of the configuration file.
 By making a local copy that has a different name, your

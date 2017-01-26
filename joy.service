@@ -4,7 +4,7 @@ Documentation=man:joy(1)
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/joy interface=${INTERFACE} promisc=${PROMISC} daemon=${DAEMON} \
+ExecStart=/usr/local/bin/joy interface=${INTERFACE} promisc=${PROMISC} \
 output=${OUTPUT} outdir=${OUTDIR} logfile=${LOGFILE} count=${COUNT} keyfile=${KEYFILE} \
 retain=${RETAIN} bidir=${BIDIR} num_pkts=${NUM_PKTS} type=${TYPE} zeros=${ZEROS} \
 dist=${DIST} entropy=${ENTROPY} exe=${EXE} tls=${TLS} idp=${IDP} bpf=${BPF} anon=${ANON} \

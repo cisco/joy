@@ -18,7 +18,7 @@
 
         <string>-x</string>
 
-        <string>/usr/local/etc/p2f/macosx.cfg</string>
+        <string>/usr/local/etc/joy/options.cfg</string>
 
     </array>
 

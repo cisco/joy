@@ -43,7 +43,6 @@
  */
 
 #include <stdlib.h>  
-#include <unistd.h>  
 #include <getopt.h>  
 #include <errno.h>  
 #include <pcap.h>
@@ -306,7 +305,6 @@ static int usage (char *s) {
 	   "  -x F                       read configuration commands from file F\n"
 	   "  interface=I                read packets live from interface I\n"
            "  promisc=1                  put interface into promiscuous mode\n"
-           "  daemon=1                   run as daemon (background process)\n"
            "  output=F                   write output to file F (otherwise stdout is used)\n"
            "  logfile=F                  write secondary output to file F (otherwise stderr is used)\n" 
            "  count=C                    rotate output files so each has about C records\n" 
@@ -846,17 +844,6 @@ int main (int argc, char **argv) {
 	                return -4;
             }
 
-        }
-
-        /*
-         * run as daemon, if so configured, without closing stderr and
-         * stdout, and without changing the working directory
-         */
-        if (config.daemon) {
-            if (!daemon(1, 1)) {
-	                fprintf(info, "error: could not start as a daemon\n");
-	                return -5;
-            }  
         }
 
         /*
