@@ -105,6 +105,6 @@ clean:
 # installation via shell script
 ##
 install: $(BINDIR)/joy $(BINDIR)/unit_test test
-	./install-sh
+	./install/install-sh
 
 # EOF
