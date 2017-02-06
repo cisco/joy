@@ -182,16 +182,16 @@ it.  Run the script install-sh (as root, or using sudo) to install
 the package.  
 
 ```
-[joy]$ sudo ./install-sh
+[joy]$ sudo ./install/install-sh
 ```
 
 If you run the script with no arguments, then the default
-configuration will be installed into the /etc/ directory.  To have
+configuration will be installed into the /usr/local/etc/joy directory. To have
 a different configuration file installed, then use the -c option to
 the install script:
 
 ```
-[joy]$ sudo ./install-sh -c local-config-file.cfg
+[joy]$ sudo ./install/install-sh -c full-path-config-file.cfg
 ```
 
 You can also configure anonymization of addresses, which requires a
