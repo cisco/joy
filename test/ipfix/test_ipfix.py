@@ -253,8 +253,10 @@ def test_unix_os():
     cur_dir = os.path.dirname(__file__)
 
     cli_paths = dict()
-    cli_paths['exec_path'] = os.path.join(cur_dir, '../bin/joy')
-    cli_paths['pcap_path'] = os.path.join(cur_dir, '../sample.pcap')
+    cli_paths['exec_path'] = os.path.abspath(os.path.join(cur_dir, '../../bin/joy'))
+    cli_paths['pcap_path'] = os.path.abspath(os.path.join(cur_dir, '../../sample.pcap'))
+    print(cli_paths['exec_path'])
+    print(cli_paths['pcap_path'])
 
     validate_exporter = ValidateExporter(cli_paths=cli_paths)
 
