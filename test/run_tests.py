@@ -37,7 +37,7 @@
 
 import logging
 import argparse
-import ipfix
+from pytests_joy.ipfix import main_ipfix
 
 
 if __name__ == "__main__":
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     1: Import the module that contains test
     2: Add the test function reference to the 'test_suite' list below
     """
-    test_suite = [ipfix.main, ]
+    test_suite = [main_ipfix, ]
     for test in test_suite:
         rc_main = test()
         if rc_main != 0:

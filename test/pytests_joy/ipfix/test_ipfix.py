@@ -43,33 +43,7 @@ import logging
 import argparse
 import json
 import gzip
-
-
-def end_process(process):
-    """
-    Takes care of the end-of-life stage of a process.
-    If the process is still running, end it.
-    The process EOL return code is collected and passed back.
-    :param process: A python subprocess object, i.e. subprocess.Popen()
-    :return: 0 for process success
-    """
-    if process.poll() is None:
-        # Gracefully terminate the process
-        process.terminate()
-        time.sleep(1)
-        if process.poll() is None:
-            # Hard kill the process
-            process.kill()
-            time.sleep(1)
-            if process.poll() is None:
-                # Runaway zombie process
-                logger.error('subprocess ' + str(process) + 'turned zombie')
-                return 1
-    elif process.poll() != 0:
-        # Export process ended with bad exit code
-        return process.poll()
-
-    return 0
+from pytests_joy.utilities import end_process
 
 
 class ValidateExporter(object):
@@ -253,10 +227,8 @@ def test_unix_os():
     cur_dir = os.path.dirname(__file__)
 
     cli_paths = dict()
-    cli_paths['exec_path'] = os.path.abspath(os.path.join(cur_dir, '../../bin/joy'))
-    cli_paths['pcap_path'] = os.path.abspath(os.path.join(cur_dir, '../../sample.pcap'))
-    print(cli_paths['exec_path'])
-    print(cli_paths['pcap_path'])
+    cli_paths['exec_path'] = os.path.join(cur_dir, '../../../bin/joy')
+    cli_paths['pcap_path'] = os.path.join(cur_dir, '../../../sample.pcap')
 
     validate_exporter = ValidateExporter(cli_paths=cli_paths)
 
@@ -269,7 +241,7 @@ def test_unix_os():
     return rc_unix_overall
 
 
-def main():
+def main_ipfix():
     """
     Main function to run any test within module.
     :return: 0 for success
