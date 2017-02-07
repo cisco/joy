@@ -40,14 +40,40 @@ import argparse
 from pytests_joy.ipfix import main_ipfix
 
 
+def modify_test_suite(suite, module_flag, single_module):
+    """
+    Change the list of test modules that will be run.
+    :param suite: List of test modules
+    :param module_flag: A flag corresponding to a single module, given through CLI
+    :param single_module: If it exists, the current selection for single module to run.
+    :return:
+    """
+    if module_flag == 'no':
+        # Exclude the specified module
+        suite.remove(main_ipfix)
+    elif module_flag == 'yes':
+        # Only test the specified module
+        if single_module:
+            logger.error('error: ' + single_module + ' has been selected to run by itself.\n' +
+                         '\tonly 1 module can be run individually.')
+            exit(1)
+        single_module = main_ipfix
+        suite = [main_ipfix]
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Joy ALL program execution tests'
+        description='Defaults to run all of pytests_joy modules. ' +
+                    'Please use the listed module options to select a subset.'
     )
     parser.add_argument('-l', '--log',
                         dest='log_level',
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level')
+    parser.add_argument('--ipfix',
+                        dest='flag_ipfix',
+                        choices=['yes', 'no'],
+                        help='yes to run ONLY ipfix module; no to exclude from test suite')
     args = parser.parse_args()
 
     # Configure root logging
@@ -64,6 +90,11 @@ if __name__ == "__main__":
     2: Add the test function reference to the 'test_suite' list below
     """
     test_suite = [main_ipfix, ]
+
+    single_mod = None
+    if args.flag_ipfix:
+        modify_test_suite(test_suite, args.flag_ipfix, single_mod)
+
     for test in test_suite:
         rc_main = test()
         if rc_main != 0:

@@ -40,7 +40,6 @@ import sys
 import subprocess
 import time
 import logging
-import argparse
 import json
 import gzip
 from pytests_joy.utilities import end_process
@@ -261,11 +260,12 @@ def main_ipfix():
     logger.warning('SUCCESS')
     return 0
 
-
+'''
 if __name__ == "__main__":
     """
     test_ipfix.py executing through shell
     """
+
     parser = argparse.ArgumentParser(
         description='Joy IPFix program execution tests'
     )
@@ -281,5 +281,6 @@ if __name__ == "__main__":
     else:
         logging.basicConfig()
 
-    rc_main = main()
+    rc_main = main_ipfix()
     exit(rc_main)
+'''
