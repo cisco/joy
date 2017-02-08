@@ -34,6 +34,7 @@
  *
 """
 
+import os
 import time
 
 
@@ -61,3 +62,11 @@ def end_process(process):
         return process.poll()
 
     return 0
+
+
+def ensure_path_exists(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        if not os.path.isdir(path):
+            raise

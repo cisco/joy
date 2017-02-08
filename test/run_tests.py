@@ -106,21 +106,6 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     """
-    Local namespace variables for the option values
-    """
-    tls_base_dir = None
-    if args.tls_base_dir:
-        tls_base_dir = args.tls_base_dir
-
-    tls_pcap_dir = None
-    if args.tls_pcap_dir:
-        tls_pcap_dir = args.tls_pcap_dir
-
-    tls_make_base = False
-    if args.tls_make_base:
-        tls_make_base = args.tls_make_base
-
-    """
     Add a new test:
     1: Import the module that contains test
     2: Add the test function reference to the 'test_suite' list below
@@ -136,7 +121,7 @@ if __name__ == "__main__":
     for test in test_suite:
         if test is main_tls:
             # Invoke with proper parameter values for TLS
-            rc_main = main_tls(tls_base_dir, tls_pcap_dir, tls_make_base)
+            rc_main = main_tls(args.tls_base_dir, args.tls_pcap_dir, args.tls_make_base)
         else:
             rc_main = test()
         if rc_main != 0:

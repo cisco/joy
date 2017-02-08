@@ -37,16 +37,76 @@
 import os
 import sys
 import logging
+import subprocess
+import time
+import uuid
+from pytests_joy.utilities import end_process
+from pytests_joy.utilities import ensure_path_exists
 
 
 # Default globals
-baseline_path = './baseline'
-pcap_path = './pcaps'
+baseline_path = 'baseline'
+pcap_path = 'pcaps'
 flag_generate_base = False
+flag_base_file_uuid = True
 
 
-def generate_baseline():
-    pass
+def generate_baseline(cli_paths):
+    rc_overall = 0
+
+    ensure_path_exists(cli_paths['baseline_path'])
+
+    # Get the paths to the tls pcap files
+    path_tls10_pcap = os.path.join(pcap_path, 'tls10.pcap')
+    path_tls11_pcap = os.path.join(pcap_path, 'tls11.pcap')
+    path_tls12_pcap = os.path.join(pcap_path, 'tls12.pcap')
+    path_tls13_pcap = os.path.join(pcap_path, 'tls13.pcap')
+
+    # Make the names for the baseline files
+    if flag_base_file_uuid:
+        base_file_tls10 = str(uuid.uuid4()) + '_base-tls-10.gz'
+        base_file_tls11 = str(uuid.uuid4()) + '_base-tls-11.gz'
+        base_file_tls12 = str(uuid.uuid4()) + '_base-tls-12.gz'
+        base_file_tls13 = str(uuid.uuid4()) + '_base-tls-13.gz'
+    else:
+        base_file_tls10 = 'base-tls-10.gz'
+        base_file_tls11 = 'base-tls-11.gz'
+        base_file_tls12 = 'base-tls-12.gz'
+        base_file_tls13 = 'base-tls-13.gz'
+
+    # Append the files to the baseline destination dir
+    path_tls10_base = os.path.join(cli_paths['baseline_path'],
+                                   base_file_tls10)
+    path_tls11_base = os.path.join(cli_paths['baseline_path'],
+                                   base_file_tls11)
+    path_tls12_base = os.path.join(cli_paths['baseline_path'],
+                                   base_file_tls12)
+    path_tls13_base = os.path.join(cli_paths['baseline_path'],
+                                   base_file_tls13)
+
+    # Group variables in dict-list to keep track of related files
+    base_and_pcap = [{'base': path_tls10_base, 'pcap': path_tls10_pcap},
+                     {'base': path_tls11_base, 'pcap': path_tls11_pcap},
+                     {'base': path_tls12_base, 'pcap': path_tls12_pcap},
+                     {'base': path_tls13_base, 'pcap': path_tls13_pcap}]
+
+    # Generate the baselines
+    processes = list()
+    logger.warning("Generating TLS baselines...\n")
+    for files in base_and_pcap:
+        processes.append(subprocess.Popen([cli_paths['exec_path'],
+                                           'output=' + files['base'],
+                                           'tls=1',
+                                           files['pcap']]))
+    time.sleep(1)
+
+    # End running subprocesses
+    for proc in processes:
+        rc_proc = end_process(proc)
+        if rc_proc != 0:
+            rc_overall = rc_proc
+
+    return rc_overall
 
 
 def compare():
@@ -68,8 +128,7 @@ def test_unix_os():
     cli_paths['baseline_path'] = os.path.join(cur_dir, baseline_path)
 
     if flag_generate_base is True:
-        generate_baseline()
-        # validate_exporter = ValidateExporter(cli_paths=cli_paths)
+        generate_baseline(cli_paths)
     else:
         compare()
 
