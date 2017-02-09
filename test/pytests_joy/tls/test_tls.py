@@ -39,7 +39,10 @@ import sys
 import logging
 import subprocess
 import time
+import gzip
+import json
 import uuid
+import glob
 from pytests_joy.utilities import end_process
 from pytests_joy.utilities import ensure_path_exists
 
@@ -64,31 +67,21 @@ def generate_baseline(cli_paths):
 
     # Make the names for the baseline files
     if flag_base_file_uuid:
-        base_file_tls10 = str(uuid.uuid4()) + '_base-tls-10.gz'
-        base_file_tls11 = str(uuid.uuid4()) + '_base-tls-11.gz'
-        base_file_tls12 = str(uuid.uuid4()) + '_base-tls-12.gz'
-        base_file_tls13 = str(uuid.uuid4()) + '_base-tls-13.gz'
+        base_file_tls10 = str(uuid.uuid4()) + '_base-tls10.json.gz'
+        base_file_tls11 = str(uuid.uuid4()) + '_base-tls11.json.gz'
+        base_file_tls12 = str(uuid.uuid4()) + '_base-tls12.json.gz'
+        base_file_tls13 = str(uuid.uuid4()) + '_base-tls13.json.gz'
     else:
-        base_file_tls10 = 'base-tls-10.gz'
-        base_file_tls11 = 'base-tls-11.gz'
-        base_file_tls12 = 'base-tls-12.gz'
-        base_file_tls13 = 'base-tls-13.gz'
-
-    # Append the files to the baseline destination dir
-    path_tls10_base = os.path.join(cli_paths['baseline_path'],
-                                   base_file_tls10)
-    path_tls11_base = os.path.join(cli_paths['baseline_path'],
-                                   base_file_tls11)
-    path_tls12_base = os.path.join(cli_paths['baseline_path'],
-                                   base_file_tls12)
-    path_tls13_base = os.path.join(cli_paths['baseline_path'],
-                                   base_file_tls13)
+        base_file_tls10 = 'base-tls10.json.gz'
+        base_file_tls11 = 'base-tls11.json.gz'
+        base_file_tls12 = 'base-tls12.json.gz'
+        base_file_tls13 = 'base-tls13.json.gz'
 
     # Group variables in dict-list to keep track of related files
-    base_and_pcap = [{'base': path_tls10_base, 'pcap': path_tls10_pcap},
-                     {'base': path_tls11_base, 'pcap': path_tls11_pcap},
-                     {'base': path_tls12_base, 'pcap': path_tls12_pcap},
-                     {'base': path_tls13_base, 'pcap': path_tls13_pcap}]
+    base_and_pcap = [{'base': base_file_tls10, 'pcap': path_tls10_pcap},
+                     {'base': base_file_tls11, 'pcap': path_tls11_pcap},
+                     {'base': base_file_tls12, 'pcap': path_tls12_pcap},
+                     {'base': base_file_tls13, 'pcap': path_tls13_pcap}]
 
     # Generate the baselines
     processes = list()
@@ -96,6 +89,7 @@ def generate_baseline(cli_paths):
     for files in base_and_pcap:
         processes.append(subprocess.Popen([cli_paths['exec_path'],
                                            'output=' + files['base'],
+                                           'outdir=' + cli_paths['baseline_path'],
                                            'tls=1',
                                            files['pcap']]))
     time.sleep(1)
@@ -109,8 +103,139 @@ def generate_baseline(cli_paths):
     return rc_overall
 
 
-def compare():
-    pass
+class ValidateTLS(object):
+    def __init__(self, cli_paths):
+        self.cli_paths = cli_paths
+        self.compare_keys = ['sa','da','sp','dp','pr']
+        self.new_flows = {'tls10': list(), 'tls11': list(),
+                          'tls12': list(), 'tls13': list()}
+        self.base_flows = {'tls10': list(), 'tls11': list(),
+                           'tls12': list(), 'tls13': list()}
+        self.corrupt_flows = {'tls10': list(), 'tls11': list(),
+                              'tls12': list(), 'tls13': list()}
+        self.corrupt_versions = list()
+        self.tmp_outputs = {'tls10': 'tmp-tls10.json.gz',
+                            'tls11': 'tmp-tls11.json.gz',
+                            'tls12': 'tmp-tls12.json.gz',
+                            'tls13': 'tmp-tls13.json.gz'}
+
+    def __cleanup_tmp_files(self, exclude=[]):
+        """
+        Delete any existing temporary files.
+        :return:
+        """
+        # Delete temporary files
+        for key, f in self.tmp_outputs.iteritems():
+            if key in exclude:
+                # Cont, don't delete this file
+                continue
+            if os.path.isfile(f):
+                os.remove(f)
+
+    def __load_baseline(self):
+        for version, flows in self.base_flows.iteritems():
+            pattern = self.cli_paths['baseline_path'] + '/*base-' + version + '.json.gz'
+            base_files = glob.glob(pattern)
+
+            if not base_files:
+                logger.error('error: could not find baseline files.' +
+                             'please use --tls-base-dir option to specify a location where valid files exist.')
+                return 1
+
+            latest_file = max(base_files, key=os.path.getmtime)
+
+            with gzip.open(latest_file, 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        flows.append(flow)
+                    except:
+                        continue
+
+        return 0
+
+    def __run_tls(self):
+        for version, flows in self.new_flows.iteritems():
+            pcap = os.path.join(pcap_path, version +'.pcap')
+            proc = subprocess.Popen([self.cli_paths['exec_path'],
+                                    'output=' + self.tmp_outputs[version], 'tls=1', pcap])
+
+            time.sleep(0.5)
+
+            rc_proc = end_process(proc)
+            if rc_proc != 0:
+                return rc_proc
+
+            with gzip.open(self.tmp_outputs[version], 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        flows.append(flow)
+                    except:
+                        continue
+
+        return 0
+
+    def compare_new_against_base(self):
+        # Load the baseline json into memory
+        rc = self.__load_baseline()
+        if rc:
+            logger.warning(str(self.__load_baseline) + ' failed with return code ' + str(rc))
+            return rc
+
+        # Run joy with tls, and load the json into memory
+        rc = self.__run_tls()
+        if rc:
+            logger.warning(str(self.__run_tls) + ' failed with return code ' + str(rc))
+            self.__cleanup_tmp_files()
+            return rc
+
+        # Compare the 2 datasets
+        for version, tls_flows in self.new_flows.iteritems():
+            # Operate on 1 TLS version at a time...
+            for flow in tls_flows:
+                corrupt = True
+                if 'sa' not in flow:
+                    # Optimize prelim check to see if a flow object
+                    continue
+
+                for base_flow in self.base_flows[version]:
+                    if 'sa' not in base_flow:
+                        # Optimize prelim check to see if a flow object
+                        continue
+
+                    match = True
+                    for key in self.compare_keys:
+                        try:
+                            if not flow[key] == base_flow[key]:
+                                # One of the key/value pairs did not match
+                                match = False
+                                break
+                        except KeyError:
+                            # This json object is not a flow, skip
+                            break
+
+                    if match is True:
+                        # All of the key/value pairs matched
+                        corrupt = False
+                        break
+
+                if corrupt is True:
+                    self.corrupt_flows[version].append(flow)
+                    self.corrupt_versions += version
+                    logger.warning('warning: corrupt ' + str(version) + ' detected.')
+                    logger.warning('warning: did not delete temporary file for ' + str(version))
+                    rc_overall = 1
+
+            if self.corrupt_flows[version]:
+                # Info log the corrupt flows
+                for flow in self.corrupt_flows[version]:
+                    logger.info(str(version) + ' corrupt flow: ' + str(flow))
+
+        # Cleanup
+        self.__cleanup_tmp_files(self.corrupt_versions)
+
+        return 0
 
 
 def test_unix_os():
@@ -128,11 +253,23 @@ def test_unix_os():
     cli_paths['baseline_path'] = os.path.join(cur_dir, baseline_path)
 
     if flag_generate_base is True:
-        generate_baseline(cli_paths)
+        # The user wants to make a set of baseline files
+        rc_unix_test = generate_baseline(cli_paths)
+        # Check the value of function exit code
+        if rc_unix_test:
+            logger.warning(str(generate_baseline) + ' failed with return code ' + str(rc_unix_test))
+            return rc_unix_test
     else:
-        compare()
+        # Default to comparing new against baseline
+        validate_tls = ValidateTLS(cli_paths)
+        rc_unix_test = validate_tls.compare_new_against_base()
+        # Check the value of function exit code
+        if rc_unix_test:
+            logger.warning(str(validate_tls.compare_new_against_base) +
+                           ' failed with return code ' + str(rc_unix_test))
+            return rc_unix_test
 
-    return rc_unix_overall
+    return 0
 
 
 def main_tls(baseline_dir=None,
