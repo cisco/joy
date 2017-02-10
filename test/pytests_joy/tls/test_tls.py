@@ -205,7 +205,8 @@ class ValidateTLS(object):
                         continue
 
                     match = True
-                    for key in self.compare_keys:
+                    for key in flow:
+                        # Compare all of the key/values in current flow
                         try:
                             if not flow[key] == base_flow[key]:
                                 # One of the key/value pairs did not match
