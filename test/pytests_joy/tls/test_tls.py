@@ -195,30 +195,15 @@ class ValidateTLS(object):
             for flow in tls_flows:
                 corrupt = True
                 if 'sa' not in flow:
-                    # Optimize prelim check to see if a flow object
+                    # Skip if not a flow object
                     continue
 
                 for base_flow in self.base_flows[version]:
                     if 'sa' not in base_flow:
-                        # Optimize prelim check to see if a flow object
+                        # Skip if not a flow object
                         continue
 
-                    match = True
-                    for key in base_flow:
-                        """
-                        Compare all of the key/values of current flow against base flow.
-                        Use the base flow's keys in case the current flow removed any, a.k.a missing
-                        """
-                        try:
-                            if not flow[key] == base_flow[key]:
-                                # One of the key/value pairs did not match
-                                match = False
-                                break
-                        except KeyError:
-                            # This json object is not a flow, skip
-                            break
-
-                    if match is True:
+                    if flow == base_flow:
                         # All of the key/value pairs matched
                         corrupt = False
                         break
@@ -230,7 +215,7 @@ class ValidateTLS(object):
             if self.corrupt_new_flows[version]:
                 # Log the corrupt flows
                 for flow in self.corrupt_new_flows[version]:
-                    logger.warning('New corrupt flow ' + str(version) + ' @ ' + str(flow))
+                    logger.warning('New corrupt flow ' + str(version) + ' --> ' + str(flow))
                 logger.warning('Please manually compare these corrupt flows against corresponding baseline file!')
 
         # Cleanup
