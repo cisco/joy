@@ -51,7 +51,7 @@ from pytests_joy.utilities import ensure_path_exists
 baseline_path = 'baseline'
 pcap_path = 'pcaps'
 flag_generate_base = False
-flag_base_file_uuid = True
+flag_base_generic = False
 
 
 def generate_baseline(cli_paths):
@@ -66,7 +66,7 @@ def generate_baseline(cli_paths):
     path_tls13_pcap = os.path.join(pcap_path, 'tls13.pcap')
 
     # Make the names for the baseline files
-    if flag_base_file_uuid:
+    if not flag_base_generic:
         base_file_tls10 = str(uuid.uuid4()) + '_base-tls10.json.gz'
         base_file_tls11 = str(uuid.uuid4()) + '_base-tls11.json.gz'
         base_file_tls12 = str(uuid.uuid4()) + '_base-tls12.json.gz'
@@ -85,7 +85,7 @@ def generate_baseline(cli_paths):
 
     # Generate the baselines
     processes = list()
-    logger.warning("Generating TLS baselines...\n")
+    logger.info("Generating TLS baselines...")
     for files in base_and_pcap:
         processes.append(subprocess.Popen([cli_paths['exec_path'],
                                            'output=' + files['base'],
@@ -111,24 +111,20 @@ class ValidateTLS(object):
                           'tls12': list(), 'tls13': list()}
         self.base_flows = {'tls10': list(), 'tls11': list(),
                            'tls12': list(), 'tls13': list()}
-        self.corrupt_flows = {'tls10': list(), 'tls11': list(),
+        self.corrupt_new_flows = {'tls10': list(), 'tls11': list(),
                               'tls12': list(), 'tls13': list()}
-        self.corrupt_versions = list()
         self.tmp_outputs = {'tls10': 'tmp-tls10.json.gz',
                             'tls11': 'tmp-tls11.json.gz',
                             'tls12': 'tmp-tls12.json.gz',
                             'tls13': 'tmp-tls13.json.gz'}
 
-    def __cleanup_tmp_files(self, exclude=[]):
+    def __cleanup_tmp_files(self):
         """
         Delete any existing temporary files.
         :return:
         """
         # Delete temporary files
         for key, f in self.tmp_outputs.iteritems():
-            if key in exclude:
-                # Cont, don't delete this file
-                continue
             if os.path.isfile(f):
                 os.remove(f)
 
@@ -138,11 +134,12 @@ class ValidateTLS(object):
             base_files = glob.glob(pattern)
 
             if not base_files:
-                logger.error('error: could not find baseline files.' +
+                logger.error('could not find baseline files.' +
                              'please use --tls-base-dir option to specify a location where valid files exist.')
                 return 1
 
             latest_file = max(base_files, key=os.path.getmtime)
+            logger.debug('latest ' + str(version) + ' base file selected ' + str(latest_file))
 
             with gzip.open(latest_file, 'r') as f:
                 for line in f:
@@ -177,6 +174,8 @@ class ValidateTLS(object):
         return 0
 
     def compare_new_against_base(self):
+        rc_overall = 0
+
         # Load the baseline json into memory
         rc = self.__load_baseline()
         if rc:
@@ -205,8 +204,11 @@ class ValidateTLS(object):
                         continue
 
                     match = True
-                    for key in flow:
-                        # Compare all of the key/values in current flow
+                    for key in base_flow:
+                        """
+                        Compare all of the key/values of current flow against base flow.
+                        Use the base flow's keys in case the current flow removed any, a.k.a missing
+                        """
                         try:
                             if not flow[key] == base_flow[key]:
                                 # One of the key/value pairs did not match
@@ -222,21 +224,19 @@ class ValidateTLS(object):
                         break
 
                 if corrupt is True:
-                    self.corrupt_flows[version].append(flow)
-                    self.corrupt_versions += version
-                    logger.warning('warning: corrupt ' + str(version) + ' detected.')
-                    logger.warning('warning: did not delete temporary file for ' + str(version))
+                    self.corrupt_new_flows[version].append(flow)
                     rc_overall = 1
 
-            if self.corrupt_flows[version]:
-                # Info log the corrupt flows
-                for flow in self.corrupt_flows[version]:
-                    logger.info(str(version) + ' corrupt flow: ' + str(flow))
+            if self.corrupt_new_flows[version]:
+                # Log the corrupt flows
+                for flow in self.corrupt_new_flows[version]:
+                    logger.warning('New corrupt flow ' + str(version) + ' @ ' + str(flow))
+                logger.warning('Please manually compare these corrupt flows against corresponding baseline file!')
 
         # Cleanup
-        self.__cleanup_tmp_files(self.corrupt_versions)
+        self.__cleanup_tmp_files()
 
-        return 0
+        return rc_overall
 
 
 def test_unix_os():
@@ -252,6 +252,7 @@ def test_unix_os():
     cli_paths['exec_path'] = os.path.join(cur_dir, '../../../bin/joy')
     cli_paths['pcap_path'] = os.path.join(cur_dir, pcap_path)
     cli_paths['baseline_path'] = os.path.join(cur_dir, baseline_path)
+    logger.debug("script cli paths... " + str(cli_paths))
 
     if flag_generate_base is True:
         # The user wants to make a set of baseline files
@@ -275,9 +276,10 @@ def test_unix_os():
 
 def main_tls(baseline_dir=None,
              pcap_dir=None,
-             create_base=False):
+             create_base=False,
+             base_generic=False):
     """
-    Main function to run any test within module.
+    Main function.
     :return: 0 for success
     """
     global logger
@@ -292,6 +294,9 @@ def main_tls(baseline_dir=None,
     if create_base:
         global flag_generate_base
         flag_generate_base = True
+    if base_generic:
+        global flag_base_generic
+        flag_base_generic = True
 
     os_platform = sys.platform
     unix_platforms = ['linux', 'linux2', 'darwin']

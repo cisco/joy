@@ -57,8 +57,8 @@ def modify_test_suite(suite, module_flag, module_func, single_module):
     elif module_flag == 'yes':
         # Only test the specified module
         if single_module:
-            logger.error('error: ' + single_module + ' has been selected to run by itself.\n' +
-                         '\tonly 1 module can be run individually.')
+            logger.error(str(single_module) + ' has been selected to run by itself. ' +
+                         'only 1 module can be run individually.')
             exit(1)
         for test in suite:
             if test is not module_func:
@@ -75,6 +75,10 @@ if __name__ == "__main__":
                         dest='log_level',
                         choices=['debug', 'info', 'warning', 'error', 'critical'],
                         help='Set the logging level')
+    parser.add_argument('--log-file',
+                        action='store_true',
+                        dest='log_file',
+                        help='Log messages to a file instead of the console (terminal).')
     parser.add_argument('--ipfix',
                         dest='flag_ipfix',
                         choices=['yes', 'no'],
@@ -93,15 +97,38 @@ if __name__ == "__main__":
                         action='store_true',
                         dest='tls_make_base',
                         help='Use to create a new set of tls baseline files. ')
+    parser.add_argument('--tls-base-file-generic',
+                        action='store_true',
+                        dest='tls_base_generic',
+                        help='Use a generic default name when making baseline files. ' +
+                             'Caution: overwrite of previous files with same name is probable!')
     args = parser.parse_args()
 
     """
-    Configure root logging
+    Configure logging
     """
+    LEVELS = {'debug': logging.DEBUG,
+              'info': logging.INFO,
+              'warning': logging.WARNING,
+              'error': logging.ERROR,
+              'critical': logging.CRITICAL}
+
+    log_level = None
     if args.log_level:
-        logging.basicConfig(level=args.log_level.upper())
+        log_level = LEVELS[args.log_level.lower()]
+
+    log_file = None
+    if args.log_file:
+        logging.basicConfig(
+            filename='pytest-joy.log',
+            level=log_level,
+            format='%(asctime)s - {%(filename)s:%(lineno)d} - %(levelname)s - %(message)s',
+        )
     else:
-        logging.basicConfig()
+        logging.basicConfig(
+            level=log_level,
+            format='%(name)s: %(levelname)s %(message)s',
+        )
 
     logger = logging.getLogger(__name__)
 
@@ -118,10 +145,14 @@ if __name__ == "__main__":
     if args.flag_tls:
         single_mod = modify_test_suite(test_suite, args.flag_tls, main_tls, single_mod)
 
+    logger.warning('runtests start...')
+    logger.warning('~~~~~~~~~~~~~~~~~')
+
     for test in test_suite:
         if test is main_tls:
             # Invoke with proper parameter values for TLS
-            rc_main = main_tls(args.tls_base_dir, args.tls_pcap_dir, args.tls_make_base)
+            rc_main = main_tls(args.tls_base_dir, args.tls_pcap_dir,
+                               args.tls_make_base, args.tls_base_generic)
         else:
             rc_main = test()
         if rc_main != 0:

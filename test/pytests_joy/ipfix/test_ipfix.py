@@ -208,7 +208,7 @@ class ValidateExporter(object):
         if self.corrupt_flows:
             # Info log the corrupt flows
             for flow in self.corrupt_flows:
-                logger.info('CORRUPT FLOW: ' + str(flow))
+                logger.warning('corrupt flow: ' + str(flow))
 
         # Delete temporary files
         self.__cleanup_tmp_files()
@@ -259,28 +259,3 @@ def main_ipfix():
 
     logger.warning('SUCCESS')
     return 0
-
-'''
-if __name__ == "__main__":
-    """
-    test_ipfix.py executing through shell
-    """
-
-    parser = argparse.ArgumentParser(
-        description='Joy IPFix program execution tests'
-    )
-    parser.add_argument('-l', '--log',
-                        dest='log_level',
-                        choices=['debug', 'info', 'warning', 'error', 'critical'],
-                        help='Set the logging level')
-    args = parser.parse_args()
-
-    # Configure root logging
-    if args.log_level:
-        logging.basicConfig(level=args.log_level.upper())
-    else:
-        logging.basicConfig()
-
-    rc_main = main_ipfix()
-    exit(rc_main)
-'''
