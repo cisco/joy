@@ -59,11 +59,11 @@
 #define UPDATER_WORK_INTERVAL (86400) /* (60*60*24) = 86400 mins, 24 hours */
 //#define UPDATER_WORK_INTERVAL (20) /* for testing - 20 second interval */
 
-/** URL for the Talos malware feed */
-#define TALOS_URL "http://www.talosintelligence.com/feeds/ip-filter.blf"
+/** URL for the blacklist malware feed  - default url us Talos feed */
+#define BLACKLIST_URL "http://www.talosintelligence.com/feeds/ip-filter.blf"
 
-/** destination file name for the talos malware feed */
-#define TALOS_FILE_NAME "talos-ip-filter.blf"
+/** destination file name for the blacklist malware feed */
+#define BLACKLIST_FILE_NAME "blacklist-ip-filter.blf"
 
 /** Updater return codes */
 typedef enum {
