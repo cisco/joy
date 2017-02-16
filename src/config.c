@@ -171,6 +171,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "URLmodel")) {
         parse_check(parse_string(&config->params_url, arg, num));
 
+    } else if (match(command, "URLlabel")) {
+        parse_check(parse_string(&config->label_url, arg, num));
+
     } else if (match(command, "model")) {
         parse_check(parse_string(&config->params_file, arg, num));
 
@@ -418,6 +421,7 @@ int config_set_from_argv (struct configuration *config, char *argv[], int argc) 
 void config_print (FILE *f, const struct configuration *c) {
     unsigned int i;
 
+    fprintf(f, "joy version = %s\n", VERSION);
     fprintf(f, "interface = %s\n", val(c->interface));
     fprintf(f, "promisc = %u\n", c->promisc);
     fprintf(f, "output = %s\n", val(c->filename));
