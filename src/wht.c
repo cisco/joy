@@ -78,14 +78,31 @@ static inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) {
 }
 
 /**
- * \fn void wht_update (struct wht *wht, const void *data, unsigned int len, unsigned int report_wht)
+ * \fn void wht_update (struct wht *wht,
+                        const void *data,
+                        unsigned int len,
+                        unsigned int report_wht,
+                        const void *extra,
+                        const unsigned int extra_len,
+                        const EXTRA_TYPE extra_type)
  * \param wht point to the structure
  * \param data pointer to the data to update with
  * \param len length of the data passed in
  * \param report_wht value used to determine processing
+ * \param extra Void pointer which gives access to any additional
+ *              necessary info that this function needs to perform properly.
+ * \param extra_len Length in bytes of the data that \p extra is pointing to.
+ * \param extra_type Enumeration value that specifies what type
+ *                   of data \p extra points to.
  * \return none
  */
-void wht_update (struct wht *wht, const void *data, unsigned int len, unsigned int report_wht) {
+void wht_update (struct wht *wht,
+                 const void *data,
+                 unsigned int len,
+                 unsigned int report_wht,
+                 const void *extra,
+                 const unsigned int extra_len,
+                 const EXTRA_TYPE extra_type) {
     const uint8_t *d = data;
 
     /* sanity checks */
@@ -213,21 +230,21 @@ void wht_unit_test() {
     }
 
     wht_init(&wht);
-    wht_update(&wht, buffer1, sizeof(buffer1), 1);
+    wht_update(&wht, buffer1, sizeof(buffer1), 1, NULL, 0, 0);
     wht_printf_scaled(&wht, output);
 
     wht_init(&wht);
-    wht_update(&wht, buffer2, sizeof(buffer2), 1);
+    wht_update(&wht, buffer2, sizeof(buffer2), 1, NULL, 0, 0);
     wht_printf_scaled(&wht, output);
 
     wht_init(&wht);
-    wht_update(&wht, buffer3, sizeof(buffer3), 1);
+    wht_update(&wht, buffer3, sizeof(buffer3), 1, NULL, 0, 0);
     wht_printf_scaled(&wht, output);
 
     wht_init(&wht);
     wht_init(&wht2);
-    wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
-    wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
-    wht_update(&wht, buffer4, 1, 1); /* note: only reading first byte */
+    wht_update(&wht, buffer4, 1, 1, NULL, 0, 0); /* note: only reading first byte */
+    wht_update(&wht, buffer4, 1, 1, NULL, 0, 0); /* note: only reading first byte */
+    wht_update(&wht, buffer4, 1, 1, NULL, 0, 0); /* note: only reading first byte */
     wht_print_json(&wht, &wht2, output);
 } 

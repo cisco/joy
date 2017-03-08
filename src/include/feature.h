@@ -106,7 +106,7 @@
  */
 #define ip_feature_list ip_id
 #define tcp_feature_list salt
-#define payload_feature_list wht, example, dns, ssh
+#define payload_feature_list wht, example, dns, ssh, tls
 #define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
 
@@ -130,11 +130,16 @@
 #define declare_init(F) void F##_init(F##_t *f)
 
 /** \brief \verbatim
- * The function feature_update(feature, data, len) updates the data
- * feature context "feature" stored in a flow_record, based on the
- * packet located at "data", which has length "len", whenever
- * "report_feature" is nonzero
- * 
+ * The function feature_update(feature, data, data_len, report_feature,
+ * extra, extra_len, extra_type) updates the data feature context "feature"
+ * stored in a flow_record, based on the packet located at "data", which has
+ * length "len", whenever "report_feature" is nonzero. The parameter "extra"
+ * can be used to pass in any additional data that the function needs.
+ * Since "extra" is a void pointer, a pointer to any kind of data can be inserted.
+ * The only requirement is that "extra_type" must have an entry in enum extra_type
+ * found at the bottom of this file (feature.h) so that feature_update knows
+ * what type of data "extra" represents.
+ *
  * return value: 
  *     no_more_packets_needed  (if enough packets in flow have been seen)
  *     more_packets_needed     (otherwise)
@@ -143,11 +148,14 @@
  * process_ip(), and process_icmp(), in the file pkt_proc.c.
  * \endverbatim
  */
-#define declare_update(F)               \
-void F##_update(F##_t *f,	        \
+#define declare_update(F)       \
+void F##_update(F##_t *f,       \
                 const void *data,       \
-	        unsigned int len,       \
-		unsigned int report_F); 
+                unsigned int data_len,      \
+                unsigned int report_F,      \
+                const void *extra,      \
+                const unsigned int extra_len,      \
+                const EXTRA_TYPE extra_type);
 
 
 /** \brief \verbatim
@@ -217,17 +225,17 @@ void F##_print_json(const F##_t *F,      \
 /** The macro update_feature(f) processes a single packet and updates
  * the feature context
  */
-#define update_feature(f) if (f##_filter(key)) f##_update(&((record)->f), payload, size_payload, report_##f);
+#define update_feature(f) if (f##_filter(key)) f##_update(&((record)->f), payload, size_payload, report_##f, extra, extra_len, extra_type);
 
 /** The macro update_ip_feature(f) processes a single packet, given
  * a pointer to the IP header, and updates the feature context
  */
-#define update_ip_feature(f) if (f##_filter(key)) f##_update(&((record)->f), ip, ip_hdr_len, report_##f);
+#define update_ip_feature(f) if (f##_filter(key)) f##_update(&((record)->f), ip, ip_hdr_len, report_##f, extra, extra_len, extra_type);
 
 /** The macro update_tcp_feature(f) processes a single packet, given
  * a pointer to the TCP header, and updates the feature context
  */
-#define update_tcp_feature(f) if (f##_filter(key)) f##_update(&((record)->f), transport_start, transport_len, report_##f);
+#define update_tcp_feature(f) if (f##_filter(key)) f##_update(&((record)->f), transport_start, transport_len, report_##f, extra, extra_len, extra_type);
 
 /** The macro print_feature(f) prints the feature as JSON 
  */
@@ -308,6 +316,20 @@ void F##_print_json(const F##_t *F,      \
 #define get_usage(F) F##_usage 
 
 #define get_usage_all_features(feature_list) MAP(get_usage, feature_list)
+
+/*
+ * @brief Enumeration of the data-types that "extra" can represent
+ *
+ * These are used to indicate what type data is being passed through
+ * the "extra" paramater common to many of these feature APIs.
+ * Simply add an entry for any unique data-type you wish to use.
+ * Then, within each feature_update, check "extra_type" to make
+ * sure the value matches the correct entry from this list.
+ */
+typedef enum extra_type {
+    EXTRA_RESERVED = 0,
+    EXTRA_PCAP_HEADER = 1,
+} EXTRA_TYPE;
 
 
 #endif /* FEATURE_H */

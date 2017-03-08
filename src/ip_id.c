@@ -62,19 +62,30 @@ inline void ip_id_init (struct ip_id *ip_id) {
 
 /**
  * \fn void ip_id_update (struct ip_id *ip_id,
-        const void *data,
-        unsigned int len,
-        unsigned int report_ip_id)
- * \param ip_id structure to initialize
+                          const void *data,
+                          unsigned int len,
+                          unsigned int report_ip_id,
+                          const void *extra,
+                          const unsigned int extra_len,
+                          const EXTRA_TYPE extra_type)
+ * \param ip_id structure pointer
  * \param data data to use for update
- * \param len length of the data
+ * \param data_len length of the data
  * \param report_ip_id flag to determine if we filter ip_id
+ * \param extra Void pointer which gives access to any additional
+ *              necessary info that this function needs to perform properly.
+ * \param extra_len Length in bytes of the data that \p extra is pointing to.
+ * \param extra_type Enumeration value that specifies what type
+ *                   of data \p extra points to.
  * \return none
  */
-void ip_id_update (struct ip_id *ip_id, 
-		   const void *ip_hdr_data, 
-		   unsigned int len, 
-		   unsigned int report_ip_id) {
+void ip_id_update (struct ip_id *ip_id,
+                   const void *ip_hdr_data,
+                   unsigned int len,
+                   unsigned int report_ip_id,
+                   const void *extra,
+                   const unsigned int extra_len,
+                   const EXTRA_TYPE extra_type) {
     const struct ip_hdr *ip_hdr = ip_hdr_data;
 
     if (report_ip_id && (ip_id->num_ip_id < MAX_NUM_IP_ID)) { 

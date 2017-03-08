@@ -61,7 +61,6 @@ extern FILE *info;
 extern unsigned int num_pkt_len;
 extern unsigned int output_level;
 extern unsigned int include_zeroes;
-extern unsigned int include_tls;
 extern unsigned int report_idp;
 extern unsigned int report_hd;
 extern unsigned int nfv9_capture_port;
@@ -270,7 +269,8 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
  * @param len Total length of the data.
  * @param r Flow record tracking the inbound network packet.
  */
-enum status process_ipfix(const void *start,
+enum status process_ipfix(const struct pcap_pkthdr *header,
+                          const void *start,
                           int len,
                           struct flow_record *r) {
 
@@ -280,6 +280,16 @@ enum status process_ipfix(const void *start,
   uint16_t message_len = ntohs(ipfix->length);
   int set_num = 0;
   const struct flow_key rec_key = r->key;
+  void *extra = NULL;
+  unsigned int extra_len = 0;
+  EXTRA_TYPE extra_type = 0;
+
+  /* Set extra to "pcap_pkthdr header" for downstream feature processing */
+  if (header != NULL) {
+    extra = (void *)header;
+    extra_len = sizeof(struct pcap_pkthdr);
+    extra_type = EXTRA_PCAP_HEADER;
+  }
 
   memset(&prev_key, 0, sizeof(struct flow_key));
 
@@ -361,7 +371,8 @@ enum status process_ipfix(const void *start,
       uint16_t data_set_len = ntohs(ipfix_sh->length) - 4;
 
       ipfix_parse_data_set(ipfix, data_start, data_set_len,
-                           set_id, rec_key, &prev_key);
+                           set_id, rec_key, &prev_key,
+                           extra, extra_len, extra_type);
     }
 
     start += ntohs(ipfix_sh->length);
@@ -373,7 +384,7 @@ enum status process_ipfix(const void *start,
 }
 
 
-static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start, int len, struct flow_record *r) {
+static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *start, int len, struct flow_record *r) {
 
     /* debugging output */
     if (output_level > none) {
@@ -395,6 +406,16 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
     const struct nfv9_hdr *nfv9 = start;
     struct flow_key prev_key;
     int flowset_num = 0;
+    void *extra = NULL;
+    unsigned int extra_len = 0;
+    EXTRA_TYPE extra_type = 0;
+
+    /* Set extra to "pcap_pkthdr header" for downstream feature processing */
+    if (header != NULL) {
+        extra = (void *)header;
+        extra_len = sizeof(struct pcap_pkthdr);
+        extra_type = EXTRA_PCAP_HEADER;
+    }
 
     memset(&prev_key, 0x0, sizeof(struct flow_key));
 
@@ -526,9 +547,9 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
     
 	                  // fill out record
 	                  if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
-	                      nfv9_process_flow_record(nf_record, cur_template, flow_data,0);
+	                      nfv9_process_flow_record(nf_record, cur_template, flow_data, 0, extra, extra_len, extra_type);
 	                  } else {
-	                      nfv9_process_flow_record(nf_record, cur_template, flow_data,1);
+	                      nfv9_process_flow_record(nf_record, cur_template, flow_data, 1, extra, extra_len, extra_type);
 	                  }
 	                  memcpy(&prev_key,&key,sizeof(struct flow_key));
 
@@ -551,14 +572,24 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
 }
 
 static struct flow_record *
-process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, struct flow_key *key) {
+process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_len, struct flow_key *key) {
     unsigned int tcp_hdr_len;
     const unsigned char *payload;
     unsigned int size_payload;
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
     struct flow_record *record = NULL;
     unsigned int cur_itr = 0;
-  
+    void *extra = NULL;
+    unsigned int extra_len = 0;
+    EXTRA_TYPE extra_type = 0;
+
+    /* Set extra to "pcap_pkthdr header" for downstream feature processing */
+    if (header != NULL) {
+        extra = (void *)header;
+        extra_len = sizeof(struct pcap_pkthdr);
+        extra_type = EXTRA_PCAP_HEADER;
+    }
+
     if (output_level > none) {
         fprintf(info, "   protocol: TCP\n");
     }
@@ -622,7 +653,7 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
         } 
     }
     if (include_zeroes || size_payload > 0) {
-          flow_record_process_packet_length_and_time_ack(record, size_payload, &h->ts, tcp);
+          flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
     }
 
     // if initial SYN packet, get TCP sequence number
@@ -686,30 +717,12 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
     }
 
     record->ob += size_payload; 
-  
+
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
     update_all_features(payload_feature_list);
     
-    /* if packet has port 443 and nonzero data length, process it as TLS */
-    if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-        /* allocate TLS info struct if needed and initialize */
-        if (record->tls_info == NULL) {
-            record->tls_info = malloc(sizeof(struct tls_information));
-            if (record->tls_info != NULL) {
-                tls_record_init(record->tls_info);
-            }
-        }
-         
-        /* process tls information */
-        if (record->tls_info != NULL) {
-            process_tls(h->ts, payload, size_payload, record->tls_info);
-        } else {
-            /* couldn't allocate TLS information structure, can't process */
-        }
-    }
-  
     /* if packet has port 80 and nonzero data length, process it as HTTP */
     if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
         http_update(&record->http_data, payload, size_payload, config.http);
@@ -727,12 +740,22 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
 
 
 static struct flow_record *
-process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, struct flow_key *key) {
+process_udp (const struct pcap_pkthdr *header, const void *udp_start, int udp_len, struct flow_key *key) {
     unsigned int udp_hdr_len;
     const unsigned char *payload;
     unsigned int size_payload;
     const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
     struct flow_record *record = NULL;
+    void *extra = NULL;
+    unsigned int extra_len = 0;
+    EXTRA_TYPE extra_type = 0;
+
+    /* Set extra to "pcap_pkthdr header" for downstream feature processing */
+    if (header != NULL) {
+        extra = (void *)header;
+        extra_len = sizeof(struct pcap_pkthdr);
+        extra_type = EXTRA_PCAP_HEADER;
+    }
   
     if (output_level > none) {
         fprintf(info, "   protocol: UDP\n");
@@ -773,7 +796,7 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
     if (record->op < num_pkt_len) {
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
-            record->pkt_time[record->op] = h->ts;
+            record->pkt_time[record->op] = header->ts;
             record->op++; 
         }
     }
@@ -785,11 +808,11 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
     update_all_features(payload_feature_list);
 
     if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
-        process_nfv9(h, payload, size_payload, record);
+        process_nfv9(header, payload, size_payload, record);
     }
 
     if (ipfix_collect_port && (key->dp == ipfix_collect_port)) {
-      process_ipfix(payload, size_payload, record);
+      process_ipfix(header, payload, size_payload, record);
     }
 
     return record;
@@ -797,12 +820,22 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
 
 
 static struct flow_record *
-process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct flow_key *key) {
+process_icmp (const struct pcap_pkthdr *header, const void *start, int len, struct flow_key *key) {
     int size_icmp_hdr;
     const unsigned char *payload;
     int size_payload;
     const struct icmp_hdr *icmp = (const struct icmp_hdr *)start;
     struct flow_record *record = NULL;
+    void *extra = NULL;
+    unsigned int extra_len = 0;
+    EXTRA_TYPE extra_type = 0;
+
+    /* Set extra to "pcap_pkthdr header" for downstream feature processing */
+    if (header != NULL) {
+        extra = (void *)header;
+        extra_len = sizeof(struct pcap_pkthdr);
+        extra_type = EXTRA_PCAP_HEADER;
+    }
   
     if (output_level > none) {
         fprintf(info, "   protocol: ICMP\n");
@@ -847,7 +880,7 @@ process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct fl
     if (record->op < num_pkt_len) {
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
-            record->pkt_time[record->op] = h->ts;
+            record->pkt_time[record->op] = header->ts;
             record->op++; 
         }
     }
@@ -863,11 +896,21 @@ process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct fl
 
 
 static struct flow_record *
-process_ip (const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struct flow_key *key) {
+process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, struct flow_key *key) {
     const unsigned char *payload;
     int size_payload;
     //  const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
     struct flow_record *record = NULL;
+    void *extra = NULL;
+    unsigned int extra_len = 0;
+    EXTRA_TYPE extra_type = 0;
+
+    /* Set extra to "pcap_pkthdr header" for downstream feature processing */
+    if (header != NULL) {
+        extra = (void *)header;
+        extra_len = sizeof(struct pcap_pkthdr);
+        extra_type = EXTRA_PCAP_HEADER;
+    }
 
     if (output_level > none) {
         fprintf(info, "   protocol: IP\n");
@@ -897,12 +940,12 @@ process_ip (const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struc
     if (record->op < num_pkt_len) {
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
-            record->pkt_time[record->op] = h->ts;
+            record->pkt_time[record->op] = header->ts;
             record->op++; 
         }
     }
     record->ob += size_payload; 
-  
+
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
@@ -930,8 +973,17 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     unsigned int transport_len;
     unsigned int ip_hdr_len;
     const void *transport_start;
-
     struct flow_key key;
+    void *extra = NULL;
+    unsigned int extra_len = 0;
+    EXTRA_TYPE extra_type = 0;
+
+    /* Set extra to "pcap_pkthdr header" for downstream feature processing */
+    if (header != NULL) {
+        extra = (void *)header;
+        extra_len = sizeof(struct pcap_pkthdr);
+        extra_type = EXTRA_PCAP_HEADER;
+    }
     
     flocap_stats_incr_num_packets();
     if (output_level > none) {

@@ -75,10 +75,13 @@ declare_feature(ssh);
 
 void ssh_init(struct ssh *ssh);
 
-void ssh_update(struct ssh *ssh, 
-		const void *data, 
-		unsigned int len, 
-		unsigned int report_ssh);
+void ssh_update(struct ssh *ssh,
+                const void *data,
+                unsigned int data_len,
+                unsigned int report_ssh,
+                const void *extra,
+                const unsigned int extra_len,
+                const EXTRA_TYPE extra_type);
 
 void ssh_print_json(const struct ssh *w1, 
 		    const struct ssh *w2,

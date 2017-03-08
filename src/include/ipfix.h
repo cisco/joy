@@ -484,7 +484,10 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          uint16_t set_len,
                          uint16_t set_id,
                          const struct flow_key rec_key,
-                         struct flow_key *prev_key);
+                         struct flow_key *prev_key,
+                         const void *extra,
+                         const unsigned int extra_len,
+                         const EXTRA_TYPE extra_type);
 
 
 int ipfix_collect_main(void);

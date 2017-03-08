@@ -72,10 +72,13 @@ declare_feature(ip_id);
 void ip_id_init(struct ip_id *ip_id);
 
 /** update ip_id */
-void ip_id_update(struct ip_id *ip_id, 
-		    const void *data, 
-		    unsigned int len, 
-		    unsigned int report_ip_id);
+void ip_id_update(struct ip_id *ip_id,
+                  const void *data,
+                  unsigned int data_len,
+                  unsigned int report_ip_id,
+                  const void *extra,
+                  const unsigned int extra_len,
+                  const EXTRA_TYPE extra_type);
 
 /** JSON print ip_id */
 void ip_id_print_json(const struct ip_id *w1, 

@@ -46,7 +46,14 @@
 #include <pcap.h>
 #include "output.h"
 #include "utils.h"
+#include "feature.h"
 #include "fingerprint.h"
+
+/** usage string for tls */
+#define tls_usage "  tls=1                      report TLS data (ciphersuites, record lengths and times, ...)\n"
+
+/** tls filter key */
+#define tls_filter(key) ((key->dp == 443 || key->sp == 443))
 
 /* constants for TLS awareness */
 #define MAX_CS 256
@@ -165,7 +172,7 @@ struct tls_certificate {
     unsigned short num_san;
 };
 
-struct tls_information {
+typedef struct tls_information {
     enum role role;
     unsigned int   tls_op;
     unsigned short tls_len[MAX_NUM_RCD_LEN];  /* array of TLS record lengths     */  
@@ -191,7 +198,7 @@ struct tls_information {
     void *certificate_buffer;
     unsigned short certificate_offset;
     fingerprint_t *tls_fingerprint;
-};
+} tls_t;
 
 /* structures for parsing TLS content */
 struct TLSCiphertext {
@@ -269,18 +276,25 @@ typedef unsigned char CipherSuite[2];
 
 /* TLS functions */
 
-/** TLS record initialization */
-void tls_record_init(struct tls_information *r);
+/** initialize TLS structure */
+void tls_init(struct tls_information *r);
 
 /** free data associated with TLS record */
-void tls_record_delete(struct tls_information *r);
+void tls_delete(struct tls_information *r);
 
 /** process TLS packet for consumption */
-struct tls_information *process_tls(const struct timeval ts, const void *start,
-    int len, struct tls_information *r);
+struct tls_information *tls_update(struct tls_information *r,
+                                   const void *data,
+                                   unsigned int data_len,
+                                   unsigned int report_tls,
+                                   const void *extra,
+                                   const unsigned int extra_len,
+                                   const EXTRA_TYPE extra_type);
 
 /** print out the TLS information to the destination file */
-void tls_printf(const struct tls_information *data, const struct tls_information *data_twin, zfile f);
+void tls_print_json(const struct tls_information *data, const struct tls_information *data_twin, zfile f);
+
+void tls_unit_test();
 
 int tls_load_fingerprints(void);
 

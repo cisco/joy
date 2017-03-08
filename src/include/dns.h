@@ -43,6 +43,7 @@
 
 #include <pcap.h>
 #include "output.h"
+#include "feature.h"
 
 /** usage string */
 #define dns_usage "  dns=1                      report DNS response information\n"
@@ -67,7 +68,13 @@ typedef struct dns {
 void dns_init(struct dns *dns);
 
 /** DNS structure update */
-void dns_update(struct dns *dns, const void *data, unsigned int len, unsigned int report_dns);
+void dns_update(struct dns *dns,
+                const void *data,
+                unsigned int data_len,
+                unsigned int report_dns,
+                const void *extra,
+                const unsigned int extra_len,
+                const EXTRA_TYPE extra_type);
 
 /** print DNS data out in JSON format */
 void dns_print_json(const struct dns *dns1, const struct dns *dns2, zfile f);

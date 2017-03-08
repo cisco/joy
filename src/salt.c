@@ -63,19 +63,30 @@ inline void salt_init (struct salt *salt) {
 
 /**
  * \fn void salt_update (struct salt *salt,
-        const void *data,
-        unsigned int len,
-        unsigned int report_salt)
+                         const void *data,
+                         unsigned int len,
+                         unsigned int report_salt,
+                         const void *extra,
+                         const unsigned int extra_len,
+                         const EXTRA_TYPE extra_type)
  * \param salt structure to initialize
  * \param data data to use for update
  * \param len length of the data
  * \param report_salt flag to determine if we filter salt
+ * \param extra Void pointer which gives access to any additional
+ *              necessary info that this function needs to perform properly.
+ * \param extra_len Length in bytes of the data that \p extra is pointing to.
+ * \param extra_type Enumeration value that specifies what type
+ *                   of data \p extra points to.
  * \return none
  */
-void salt_update (struct salt *salt, 
-		  const void *tcp_start, 
-		  unsigned int len, 
-		  unsigned int report_salt) {
+void salt_update (struct salt *salt,
+                  const void *tcp_start,
+                  unsigned int len,
+                  unsigned int report_salt,
+                  const void *extra,
+                  const unsigned int extra_len,
+                  const EXTRA_TYPE extra_type) {
     const struct tcp_hdr *tcp = tcp_start;  
 
     if (report_salt) {

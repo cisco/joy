@@ -93,11 +93,11 @@ static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
 }
 
 /**
- * \fn void tls_record_init (struct tls_information *r)
+ * \fn void tls_init (struct tls_information *r)
  * \param r TLS record structure pointer
  * \return none
  */
-void tls_record_init (struct tls_information *r) {
+void tls_init (struct tls_information *r) {
     r->role = role_unknown;
     r->tls_op = 0;
     r->num_ciphersuites = 0;
@@ -155,11 +155,11 @@ void tls_record_init (struct tls_information *r) {
 }
 
 /**
- * \fn void tls_record_delete (struct tls_information *r)
+ * \fn void tls_delete (struct tls_information *r)
  * \param r TLS record structure pointer
  * \return none
  */
-void tls_record_delete (struct tls_information *r) {
+void tls_delete (struct tls_information *r) {
     int i,j;
     if (r->sni) {
         free(r->sni);
@@ -1253,28 +1253,66 @@ static unsigned int packet_is_sslv2_hello (const void *data) {
 #endif
 
 /**
- * \fn struct tls_information *process_tls (const struct timeval ts,
-    const void *start, int len, struct tls_information *r)
- * \param ts time value structure
- * \param start beginning of data
- * \param len length of the data
+ * \fn struct tls_information *tls_update (struct tls_information *r,
+                                           const void *payload,
+                                           unsigned int len,
+                                           unsigned int report_tls,
+                                           const void *extra,
+                                           const unsigned int extra_len,
+                                           const EXTRA_TYPE extra_type)
  * \param r TLS structure pointer
+ * \param payload Beginning of the payload data.
+ * \param len Length in bytes of the data that \p payload is pointing to.
+ * \param report_tls Flag indicating whether this feature should run.
+ *                   0 for no, 1 for yes
+ * \param extra Void pointer which gives access to any additional
+ *              necessary info that this function needs to perform properly.
+ * \param extra_len Length in bytes of the data that \p extra is pointing to.
+ * \param extra_type Enumeration value that specifies what type
+ *                   of data \p extra points to.
  * \return tls information structure pointer
  * \return NULL on jumbo frames
  */
-struct tls_information *process_tls (const struct timeval ts,
-    const void *payload, int len, struct tls_information *r) {
+struct tls_information *tls_update (struct tls_information *r,
+                                    const void *payload,
+                                    unsigned int len,
+                                    unsigned int report_tls,
+                                    const void *extra,
+                                    const unsigned int extra_len,
+                                    const EXTRA_TYPE extra_type) {
     const void *start = payload;
+    const struct pcap_pkthdr *pcap_header = NULL;
     const struct tls_header *tls = NULL;
     unsigned int tls_len;
     unsigned int levels = 0;
     //unsigned char end_cert = 0;
+
+    /*
+     * Check run flag.
+     */
+    if (!report_tls) {
+        return NULL;
+    }
 
     /* currently skipping SSLv2 */
   
     /* currently skipping jumbo frames */
     if (len > 3000) {
         return NULL;
+    }
+
+    /* allocate TLS info struct if needed and initialize */
+    if (r == NULL) {
+        r = malloc(sizeof(struct tls_information));
+        if (r != NULL) {
+            tls_init(r);
+        }
+    }
+
+    if (extra != NULL){
+        if (extra_type == EXTRA_PCAP_HEADER) {
+            pcap_header = (const struct pcap_pkthdr *)extra;
+        }
     }
 
     tls = start;
@@ -1409,7 +1447,13 @@ struct tls_information *process_tls (const struct timeval ts,
         if (r->tls_op < MAX_NUM_RCD_LEN) {
             r->tls_type[r->tls_op].content = tls->ContentType;
             r->tls_len[r->tls_op] = tls_len;
-            r->tls_time[r->tls_op] = ts;
+            if (pcap_header == NULL) {
+                /* The pcap_pkthdr is not available, cannot get timestamp */
+                const struct timeval ts = {0};
+                r->tls_time[r->tls_op] = ts;
+            } else {
+                r->tls_time[r->tls_op] = pcap_header->ts;
+            }
         }
 
         /* increment TLS record count in tls_information */
@@ -1618,15 +1662,16 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 }
 
 /**
- * \fn void tls_printf (const struct tls_information *data, 
+ * \fn void tls_print_json (const struct tls_information *data,
     const struct tls_information *data_twin, zfile f)
  * \param data pointer to TLS information structure
  * \param data_twin pointer to twin TLS information structure
  * \param f destination file for the output
  * \return none
  */
-void tls_printf (const struct tls_information *data, 
-    const struct tls_information *data_twin, zfile f) {
+void tls_print_json (const struct tls_information *data,
+                     const struct tls_information *data_twin,
+                     zfile f) {
     int i;
 
     /* sanity check tls data passed in */
@@ -1900,5 +1945,9 @@ static void certificate_printf (const struct tls_certificate *data, zfile f) {
         zprintf_raw_as_hex_tls(f, data->ext_data[j], data->ext_data_length[j]);
         zprintf(f, "}]");
     } 
+}
+
+void tls_unit_test() {
+    printf("Unit test: TLS");
 }
 
