@@ -94,8 +94,12 @@ static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
 
 /**
  * \fn void tls_init (struct tls_information *r)
+ *
+ * \brief Initialize the memory of TLS struct \r.
+ *
  * \param r TLS record structure pointer
- * \return none
+ *
+ * \return
  */
 void tls_init (struct tls_information *r) {
     r->role = role_unknown;
@@ -156,8 +160,12 @@ void tls_init (struct tls_information *r) {
 
 /**
  * \fn void tls_delete (struct tls_information *r)
+ *
+ * \brief Clear and free memory of TLS struct \r.
+ *
  * \param r TLS record structure pointer
- * \return none
+ *
+ * \return
  */
 void tls_delete (struct tls_information *r) {
     int i,j;
@@ -241,8 +249,9 @@ static unsigned short raw_to_unsigned_short (const void *x) {
     return y;
 }
 
-static void TLSClientHello_get_ciphersuites (const void *x, int len, 
-    struct tls_information *r) {
+static void tls_client_hello_get_ciphersuites (const void *x,
+                                               int len,
+                                               struct tls_information *r) {
     unsigned int session_id_len;
     const unsigned char *y = x;
     unsigned short int cipher_suites_len;
@@ -294,8 +303,9 @@ static void TLSClientHello_get_ciphersuites (const void *x, int len,
     }
 }
 
-static void TLSClientHello_get_extensions (const void *x, int len, 
-    struct tls_information *r) {
+static void tls_client_hello_get_extensions (const void *x,
+                                             int len,
+                                             struct tls_information *r) {
     unsigned int session_id_len, compression_method_len;
     const unsigned char *y = x;
     unsigned short int cipher_suites_len, extensions_len;
@@ -381,8 +391,9 @@ static void TLSClientHello_get_extensions (const void *x, int len,
     }
 }
 
-static void TLSHandshake_get_clientKeyExchange (const struct TLSHandshake *h, 
-    int len, struct tls_information *r) {
+static void tls_handshake_get_client_key_exchange (const struct TLSHandshake *h,
+                                                   int len,
+                                                   struct tls_information *r) {
     const unsigned char *y = &h->body;
     unsigned int byte_len = 0;
 
@@ -402,8 +413,9 @@ static void TLSHandshake_get_clientKeyExchange (const struct TLSHandshake *h,
 }
 
 
-static void TLSServerCertificate_parse (const void *x, unsigned int len,
-    struct tls_information *r) {
+static void tls_server_certificate_parse (const void *x,
+                                          unsigned int len,
+                                          struct tls_information *r) {
 
     const unsigned char *y = x;
     short certs_len, cert_len, tmp_len, tmp_len2, cur_cert, cur_rdn, issuer_len, subject_len,
@@ -847,8 +859,9 @@ static void parse_san (const void *x, int len, struct tls_certificate *r) {
     r->num_san = num_san;
 }
 
-static void TLSServerHello_get_ciphersuite (const void *x, unsigned int len,
-    struct tls_information *r) {
+static void tls_server_hello_get_ciphersuite (const void *x,
+                                              unsigned int len,
+                                              struct tls_information *r) {
     unsigned int session_id_len;
     const unsigned char *y = x;
     unsigned short int cs; 
@@ -884,7 +897,7 @@ static void TLSServerHello_get_ciphersuite (const void *x, unsigned int len,
     r->ciphersuites[0] = cs;
 }
 
-static void TLSServerHello_get_extensions (const void *x, int len,
+static void tls_server_hello_get_extensions (const void *x, int len,
     struct tls_information *r) {
     unsigned int session_id_len, compression_method_len;
     const unsigned char *y = x;
@@ -1361,7 +1374,7 @@ struct tls_information *tls_update (struct tls_information *r,
 	          (tls->ContentType == change_cipher_spec) ||
 	          (tls->ContentType == alert) ||
 	          (r->certificate_offset >= MAX_CERTIFICATE_BUFFER-300))) {
-              //TLSServerCertificate_parse(r->certificate_buffer, tls_len, r);
+              //tls_server_certificate_parse(r->certificate_buffer, tls_len, r);
             if (r->certificate_offset > 200) {
 	            process_certificate(r->certificate_buffer, r->certificate_offset, r);
 	            if (r->certificate_buffer) {
@@ -1396,9 +1409,10 @@ struct tls_information *tls_update (struct tls_information *r,
                         return NULL;
                     }
                 }
-		r->role = role_client;
-                TLSClientHello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
-                TLSClientHello_get_extensions(&tls->Handshake.body, tls_len, r);
+
+                r->role = role_client;
+                tls_client_hello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
+                tls_client_hello_get_extensions(&tls->Handshake.body, tls_len, r);
 
                 /* TODO enable fingerprint matching */
 #if 0
@@ -1412,11 +1426,12 @@ struct tls_information *tls_update (struct tls_information *r,
                         return NULL;
                     }
                 }
-		r->role = role_server;
-                TLSServerHello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
-                TLSServerHello_get_extensions(&tls->Handshake.body, (int)tls_len, r);
+
+                r->role = role_server;
+                tls_server_hello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
+                tls_server_hello_get_extensions(&tls->Handshake.body, (int)tls_len, r);
             } else if (tls->Handshake.HandshakeType == client_key_exchange) {
-                TLSHandshake_get_clientKeyExchange(&tls->Handshake, tls_len, r);
+                tls_handshake_get_client_key_exchange(&tls->Handshake, tls_len, r);
 
             } if (((tls->Handshake.HandshakeType > 2) & 
 	                 (tls->Handshake.HandshakeType < 11)) ||
@@ -1467,8 +1482,9 @@ struct tls_information *tls_update (struct tls_information *r,
     return NULL;
 }
 
-static struct tls_information * process_certificate (const void *start, 
-    int len, struct tls_information *r) {
+static struct tls_information *process_certificate (const void *start,
+                                                    int len,
+                                                    struct tls_information *r) {
     const struct tls_header *tls;
     unsigned int tls_len;
 
@@ -1490,7 +1506,7 @@ static struct tls_information * process_certificate (const void *start,
         if (tls->ContentType == handshake) {
             if (tls->Handshake.HandshakeType == certificate) {
 
-	            TLSServerCertificate_parse(&tls->Handshake.body, tls_len, r);
+	            tls_server_certificate_parse(&tls->Handshake.body, tls_len, r);
 
             }
         }
@@ -1512,7 +1528,7 @@ static struct tls_information * process_certificate (const void *start,
  * return 1 for success, 0 for failure
  */
 static int tls_version_capture (struct tls_information *tls_info,
-                               const struct tls_header *tls_hdr) {
+                                const struct tls_header *tls_hdr) {
     if ((tls_hdr->ProtocolVersionMajor != 3)
           || (tls_hdr->ProtocolVersionMinor > 3)) {
         return 0;
