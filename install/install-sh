@@ -493,16 +493,6 @@ elif [ "$sysname" == "Linux" ]; then
             exit
         fi
 
-        if [ ! -d "/etc/systemd/system/joy.service.d" ]; then
-            mkdir /etc/systemd/system/joy.service.d
-        fi
-
-        cp ${CWD}/joy_env.conf /etc/systemd/system/joy.service.d
-        if [ $retval -ne "0" ]; then
-            echo "error: could not copy joy_env.conf to /etc/systemd/system/joy.service.d"
-            exit
-        fi
-
         # Configure to run at boot time
         systemctl enable joy.service
 
@@ -522,7 +512,6 @@ elif [ "$sysname" == "Linux" ]; then
         service joy status
     elif [ "$daemon_system" == "systemd" ]; then
         ls -l /etc/systemd/system/joy.service
-        ls -l /etc/systemd/system/joy.service.d/joy_env.conf
         systemctl status joy.service
     fi
 
