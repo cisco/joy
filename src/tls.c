@@ -50,6 +50,33 @@
 #include "parson.h"
 #include "fingerprint.h"
 
+/********************************************
+ *********
+ * LOGGING
+ *********
+ ********************************************/
+/** select destination for printing out information
+ *
+ ** TO_SCREEN = 0 for 'info' file
+ *
+ **  TO_SCREEN = 1 for 'stderr'
+ */
+#define TO_SCREEN 1
+
+/** used to print out information during tls execution
+ *
+ ** print_dest will either be assigned to 'stderr' or 'info' file
+ *  depending on the TO_SCREEN setting.
+ */
+static FILE *print_dest = NULL;
+
+/** sends information to the destination output device */
+#define loginfo(...) { \
+        if (TO_SCREEN) print_dest = stderr; else print_dest = info; \
+        fprintf(print_dest,"%s: ", __FUNCTION__); \
+        fprintf(print_dest, __VA_ARGS__); \
+        fprintf(print_dest, "\n"); }
+
 /*
  * External objects, defined in joy.c
  */
@@ -59,17 +86,16 @@ extern char *tls_fingerprint_file;
 static fingerprint_db_t tls_fingerprint_db;
 static uint8_t tls_fingerprint_db_loaded = 0;
 
-/* local prototypes */
-static void parse_san(const void *x, int len, struct tls_certificate *r);
-static struct tls_information *process_certificate(const void *start, int len, struct tls_information *r);
+/* Local prototypes */
+static void tls_san_parse(const void *x, int len, struct tls_certificate *r);
+static int tls_certificate_process(const void *data, int data_len, struct tls_information *tls_info);
 static int tls_version_capture(struct tls_information *tls_info, const struct tls_header *tls_hdr);
-static void certificate_printf(const struct tls_certificate *data, zfile f);
+static void tls_certificate_printf(const struct tls_certificate *data, zfile f);
 
 
-//static inline unsigned int timer_gt_tls (const struct timeval *a, const struct timeval *b) {
-//    return (a->tv_sec == b->tv_sec) ? (a->tv_usec > b->tv_usec) : (a->tv_sec > b->tv_sec);
-//}
-
+/*
+ * Inline functions
+ */
 static inline unsigned int timer_lt_tls (const struct timeval *a, const struct timeval *b) {
     return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
 }
@@ -249,6 +275,19 @@ static unsigned short raw_to_unsigned_short (const void *x) {
     return y;
 }
 
+/**
+ * \fn void tls_header_get_length (const struct tls_header *hdr)
+ *
+ * \brief Calculate the body length encoded in the TLS header.
+ *
+ * \param hdr TLS header structure pointer
+ *
+ * \return Length of the body.
+ */
+static unsigned int tls_header_get_length (const struct tls_header *hdr) {
+    return hdr->lengthLo + (((unsigned int) hdr->lengthMid) << 8);
+}
+
 static void tls_client_hello_get_ciphersuites (const void *x,
                                                int len,
                                                struct tls_information *r) {
@@ -391,7 +430,7 @@ static void tls_client_hello_get_extensions (const void *x,
     }
 }
 
-static void tls_handshake_get_client_key_exchange (const struct TLSHandshake *h,
+static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h,
                                                    int len,
                                                    struct tls_information *r) {
     const unsigned char *y = &h->body;
@@ -712,9 +751,9 @@ static void tls_server_certificate_parse (const void *x,
 	                tmp_len2 = tmp_len2-tmp_len-2;
 
 	                if (*(y+6) == 129) {
-	                    parse_san(y+tmp_len+2+4+2, tmp_len2-4-2, &r->certificates[cur_cert]);
+	                    tls_san_parse(y+tmp_len+2+4+2, tmp_len2-4-2, &r->certificates[cur_cert]);
 	                } else {
-	                    parse_san(y+tmp_len+2+4, tmp_len2-4, &r->certificates[cur_cert]);
+	                    tls_san_parse(y+tmp_len+2+4, tmp_len2-4, &r->certificates[cur_cert]);
 	                }
 	  
 	                y += tmp_len2+tmp_len+2;
@@ -811,7 +850,7 @@ static void tls_server_certificate_parse (const void *x,
     //printf("\n");
 }
 
-static void parse_san (const void *x, int len, struct tls_certificate *r) {
+static void tls_san_parse (const void *x, int len, struct tls_certificate *r) {
     unsigned short num_san = 0;
     unsigned short tmp_len;
     const unsigned char *y = x;
@@ -1176,72 +1215,11 @@ static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
 #endif
 
 #if 0
-static unsigned int TLSHandshake_get_length (const struct TLSHandshake *H) {
+static unsigned int tls_handshake_get_length (const struct tls_handshake *H) {
     return H->lengthLo + ((unsigned int) H->lengthMid) * 0x100 
         + ((unsigned int) H->lengthHi) * 0x10000;
 }
 #endif
-
-static unsigned int tls_header_get_length (const struct tls_header *H) {
-    return H->lengthLo + ((unsigned int) H->lengthMid) * 0x100;
-}
-
-#if 0
-static char *tls_version_get_string (enum tls_version v) {
-    switch(v) {
-        case 1:
-            return "sslv2";
-            break;
-        case 2:
-            return "sslv3";
-            break;
-        case 3:
-            return "tls1.0";
-            break;
-        case 4:
-            return "tls1.1";
-            break;
-        case 5:
-            return "tls1.2";
-            break;
-        case 0:
-            ;
-            break;
-    }
-    return "unknown";
-}
-#endif
-
-static unsigned char tls_version (const void *x) {
-    const unsigned char *z = x;
-
-    // printf("tls_version: ");  mem_print(x, 2);
-
-    switch(z[0]) {
-        case 3:
-            switch(z[1]) {
-                case 0:
-                    return tls_sslv3;
-                    break;
-                case 1:
-                    return tls_tls1_0;
-                    break;
-                case 2:
-                    return tls_tls1_1;
-                    break;
-                case 3:
-                    return tls_tls1_2;
-                break;
-            }
-            break;
-        case 2:
-            return tls_sslv2;
-            break;
-        default:
-            ;
-    } 
-    return tls_unknown;
-}
 
 #if 0
 static unsigned int packet_is_sslv2_hello (const void *data) {
@@ -1266,13 +1244,16 @@ static unsigned int packet_is_sslv2_hello (const void *data) {
 #endif
 
 /**
- * \fn struct tls_information *tls_update (struct tls_information *r,
-                                           const void *payload,
-                                           unsigned int len,
-                                           unsigned int report_tls,
-                                           const void *extra,
-                                           const unsigned int extra_len,
-                                           const EXTRA_TYPE extra_type)
+ * \fn void tls_update (struct tls_information *r,
+ *                      const void *payload,
+ *                      unsigned int len,
+ *                      unsigned int report_tls,
+ *                      const void *extra,
+ *                      const unsigned int extra_len,
+ *                      const EXTRA_TYPE extra_type)
+ *
+ * \brief Parse, process, and record TLS payload data.
+ *
  * \param r TLS structure pointer
  * \param payload Beginning of the payload data.
  * \param len Length in bytes of the data that \p payload is pointing to.
@@ -1283,38 +1264,37 @@ static unsigned int packet_is_sslv2_hello (const void *data) {
  * \param extra_len Length in bytes of the data that \p extra is pointing to.
  * \param extra_type Enumeration value that specifies what type
  *                   of data \p extra points to.
- * \return tls information structure pointer
- * \return NULL on jumbo frames
+ *
+ * \return
  */
-struct tls_information *tls_update (struct tls_information *r,
-                                    const void *payload,
-                                    unsigned int len,
-                                    unsigned int report_tls,
-                                    const void *extra,
-                                    const unsigned int extra_len,
-                                    const EXTRA_TYPE extra_type) {
+void tls_update (struct tls_information *r,
+                 const void *payload,
+                 unsigned int len,
+                 unsigned int report_tls,
+                 const void *extra,
+                 const unsigned int extra_len,
+                 const EXTRA_TYPE extra_type) {
     const void *start = payload;
     const struct pcap_pkthdr *pcap_header = NULL;
     const struct tls_header *tls = NULL;
-    unsigned int tls_len;
-    unsigned int levels = 0;
-    //unsigned char end_cert = 0;
+    uint16_t tls_len;
 
     /*
      * Check run flag.
+     * Bail if 0.
      */
     if (!report_tls) {
-        return NULL;
+        return;
     }
 
     /* currently skipping SSLv2 */
   
     /* currently skipping jumbo frames */
     if (len > 3000) {
-        return NULL;
+        return;
     }
 
-    /* allocate TLS info struct if needed and initialize */
+    /* Allocate TLS info struct if needed and initialize */
     if (r == NULL) {
         r = malloc(sizeof(struct tls_information));
         if (r != NULL) {
@@ -1322,31 +1302,37 @@ struct tls_information *tls_update (struct tls_information *r,
         }
     }
 
+    /* Get the pcap header from extra parameter */
     if (extra != NULL){
         if (extra_type == EXTRA_PCAP_HEADER) {
             pcap_header = (const struct pcap_pkthdr *)extra;
         }
     }
 
-    tls = start;
-    if (tls->ContentType == handshake && tls->Handshake.HandshakeType == server_hello) {
-        //printf("%i\n",r->start_cert);
+    /* Cast beginning of payload to a tls_header */
+    tls = (const struct tls_header *)start;
+
+    if (tls->content_type == TLS_CONTENT_HANDSHAKE && tls->handshake.msg_type == TLS_HANDSHAKE_SERVER_HELLO) {
         if (r->start_cert == 0) {
-            // create buffer to store the server certificate
+            /* Create buffer to store the server certificate */
             r->certificate_buffer = calloc(1,MAX_CERTIFICATE_BUFFER);
             memcpy(r->certificate_buffer, tls, len);
             r->certificate_offset += len;
       
             r->start_cert = 1;
         } else if (r->start_cert == 1){
-            if (r->certificate_offset + len > MAX_CERTIFICATE_BUFFER) {
-            } else {
+            /*
+             * The TLS record already contains data related to the server certificate.
+             * Try to append to that buffer if there is enough space.
+             */
+            if (r->certificate_offset + len <= MAX_CERTIFICATE_BUFFER) {
 	            memcpy(r->certificate_buffer+r->certificate_offset, tls, len);
 	            r->certificate_offset += len;
             }
         }
 
     } else if (r->start_cert == 1) {
+        // FIXME
         if (r->certificate_offset + len > MAX_CERTIFICATE_BUFFER) {
         } else {
             memcpy(r->certificate_buffer+r->certificate_offset, tls, len);
@@ -1355,112 +1341,133 @@ struct tls_information *tls_update (struct tls_information *r,
     }
 
     while (len > 0) {
-        tls = start;
+        /* Cast beginning of payload to a tls_header */
+        tls = (const struct tls_header *)start;
 
+        /* Find the length of the TLS message */
         tls_len = tls_header_get_length(tls);
 
-        //if (start_cert) {
-        //  memcpy(r->certificate_buffer+r->certificate_offset, &tls->Handshake.body, tls_len);
-        //  r->certificate_offset += tls_len;
-        //}
-
-        // process certificate
-        //if (r->certificate_offset && r->start_cert == 1 && ((tls->ContentType == application_data) ||
-        //		       (r->certificate_offset >= 4000) ||
-        //		       (tls->Handshake.HandshakeType == server_hello_done))) {
-        if (r->certificate_offset && r->start_cert == 1 && 
-	        //	((tls->ContentType == application_data && tls->Handshake.HandshakeType == 0) ||
-	          ((tls->ContentType == application_data) ||
-	          (tls->ContentType == change_cipher_spec) ||
-	          (tls->ContentType == alert) ||
-	          (r->certificate_offset >= MAX_CERTIFICATE_BUFFER-300))) {
-              //tls_server_certificate_parse(r->certificate_buffer, tls_len, r);
+        if (r->certificate_offset && r->start_cert == 1 &&
+            ((tls->content_type == TLS_CONTENT_APPLICATION_DATA) ||
+             (tls->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC) ||
+             (tls->content_type == TLS_CONTENT_ALERT) ||
+             (r->certificate_offset >= MAX_CERTIFICATE_BUFFER - 300))) {
+            /*
+             * We are past the certificate exchange phase in the handshake.
+             * Now decide if we want to process the data in certificate buffer or not.
+             */
             if (r->certificate_offset > 200) {
-	            process_certificate(r->certificate_buffer, r->certificate_offset, r);
-	            if (r->certificate_buffer) {
-	                free(r->certificate_buffer);
-	                r->certificate_buffer = 0;
-	            }
+                /*
+                 * The certificate is long enough to process. Go ahead and do that now.
+                 */
+                tls_certificate_process(r->certificate_buffer, r->certificate_offset, r);
+                if (r->certificate_buffer) {
+                    free(r->certificate_buffer);
+                    r->certificate_buffer = 0;
+                }
             } else {
-	            //printf("%i\n",r->certificate_offset);
-	            if (r->certificate_buffer) {
-	                free(r->certificate_buffer);
-	                r->certificate_buffer = 0;
-	            }
+                /*
+                 * Free up the memory space we previously allocated in the certificate buffer.
+                 */
+                if (r->certificate_buffer) {
+                    free(r->certificate_buffer);
+                    r->certificate_buffer = 0;
+                }
             }
+
+            /*
+             *  Indicate that we are finished dealing with the certificates
+             *  for remainder of this particular flow.
+             */
             r->start_cert = 2;
         }
 
-        if (tls->ContentType == application_data) {
-            levels++;
+        if (tls->content_type == TLS_CONTENT_APPLICATION_DATA) {
             if (!r->tls_v) {
                 /* Write the TLS version to record if empty */
-                if (!tls_version_capture(r, tls)) {
+                if (tls_version_capture(r, tls)) {
                     /* TLS version sanity check failed */
-                    return NULL;
+                    return;
                 }
             }
-        } else if (tls->ContentType == handshake) {
-            if (tls->Handshake.HandshakeType == client_hello) {
+        } else if (tls->content_type == TLS_CONTENT_HANDSHAKE) {
+            /*
+             * Check if handshake type is valid.
+             */
+            if (((tls->handshake.msg_type > 2) && (tls->handshake.msg_type < 11)) ||
+                ((tls->handshake.msg_type > 16) && (tls->handshake.msg_type < 20)) ||
+                (tls->handshake.msg_type > 20)) {
+	              /*
+	               * We encountered an unknown HandshakeType, so this packet is
+	               * not actually a TLS handshake, so we bail on decoding it.
+	               */
+	              return;
+            }
+
+            /*
+             * Match to a handshake type we are interested in.
+             */
+            if (tls->handshake.msg_type == TLS_HANDSHAKE_CLIENT_HELLO) {
+                /*
+                 * Handshake: ClientHello
+                 */
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
-                    if (!tls_version_capture(r, tls)) {
+                    if (tls_version_capture(r, tls)) {
                         /* TLS version sanity check failed */
-                        return NULL;
+                        return;
                     }
                 }
 
                 r->role = role_client;
-                tls_client_hello_get_ciphersuites(&tls->Handshake.body, tls_len, r);
-                tls_client_hello_get_extensions(&tls->Handshake.body, tls_len, r);
+                tls_client_hello_get_ciphersuites(&tls->handshake.body, tls_len, r);
+                tls_client_hello_get_extensions(&tls->handshake.body, tls_len, r);
 
                 /* TODO enable fingerprint matching */
 #if 0
                 tls_client_fingerprint_match(r, 100);
 #endif
-            } else if (tls->Handshake.HandshakeType == server_hello) {
+            } else if (tls->handshake.msg_type == TLS_HANDSHAKE_SERVER_HELLO) {
+                /*
+                 * Handshake: ServerHello
+                 */
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
-                    if (!tls_version_capture(r, tls)) {
+                    if (tls_version_capture(r, tls)) {
                         /* TLS version sanity check failed */
-                        return NULL;
+                        return;
                     }
                 }
 
                 r->role = role_server;
-                tls_server_hello_get_ciphersuite(&tls->Handshake.body, tls_len, r);
-                tls_server_hello_get_extensions(&tls->Handshake.body, (int)tls_len, r);
-            } else if (tls->Handshake.HandshakeType == client_key_exchange) {
-                tls_handshake_get_client_key_exchange(&tls->Handshake, tls_len, r);
 
-            } if (((tls->Handshake.HandshakeType > 2) & 
-	                 (tls->Handshake.HandshakeType < 11)) ||
-	                 ((tls->Handshake.HandshakeType > 16) & 
-	                 (tls->Handshake.HandshakeType < 20)) ||
-	                 (tls->Handshake.HandshakeType > 20)) {
-	
-	              /*
-	               * we encountered an unknown handshaketype, so this packet is
-	               * not actually a TLS handshake, so we bail on decoding it
-	               */
-	              return NULL;
+                tls_server_hello_get_ciphersuite(&tls->handshake.body, tls_len, r);
+                tls_server_hello_get_extensions(&tls->handshake.body, (int)tls_len, r);
+            } else if (tls->handshake.msg_type == TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE) {
+                /*
+                 * Handshake: ClientKeyExchange
+                 */
+                tls_handshake_get_client_key_exchange(&tls->handshake, tls_len, r);
             }
-    
+
             if (r->tls_op < MAX_NUM_RCD_LEN) {
-	            r->tls_type[r->tls_op].handshake = tls->Handshake.HandshakeType;
+                /* Record the handshake message type for this packet */
+	            r->tls_type[r->tls_op].handshake = tls->handshake.msg_type;
             }      
-        } else if (tls->ContentType != change_cipher_spec && 
-	        tls->ContentType != alert) {
+        } else if (tls->content_type != TLS_CONTENT_CHANGE_CIPHER_SPEC && 
+	               tls->content_type != TLS_CONTENT_ALERT) {
             /* 
-             * we encountered an unknown contenttype, so this is not
-             * actually a TLS record, so we bail on decoding it
+             * We encountered an unknown ContentType, so this is not
+             * actually a TLS record, so we bail on decoding it.
              */      
-            return NULL;
+            return;
         }
 
-        /* record TLS record lengths and arrival times */
+        /*
+         * Record TLS record lengths and arrival times
+         */
         if (r->tls_op < MAX_NUM_RCD_LEN) {
-            r->tls_type[r->tls_op].content = tls->ContentType;
+            r->tls_type[r->tls_op].content = tls->content_type;
             r->tls_len[r->tls_op] = tls_len;
             if (pcap_header == NULL) {
                 /* The pcap_pkthdr is not available, cannot get timestamp */
@@ -1471,70 +1478,105 @@ struct tls_information *tls_update (struct tls_information *r,
             }
         }
 
-        /* increment TLS record count in tls_information */
+        /* Increment TLS record count in tls_information */
         r->tls_op++;
 
-        tls_len += 5; /* advance over header */
+        tls_len += 5; /* Advance over header */
         start += tls_len;
         len -= tls_len;
     }
 
-    return NULL;
+    return;
 }
 
-static struct tls_information *process_certificate (const void *start,
-                                                    int len,
-                                                    struct tls_information *r) {
-    const struct tls_header *tls;
+/**
+ * \fn int tls_certificate_process (const void *data,
+ *                                  int data_len,
+ *                                  struct tls_information *tls_info)
+ *
+ * \brief Sift through \p data processing any certificates that are encountered.
+ *
+ * \param data Beginning of the data to process.
+ * \param data_len Length of \p data in bytes.
+ * \param tls_info Pointer to the TLS info struct that will be written into.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_certificate_process (const void *data,
+                                    int data_len,
+                                    struct tls_information *tls_info) {
+    const struct tls_header *tls_hdr;
     unsigned int tls_len;
 
-    while (len > 200) {
-        tls = start;
+    while (data_len > 200) {
+        tls_hdr = data;
 
-        //printf("%i\n",tls->ContentType);
-        //printf("%i\n",tls->Handshake.HandshakeType);
-
-        //printf("%i\n\n",tls_len);
-  
-        if (tls->ContentType != 22) {
+        if (tls_hdr->content_type != TLS_CONTENT_HANDSHAKE) {
             break;
         }
 
-        tls_len = tls_header_get_length(tls);
+        tls_len = tls_header_get_length(tls_hdr);
 
-
-        if (tls->ContentType == handshake) {
-            if (tls->Handshake.HandshakeType == certificate) {
-
-	            tls_server_certificate_parse(&tls->Handshake.body, tls_len, r);
-
-            }
+        if (tls_hdr->handshake.msg_type == TLS_HANDSHAKE_CERTIFICATE) {
+            tls_server_certificate_parse(&tls_hdr->handshake.body, tls_len, tls_info);
         }
-        tls_len += 5; /* advance over header */
-        start += tls_len;
-        len -= tls_len;
-        //printf("%i\n",len);
+
+        tls_len += 5; /* FIXME should this be the actual body length? advance over header */
+        data += tls_len;
+        data_len -= tls_len;
     }
 
-    return NULL;
+    return 0;
 }
 
-/*
- * Get the TLS version out of the header, and write it into the record.
+/**
+ * \fn void tls_version_capture (struct tls_information *tls_info,
+ *                               const struct tls_header *tls_hdr)
  *
- * tls_into -  tls_information structure that is attached
- *        to a parent flow_record.
- * tls_hdr -  tls_header structure that holds version.
- * return 1 for success, 0 for failure
+ * \brief Get the TLS version out of the header, and write it into the record.
+ *
+ * \param tls_info TLS structure pointer
+ * \param tls_hdr TLS header structure that holds version.
+ *
+ * \return 0 for success, 1 for failure
  */
 static int tls_version_capture (struct tls_information *tls_info,
                                 const struct tls_header *tls_hdr) {
-    if ((tls_hdr->ProtocolVersionMajor != 3)
-          || (tls_hdr->ProtocolVersionMinor > 3)) {
-        return 0;
+    struct tls_protocol_version version = tls_hdr->protocol_version;
+    unsigned char internal_version = TLS_VERSION_UNKNOWN;
+
+    if ((version.major != 3) || (version.minor > 3)) {
+        /* Currently only capture SSLV3, TLS1.0, 1.1, 1.2 */
+        return 1;
     }
-    tls_info->tls_v = tls_version(&tls_hdr->ProtocolVersionMajor);
-    return 1;
+
+    switch(version.major) {
+        case 3:
+            switch(version.minor) {
+                case 0:
+                    internal_version = TLS_VERSION_SSLV3;
+                    break;
+                case 1:
+                    internal_version = TLS_VERSION_1_0;
+                    break;
+                case 2:
+                    internal_version = TLS_VERSION_1_1;
+                    break;
+                case 3:
+                    internal_version = TLS_VERSION_1_2;
+                    break;
+            }
+            break;
+        case 2:
+            internal_version = TLS_VERSION_SSLV2;
+            break;
+        default:
+            ;
+    }
+
+    tls_info->tls_v = internal_version;
+
+    return 0;
 }
 
 #if 0
@@ -1582,8 +1624,6 @@ static void print_bytes_dir_time_tls (unsigned short int pkt_len,
           type.handshake, term);
 }
 
-static unsigned int num_pkt_len_tls = NUM_PKT_LEN_TLS;
-
 static void len_time_print_interleaved_tls (unsigned int op, const unsigned short *len, 
     const struct timeval *time, const struct tls_type_code *type,
     unsigned int op2, const unsigned short *len2, 
@@ -1593,6 +1633,7 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
     unsigned int pkt_len;
     char *dir;
     struct tls_type_code typecode;
+    unsigned int num_pkt_len_tls = NUM_PKT_LEN_TLS;
 
     zprintf(f, ",\"srlt\":[");
 
@@ -1850,19 +1891,19 @@ void tls_print_json (const struct tls_information *data,
     if (data->num_certificates) {
         zprintf(f, ",\"server_cert\":[");
         for (i = 0; i < data->num_certificates-1; i++) {
-            certificate_printf(&data->certificates[i], f);
+            tls_certificate_printf(&data->certificates[i], f);
             zprintf(f, "},");
         }
-        certificate_printf(&data->certificates[i], f);    
+        tls_certificate_printf(&data->certificates[i], f);    
         zprintf(f, "}]");
     }
     if (data_twin && data_twin->num_certificates) {
         zprintf(f, ",\"server_cert\":[");
         for (i = 0; i < data_twin->num_certificates-1; i++) {
-            certificate_printf(&data_twin->certificates[i], f);
+            tls_certificate_printf(&data_twin->certificates[i], f);
             zprintf(f, "},");
         }
-        certificate_printf(&data_twin->certificates[i], f);    
+        tls_certificate_printf(&data_twin->certificates[i], f);    
         zprintf(f, "}]");
     }  
     /* print out TLS application data lengths and times, if any */
@@ -1883,7 +1924,7 @@ void tls_print_json (const struct tls_information *data,
     zprintf(f, "}");
 }
 
-static void certificate_printf (const struct tls_certificate *data, zfile f) {
+static void tls_certificate_printf (const struct tls_certificate *data, zfile f) {
     int j;
 
     zprintf(f, "{\"length\":%i,", data->length);
@@ -1964,6 +2005,6 @@ static void certificate_printf (const struct tls_certificate *data, zfile f) {
 }
 
 void tls_unit_test() {
-    printf("Unit test: TLS");
+    loginfo("Unit test: TLS");
 }
 

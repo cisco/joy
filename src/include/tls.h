@@ -127,7 +127,10 @@
  \endverbatim
  */
 
-/* structures for storing relevant TLS information */
+/*
+ * Structures for storing relevant TLS information
+ */
+
 struct tls_type_code {
     unsigned char content;
     unsigned char handshake;
@@ -173,108 +176,124 @@ struct tls_certificate {
 };
 
 typedef struct tls_information {
-    enum role role;
+    enum role role; /**< client, server, or unknown */
     unsigned int   tls_op;
-    unsigned short tls_len[MAX_NUM_RCD_LEN];  /* array of TLS record lengths     */  
-    struct timeval tls_time[MAX_NUM_RCD_LEN]; /* array of TLS arrival times      */
-    struct tls_type_code tls_type[MAX_NUM_RCD_LEN];  /* TLS record type codes    */
-    unsigned short int num_ciphersuites;   /* number of SSLv3/TLS ciphersuites   */
-    unsigned short int ciphersuites[MAX_CS];  /* array of ciphersuites           */
-    unsigned short int num_tls_extensions;  /* number of TLS extensions          */
-    unsigned short int num_server_tls_extensions;  /* number of TLS extensions          */
-    struct tls_extension tls_extensions[MAX_EXTENSIONS];  /* array of extensions */
-    struct tls_extension server_tls_extensions[MAX_EXTENSIONS];  /* array of extensions */
-    unsigned char tls_v;                   /* TLS version                        */
-    unsigned int tls_client_key_length;    /* client key exchange key length     */
-    unsigned char clientKeyExchange[MAX_CKE_LEN];  /* clientKeyExchange data     */
-    unsigned char tls_sid_len;             /* TLS session ID length              */
-    unsigned char tls_sid[MAX_SID_LEN];    /* TLS session ID                     */
-    unsigned char tls_random[32];          /* TLS random field from hello        */ 
-    struct tls_certificate certificates[MAX_CERTIFICATES];
-    unsigned char num_certificates;
+    unsigned short tls_len[MAX_NUM_RCD_LEN]; /**< TLS record lengths */
+    struct timeval tls_time[MAX_NUM_RCD_LEN]; /**< Arrival times */
+    struct tls_type_code tls_type[MAX_NUM_RCD_LEN]; /**< Record type codes */
+    unsigned short int num_ciphersuites; /**< Number of ciphersuites */
+    unsigned short int ciphersuites[MAX_CS]; /**< Ciphersuites */
+    unsigned short int num_tls_extensions; /**< Number of extensions */
+    unsigned short int num_server_tls_extensions; /**< Number of server extensions */
+    struct tls_extension tls_extensions[MAX_EXTENSIONS]; /**< Extensions */
+    struct tls_extension server_tls_extensions[MAX_EXTENSIONS]; /**< Extensions of server */
+    // TODO change to client/server version
+    unsigned char tls_v; /**< TLS version */
+    unsigned int tls_client_key_length; /**< clientKeyExchange key length */
+    unsigned char clientKeyExchange[MAX_CKE_LEN]; /**< clientKeyExchange data */
+    unsigned char tls_sid_len; /**< Session ID length */
+    unsigned char tls_sid[MAX_SID_LEN]; /**< Session ID */
+    // TODO change to client/server random
+    unsigned char tls_random[32]; /**< Random field from hello */
+    struct tls_certificate certificates[MAX_CERTIFICATES]; /**< X.509 certificates */
+    unsigned char num_certificates; /**< Number of certificates */
     unsigned char start_cert;
-    void *sni;
-    unsigned short int sni_length;
-    void *certificate_buffer;
+    void *sni; /**< SNI a.k.a Server name indication */
+    unsigned short int sni_length; /**< Length of SNI */
+    void *certificate_buffer; /**< Certificate(s) data */
     unsigned short certificate_offset;
     fingerprint_t *tls_fingerprint;
 } tls_t;
 
-/* structures for parsing TLS content */
-struct TLSCiphertext {
-    unsigned char ProtocolVersionMajor;
-    unsigned char ProtocolVersionMinor;
-    unsigned char lengthMid;
-    unsigned char lengthLo;
-} TLSCiphertext;
 
-struct TLSHandshake {
-    unsigned char HandshakeType;
-    unsigned char lengthHi;
+/*
+ * Structures for parsing TLS content
+ */
+
+struct tls_protocol_version {
+    unsigned char major;
+    unsigned char minor;
+};
+
+
+struct tls_ciphertext {
+    struct tls_protocol_version protocol_version;
     unsigned char lengthMid;
     unsigned char lengthLo;
-    unsigned char body;
+};
+
+struct tls_handshake {
+    unsigned char msg_type; /**< Handshake message type */
+    unsigned char lengthHi; /**< First byte of Handshake length (big endian) */
+    unsigned char lengthMid; /**< Middle byte of Handshake length (big endian) */
+    unsigned char lengthLo; /**< Last byte of Handshake length (big endian) */
+    unsigned char body; /**< Body, a.k.a payload of the message */
 };
 
 struct tls_header {
-    unsigned char ContentType; 
-    unsigned char ProtocolVersionMajor;
-    unsigned char ProtocolVersionMinor;
+    unsigned char content_type;
+    struct tls_protocol_version protocol_version;
     unsigned char lengthMid;
     unsigned char lengthLo;
     union {
-        struct TLSCiphertext Ciphertext;
-        struct TLSHandshake Handshake; 
+        struct tls_ciphertext ciphertext;
+        struct tls_handshake handshake;
     };
 };
 
-struct Random {
+struct tls_random {
     unsigned int gmt_unix_time;
     unsigned char random_bytes[28];
 };
 
-struct TLSClientHello {
-    unsigned char ProtocolVersionMajor;
-    unsigned char ProtocolVersionMinor;
-    struct Random Random;
-    unsigned char SessionIDLength;
-    unsigned short NumCipherSuites;
+struct tls_client_hello {
+    struct tls_protocol_version protocol_version;
+    struct tls_random random;
+    unsigned char session_id_length;
+    uint16_t count_cipher_suites;
 };
 
-/* useful enums */
+/*
+ * @brief Enumeration representing TLS versions internal to Joy.
+ */
 enum tls_version {
-    tls_unknown = 0,
-    tls_sslv2 = 1,
-    tls_sslv3 = 2,
-    tls_tls1_0 = 3,
-    tls_tls1_1 = 4,
-    tls_tls1_2 = 5
-};
-  
-enum HandshakeType {
-    hello_request = 0, 
-    client_hello = 1, 
-    server_hello = 2,
-    certificate = 11, 
-    server_key_exchange  = 12,
-    certificate_request = 13, 
-    server_hello_done = 14,
-    certificate_verify = 15, 
-    client_key_exchange = 16,
-    finished = 20
+    TLS_VERSION_UNKNOWN = 0,
+    TLS_VERSION_SSLV2 = 1,
+    TLS_VERSION_SSLV3 = 2,
+    TLS_VERSION_1_0 = 3,
+    TLS_VERSION_1_1 = 4,
+    TLS_VERSION_1_2 = 5
 };
 
-enum ContentType {
-    change_cipher_spec = 20, 
-    alert = 21, 
-    handshake = 22,
-    application_data = 23
+/*
+ * @brief Enumeration representing TLS HandshakeTypes.
+ */
+enum tls_handshake_type {
+    TLS_HANDSHAKE_HELLO_REQUEST = 0,
+    TLS_HANDSHAKE_CLIENT_HELLO = 1,
+    TLS_HANDSHAKE_SERVER_HELLO = 2,
+    TLS_HANDSHAKE_CERTIFICATE = 11,
+    TLS_HANDSHAKE_SERVER_KEY_EXCHANGE = 12,
+    TLS_HANDSHAKE_CERTIFICATE_REQUEST = 13,
+    TLS_HANDSHAKE_SERVER_HELLO_DONE = 14,
+    TLS_HANDSHAKE_CERTIFICATE_VERIFY = 15,
+    TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE = 16,
+    TLS_HANDSHAKE_FINISHED = 20
 };
 
-/* useful typedef's */
-typedef unsigned char CipherSuite[2];
+/*
+ * @brief Enumeration representing TLS ContentTypes.
+ */
+enum tls_content_type {
+    TLS_CONTENT_CHANGE_CIPHER_SPEC = 20,
+    TLS_CONTENT_ALERT = 21,
+    TLS_CONTENT_HANDSHAKE = 22,
+    TLS_CONTENT_APPLICATION_DATA = 23
+};
 
-/* TLS functions */
+/*
+ * TLS module public functions
+ */
 
 /** initialize TLS structure */
 void tls_init(struct tls_information *r);
@@ -283,13 +302,13 @@ void tls_init(struct tls_information *r);
 void tls_delete(struct tls_information *r);
 
 /** process TLS packet for consumption */
-struct tls_information *tls_update(struct tls_information *r,
-                                   const void *data,
-                                   unsigned int data_len,
-                                   unsigned int report_tls,
-                                   const void *extra,
-                                   const unsigned int extra_len,
-                                   const EXTRA_TYPE extra_type);
+void tls_update(struct tls_information *r,
+                const void *data,
+                unsigned int data_len,
+                unsigned int report_tls,
+                const void *extra,
+                const unsigned int extra_len,
+                const EXTRA_TYPE extra_type);
 
 /** print out the TLS information to the destination file */
 void tls_print_json(const struct tls_information *data, const struct tls_information *data_twin, zfile f);
