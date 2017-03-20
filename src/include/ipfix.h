@@ -312,7 +312,8 @@ struct ipfix_collector {
  */
 enum ipfix_template_type {
   IPFIX_RESERVED_TEMPLATE =                          0,
-  IPFIX_SIMPLE_TEMPLATE =                            1
+  IPFIX_SIMPLE_TEMPLATE =                            1,
+  IPFIX_IDP_TEMPLATE =                               2
 };
 
 
@@ -351,6 +352,25 @@ struct ipfix_exporter_data_simple {
   uint64_t flow_end_microseconds;
 };
 
+/*
+ * The minimum size because initial_data_packet will be allocated
+ * at least 3 bytes to hold the variable length information.
+ */
+
+#define SIZE_IPFIX_DATA_IDP 32
+
+struct ipfix_exporter_data_idp {
+  uint32_t source_ipv4_address;
+  uint32_t destination_ipv4_address;
+  uint16_t source_transport_port;
+  uint16_t destination_transport_port;
+  uint8_t protocol_identifier;
+  uint64_t flow_start_microseconds;
+  uint64_t flow_end_microseconds;
+  unsigned char *initial_data_packet;
+  uint16_t idp_field_len;
+};
+
 
 /*
  * @brief Structure representing an IPFIX Exporter Data record.
@@ -358,6 +378,7 @@ struct ipfix_exporter_data_simple {
 struct ipfix_exporter_data {
   union {
     struct ipfix_exporter_data_simple simple;
+    struct ipfix_exporter_data_idp idp_rec;
   } record;
   enum ipfix_template_type type;
   uint16_t length; /**< total length the data record */

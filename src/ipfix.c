@@ -2074,9 +2074,21 @@ static struct ipfix_exporter_data *ipfix_exp_data_record_malloc(void) {
  * @param template IPFIX exporter data record that will have it's heap memory freed.
  */
 static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data_record) {
+  enum ipfix_template_type template_type = 0;
+
   if (data_record == NULL) {
     loginfo("api-error: data record is null");
     return;
+  }
+
+  template_type = data_record->type;
+  switch (template_type) {
+    case IPFIX_IDP_TEMPLATE:
+      free(data_record->record.idp_rec.initial_data_packet);
+      break;
+
+    default:
+      break;
   }
 
   /* Free the data record */
@@ -3091,6 +3103,100 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
   return data_record;
 }
 
+/*
+ * @brief Create an IDP data record.
+ *
+ * Make a basic data record that holds the traditional 5-tuple
+ * unique id. This consists of the source/destination ipv4 address,
+ * source/destination transport port, and the transport protocol identifier.
+ * The new data record will use the \p flow_record to encode the appropriate
+ * information according to the IPFIX specification.
+ *
+ * WARNING: The end user of the newly allocated template is
+ * responsible for freeing that memory.
+ *
+ * @param fr_record Joy flow record created during the metric observation
+ *                  phase of the process, i.e. process_packet(). It contains
+ *                  information that will be encoded into the new data record.
+ *
+ * @return The desired data record, otherwise NULL for failure.
+ */
+static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
+(const struct flow_record *fr_record) {
+  struct ipfix_exporter_data *data_record = NULL;
+  uint8_t protocol = 0;
+  uint16_t idp_payload_len = 0;
+  uint8_t variable_length_flag = 255;
+
+  data_record = ipfix_exp_data_record_malloc();
+
+  if (data_record != NULL) {
+    /*
+     * Assign the data fields
+     */
+    /* IPFIX_SOURCE_IPV4_ADDRESS */
+    data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
+
+    /* IPFIX_DESTINATION_IPV4_ADDRESS */
+    data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
+
+    /* IPFIX_SOURCE_TRANSPORT_PORT */
+    data_record->record.simple.source_transport_port = fr_record->key.sp;
+
+    /* IPFIX_DESTINATION_TRANSPORT_PORT */
+    data_record->record.simple.destination_transport_port = fr_record->key.dp;
+
+    /* IPFIX_PROTOCOL_IDENTIFIER */
+    protocol = (uint8_t)(fr_record->key.prot & 0xff);
+    data_record->record.simple.protocol_identifier = protocol;
+
+    /*
+     * IPFIX_FLOW_START_MICROSECONDS
+     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+     * and pack the fractional microseconds into the least-significant 32 bits.
+     */
+    data_record->record.simple.flow_start_microseconds = fr_record->start.tv_sec << 32;
+    data_record->record.simple.flow_start_microseconds |= fr_record->start.tv_usec;
+
+    /*
+     * IPFIX_FLOW_END_MICROSECONDS
+     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+     * and pack the fractional microseconds into the least-significant 32 bits.
+     */
+    data_record->record.simple.flow_end_microseconds = fr_record->end.tv_sec << 32;
+    data_record->record.simple.flow_end_microseconds |= fr_record->end.tv_usec;
+
+    /*
+     * IPFIX_IDP
+     */
+    idp_payload_len = fr_record->idp_len;
+    data_record->record.idp_rec.idp_field_len = idp_payload_len + 3;
+
+    data_record->record.idp_rec.initial_data_packet =
+        calloc(idp_payload_len + 3, sizeof(unsigned char));
+    /* Set the flag indicating variable length */
+    memcpy(data_record->record.idp_rec.initial_data_packet, &variable_length_flag,
+           sizeof(unsigned char));
+    /* Insert the variable length value */
+    memcpy(data_record->record.idp_rec.initial_data_packet+1, &idp_payload_len,
+           sizeof(uint16_t));
+    /* Insert the variable length value */
+    memcpy(data_record->record.idp_rec.initial_data_packet+3, &fr_record->idp,
+           idp_payload_len);
+
+  } else {
+    loginfo("error: unable to malloc data record");
+  }
+
+  /* Set the type of template for identification */
+  data_record->type = IPFIX_IDP_TEMPLATE;
+
+  /* Set the length (number of bytes) of the data record */
+  data_record->length = idp_payload_len + SIZE_IPFIX_DATA_SIMPLE;
+
+  return data_record;
+}
+
 
 /*
  * @brief Create a data record, given a valid type.
@@ -3120,6 +3226,10 @@ static struct ipfix_exporter_data *ipfix_exp_create_data_record
   switch (template_type) {
     case IPFIX_SIMPLE_TEMPLATE:
       data_record = ipfix_exp_create_simple_data_record(fr_record);
+      break;
+
+    case IPFIX_IDP_TEMPLATE:
+      data_record = ipfix_exp_create_idp_data_record(fr_record);
       break;
 
     default:
@@ -3198,6 +3308,63 @@ static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
 
 
 /*
+ * @brief Create an IDP template.
+ *
+ * Make a basic template that represents the traditional 5-tuple
+ * unique id. This consists of the source/destination ipv4 address,
+ * source/destination transport port, and the transport protocol identifier.
+ *
+ * WARNING: The end user of the newly allocated template is
+ * responsible for freeing that memory.
+ *
+ * @return The desired template, otherwise NULL for failure.
+ */
+static struct ipfix_exporter_template *ipfix_exp_create_idp_template(void) {
+  struct ipfix_exporter_template *template = NULL;
+  uint16_t num_fields = 8;
+
+  template = ipfix_exp_template_malloc(num_fields);
+
+  if (template != NULL) {
+    /*
+     * Add the fields
+     */
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_DESTINATION_IPV4_ADDRESS, 4));
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_SOURCE_TRANSPORT_PORT, 2));
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_DESTINATION_TRANSPORT_PORT, 2));
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_FLOW_START_MICROSECONDS, 8));
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_FLOW_END_MICROSECONDS, 8));
+
+    ipfix_exp_template_add_field(template,
+        ipfix_exp_template_field_macro(IPFIX_IDP, 65535));
+
+  } else {
+    loginfo("error: template is null");
+  }
+
+  /* Set the type of template for identification */
+  template->type = IPFIX_IDP_TEMPLATE;
+
+  return template;
+}
+
+
+/*
  * @brief Create a template, given a valid type.
  *
  * Create a new template on the heap according to the
@@ -3219,6 +3386,10 @@ static struct ipfix_exporter_template *ipfix_exp_create_template
   switch (template_type) {
     case IPFIX_SIMPLE_TEMPLATE:
       template = ipfix_exp_create_simple_template();
+      break;
+
+    case IPFIX_IDP_TEMPLATE:
+      template = ipfix_exp_create_idp_template();
       break;
 
     default:
@@ -3403,6 +3574,82 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
 
 
 /*
+ * @brief Encode an IDP data record into an IPFIX message.
+ *
+ * Using the \p data_record container, encode the attached fields
+ * into the \p message buf according to the RFC7011 spec.
+ * The \p message_buf may contain other other data, so this
+ * functions appends to the message, opposed to overwriting.
+ *
+ * @param data_record Single Ipfix data record.
+ * @param message_buf Buffer for message that the template \p set will be encoded and written into.
+ * @param msg_length Total length of the \p message.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int ipfix_exp_encode_data_record_idp(struct ipfix_exporter_data *data_record,
+                                            unsigned char *message_buf) {
+  unsigned char *ptr = NULL;
+  uint16_t bigend_src_port = 0;
+  uint16_t bigend_dest_port = 0;
+  uint64_t bigend_end_time = 0;
+  uint64_t bigend_start_time = 0;
+
+  if (data_record == NULL) {
+    loginfo("api-error: data_record is null");
+    return 1;
+  }
+
+  if (data_record->type != IPFIX_IDP_TEMPLATE) {
+    loginfo("api-error: wrong data record type");
+    return 1;
+  }
+
+  /* Get starting position in target message buffer */
+  ptr = message_buf;
+
+  /* IPFIX_SOURCE_IPV4_ADDRESS */
+  memcpy(ptr, &data_record->record.idp_rec.source_ipv4_address, sizeof(uint32_t));
+  ptr += sizeof(uint32_t);
+
+  /* IPFIX_DESTINATION_IPV4_ADDRESS */
+  memcpy(ptr, &data_record->record.idp_rec.destination_ipv4_address, sizeof(uint32_t));
+  ptr += sizeof(uint32_t);
+
+  /* IPFIX_SOURCE_TRANSPORT_PORT */
+  bigend_src_port = htons(data_record->record.idp_rec.source_transport_port);
+  memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
+  ptr += sizeof(uint16_t);
+
+  /* IPFIX_DESTINATION_TRANSPORT_PORT */
+  bigend_dest_port = htons(data_record->record.idp_rec.destination_transport_port);
+  memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
+  ptr += sizeof(uint16_t);
+
+  /* IPFIX_PROTOCOL_IDENTIFIER */
+  memcpy(ptr, &data_record->record.idp_rec.protocol_identifier, sizeof(uint8_t));
+  ptr += sizeof(uint8_t);
+
+  /* IPFIX_FLOW_START_MICROSECONDS */
+  bigend_start_time = hton64(data_record->record.idp_rec.flow_start_microseconds);
+  memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
+  ptr += sizeof(uint64_t);
+
+  /* IPFIX_FLOW_END_MICROSECONDS */
+  bigend_end_time = hton64(data_record->record.idp_rec.flow_end_microseconds);
+  memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
+  ptr += sizeof(uint64_t);
+
+  /* IPFIX_IDP */
+  memcpy(ptr, data_record->record.idp_rec.initial_data_packet,
+         data_record->record.idp_rec.idp_field_len);
+
+  return 0;
+}
+
+
+
+/*
  * @brief Encode a data set into an IPFIX message.
  *
  * Take a \p set of Ipfix data records, and encode the whole
@@ -3464,6 +3711,13 @@ static int ipfix_exp_encode_data_set(struct ipfix_exporter_data_set *set,
     switch (this_data_record->type) {
       case IPFIX_SIMPLE_TEMPLATE:
         if (ipfix_exp_encode_data_record_simple(this_data_record, data_ptr)) {
+          loginfo("error: could not encode the simple data record into message");
+          return 1;
+        }
+        break;
+
+      case IPFIX_IDP_TEMPLATE:
+        if (ipfix_exp_encode_data_record_idp(this_data_record, data_ptr)) {
           loginfo("error: could not encode the simple data record into message");
           return 1;
         }
@@ -3690,6 +3944,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
   struct ipfix_exporter_template *local_tmp = NULL;
   struct ipfix_exporter_template *simple_tmp = NULL;
   struct ipfix_exporter_data *data_record = NULL;
+  enum  ipfix_template_type template_type = IPFIX_IDP_TEMPLATE;
   int flag_template_send = 0;
   int internal_rc = 0;
   int rc = 0;
@@ -3719,13 +3974,31 @@ int ipfix_export_main(const struct flow_record *fr_record) {
    * an entry in the xts and copy locally to here. No need to
    * free the xts_tmp because that is handled before process exit.
    */
-  if (!ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, &local_tmp)) {
-    xts_tmp = ipfix_exp_create_template(IPFIX_SIMPLE_TEMPLATE);
-    if (ipfix_xts_copy(&local_tmp, xts_tmp)) {
-      loginfo("error: copy from export template store failed")
-      rc = 1;
-      return rc;
-    }
+  switch (template_type) {
+      case IPFIX_SIMPLE_TEMPLATE:
+          if (!ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, &local_tmp)) {
+            xts_tmp = ipfix_exp_create_template(IPFIX_SIMPLE_TEMPLATE);
+            if (ipfix_xts_copy(&local_tmp, xts_tmp)) {
+              loginfo("error: copy from export template store failed")
+              rc = 1;
+              return rc;
+            }
+          }
+          break;
+    case IPFIX_IDP_TEMPLATE:
+          if (!ipfix_xts_search(IPFIX_IDP_TEMPLATE, &local_tmp)) {
+            xts_tmp = ipfix_exp_create_template(IPFIX_IDP_TEMPLATE);
+            if (ipfix_xts_copy(&local_tmp, xts_tmp)) {
+              loginfo("error: copy from export template store failed")
+              rc = 1;
+              return rc;
+            }
+          }
+          break;
+      default:
+          loginfo("error: template type not supported for exporting");
+          rc = 1;
+          return rc;
   }
 
   /*
@@ -3781,7 +4054,18 @@ int ipfix_export_main(const struct flow_record *fr_record) {
            * Update the last_sent time on template
            * in exporter template store (xts)
            */
-          found_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
+          switch (template_type) {
+              case IPFIX_SIMPLE_TEMPLATE:
+                found_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
+                break;
+              case IPFIX_IDP_TEMPLATE:
+                found_tmp = ipfix_xts_search(IPFIX_IDP_TEMPLATE, NULL);
+                break;
+              default:
+                loginfo("error: template type not supported for exporting");
+                rc = 1;
+                return rc;
+          }
           if (found_tmp) {
             found_tmp->last_sent = time(NULL);
           }
@@ -3823,7 +4107,18 @@ int ipfix_export_main(const struct flow_record *fr_record) {
         * Update the last_sent time on template
         * in exporter template store (xts)
         */
-        found_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
+       switch (template_type) {
+         case IPFIX_SIMPLE_TEMPLATE:
+           found_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
+           break;
+         case IPFIX_IDP_TEMPLATE:
+           found_tmp = ipfix_xts_search(IPFIX_IDP_TEMPLATE, NULL);
+           break;
+         default:
+           loginfo("error: template type not supported for exporting");
+           rc = 1;
+           return rc;
+        }
         if (found_tmp) {
           found_tmp->last_sent = time(NULL);
         }
@@ -3858,8 +4153,20 @@ int ipfix_export_main(const struct flow_record *fr_record) {
   ///////////////////////////////////////////////////////////////
   //           Add Data Record to the IPFIX Message
   ///////////////////////////////////////////////////////////////
+
+  switch (template_type) {
+      case IPFIX_SIMPLE_TEMPLATE:
+          simple_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
+          break;
+      case IPFIX_IDP_TEMPLATE:
+          simple_tmp = ipfix_xts_search(IPFIX_IDP_TEMPLATE, NULL);
+          break;
+      default:
+          loginfo("error: template type not supported for exporting");
+          rc = 1;
+          return rc;
+  }
   
-  simple_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
 
   /* Get a valid data set to attach to, if possible */
   data_set = ipfix_exp_message_find_data_set(export_message,
@@ -3881,7 +4188,18 @@ int ipfix_export_main(const struct flow_record *fr_record) {
     data_set = set_node->set.data_set;
 
     /* Create a new data_record and use the current flow_record for encoding */
-    data_record = ipfix_exp_create_data_record(IPFIX_SIMPLE_TEMPLATE, fr_record);
+    switch (template_type) {
+      case IPFIX_SIMPLE_TEMPLATE:
+          data_record = ipfix_exp_create_data_record(IPFIX_SIMPLE_TEMPLATE, fr_record);
+          break;
+      case IPFIX_IDP_TEMPLATE:
+          data_record = ipfix_exp_create_data_record(IPFIX_IDP_TEMPLATE, fr_record);
+          break;
+      default:
+          loginfo("error: template type not supported for exporting");
+          rc = 1;
+          return rc;
+    }
 
     /* Add the data_record to the data_set */
     ipfix_exp_data_set_add(data_set, data_record);
@@ -3919,7 +4237,18 @@ int ipfix_export_main(const struct flow_record *fr_record) {
      * Simply make the data record and attach to the data_set.
      */
     /* Create a new data_record and use the current flow_record for encoding */
-    data_record = ipfix_exp_create_data_record(IPFIX_SIMPLE_TEMPLATE, fr_record);
+    switch (template_type) {
+      case IPFIX_SIMPLE_TEMPLATE:
+          data_record = ipfix_exp_create_data_record(IPFIX_SIMPLE_TEMPLATE, fr_record);
+          break;
+      case IPFIX_IDP_TEMPLATE:
+          data_record = ipfix_exp_create_data_record(IPFIX_IDP_TEMPLATE, fr_record);
+          break;
+      default:
+          loginfo("error: template type not supported for exporting");
+          rc = 1;
+          return rc;
+    }
 
     if (data_record->length + export_message->hdr.length <= IPFIX_MAX_SET_LEN) {
       /* Add the data record to the existing data set */
