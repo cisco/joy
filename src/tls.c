@@ -46,6 +46,11 @@
 #include <string.h> 
 #include <stdlib.h>
 #include <netinet/in.h>
+#include <openssl/x509.h>
+#include <openssl/x509v3.h>
+#include <openssl/asn1.h>
+#include <openssl/bn.h>
+#include <openssl/bio.h>
 #include "tls.h"
 #include "parson.h"
 #include "fingerprint.h"
@@ -76,6 +81,8 @@ static FILE *print_dest = NULL;
         fprintf(print_dest,"%s: ", __FUNCTION__); \
         fprintf(print_dest, __VA_ARGS__); \
         fprintf(print_dest, "\n"); }
+
+#define JOY_TLS_DEBUG 0
 
 /*
  * External objects, defined in joy.c
@@ -451,6 +458,276 @@ static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h
     }
 }
 
+/**
+ * \fn int tls_x509_get_validity_period(X509 *cert)
+ *
+ * \brief Extract notBefore and notAfter out of a X509 certificate.
+ *
+ * \param cert OpenSSL X509 certificate structure.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_x509_get_validity_period(X509 *cert) {
+    BIO *date_bio_buf = NULL;
+    ASN1_TIME *not_before = NULL;
+    ASN1_TIME *not_after = NULL;
+    int not_before_len = 0;
+    int not_after_len = 0;
+    char not_before_str[50] = {'\0'};
+    char not_after_str[50] = {'\0'};
+    int rc_ssl = 0;
+
+    not_before = X509_get_notBefore(cert);
+    not_after = X509_get_notAfter(cert);
+
+    not_before_len = ASN1_STRING_length(not_before);
+    not_after_len = ASN1_STRING_length(not_after);
+
+    /*
+     * Get notBefore
+     */
+    date_bio_buf = BIO_new(BIO_s_mem());
+    if (!date_bio_buf) {
+        loginfo("error: unable to allocate BIO");
+        return 1;
+    }
+
+    rc_ssl = ASN1_TIME_print(date_bio_buf, not_before);
+    if (rc_ssl <= 0) {
+        loginfo("error: conversion from ASN1 to BIO failed");
+        BIO_free(date_bio_buf);
+        return 1;
+    }
+
+    rc_ssl = BIO_gets(date_bio_buf, not_before_str, sizeof(not_before_str));
+    if (rc_ssl <= 0) {
+        loginfo("error: conversion from BIO to string failed");
+        BIO_free(date_bio_buf);
+        return 1;
+    }
+    /* Cleanup for next allocation */
+    BIO_free(date_bio_buf);
+    date_bio_buf = NULL;
+
+    /*
+     * Get notAfter
+     */
+    date_bio_buf = BIO_new(BIO_s_mem());
+    if (!date_bio_buf) {
+        loginfo("error: unable to allocate BIO");
+        return 1;
+    }
+
+    rc_ssl = ASN1_TIME_print(date_bio_buf, not_after);
+    if (rc_ssl <= 0) {
+        loginfo("error: conversion from ASN1 to BIO failed");
+        BIO_free(date_bio_buf);
+        return 1;
+    }
+
+    rc_ssl = BIO_gets(date_bio_buf, not_after_str, sizeof(not_after_str));
+    if (rc_ssl <= 0) {
+        loginfo("error: conversion from BIO to string failed");
+        BIO_free(date_bio_buf);
+        return 1;
+    }
+
+    /* Print it out for now */
+    if (*not_before_str) {
+        loginfo("ValidityNotBefore: %s", not_before_str);
+        loginfo("Length of notBefore: %d", not_before_len);
+    }
+
+    if (*not_after_str) {
+        loginfo("ValidityNotAfter: %s", not_after_str);
+        loginfo("Length of notAfter: %d", not_after_len);
+    }
+
+    /* Cleanup */
+    BIO_free(date_bio_buf);
+
+    return 0;
+}
+
+/**
+ * \fn int tls_x509_get_subject(X509 *cert)
+ *
+ * \brief Extract the subject data out of a X509 certificate.
+ *
+ * \param cert OpenSSL X509 certificate structure.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_x509_get_subject(X509 *cert) {
+    char *subject_str = NULL;
+
+    subject_str = X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
+
+    if (subject_str) {
+        loginfo("Subject: %s", subject_str);
+        OPENSSL_free(subject_str);
+    }
+
+    return 0;
+}
+
+/**
+ * \fn int tls_x509_get_issuer(X509 *cert)
+ *
+ * \brief Extract the issuer data out of a X509 certificate.
+ *
+ * \param cert OpenSSL X509 certificate structure.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_x509_get_issuer(X509 *cert) {
+    char *issuer_str = NULL;
+
+    issuer_str = X509_NAME_oneline(X509_get_issuer_name(cert), NULL, 0);
+
+    if (issuer_str) {
+        loginfo("Issuer: %s", issuer_str);
+        OPENSSL_free(issuer_str);
+    }
+
+    return 0;
+}
+
+/**
+ * \fn int tls_x509_get_serial(X509 *cert)
+ *
+ * \brief Extract the serial ID out of a X509 certificate.
+ *
+ * \param cert OpenSSL X509 certificate structure.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_x509_get_serial(X509 *cert) {
+    ASN1_INTEGER *serial = NULL;
+    BIGNUM *serial_big = NULL;
+    char *serial_str = NULL;
+
+    serial = X509_get_serialNumber(cert);
+    serial_big = ASN1_INTEGER_to_BN(serial, NULL);
+    serial_str = BN_bn2dec(serial_big);
+
+    if (serial_str) {
+        loginfo("Serial: %s", serial_str);
+        OPENSSL_free(serial_str);
+    }
+
+    if (serial_big) {
+        BN_free(serial_big);
+    }
+
+    return 0;
+}
+
+/**
+ * \fn int tls_x509_get_signature_algorithm(X509 *cert)
+ *
+ * \brief Extract the signature algorithm type out of a X509 certificate.
+ *
+ * \param cert OpenSSL X509 certificate structure.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_x509_get_signature_algorithm(X509 *cert) {
+    ASN1_OBJECT *sig_alg = NULL;
+    int sig_alg_length = 0;
+    int nid = 0;
+
+    sig_alg = cert->sig_alg->algorithm;
+    sig_alg_length = sig_alg->length;
+
+    nid = OBJ_obj2nid(sig_alg);
+    //nid = X509_get_signature_nid(cert);
+
+    if (nid == NID_undef) {
+        return 1;
+    } else {
+        const char* sig_alg_str = OBJ_nid2ln(nid);
+        loginfo("Signature algorithm: %s", sig_alg_str);
+        loginfo("Length of signature algorithm: %d\n", sig_alg_length);
+    }
+
+    return 0;
+}
+
+/**
+ * \fn int tls_x509_get_signature(X509 *cert)
+ *
+ * \brief Extract the signature data out of a X509 certificate.
+ *
+ * \param cert OpenSSL X509 certificate structure.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_x509_get_signature(X509 *cert) {
+    ASN1_BIT_STRING *sig = NULL;
+    unsigned char *sig_str = NULL;
+    int sig_length = 0;
+
+    sig = cert->signature;
+    sig_str = ASN1_STRING_data(sig);
+    sig_length = ASN1_STRING_length(sig);
+
+    loginfo("Signature:");
+    while (*sig_str) {
+        loginfo("%02x", (unsigned int) *sig_str++);
+    }
+    loginfo("Length of signature: %d\n", sig_length);
+
+    return 0;
+}
+
+/**
+ * \fn int tls_x509_get_extensions(X509 *cert)
+ *
+ * \brief Extract all extensions type/data out of a X509 certificate.
+ *
+ * \param cert OpenSSL X509 certificate structure.
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int tls_x509_get_extensions(X509 *cert) {
+    X509_EXTENSION *extension = NULL;
+    ASN1_OBJECT *ext_asn1_obj = NULL;
+    ASN1_OCTET_STRING *ext_data = NULL;
+    unsigned char *ext_data_str = NULL;
+    int num_exts = 0;
+    int i = 0;
+
+    num_exts = X509_get_ext_count(cert);
+    for (i= 0; i < num_exts; i++) {
+        unsigned int nid = 0;
+
+        extension = X509_get_ext(cert, i);
+        ext_asn1_obj = X509_EXTENSION_get_object(extension);
+        ext_data = X509_EXTENSION_get_data(extension);
+        ext_data_str = ASN1_STRING_data(ext_data);
+
+        /* Object to corresponding NID */
+        nid = OBJ_obj2nid(ext_asn1_obj);
+
+        if (nid == NID_undef) {
+            /* Object to NID fail. No known NID entry for the object */
+            return 1;
+        } else {
+            // Object to NID success
+            const char *ext_name = OBJ_nid2ln(nid);
+            loginfo("extension name is %s", ext_name);
+            loginfo("extension data is ");
+            while (*ext_data_str) {
+                loginfo("%02x", (unsigned int) *ext_data_str++);
+            }
+
+            loginfo("extension data length is %d\n", ASN1_STRING_length(ext_data));
+        }
+    }
+
+    return 0;
+}
 
 static void tls_server_certificate_parse (const void *x,
                                           unsigned int len,
@@ -461,24 +738,67 @@ static void tls_server_certificate_parse (const void *x,
           rdn_seq_len, ext_len, cur_ext;
     unsigned char lo, mid, hi;
     certs_len = raw_to_unsigned_short(y+1);
-    //printf("certificates_length: %i\n",(unsigned int)certs_len);
+    int rc = 0;
+
+    if (JOY_TLS_DEBUG) {
+        loginfo("all certificates length: %d", certs_len);
+    }
+
     y += 3;
     certs_len -= 3;
   
     while (certs_len > 0) {
+        X509 *x509_cert = NULL;
+
         if (r->num_certificates >= MAX_CERTIFICATES) {
+            /*
+             * The TLS record cannot hold anymore certificates.
+             */
             return;
         }
+
         cur_cert = r->num_certificates;
         r->num_certificates += 1;
+
+        /* Current certificate length */
         cert_len = raw_to_unsigned_short(y+1);
-        //printf("\tcert_length: %i\n",(unsigned int)cert_len);
         r->certificates[cur_cert].length = (unsigned short)cert_len;
-    
-        y += 3; // skip over single certificate length
+        y += 3;
         certs_len -= 3;
-    
-        y += 14; // skip over lengths
+        if (JOY_TLS_DEBUG) {
+            loginfo("current certificate length: %d", cert_len);
+        }
+
+        /* Convert to OpenSSL X509 object */
+        x509_cert = d2i_X509(NULL, &y, (size_t)cert_len);
+
+        if (x509_cert == NULL) {
+            loginfo("Failed cert conversion");
+        } else {
+            /* Get subject */
+            tls_x509_get_subject(x509_cert);
+
+            /* Get issuer */
+            tls_x509_get_issuer(x509_cert);
+
+            /* Get the validity notBefore and notAfter */
+            tls_x509_get_validity_period(x509_cert);
+
+            /* Get serial */
+            tls_x509_get_serial(x509_cert);
+
+            /* Get extensions */
+            tls_x509_get_extensions(x509_cert);
+
+            /* Get signature algorithm */
+            tls_x509_get_signature_algorithm(x509_cert);
+
+            /* Get signature */
+            tls_x509_get_signature(x509_cert);
+        }
+
+        /* Skip over lengths */
+        y += 14;
         certs_len -= 14;
 
         /*
@@ -491,7 +811,10 @@ static void tls_server_certificate_parse (const void *x,
 
         // parse serial number
         tmp_len = (*y);
-        if (tmp_len > 50) {return;}
+        if (tmp_len > 50) {
+            rc = 1;
+            goto cleanup;
+        }
         r->certificates[cur_cert].serial_number = malloc(tmp_len);
         memcpy(r->certificates[cur_cert].serial_number, y+1, tmp_len);
         r->certificates[cur_cert].serial_number_length = tmp_len;
@@ -505,7 +828,10 @@ static void tls_server_certificate_parse (const void *x,
 
         // parse signature
         tmp_len = *(y+1);
-        if (tmp_len > 50) {return;}
+        if (tmp_len > 50) {
+            rc = 1;
+            goto cleanup;
+        }
         y += 2;
         certs_len -= 2;
         r->certificates[cur_cert].signature = malloc(tmp_len);
@@ -553,7 +879,10 @@ static void tls_server_certificate_parse (const void *x,
             //printf("\n");
           
             tmp_len2 = *(y+tmp_len+2+1);
-            if (tmp_len2 > 100) {return;}
+            if (tmp_len2 > 100) {
+                rc = 1;
+                goto cleanup;
+            }
             r->certificates[cur_cert].issuer_string[cur_rdn] = malloc(tmp_len2+1);
             memset(r->certificates[cur_cert].issuer_string[cur_rdn], '\0', tmp_len2+1);
             memcpy(r->certificates[cur_cert].issuer_string[cur_rdn], y+tmp_len+2+2, tmp_len2);
@@ -578,7 +907,10 @@ static void tls_server_certificate_parse (const void *x,
         tmp_len = *(y+1);
         y += 2;
         certs_len -= 2;
-        if (tmp_len > 50) {return;}
+        if (tmp_len > 50) {
+            rc = 1;
+            goto cleanup;
+        }
         r->certificates[cur_cert].validity_not_before = malloc(tmp_len+1);
         memset(r->certificates[cur_cert].validity_not_before, '\0', tmp_len+1);
         memcpy(r->certificates[cur_cert].validity_not_before, y, tmp_len); 
@@ -589,7 +921,10 @@ static void tls_server_certificate_parse (const void *x,
         tmp_len = *(y+1);
         y += 2;
         certs_len -= 2;
-        if (tmp_len > 50) {return;}
+        if (tmp_len > 50) {
+            rc = 1;
+            goto cleanup;
+        }
         r->certificates[cur_cert].validity_not_after = malloc(tmp_len+1);
         memset(r->certificates[cur_cert].validity_not_after, '\0', tmp_len+1);
         memcpy(r->certificates[cur_cert].validity_not_after, y, tmp_len); 
@@ -623,7 +958,10 @@ static void tls_server_certificate_parse (const void *x,
             subject_len -= 2;
       
             tmp_len = *(y+1);
-            if (tmp_len > 150) {return;}
+            if (tmp_len > 150) {
+                rc = 1;
+                goto cleanup;
+            }
             r->certificates[cur_cert].subject_id[cur_rdn] = malloc(tmp_len);
             memcpy(r->certificates[cur_cert].subject_id[cur_rdn], y+2, tmp_len);
             r->certificates[cur_cert].subject_id_length[cur_rdn] = tmp_len;
@@ -663,7 +1001,10 @@ static void tls_server_certificate_parse (const void *x,
         tmp_len = *(y+1);
         y += 2;
         certs_len -= 2;
-        if (tmp_len > 50) {return;}
+        if (tmp_len > 50) {
+            rc = 1;
+            goto cleanup;
+        }
         r->certificates[cur_cert].subject_public_key_algorithm = malloc(tmp_len);
         memcpy(r->certificates[cur_cert].subject_public_key_algorithm, y, tmp_len); 
         r->certificates[cur_cert].subject_public_key_algorithm_length = tmp_len;
@@ -844,6 +1185,18 @@ static void tls_server_certificate_parse (const void *x,
         //certs_len -= cert_len;
         //printf("\n");
         //break;
+
+cleanup:
+        /*
+         * Cleanup
+         */
+        if (x509_cert) {
+            X509_free(x509_cert);
+        }
+
+        if (rc) {
+            return;
+        }
     }
   
   
