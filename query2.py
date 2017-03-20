@@ -153,6 +153,7 @@ class flowProcessorDistribution:
       self.context = context
 
    def postProcess(self):    
+      output = list()
       for k, v in self.dist.iteritems():
          d = dict()
          klist = list(k)
@@ -161,6 +162,9 @@ class flowProcessorDistribution:
          d["count"] = v   
          d["total"] = self.total   
          # d["fraction"] = v/self.total   
+         output.append(d)
+      output.sort(key=lambda x: x["count"], reverse=True)
+      for d in output:
          print d
 
 class flowProcessorSum:
