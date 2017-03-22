@@ -1783,11 +1783,20 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
 
   for (i = 0; i < cur_template->hdr.field_count; i++) {
     uint16_t field_length = 0;
+    uint8_t flag_var_field = 0;
     flow_data = flow_ptr;
 
-    if (cur_template->fields[i].variable_length) {
-      /* Get variable length and move just beyond it */
-      field_length = cur_template->fields[i].variable_length;
+    if (cur_template->fields[i].fixed_length == 65535) {
+      /*
+       * This is a variable length field
+       */
+      flag_var_field = 1;
+
+      if (cur_template->fields[i].variable_length) {
+        /* Variable length is greater than 0 */
+        field_length = cur_template->fields[i].variable_length;
+      }
+      /* Move just beyond the var header */
       flow_data += cur_template->fields[i].var_hdr_length;
       flow_ptr += cur_template->fields[i].var_hdr_length;
     } else {
@@ -1867,52 +1876,57 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         break;
 
       case IPFIX_IDP:
-        if (ix_record->idp != NULL) {
-          free(ix_record->idp);
-        }
-        ix_record->idp_len = field_length;
-        ix_record->idp = malloc(ix_record->idp_len);
-        if (ix_record->idp != NULL) {
-          memcpy(ix_record->idp, flow_data, ix_record->idp_len);
-        }
+        if (flag_var_field && (field_length != 0)) {
+          /*
+           * We have actual IDP data to process
+           */
+          if (ix_record->idp != NULL) {
+            free(ix_record->idp);
+          }
+          ix_record->idp_len = field_length;
+          ix_record->idp = malloc(ix_record->idp_len);
+          if (ix_record->idp != NULL) {
+            memcpy(ix_record->idp, flow_data, ix_record->idp_len);
+          }
 
-        /* Get the start of IDP packet payload */
-        payload = NULL;
-        size_payload = 0;
-        if (ipfix_skip_idp_header(ix_record, &payload, &size_payload)) {
-          /* Error skipping idp header */
+          /* Get the start of IDP packet payload */
+          payload = NULL;
+          size_payload = 0;
+          if (ipfix_skip_idp_header(ix_record, &payload, &size_payload)) {
+            /* Error skipping idp header */
+            flow_ptr += field_length;
+            break;
+          }
+
+          /* If packet has port 443 and nonzero data length, process it as TLS */
+          if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
+            struct timeval ts = {0}; /* Zeroize temporary timestamp */
+
+            /* allocate TLS info struct if needed and initialize */
+            if (record->tls_info == NULL) {
+                record->tls_info = malloc(sizeof(struct tls_information));
+                if (record->tls_info != NULL) {
+                    tls_record_init(record->tls_info);
+                }
+            }
+           
+            /* process tls information */
+            if (record->tls_info != NULL) {
+                process_tls(ts, payload, size_payload, record->tls_info);
+            } else {
+                /* couldn't allocate TLS information structure, can't process */
+            }
+          }
+
+          /* If packet has port 80 and nonzero data length, process it as HTTP */
+          else if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+            http_update(&record->http_data, payload, size_payload, config.http);
+          }
+
+          /* Update all enabled feature modules */
+          update_all_features(feature_list);
           flow_ptr += field_length;
-          break;
         }
-
-        /* If packet has port 443 and nonzero data length, process it as TLS */
-        if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-          struct timeval ts = {0}; /* Zeroize temporary timestamp */
-
-          /* allocate TLS info struct if needed and initialize */
-          if (record->tls_info == NULL) {
-              record->tls_info = malloc(sizeof(struct tls_information));
-              if (record->tls_info != NULL) {
-                  tls_record_init(record->tls_info);
-              }
-          }
-         
-          /* process tls information */
-          if (record->tls_info != NULL) {
-              process_tls(ts, payload, size_payload, record->tls_info);
-          } else {
-              /* couldn't allocate TLS information structure, can't process */
-          }
-        }
-
-        /* If packet has port 80 and nonzero data length, process it as HTTP */
-        else if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
-          http_update(&record->http_data, payload, size_payload, config.http);
-        }
-
-        /* Update all enabled feature modules */
-        update_all_features(feature_list);
-        flow_ptr += field_length;
         break;
 #if 0
       case IPFIX_BYTE_DISTRIBUTION_FORMAT:
@@ -2075,6 +2089,7 @@ static struct ipfix_exporter_data *ipfix_exp_data_record_malloc(void) {
  */
 static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data_record) {
   enum ipfix_template_type template_type = 0;
+  uint16_t variable_len = 0;
 
   if (data_record == NULL) {
     loginfo("api-error: data record is null");
@@ -2084,7 +2099,13 @@ static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data
   template_type = data_record->type;
   switch (template_type) {
     case IPFIX_IDP_TEMPLATE:
-      free(data_record->record.idp_rec.initial_data_packet);
+      variable_len = data_record->record.idp_record.idp_field.length;
+      if (variable_len != 0) {
+        /* Deallocate the IDP memory buffer */
+        memset(data_record->record.idp_record.idp_field.info, 0,
+               variable_len);
+        free(data_record->record.idp_record.idp_field.info);
+      }
       break;
 
     default:
@@ -3126,7 +3147,6 @@ static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
   struct ipfix_exporter_data *data_record = NULL;
   uint8_t protocol = 0;
   uint16_t idp_payload_len = 0;
-  uint8_t variable_length_flag = 255;
 
   data_record = ipfix_exp_data_record_malloc();
 
@@ -3169,21 +3189,29 @@ static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
     /*
      * IPFIX_IDP
      */
+
+    /* 
+     * Set the flag indicating variable length.
+     * Figure S from RFC 7011
+     */
+    data_record->record.idp_record.idp_field.flag = 255;
+
+    /* The length in bytes of the IDP payload */
     idp_payload_len = fr_record->idp_len;
-    data_record->record.idp_rec.idp_field_len = idp_payload_len + 3;
 
-    data_record->record.idp_rec.initial_data_packet =
-        calloc(idp_payload_len + 3, sizeof(unsigned char));
-    /* Set the flag indicating variable length */
-    memcpy(data_record->record.idp_rec.initial_data_packet, &variable_length_flag,
-           sizeof(unsigned char));
-    /* Insert the variable length value */
-    memcpy(data_record->record.idp_rec.initial_data_packet+1, &idp_payload_len,
-           sizeof(uint16_t));
-    /* Insert the variable length value */
-    memcpy(data_record->record.idp_rec.initial_data_packet+3, &fr_record->idp,
-           idp_payload_len);
+    /* The length of the whole IDP field inside the IPFIX data record */
+    data_record->record.idp_record.idp_field.length = idp_payload_len;
 
+    /*
+     * Copy the IDP into the data record.
+     */ 
+    if (idp_payload_len != 0) {
+      data_record->record.idp_record.idp_field.info =
+          calloc(idp_payload_len, sizeof(unsigned char));
+
+      memcpy(data_record->record.idp_record.idp_field.info, &fr_record->idp,
+             idp_payload_len);
+    }
   } else {
     loginfo("error: unable to malloc data record");
   }
@@ -3192,7 +3220,7 @@ static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
   data_record->type = IPFIX_IDP_TEMPLATE;
 
   /* Set the length (number of bytes) of the data record */
-  data_record->length = idp_payload_len + SIZE_IPFIX_DATA_SIMPLE;
+  data_record->length = idp_payload_len + SIZE_IPFIX_DATA_IDP;
 
   return data_record;
 }
@@ -3594,6 +3622,7 @@ static int ipfix_exp_encode_data_record_idp(struct ipfix_exporter_data *data_rec
   uint16_t bigend_dest_port = 0;
   uint64_t bigend_end_time = 0;
   uint64_t bigend_start_time = 0;
+  uint16_t bigend_variable_length = 0;
 
   if (data_record == NULL) {
     loginfo("api-error: data_record is null");
@@ -3609,40 +3638,52 @@ static int ipfix_exp_encode_data_record_idp(struct ipfix_exporter_data *data_rec
   ptr = message_buf;
 
   /* IPFIX_SOURCE_IPV4_ADDRESS */
-  memcpy(ptr, &data_record->record.idp_rec.source_ipv4_address, sizeof(uint32_t));
+  memcpy(ptr, &data_record->record.idp_record.source_ipv4_address, sizeof(uint32_t));
   ptr += sizeof(uint32_t);
 
   /* IPFIX_DESTINATION_IPV4_ADDRESS */
-  memcpy(ptr, &data_record->record.idp_rec.destination_ipv4_address, sizeof(uint32_t));
+  memcpy(ptr, &data_record->record.idp_record.destination_ipv4_address, sizeof(uint32_t));
   ptr += sizeof(uint32_t);
 
   /* IPFIX_SOURCE_TRANSPORT_PORT */
-  bigend_src_port = htons(data_record->record.idp_rec.source_transport_port);
+  bigend_src_port = htons(data_record->record.idp_record.source_transport_port);
   memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
   ptr += sizeof(uint16_t);
 
   /* IPFIX_DESTINATION_TRANSPORT_PORT */
-  bigend_dest_port = htons(data_record->record.idp_rec.destination_transport_port);
+  bigend_dest_port = htons(data_record->record.idp_record.destination_transport_port);
   memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
   ptr += sizeof(uint16_t);
 
   /* IPFIX_PROTOCOL_IDENTIFIER */
-  memcpy(ptr, &data_record->record.idp_rec.protocol_identifier, sizeof(uint8_t));
+  memcpy(ptr, &data_record->record.idp_record.protocol_identifier, sizeof(uint8_t));
   ptr += sizeof(uint8_t);
 
   /* IPFIX_FLOW_START_MICROSECONDS */
-  bigend_start_time = hton64(data_record->record.idp_rec.flow_start_microseconds);
+  bigend_start_time = hton64(data_record->record.idp_record.flow_start_microseconds);
   memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
   ptr += sizeof(uint64_t);
 
   /* IPFIX_FLOW_END_MICROSECONDS */
-  bigend_end_time = hton64(data_record->record.idp_rec.flow_end_microseconds);
+  bigend_end_time = hton64(data_record->record.idp_record.flow_end_microseconds);
   memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
   ptr += sizeof(uint64_t);
 
-  /* IPFIX_IDP */
-  memcpy(ptr, data_record->record.idp_rec.initial_data_packet,
-         data_record->record.idp_rec.idp_field_len);
+  /*
+   * IPFIX_IDP
+   */
+  /* Encode the flag */
+  memcpy(ptr, &data_record->record.idp_record.idp_field.flag, sizeof(uint8_t));
+  ptr += sizeof(uint8_t);
+
+  /* Encode the IDP variable length */
+  bigend_variable_length = htons(data_record->record.idp_record.idp_field.length);
+  memcpy(ptr, &bigend_variable_length, sizeof(uint16_t));
+  ptr += sizeof(uint16_t);
+
+  /* Copy the IDP */
+  memcpy(ptr, data_record->record.idp_record.idp_field.info,
+         data_record->record.idp_record.idp_field.length);
 
   return 0;
 }

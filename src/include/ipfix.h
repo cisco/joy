@@ -339,6 +339,17 @@ struct ipfix_exporter_template {
   struct ipfix_exporter_template *prev;
 };
 
+/*
+ * The minimum size of a variable length field is 3 because we
+ * MUST send the flag and length encoded in each data record.
+ */
+#define MIN_SIZE_VAR_FIELD 3
+
+struct ipfix_variable_field {
+    uint8_t flag;
+    uint16_t length;
+    unsigned char *info;
+};
 
 #define SIZE_IPFIX_DATA_SIMPLE 29
 
@@ -353,11 +364,11 @@ struct ipfix_exporter_data_simple {
 };
 
 /*
- * The minimum size because initial_data_packet will be allocated
- * at least 3 bytes to hold the variable length information.
+ * The minimum size because we have added an ipfix_variable_field.
+ *
+ * SIZE_IPFIX_DATA_IDP = 32
  */
-
-#define SIZE_IPFIX_DATA_IDP 32
+#define SIZE_IPFIX_DATA_IDP SIZE_IPFIX_DATA_SIMPLE + MIN_SIZE_VAR_FIELD
 
 struct ipfix_exporter_data_idp {
   uint32_t source_ipv4_address;
@@ -367,8 +378,7 @@ struct ipfix_exporter_data_idp {
   uint8_t protocol_identifier;
   uint64_t flow_start_microseconds;
   uint64_t flow_end_microseconds;
-  unsigned char *initial_data_packet;
-  uint16_t idp_field_len;
+  struct ipfix_variable_field idp_field;
 };
 
 
@@ -378,7 +388,7 @@ struct ipfix_exporter_data_idp {
 struct ipfix_exporter_data {
   union {
     struct ipfix_exporter_data_simple simple;
-    struct ipfix_exporter_data_idp idp_rec;
+    struct ipfix_exporter_data_idp idp_record;
   } record;
   enum ipfix_template_type type;
   uint16_t length; /**< total length the data record */
