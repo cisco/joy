@@ -3904,11 +3904,8 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
    */
   ipfix_exp_encode_message(message, raw_message.payload);
 
-  /* Convert the header length to network-byte order */
-  
+  /* Convert the header length to network-byte order */  
   message->hdr.length = htons(message->hdr.length);
-  //  message->hdr.length = message->hdr.length;
-
   /* Write the time message is exported */
   message->hdr.export_time = htonl(time(NULL));
   /* Write message sequence number relative to current session */
@@ -3919,9 +3916,7 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
    */
   memcpy(&raw_message.hdr, &message->hdr, sizeof(struct ipfix_hdr));
 
-  printf("ipfix_hdr len: %i\n", message->hdr.length);
   /* Send the message */
-  //  bytes = sendto(e->socket, &raw_message, raw_message.hdr.length, 0,
   bytes = sendto(e->socket, &raw_message, htons(raw_message.hdr.length), 0,
                  (struct sockaddr *)&e->clctr_addr,
                  sizeof(e->clctr_addr));
