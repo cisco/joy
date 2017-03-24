@@ -69,6 +69,7 @@
 #define MAX_CERT_EXTENSIONS 12
 #define MAX_CERTIFICATE_BUFFER 11000
 #define MAX_CKE_LEN 1024
+#define MAX_CERT_ENTRY_ID 50
 
 /** \remarks \verbatim
   structure for TLS awareness 
@@ -142,17 +143,26 @@ struct tls_extension {
     void *data;
 };
 
+struct tls_item_entry {
+    char *id; /**< Identification */
+    uint8_t id_length; /**< Length of the item id */
+    unsigned char *data; /**< Data encapsulated within the item */
+    uint16_t data_length; /**< Length of the data in bytes */
+};
+
 struct tls_certificate {
     unsigned short length;
-    void *serial_number;
-    unsigned short serial_number_length;
-    void *signature;
-    unsigned short signature_length;
-    void *issuer_id[MAX_RDN];
-    unsigned short issuer_id_length[MAX_RDN];
-    void *issuer_string[MAX_RDN];
+    unsigned char *serial_number; /**< Serial Number */
+    uint8_t serial_number_length; /**< Length of the serial number in bytes */
+    unsigned char *signature; /**< Signature */
+    uint16_t signature_length; /**< Length of the signature in bytes */
+    struct tls_item_entry issuer[MAX_RDN]; /**< Array of item entries corresponding
+                                                to the issuer information */
+    uint8_t num_issuer_items;
+    //void *issuer_id[MAX_RDN];
+    //unsigned short issuer_id_length[MAX_RDN];
+    //void *issuer_string[MAX_RDN];
     //unsigned short issuer_string_length[MAX_RDN];
-    unsigned short num_issuer;
     void *validity_not_before;
     //unsigned short validity_not_before_length;
     void *validity_not_after;
