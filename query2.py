@@ -3,7 +3,7 @@
 # query2.py is a rewrite of query.py - the goal is to implement
 # reusable classes for flow filtering and data selection functions
 
-import sys, json, operator, gzip, string, time, pprint, copy
+import sys, json, operator, gzip, string, time, pprint, copy, re, pickle
 from optparse import OptionParser
 from math import sqrt, log
 
@@ -101,6 +101,80 @@ class splitProcessor(flowProcessor):
 
      
 class flowElementSelector(flowProcessor):
+
+   def __init__(self, elements):
+      self.flowset = []
+      self.template = self.string_to_template_object(elements)
+
+   def string_to_template_object(self, s):
+      t = '{'
+      needArg = False
+      for x in re.split('([\{\}\[\],])', s):         
+         if x == '':
+            pass
+         elif x == '{' or x == '[':
+            t += x
+            needArg = False
+         elif x == '}' or x == ']' or x == ',':
+            if needArg:
+               t += "None"
+               needArg = False
+            t += x
+         else:
+            t += '\"' + x + '\":'
+            needArg = True
+      if needArg:
+         t += "None"
+      t += '}'
+      # print "t: " + t
+      return eval(t)
+      
+   def copySelectedElements(self, tmplDict, flow):
+      outDict = dict()
+      for k, v in tmplDict.items():
+         if k in flow:
+            if isinstance(v, list):
+               flowList = flow[k]
+               if flowList:
+                  outDict[k] = list()
+                  for x in flowList:
+                     for y in v:
+                        tmp = self.copySelectedElements(y, x)
+                        if tmp:
+                           outDict[k].append(tmp)
+                  if not outDict[k]:
+                     outDict = None
+            elif isinstance(v, dict):
+               tmp = self.copySelectedElements(v, flow[k])
+               if tmp:
+                  outDict[k] = tmp
+            else:
+               if v:
+                  if flow[k] == v:
+                     outDict[k] = flow[k]
+               else:
+                  outDict[k] = flow[k]
+      if outDict:
+         return outDict
+      else:
+         return None
+
+   def processFlow(self, flow):
+      output = self.copySelectedElements(self.template, flow)
+      if output:
+         self.flowset.append(output)
+
+   def preProcess(self, context=None):    
+      self.context = context
+
+   def postProcess(self, proc=flowProcessor()):    
+      proc.preProcess(self.context)
+      for flow in self.flowset:
+         proc.processFlow(flow)
+      proc.postProcess()
+
+
+class flowElementSelectorOld(flowProcessor):
    def __init__(self, elements):
       self.elements = elements
       self.flowset = []
@@ -123,8 +197,8 @@ class flowElementSelector(flowProcessor):
             output[x] = tmp
       if gotAll:
          self.flowset.append(output)
-      else:
-         print "warning: ignoring flow that is missing at least one selected element"
+      # else:
+         # print "warning: ignoring flow that is missing at least one selected element"
 
    def preProcess(self, context=None):    
       self.context = context
@@ -141,7 +215,7 @@ class flowProcessorDistribution:
       self.total = 0
 
    def processFlow(self, flow):
-      value = tuple(flow.values())
+      value = pickle.dumps(flow)
       self.key = tuple(flow.keys())
       if value in self.dist:
          self.dist[value] += 1
@@ -155,10 +229,7 @@ class flowProcessorDistribution:
    def postProcess(self):    
       output = list()
       for k, v in self.dist.iteritems():
-         d = dict()
-         klist = list(k)
-         for i, x in enumerate(list(self.key)):
-            d[x] = klist[i]
+         d = pickle.loads(k)
          d["count"] = v   
          d["total"] = self.total   
          # d["fraction"] = v/self.total   
@@ -389,7 +460,7 @@ if __name__=='__main__':
       args.append('-')   # no input files, so assume stdin 
 
    if opts.selection is not None:
-      fp = flowElementSelector(opts.selection.split(','))
+      fp = flowElementSelector(opts.selection)
    else:
       fp = flowProcessor()      
 
