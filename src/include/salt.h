@@ -73,6 +73,7 @@ void salt_init(struct salt *salt);
 
 /** update salt */
 void salt_update(struct salt *salt, 
+		 const struct pcap_pkthdr *header,
 		 const void *data, 
 		 unsigned int len, 
 		 unsigned int report_salt);

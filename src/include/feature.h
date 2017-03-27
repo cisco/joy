@@ -96,6 +96,7 @@
 #define FEATURE_H
 
 #include <stdio.h> 
+#include <pcap.h>
 #include "err.h"
 #include "output.h"
 #include "map.h"
@@ -105,7 +106,7 @@
  * build of joy, add/remove it from this list.
  */
 #define ip_feature_list ip_id
-#define tcp_feature_list salt
+#define tcp_feature_list salt, ppi
 #define payload_feature_list wht, example, dns, ssh
 #define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
@@ -143,10 +144,11 @@
  * process_ip(), and process_icmp(), in the file pkt_proc.c.
  * \endverbatim
  */
-#define declare_update(F)               \
-void F##_update(F##_t *f,	        \
-                const void *data,       \
-	        unsigned int len,       \
+#define declare_update(F)                         \
+void F##_update(F##_t *f,	                  \
+                const struct pcap_pkthdr *header, \
+                const void *data,                 \
+	        unsigned int len,                 \
 		unsigned int report_F); 
 
 
@@ -217,17 +219,17 @@ void F##_print_json(const F##_t *F,      \
 /** The macro update_feature(f) processes a single packet and updates
  * the feature context
  */
-#define update_feature(f) if (f##_filter(key)) f##_update(&((record)->f), payload, size_payload, report_##f);
+#define update_feature(f) if (f##_filter(key)) f##_update(&((record)->f), header, payload, size_payload, report_##f);
 
 /** The macro update_ip_feature(f) processes a single packet, given
  * a pointer to the IP header, and updates the feature context
  */
-#define update_ip_feature(f) if (f##_filter(key)) f##_update(&((record)->f), ip, ip_hdr_len, report_##f);
+#define update_ip_feature(f) if (f##_filter(key)) f##_update(&((record)->f), header, ip, ip_hdr_len, report_##f);
 
 /** The macro update_tcp_feature(f) processes a single packet, given
  * a pointer to the TCP header, and updates the feature context
  */
-#define update_tcp_feature(f) if (f##_filter(key)) f##_update(&((record)->f), transport_start, transport_len, report_##f);
+#define update_tcp_feature(f) if (f##_filter(key)) f##_update(&((record)->f), header, transport_start, transport_len, report_##f);
 
 /** The macro print_feature(f) prints the feature as JSON 
  */

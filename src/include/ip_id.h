@@ -73,9 +73,10 @@ void ip_id_init(struct ip_id *ip_id);
 
 /** update ip_id */
 void ip_id_update(struct ip_id *ip_id, 
-		    const void *data, 
-		    unsigned int len, 
-		    unsigned int report_ip_id);
+		  const struct pcap_pkthdr *header,
+		  const void *data, 
+		  unsigned int len, 
+		  unsigned int report_ip_id);
 
 /** JSON print ip_id */
 void ip_id_print_json(const struct ip_id *w1, 
