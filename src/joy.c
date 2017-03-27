@@ -331,6 +331,7 @@ static int usage (char *s) {
            "  cdist=F                    include compact byte distribution array using the mapping file, F\n" 
            "  entropy=1                  include byte entropy\n" 
            "  tls=1                      include TLS data (ciphersuites, record lengths and times, ...)\n" 
+           "  http=1                     include HTTP data\n" 
            "  exe=1                      include information about host process associated with flow\n" 
            "  classify=1                 include results of post-collection classification\n" 
            "  num_pkts=N                 report on at most N packets per flow (0 <= N < %d)\n" 
