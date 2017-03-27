@@ -145,7 +145,6 @@ struct tls_extension {
 
 struct tls_item_entry {
     char *id; /**< Identification */
-    uint8_t id_length; /**< Length of the item id */
     unsigned char *data; /**< Data encapsulated within the item */
     uint16_t data_length; /**< Length of the data in bytes */
 };
@@ -159,27 +158,19 @@ struct tls_certificate {
     struct tls_item_entry issuer[MAX_RDN]; /**< Array of item entries corresponding
                                                 to the issuer information */
     uint8_t num_issuer_items;
-    //void *issuer_id[MAX_RDN];
-    //unsigned short issuer_id_length[MAX_RDN];
-    //void *issuer_string[MAX_RDN];
-    //unsigned short issuer_string_length[MAX_RDN];
+    struct tls_item_entry subject[MAX_RDN]; /**< Array of item entries corresponding
+                                                 to the subject information */
+    uint8_t num_subject_items;
+    struct tls_item_entry extensions[MAX_CERT_EXTENSIONS]; /**< Array of item entries corresponding
+                                                                to the extension information */
+    uint8_t num_extension_items;
     void *validity_not_before;
     //unsigned short validity_not_before_length;
     void *validity_not_after;
     //unsigned short validity_not_after_length;
-    void *subject_id[MAX_RDN];
-    unsigned short subject_id_length[MAX_RDN];
-    void *subject_string[MAX_RDN];
-    //unsigned short subject_string_length[MAX_RDN];
-    unsigned short num_subject;
     void *subject_public_key_algorithm;
     unsigned short subject_public_key_algorithm_length;
     unsigned short subject_public_key_size;
-    void *ext_id[MAX_CERT_EXTENSIONS];
-    unsigned short ext_id_length[MAX_CERT_EXTENSIONS];
-    void *ext_data[MAX_CERT_EXTENSIONS];
-    unsigned short ext_data_length[MAX_CERT_EXTENSIONS];
-    unsigned short num_ext;
     unsigned short signature_key_size;
     void *san[MAX_SAN];
     unsigned short num_san;

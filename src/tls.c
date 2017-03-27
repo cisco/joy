@@ -94,7 +94,6 @@ static fingerprint_db_t tls_fingerprint_db;
 static uint8_t tls_fingerprint_db_loaded = 0;
 
 /* Local prototypes */
-static void tls_san_parse(const void *x, int len, struct tls_certificate *r);
 static int tls_certificate_process(const void *data, int data_len, struct tls_information *tls_info);
 static int tls_version_capture(struct tls_information *tls_info, const struct tls_header *tls_hdr);
 static void tls_certificate_printf(const struct tls_certificate *data, zfile f);
@@ -169,27 +168,17 @@ void tls_init (struct tls_information *r) {
         r->certificates[i].serial_number_length = 0;
         r->certificates[i].signature_length = 0;
         r->certificates[i].num_issuer_items = 0;
+        r->certificates[i].num_subject_items = 0;
+        r->certificates[i].num_extension_items = 0;
         r->certificates[i].validity_not_before = 0;
         r->certificates[i].validity_not_after = 0;
-        r->certificates[i].num_subject = 0;
         r->certificates[i].subject_public_key_algorithm = 0;
         r->certificates[i].subject_public_key_algorithm_length = 0;
-        r->certificates[i].num_ext = 0;
         r->certificates[i].num_san = 0;
 
-#if 0
-        memset(r->certificates[i].issuer_id, 0, sizeof(r->certificates[i].issuer_id));
-        memset(r->certificates[i].issuer_id_length, 0, sizeof(r->certificates[i].issuer_id_length));
-        memset(r->certificates[i].issuer_string, 0, sizeof(r->certificates[i].issuer_string));
-#endif
         memset(r->certificates[i].issuer, 0, sizeof(r->certificates[i].issuer));
-        memset(r->certificates[i].subject_id, 0, sizeof(r->certificates[i].subject_id));
-        memset(r->certificates[i].subject_id_length, 0, sizeof(r->certificates[i].subject_id_length));
-        memset(r->certificates[i].subject_string, 0, sizeof(r->certificates[i].subject_string));
-        memset(r->certificates[i].ext_id, 0, sizeof(r->certificates[i].ext_id));
-        memset(r->certificates[i].ext_id_length, 0, sizeof(r->certificates[i].ext_id_length));
-        memset(r->certificates[i].ext_data, 0, sizeof(r->certificates[i].ext_data));
-        memset(r->certificates[i].ext_data_length, 0, sizeof(r->certificates[i].ext_data_length));
+        memset(r->certificates[i].subject, 0, sizeof(r->certificates[i].subject));
+        memset(r->certificates[i].extensions, 0, sizeof(r->certificates[i].extensions));
         memset(r->certificates[i].san, 0, sizeof(r->certificates[i].san));
     }
 }
@@ -249,35 +238,44 @@ void tls_delete (struct tls_information *r) {
 	            free(entry->data);
             }
         }
+        for (j = 0; j < cert->num_subject_items; j++) {
+            /*
+             * Iterate over all the subject entries.
+             */
+            struct tls_item_entry *entry = &cert->subject[j];
 
+            if (entry->id) {
+                /* Free the entry id */
+	            free(entry->id);
+            }
+            if (entry->data) {
+                /* Free the entry data */
+	            free(entry->data);
+            }
+        }
+        for (j = 0; j < cert->num_extension_items; j++) {
+            /*
+             * Iterate over all the subject entries.
+             */
+            struct tls_item_entry *entry = &cert->extensions[j];
+
+            if (entry->id) {
+                /* Free the entry id */
+	            free(entry->id);
+            }
+            if (entry->data) {
+                /* Free the entry data */
+	            free(entry->data);
+            }
+        }
         if (r->certificates[i].validity_not_before) {
             free(r->certificates[i].validity_not_before);
         }
         if (r->certificates[i].validity_not_after) {
             free(r->certificates[i].validity_not_after);
         }
-        for (j = 0; j < MAX_RDN; j++) {
-            if (r->certificates[i].subject_id[j]) {
-	            free(r->certificates[i].subject_id[j]);
-            }
-        }
-        for (j = 0; j < MAX_RDN; j++) {
-            if (r->certificates[i].subject_string[j]) {
-	            free(r->certificates[i].subject_string[j]);
-            }
-        }
         if (r->certificates[i].subject_public_key_algorithm) {
             free(r->certificates[i].subject_public_key_algorithm);
-        }
-        for (j = 0; j < MAX_CERT_EXTENSIONS; j++) {
-            if (r->certificates[i].ext_id[j]) {
-	            free(r->certificates[i].ext_id[j]);
-            }
-        }
-        for (j = 0; j < MAX_CERT_EXTENSIONS; j++) {
-            if (r->certificates[i].ext_data[j]) {
-	            free(r->certificates[i].ext_data[j]);
-            }
         }
         for (j = 0; j < MAX_SAN; j++) {
             if (r->certificates[i].san[j]) {
@@ -565,30 +563,52 @@ static int tls_x509_get_validity_period(X509 *cert) {
 }
 
 /**
- * \fn int tls_x509_get_subject(X509 *cert)
+ * \fn int tls_x509_get_subject(X509 *cert,
+ *                              struct tls_certificate *record)
  *
  * \brief Extract the subject data out of a X509 certificate.
  *
  * \param cert OpenSSL X509 certificate structure.
+ * \param record Destination tls_certificate structure
+ *               that will be written into.
  *
  * \return 0 for success, 1 for failure
  */
-static int tls_x509_get_subject(X509 *cert) {
+static int tls_x509_get_subject(X509 *cert,
+                                struct tls_certificate *record) {
     X509_NAME *subject = NULL;
+    X509_NAME_ENTRY *entry = NULL;
+    ASN1_STRING *entry_asn1_string = NULL;
+    ASN1_OBJECT *entry_asn1_object = NULL;
+    unsigned char *entry_data_str = NULL;
+    int entry_data_len = 0;
+    int nid = 0;
     int num_of_entries = 0;
     int i = 0;
 
     subject = X509_get_subject_name(cert);
     num_of_entries = X509_NAME_entry_count(subject);
 
+    /* Place the count in record */
+    if (num_of_entries > MAX_RDN) {
+        /* Best effort */
+        record->num_subject_items = MAX_RDN;
+    } else {
+        record->num_subject_items = num_of_entries;
+    }
+
     for (i = 0; i < num_of_entries; i++) {
-        X509_NAME_ENTRY *entry = NULL;
-        ASN1_STRING *entry_asn1_string = NULL;
-        ASN1_OBJECT *entry_asn1_object = NULL;
-        unsigned char *entry_data_str = NULL;
         const char *entry_name_str = NULL;
-        int entry_data_len = 0;
-        int nid = 0;
+        struct tls_item_entry *cert_record_entry = &record->subject[i];
+
+        if (i == MAX_RDN) {
+            /* Best effort, got as many as we could */
+            if (JOY_TLS_DEBUG) {
+                loginfo("warning: hit max entry threshold of %d",
+                        MAX_RDN);
+            }
+            break;
+        }
 
         /* Current subject entry */
         entry = X509_NAME_get_entry(subject, i);
@@ -602,41 +622,63 @@ static int tls_x509_get_subject(X509 *cert) {
         /* NID of the asn1_object */
         nid = OBJ_obj2nid(entry_asn1_object);
 
+        /*
+         * Prepare the subject entry in the certificate record.
+         * Give extra byte for manual null-termination.
+         */
+        cert_record_entry->id = malloc(MAX_CERT_ENTRY_ID + 1);
+        cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data_length = entry_data_len;
+
         if (nid == NID_undef) {
             /*
              * The NID is unknown, so instead we will copy the OID.
              * The OID can be looked-up online to find the name.
              */
-            char name[50];
-            OBJ_obj2txt(name, 50, entry_asn1_object, 1);
-            loginfo("Subject Entry non-nid name: %s\n", name);
+            OBJ_obj2txt(cert_record_entry->id, MAX_CERT_ENTRY_ID,
+                        entry_asn1_object, 1);
+            /* Make sure it's null-terminated */
+            cert_record_entry->id[MAX_CERT_ENTRY_ID] = '\0';
         } else {
             /*
              * Use the NID to get the name as defined in OpenSSL.
              */
             entry_name_str = OBJ_nid2ln(nid);
-            loginfo("Subject Entry name: %s", entry_name_str);
+            strncpy(cert_record_entry->id, entry_name_str,
+                    MAX_CERT_ENTRY_ID);
+            /* Make sure it's null-terminated */
+            cert_record_entry->id[MAX_CERT_ENTRY_ID] = '\0';
         }
 
-        loginfo("Subject Entry data: %s", (char *)entry_data_str);
-        loginfo("Length of subject entry data: %d\n", entry_data_len);
+        memcpy(cert_record_entry->data, entry_data_str, entry_data_len);
+        /* Null-terminated in case it's used as a string */
+        cert_record_entry->data[entry_data_len] = 0;
     }
 
     return 0;
 }
 
 /**
- * \fn int tls_x509_get_issuer(X509 *cert)
+ * \fn int tls_x509_get_issuer(X509 *cert,
+ *                             struct tls_certificate *record)
  *
  * \brief Extract the issuer data out of a X509 certificate.
  *
  * \param cert OpenSSL X509 certificate structure.
+ * \param record Destination tls_certificate structure
+ *               that will be written into.
  *
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_issuer(X509 *cert,
                                struct tls_certificate *record) {
     X509_NAME *issuer = NULL;
+    X509_NAME_ENTRY *entry = NULL;
+    ASN1_STRING *entry_asn1_string = NULL;
+    ASN1_OBJECT *entry_asn1_object = NULL;
+    unsigned char *entry_data_str = NULL;
+    int entry_data_len = 0;
+    int nid = 0;
     int num_of_entries = 0;
     int i = 0;
 
@@ -644,20 +686,28 @@ static int tls_x509_get_issuer(X509 *cert,
     num_of_entries = X509_NAME_entry_count(issuer);
 
     /* Place the count in record */
-    record->num_issuer_items = num_of_entries;
+    if (num_of_entries > MAX_RDN) {
+        /* Best effort */
+        record->num_issuer_items = MAX_RDN;
+    } else {
+        record->num_issuer_items = num_of_entries;
+    }
 
     /*
      * Iterate over all of the entries.
      */
     for (i = 0; i < num_of_entries; i++) {
-        X509_NAME_ENTRY *entry = NULL;
-        ASN1_STRING *entry_asn1_string = NULL;
-        ASN1_OBJECT *entry_asn1_object = NULL;
-        unsigned char *entry_data_str = NULL;
         const char *entry_name_str = NULL;
         struct tls_item_entry *cert_record_entry = &record->issuer[i];
-        int entry_data_len = 0;
-        int nid = 0;
+
+        if (i == MAX_RDN) {
+            /* Best effort, got as many as we could */
+            if (JOY_TLS_DEBUG) {
+                loginfo("warning: hit max entry threshold of %d",
+                        MAX_RDN);
+            }
+            break;
+        }
 
         /* Current issuer entry */
         entry = X509_NAME_get_entry(issuer, i);
@@ -671,30 +721,37 @@ static int tls_x509_get_issuer(X509 *cert,
         /* NID of the asn1_object */
         nid = OBJ_obj2nid(entry_asn1_object);
 
-        /* Prepare the issuer entry in the certificate record */
-        cert_record_entry->id = malloc(MAX_CERT_ENTRY_ID);
-        cert_record_entry->data = malloc(entry_data_len);
+        /*
+         * Prepare the issuer entry in the certificate record.
+         * Give extra byte for manual null-termination.
+         */
+        cert_record_entry->id = malloc(MAX_CERT_ENTRY_ID + 1);
+        cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
             /*
              * The NID is unknown, so instead we will copy the OID.
              * The OID can be looked-up online to find the name.
              */
-            char name[50];
-            OBJ_obj2txt(cert_record_entry->id, MAX_CERT_ENTRY_ID, entry_asn1_object, 1);
-            loginfo("Issuer Entry non-nid name: %s\n", name);
+            OBJ_obj2txt(cert_record_entry->id, MAX_CERT_ENTRY_ID,
+                        entry_asn1_object, 1);
+            /* Make sure it's null-terminated */
+            cert_record_entry->id[MAX_CERT_ENTRY_ID] = '\0';
         } else {
             /*
              * Use the NID to get the name as defined in OpenSSL.
              */
             entry_name_str = OBJ_nid2ln(nid);
-            strncpy(cert_record_entry->id, entry_name_str, MAX_CERT_ENTRY_ID);
+            strncpy(cert_record_entry->id, entry_name_str,
+                    MAX_CERT_ENTRY_ID);
+            /* Make sure it's null-terminated */
+            cert_record_entry->id[MAX_CERT_ENTRY_ID] = '\0';
         }
 
         memcpy(cert_record_entry->data, entry_data_str, entry_data_len);
-
-        loginfo("Issuer Entry data: %s", (char *)entry_data_str);
-        loginfo("Length of issuer entry data: %d\n", entry_data_len);
+        /* Null-terminated in case it's used as a string */
+        cert_record_entry->data[entry_data_len] = 0;
     }
 
     return 0;
@@ -707,6 +764,8 @@ static int tls_x509_get_issuer(X509 *cert,
  * \brief Extract the serial number out of a X509 certificate.
  *
  * \param cert OpenSSL X509 certificate structure.
+ * \param record Destination tls_certificate structure
+ *               that will be written into.
  *
  * \return 0 for success, 1 for failure
  */
@@ -725,6 +784,9 @@ static int tls_x509_get_serial(X509 *cert,
 
     if (serial_str_length > 50) {
         /* This serial number is abnormally large */
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: serial number is too large");
+        }
         goto cleanup;
     }
 
@@ -732,14 +794,7 @@ static int tls_x509_get_serial(X509 *cert,
         record->serial_number = malloc(serial_str_length);
         memcpy(record->serial_number, serial_str, serial_str_length);
         record->serial_number_length = (uint8_t)serial_str_length;
-#if 0
-        int i = 0;
-        loginfo("Length of serial: %d\n", serial_str_length);
-        loginfo("Serial:\n");
-        for (i = 0; i < serial_str_length; i++) {
-            loginfo("%02x", (unsigned char) *record->serial_number + (i*2));
-        }
-#endif
+
         OPENSSL_free(serial_str);
     }
 
@@ -821,6 +876,9 @@ static int tls_x509_get_signature(X509 *cert,
          * We shouldn't be seeing any signatures larger than this.
          * Using 4096 bits (512 bytes) as the standard for upper threshold.
          */
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: signature is too large");
+        }
         return 1;
     }
 
@@ -828,20 +886,12 @@ static int tls_x509_get_signature(X509 *cert,
     memcpy(record->signature, sig_str, sig_length);
     record->signature_length = sig_length;
 
-#if 0
-    int i = 0;
-    loginfo("Signature:");
-    for (i=0; i < sig_length; i++) {
-        loginfo("%02x", *(sig_str + i));
-    }
-    loginfo("Length of signature: %d\n", sig_length);
-#endif
-
     return 0;
 }
 
 /**
- * \fn int tls_x509_get_extensions(X509 *cert)
+ * \fn int tls_x509_get_extensions(X509 *cert,
+ *                                 struct tls_certificate *record)
  *
  * \brief Extract all extensions type/data out of a X509 certificate.
  *
@@ -849,46 +899,84 @@ static int tls_x509_get_signature(X509 *cert,
  *
  * \return 0 for success, 1 for failure
  */
-static int tls_x509_get_extensions(X509 *cert) {
+static int tls_x509_get_extensions(X509 *cert,
+                                   struct tls_certificate *record) {
     X509_EXTENSION *extension = NULL;
     ASN1_OBJECT *ext_asn1_object = NULL;
-    ASN1_OCTET_STRING *ext_data = NULL;
+    ASN1_OCTET_STRING *ext_asn1_string = NULL;
     unsigned char *ext_data_str = NULL;
+    int ext_data_len = 0;
+    int nid = 0;
     int num_exts = 0;
     int i = 0;
 
     num_exts = X509_get_ext_count(cert);
-    for (i= 0; i < num_exts; i++) {
-        unsigned int nid = 0;
-        const char *ext_name_str = NULL;
 
+    /* Place the count in record */
+    if (num_exts > MAX_CERT_EXTENSIONS) {
+        /* Best effort */
+        record->num_extension_items = MAX_CERT_EXTENSIONS;
+    } else {
+        record->num_extension_items = num_exts;
+    }
+
+    /*
+     * Iterate over all of the extensions.
+     */
+    for (i= 0; i < num_exts; i++) {
+        const char *ext_name_str = NULL;
+        struct tls_item_entry *cert_record_entry = &record->extensions[i];
+
+        if (i == MAX_CERT_EXTENSIONS) {
+            /* Best effort, got as many as we could */
+            if (JOY_TLS_DEBUG) {
+                loginfo("warning: hit max extension threshold of %d",
+                        MAX_CERT_EXTENSIONS);
+            }
+            break;
+        }
+
+        /* Current extension */
         extension = X509_get_ext(cert, i);
         ext_asn1_object = X509_EXTENSION_get_object(extension);
-        ext_data = X509_EXTENSION_get_data(extension);
-        ext_data_str = ASN1_STRING_data(ext_data);
+        ext_asn1_string = X509_EXTENSION_get_data(extension);
+        ext_data_str = ASN1_STRING_data(ext_asn1_string);
+        ext_data_len = ASN1_STRING_length(ext_asn1_string);
 
-        /* Object to corresponding NID */
+        /* NID of the asn1_object */
         nid = OBJ_obj2nid(ext_asn1_object);
+
+        /*
+         * Prepare the extension entry in the certificate record.
+         * Give extra byte for manual null-termination.
+         */
+        cert_record_entry->id = malloc(MAX_CERT_ENTRY_ID + 1);
+        cert_record_entry->data = malloc(ext_data_len + 1);
+        cert_record_entry->data_length = ext_data_len;
 
         if (nid == NID_undef) {
             /*
              * The NID is unknown, so instead we will copy the OID.
              * The OID can be looked-up online to find the name.
              */
-            char name[50];
-            OBJ_obj2txt(name, 50, ext_asn1_object, 1);
-            loginfo("Extension oid: %s\n", name);
+            OBJ_obj2txt(cert_record_entry->id, MAX_CERT_ENTRY_ID,
+                        ext_asn1_object, 1);
+            /* Make sure it's null-terminated */
+            cert_record_entry->id[MAX_CERT_ENTRY_ID] = '\0';
         } else {
-            // Object to NID success
+            /*
+             * Use the NID to get the name as defined in OpenSSL.
+             */
             ext_name_str = OBJ_nid2ln(nid);
-            loginfo("Extension name: %s", ext_name_str);
-            loginfo("Extension data:\n");
-            while (*ext_data_str) {
-                loginfo("%02x", (unsigned int) *ext_data_str++);
-            }
-
-            loginfo("Extension data length is %d\n", ASN1_STRING_length(ext_data));
+            strncpy(cert_record_entry->id, ext_name_str,
+                    MAX_CERT_ENTRY_ID);
+            /* Make sure it's null-terminated */
+            cert_record_entry->id[MAX_CERT_ENTRY_ID] = '\0';
         }
+
+        memcpy(cert_record_entry->data, ext_data_str, ext_data_len);
+        /* Null-terminated in case it's used as a string */
+        cert_record_entry->data[ext_data_len] = 0;
     }
 
     return 0;
@@ -939,7 +1027,7 @@ static void tls_server_certificate_parse (const void *x,
             loginfo("Failed cert conversion");
         } else {
             /* Get subject */
-            tls_x509_get_subject(x509_cert);
+            tls_x509_get_subject(x509_cert, &r->certificates[cur_cert]);
 
             /* Get issuer */
             tls_x509_get_issuer(x509_cert, &r->certificates[cur_cert]);
@@ -951,7 +1039,7 @@ static void tls_server_certificate_parse (const void *x,
             tls_x509_get_serial(x509_cert, &r->certificates[cur_cert]);
 
             /* Get extensions */
-            tls_x509_get_extensions(x509_cert);
+            tls_x509_get_extensions(x509_cert, &r->certificates[cur_cert]);
 
             /* Get signature algorithm */
             tls_x509_get_signature_algorithm(x509_cert);
@@ -1367,6 +1455,7 @@ cleanup:
     //printf("\n");
 }
 
+#if 0
 static void tls_san_parse (const void *x, int len, struct tls_certificate *r) {
     unsigned short num_san = 0;
     unsigned short tmp_len;
@@ -1414,6 +1503,7 @@ static void tls_san_parse (const void *x, int len, struct tls_certificate *r) {
     }
     r->num_san = num_san;
 }
+#endif
 
 static void tls_server_hello_get_ciphersuite (const void *x,
                                               unsigned int len,
@@ -2459,9 +2549,43 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     if (data->num_issuer_items) {
         zprintf(f, ",\"issuer\":[");
         for (j = 0; j < data->num_issuer_items; j++) {
-	        zprintf(f, "{\"entry_id: %s\":", data->issuer[j].id);
-	        //zprintf_raw_as_hex_tls(f, data->issuer_id[j], data->issuer_id_length[j]);
-	        zprintf(f, ",\"entry_string\":\"%s\"},", (char *)data->issuer[j].data);
+	        zprintf(f, "{\"entry_id\": \"%s\",", data->issuer[j].id);
+            /* Print the data as a string */
+	        zprintf(f, "\"entry_data\":\"%s\"}", (char *)data->issuer[j].data);
+            if (j == (data->num_issuer_items - 1)) {
+                zprintf(f, "]");
+            } else {
+                zprintf(f, ",");
+            }
+        }
+    }
+
+    if (data->num_subject_items) {
+        zprintf(f, ",\"subject\":[");
+        for (j = 0; j < data->num_subject_items; j++) {
+	        zprintf(f, "{\"entry_id\": \"%s\",", data->subject[j].id);
+            /* Print the data as a string */
+	        zprintf(f, "\"entry_data\":\"%s\"}", (char *)data->subject[j].data);
+            if (j == (data->num_subject_items - 1)) {
+                zprintf(f, "]");
+            } else {
+                zprintf(f, ",");
+            }
+        }
+    }
+
+    if (data->num_extension_items) {
+        zprintf(f, ",\"extensions\":[");
+        for (j = 0; j < data->num_extension_items; j++) {
+	        zprintf(f, "{\"entry_id\": \"%s\",", data->extensions[j].id);
+	        zprintf(f, "\"entry_data\": ");
+	        zprintf_raw_as_hex_tls(f, data->extensions[j].data, data->extensions[j].data_length);
+	        zprintf(f, "}");
+            if (j == (data->num_subject_items - 1)) {
+                zprintf(f, "]");
+            } else {
+                zprintf(f, ",");
+            }
         }
     }
     
@@ -2470,18 +2594,6 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     }
     if (data->validity_not_after) {
         zprintf(f, ",\"validity_not_after\":\"%s\"", (char *)data->validity_not_after);
-    }
-    
-    if (data->num_subject) {
-        zprintf(f, ",\"subject\":[");
-        for (j = 0; j < data->num_subject-1; j++) {
-	        zprintf(f, "{\"subject_id\":");
-	        zprintf_raw_as_hex_tls(f, data->subject_id[j], data->subject_id_length[j]);
-	        zprintf(f, ",\"subject_string\":\"%s\"},", (char *)data->subject_string[j]);
-        }
-        zprintf(f, "{\"subject_id\":");
-        zprintf_raw_as_hex_tls(f, data->subject_id[j], data->subject_id_length[j]);
-        zprintf(f, ",\"subject_string\":\"%s\"}]", (char *)data->subject_string[j]);
     }
     
     if (data->subject_public_key_algorithm_length) {
@@ -2500,22 +2612,6 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
         }
         zprintf(f, "\"%s\"]", (char *)data->san[j]);
     }
-    
-    if (data->num_ext) {
-        zprintf(f, ",\"extensions\":[");
-        for (j = 0; j < data->num_ext-1; j++) {
-	        zprintf(f, "{\"ext_id\":");
-	        zprintf_raw_as_hex_tls(f, data->ext_id[j], data->ext_id_length[j]);
-	        zprintf(f, ",\"ext_data\":");
-	        zprintf_raw_as_hex_tls(f, data->ext_data[j], data->ext_data_length[j]);
-	        zprintf(f, "},");
-        }
-        zprintf(f, "{\"ext_id\":");
-        zprintf_raw_as_hex_tls(f, data->ext_id[j], data->ext_id_length[j]);
-        zprintf(f, ",\"ext_data\":");
-        zprintf_raw_as_hex_tls(f, data->ext_data[j], data->ext_data_length[j]);
-        zprintf(f, "}]");
-    } 
 }
 
 void tls_unit_test() {
