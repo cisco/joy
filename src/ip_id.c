@@ -72,6 +72,7 @@ inline void ip_id_init (struct ip_id *ip_id) {
  * \return none
  */
 void ip_id_update (struct ip_id *ip_id, 
+		   const struct pcap_pkthdr *header,
 		   const void *ip_hdr_data, 
 		   unsigned int len, 
 		   unsigned int report_ip_id) {

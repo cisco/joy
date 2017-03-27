@@ -551,7 +551,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *h, const void *start,
 }
 
 static struct flow_record *
-process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, struct flow_key *key) {
+process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_len, struct flow_key *key) {
     unsigned int tcp_hdr_len;
     const unsigned char *payload;
     unsigned int size_payload;
@@ -622,7 +622,7 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
         } 
     }
     if (include_zeroes || size_payload > 0) {
-          flow_record_process_packet_length_and_time_ack(record, size_payload, &h->ts, tcp);
+          flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
     }
 
     // if initial SYN packet, get TCP sequence number
@@ -704,7 +704,7 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
          
         /* process tls information */
         if (record->tls_info != NULL) {
-            process_tls(h->ts, payload, size_payload, record->tls_info);
+            process_tls(header->ts, payload, size_payload, record->tls_info);
         } else {
             /* couldn't allocate TLS information structure, can't process */
         }
@@ -727,7 +727,7 @@ process_tcp (const struct pcap_pkthdr *h, const void *tcp_start, int tcp_len, st
 
 
 static struct flow_record *
-process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, struct flow_key *key) {
+process_udp (const struct pcap_pkthdr *header, const void *udp_start, int udp_len, struct flow_key *key) {
     unsigned int udp_hdr_len;
     const unsigned char *payload;
     unsigned int size_payload;
@@ -773,7 +773,7 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
     if (record->op < num_pkt_len) {
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
-            record->pkt_time[record->op] = h->ts;
+            record->pkt_time[record->op] = header->ts;
             record->op++; 
         }
     }
@@ -785,7 +785,7 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
     update_all_features(payload_feature_list);
 
     if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
-        process_nfv9(h, payload, size_payload, record);
+        process_nfv9(header, payload, size_payload, record);
     }
 
     if (ipfix_collect_port && (key->dp == ipfix_collect_port)) {
@@ -797,7 +797,7 @@ process_udp (const struct pcap_pkthdr *h, const void *udp_start, int udp_len, st
 
 
 static struct flow_record *
-process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct flow_key *key) {
+process_icmp (const struct pcap_pkthdr *header, const void *start, int len, struct flow_key *key) {
     int size_icmp_hdr;
     const unsigned char *payload;
     int size_payload;
@@ -847,7 +847,7 @@ process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct fl
     if (record->op < num_pkt_len) {
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
-            record->pkt_time[record->op] = h->ts;
+            record->pkt_time[record->op] = header->ts;
             record->op++; 
         }
     }
@@ -863,7 +863,7 @@ process_icmp (const struct pcap_pkthdr *h, const void *start, int len, struct fl
 
 
 static struct flow_record *
-process_ip (const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struct flow_key *key) {
+process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, struct flow_key *key) {
     const unsigned char *payload;
     int size_payload;
     //  const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
@@ -897,7 +897,7 @@ process_ip (const struct pcap_pkthdr *h, const void *ip_start, int ip_len, struc
     if (record->op < num_pkt_len) {
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
-            record->pkt_time[record->op] = h->ts;
+            record->pkt_time[record->op] = header->ts;
             record->op++; 
         }
     }

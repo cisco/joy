@@ -73,6 +73,7 @@ inline void salt_init (struct salt *salt) {
  * \return none
  */
 void salt_update (struct salt *salt, 
+		  const struct pcap_pkthdr *header,
 		  const void *tcp_start, 
 		  unsigned int len, 
 		  unsigned int report_salt) {

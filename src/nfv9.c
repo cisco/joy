@@ -416,6 +416,7 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
         const struct nfv9_template *cur_template, 
         const void *flow_data, int record_num) {
 
+    const struct pcap_pkthdr *header = NULL;   /* dummy */
     struct timeval old_val_time;
     unsigned int total_ms = 0;
     const unsigned char *payload = NULL;

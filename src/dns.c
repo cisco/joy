@@ -739,7 +739,7 @@ void dns_delete (struct dns *dns) {
  * \param report_dns determine if we can report DNS info
  * \return none
  */
-void dns_update (struct dns *dns, const void *start, unsigned int len, unsigned int report_dns) {
+void dns_update (struct dns *dns, const struct pcap_pkthdr *header, const void *start, unsigned int len, unsigned int report_dns) {
     // const char *name = start + 13;
     // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
     // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;

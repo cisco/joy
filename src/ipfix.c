@@ -1774,6 +1774,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
                                const void *flow_data,
                                int record_num) {
   //uint16_t bd_format = 1;
+    const struct pcap_pkthdr *header = NULL;   /* dummy */
   const void *flow_ptr = flow_data;
   const unsigned char *payload = NULL;
   unsigned int size_payload = 0;
