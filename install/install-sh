@@ -20,8 +20,8 @@ usage() {
     echo "   anonfile is the name of a file containing subnets to be anonymized; if no" 
     echo "   such file is provided, then the default file anon.cfg is used"
     echo ""
-    echo "   watchfile is the name of a file containing subnets or addresses to labeled"
-    echo "   as malware; if no such file is provided, then the Talos ip-filter.blf file"
+    echo "   watchfile is the name of a file containing subnets or addresses to be labeled"
+    echo "   as malware; if no such file is provided, then the blacklist ip-filter.blf file"
     echo "   is downloaded and used"
     echo ""
     echo "   keyfile is the name of a file containing an SSH private key to be used"
@@ -36,11 +36,13 @@ usage() {
 
 # set defaults
 #
-CONFIGFILE=options.cfg
-ANONFILE=internal.net
+CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+APP_ROOT=$(dirname "$CWD")
+CONFIGFILE=${CWD}/options.cfg
+ANONFILE=${APP_ROOT}/internal.net
 WATCHFILE=""
 KEYFILE=""
-TLS_FINGERPRINT_FILE=tls_fingerprint.json
+TLS_FINGERPRINT_FILE=${APP_ROOT}/tls_fingerprint.json
 
 echo
 echo JOY INSTALL-SH
@@ -90,17 +92,17 @@ fi
 
 # check for the presence of required files
 #
-if [ ! -x bin/joy ]; then
+if [ ! -x ${APP_ROOT}/bin/joy ]; then
     echo "error: could not find executable file joy (please run \"make\")"
     exit
 fi
 
-if [ ! -f doc/joy.1 ]; then
+if [ ! -f ${APP_ROOT}/doc/joy.1 ]; then
     echo "error: could not find manual page joy.1"
     exit
 fi
 
-if [ ! -f ./joy.rc ]; then
+if [ ! -f ${CWD}/joy.rc ]; then
     echo "error: could not find script joy.rc"
     exit
 fi
@@ -187,7 +189,7 @@ if [ "$sysname" == "Darwin" ]; then
     create_directory /usr/local/share/man/man1
 
     # Install the binary executable
-    cp bin/joy /usr/local/bin
+    cp ${APP_ROOT}/bin/joy /usr/local/bin
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy bin/joy to /usr/local/bin"
@@ -195,7 +197,7 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install query
-    cp query.py /usr/local/bin/
+    cp ${APP_ROOT}/query.py /usr/local/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/bin/"
@@ -263,7 +265,7 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install the Launchd script for daemon management
-    cp joy.plist /Library/LaunchDaemons/
+    cp ${CWD}/joy.plist /Library/LaunchDaemons/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy joy.plist to /Library/LaunchDaemons"
@@ -271,7 +273,7 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install the manpage documentation
-    cp doc/joy.1 /usr/local/share/man/man1/
+    cp ${APP_ROOT}/doc/joy.1 /usr/local/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/share/man/man1 (man page will be unavailable)"
@@ -355,7 +357,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the binary executable
-    cp bin/joy /usr/local/bin/
+    cp ${APP_ROOT}/bin/joy /usr/local/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/bin/"
@@ -363,7 +365,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install query
-    cp query.py /usr/local/bin/
+    cp ${APP_ROOT}/query.py /usr/local/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/bin/"
@@ -430,7 +432,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the manpage documentation
-    cp doc/joy.1 /usr/local/share/man/man1/
+    cp ${APP_ROOT}/doc/joy.1 /usr/local/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/share/man/man1/"
@@ -443,7 +445,7 @@ elif [ "$sysname" == "Linux" ]; then
         # exit
     fi
 
-    cp data/* /usr/local/share/joy/data
+    cp ${APP_ROOT}/data/* /usr/local/share/joy/data
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy data files into directory /usr/local/share/joy/data"
@@ -454,7 +456,7 @@ elif [ "$sysname" == "Linux" ]; then
     # Copy the daemon service files and start it
     ##
     if [ "$daemon_system" == "sysv" ]; then
-        cp joy.rc /etc/init.d/joy
+        cp ${CWD}/joy.rc /etc/init.d/joy
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: could not copy to /etc/init.d"
@@ -478,7 +480,7 @@ elif [ "$sysname" == "Linux" ]; then
         # Start service 
         service joy start
     elif [ "$daemon_system" == "systemd" ]; then
-        cp joy.service /etc/systemd/system
+        cp ${CWD}/joy.service /etc/systemd/system
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: could not copy joy.service to /etc/systemd/system"
@@ -488,16 +490,6 @@ elif [ "$sysname" == "Linux" ]; then
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: could not chmod 644 /etc/systemd/system/joy.service"
-            exit
-        fi
-
-        if [ ! -d "/etc/systemd/system/joy.service.d" ]; then
-            mkdir /etc/systemd/system/joy.service.d
-        fi
-
-        cp joy_env.conf /etc/systemd/system/joy.service.d
-        if [ $retval -ne "0" ]; then
-            echo "error: could not copy joy_env.conf to /etc/systemd/system/joy.service.d"
             exit
         fi
 
@@ -520,7 +512,6 @@ elif [ "$sysname" == "Linux" ]; then
         service joy status
     elif [ "$daemon_system" == "systemd" ]; then
         ls -l /etc/systemd/system/joy.service
-        ls -l /etc/systemd/system/joy.service.d/joy_env.conf
         systemctl status joy.service
     fi
 

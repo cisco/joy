@@ -1,6 +1,6 @@
-/*
+"""
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2017 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,58 +32,41 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- */
+"""
 
-/**
- * \file updater.h
- *
- * \brief Interface to updater code used keep the label subnets up to
- *        date and also re-fresh the classifers.
- *
- */
+import os
+import time
 
-#ifndef UPD_H
-#define UPD_H
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
-#include <pthread.h>
-#include "radix_trie.h"
+def end_process(process):
+    """
+    Takes care of the end-of-life stage of a process.
+    If the process is still running, end it.
+    The process EOL return code is collected and passed back.
+    :param process: A python subprocess object, i.e. subprocess.Popen()
+    :return: 0 for process success
+    """
+    if process.poll() is None:
+        # Gracefully terminate the process
+        process.terminate()
+        time.sleep(1)
+        if process.poll() is None:
+            # Hard kill the process
+            process.kill()
+            time.sleep(1)
+            if process.poll() is None:
+                # Runaway zombie process
+                return 1
+    elif process.poll() != 0:
+        # Export process ended with bad exit code
+        return process.poll()
 
-/** maxiumum lengnth of a URL string */
-#define MAX_URL_LENGTH 512
+    return 0
 
-/** Work interval defined for the updater main processing loop */
-#define UPDATER_WORK_INTERVAL (86400) /* (60*60*24) = 86400 mins, 24 hours */
-//#define UPDATER_WORK_INTERVAL (20) /* for testing - 20 second interval */
 
-/** URL for the blacklist malware feed  - default url us Talos feed */
-#define BLACKLIST_URL "http://www.talosintelligence.com/feeds/ip-filter.blf"
-
-/** destination file name for the blacklist malware feed */
-#define BLACKLIST_FILE_NAME "blacklist-ip-filter.blf"
-
-/** Updater return codes */
-typedef enum {
-    upd_success = 0,
-    upd_failure = 1
-} upd_return_codes_t;
-
-/** mutex used to ensure the radix_trie isn't being accessed by another thread */
-extern pthread_mutex_t radix_trie_lock;
-
-/** mutex used to let other threads know the updater is currently doing work */
-extern pthread_mutex_t work_in_process;
-
-/** external reference to the radix_trie used by joy */
-extern radix_trie_t rt;
-
-/** external reference to the file used for dumping out errors, warning, info */
-extern FILE *info;
-
-/** Main entry point for the updater thread */
-void *updater_main(void* ptr);
-
-#endif /* UPD_H */
+def ensure_path_exists(path):
+    try:
+        os.makedirs(path)
+    except OSError:
+        if not os.path.isdir(path):
+            raise

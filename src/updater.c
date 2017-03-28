@@ -70,8 +70,7 @@ static FILE *print_dest = NULL;
 #define loginfo(...) { \
       if (TO_SCREEN) print_dest = stderr; else print_dest = info; \
       fprintf(print_dest,"%s: ", __FUNCTION__); \
-      fprintf(print_dest, __VA_ARGS__); \
-      fprintf(print_dest, "\n"); }
+      fprintf(print_dest, __VA_ARGS__); }
 
 pthread_mutex_t radix_trie_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t work_in_process = PTHREAD_MUTEX_INITIALIZER;
@@ -79,8 +78,8 @@ pthread_mutex_t work_in_process = PTHREAD_MUTEX_INITIALIZER;
 /** radix_trie built from new information and used to replace existing radix_trie */
 radix_trie_t updater_trie = NULL;
 
-/** MD5 digest of the Talos malware feed file */
-static unsigned char talos_md5[MD5_DIGEST_LENGTH];
+/** MD5 digest of the blacklist malware feed file */
+static unsigned char blacklist_md5[MD5_DIGEST_LENGTH];
 
 /** Classifier digest of the SPLT values */
 static unsigned char splt_classifier_md5[MD5_DIGEST_LENGTH];
@@ -169,15 +168,15 @@ static size_t upd_write_data (void *ptr, size_t size, size_t nmemb, FILE *stream
 }
 
 /*
- * Function performs the main downloading of the Talos feed file for
+ * Function performs the main downloading of the blacklist feed file for
  *    known malware domains. Uses curl to download the file from the
- *    Talos feed and store the file locally.
+ *    blacklist feed and store the file locally.
  */
-static upd_return_codes_t dnload_talos_file () {
+static upd_return_codes_t dnload_blacklist_file (char* full_url) {
     upd_return_codes_t dnld_rc = upd_failure;
     CURLcode curl_rc = CURLE_OK;
     CURL *handle = NULL;
-    FILE *talos_file = NULL;
+    FILE *blacklist_file = NULL;
     char errbuf[CURL_ERROR_SIZE];
     
     /* get a curl handle for the download */
@@ -188,8 +187,8 @@ static upd_return_codes_t dnload_talos_file () {
     }
 
     /* open the destination file */
-    talos_file = fopen(TALOS_FILE_NAME, "wb");
-    if (talos_file == NULL) {
+    blacklist_file = fopen(BLACKLIST_FILE_NAME, "wb");
+    if (blacklist_file == NULL) {
         loginfo("error: couldn't open destination file for writing.\n");
         curl_easy_cleanup(handle);
         return dnld_rc;
@@ -197,8 +196,14 @@ static upd_return_codes_t dnload_talos_file () {
 
     /* setup the curl URL, output file, callback function and error buffer */
     memset(errbuf, 0x00, CURL_ERROR_SIZE);
-    curl_easy_setopt(handle, CURLOPT_URL, TALOS_URL);
-    curl_easy_setopt(handle, CURLOPT_WRITEDATA, talos_file);
+    if (strncasecmp(full_url, "default", 7) == 0) {
+        /* use default Talos feed black list file */
+        curl_easy_setopt(handle, CURLOPT_URL, BLACKLIST_URL);
+    } else {
+        /* use the url that the user set in the config */
+        curl_easy_setopt(handle, CURLOPT_URL, full_url);
+    }
+    curl_easy_setopt(handle, CURLOPT_WRITEDATA, blacklist_file);
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, upd_write_data);
     curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, errbuf);
     curl_easy_setopt(handle, CURLOPT_TIMEOUT, 40L);
@@ -219,11 +224,11 @@ static upd_return_codes_t dnload_talos_file () {
     }
 
     /* clean up the curl handle and close the output file */
-    fclose(talos_file);
+    fclose(blacklist_file);
     curl_easy_cleanup(handle);
 
     if (dnld_rc == upd_success) {
-        return (compute_md5_digest(TALOS_FILE_NAME));
+        return (compute_md5_digest(BLACKLIST_FILE_NAME));
     } else {
         return dnld_rc;
     }
@@ -303,7 +308,7 @@ static upd_return_codes_t update_radix_trie ()
 {
     radix_trie_t tmp_rt;
     attr_flags flag_malware;
-    char *configfile = TALOS_FILE_NAME;
+    char *configfile = BLACKLIST_FILE_NAME;
     enum status err;
 
     /* allocate a new radix_trie structure */
@@ -371,25 +376,34 @@ void *updater_main (void *ptr)
     char params_bd[LINEMAX];
     int num = 0;
     int update_classifiers = 0;
+    int update_labels = 0;
     struct configuration *config = ptr;
 
     /* initialize MD5 digests */
-    memset(talos_md5, 0x00, MD5_DIGEST_LENGTH);
+    memset(blacklist_md5, 0x00, MD5_DIGEST_LENGTH);
     memset(splt_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
     memset(bd_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
+
+    /* check for labeling */
+    if (config->label_url) {
+        loginfo("Labels are configured for continuous updating!\n");
+        update_labels = 1;
+    } else {
+        loginfo("Labels are not configured for continuous updating!\n");
+    }
 
     /* check for remote classifier updates */
     if (config->params_url && config->params_file) {
         num = sscanf(config->params_file, "%[^=:]:%[^=:\n#]", params_splt, params_bd);
         if (num != 2) {
             loginfo("error: could not parse command \"%s\" into form param_splt:param_bd\n", config->params_file);
-            loginfo("Classifiers are not conifgured for continuous updating!\n");
+            loginfo("Classifiers are not configured for continuous updating!\n");
         } else {
-            loginfo("Classifiers are conifgured for continous updating!\n");
+            loginfo("Classifiers are configured for continous updating!\n");
             update_classifiers = 1;
         }
     } else {
-            loginfo("Classifiers are not conifgured for continous updating!\n");
+            loginfo("Classifiers are not configured for continous updating!\n");
     }
 
     /* initialize the curl library as we need it for downloading updates */
@@ -404,17 +418,19 @@ void *updater_main (void *ptr)
         /* let's only wake up and do work at specified intervals */
         pthread_mutex_lock(&work_in_process);
       
-        /* check for Talos updates */
-        if (dnload_talos_file() == upd_success) {
-            if (!is_digest_same(md5_digest_result, talos_md5)) {
-               loginfo("Talos file is different, update radix_trie\n");
-               update_radix_trie();
-               save_new_md5(md5_digest_result, talos_md5);
+        /* check for blacklist updates */
+        if (update_labels) {
+            if (dnload_blacklist_file(config->label_url) == upd_success) {
+                if (!is_digest_same(md5_digest_result, blacklist_md5)) {
+                   loginfo("Blacklist file is different, updating\n");
+                   update_radix_trie();
+                   save_new_md5(md5_digest_result, blacklist_md5);
+                } else {
+                   loginfo("Blacklist file is the same, no work to do\n");
+                }
             } else {
-               loginfo("Talos file is the same, no work to do\n");
+                loginfo("error: Blacklist file download failed, no work to do\n");
             }
-        } else {
-            loginfo("error: Talos file download failed, no work to do\n");
         }
 
         /* check for SPLT classifier updates */

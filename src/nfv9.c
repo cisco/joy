@@ -363,12 +363,8 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
         return;
     }
 
-    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > flow_len) {
-        /*
-         * TODO error log here
-         * IP packet is malformed (shorter than a complete IP header, or
-         * claims to be longer than the total IDP length).
-         */
+    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+        /* IP packet is malformed (shorter than a complete IP header) */
         return;
     }
 

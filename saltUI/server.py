@@ -60,7 +60,7 @@ paramserver = ''
 out_dir = '/usr/local/var/joy/'
 count_flocap = 100
 try:
-    fp = open('../options.cfg','r')
+    fp = open('../install/options.cfg','r')
     for line in fp:
         if line.startswith("outdir"):
             out_dir = line.split()[2]

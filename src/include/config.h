@@ -93,6 +93,7 @@ struct configuration {
     char *upload_key;
     char *params_url;
     char *params_file;
+    char *label_url;
     char *bpf_filter_exp;
     char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
     char *ipfix_export_remote_host;
