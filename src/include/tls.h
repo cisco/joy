@@ -69,7 +69,8 @@
 #define MAX_CERT_EXTENSIONS 12
 #define MAX_CERTIFICATE_BUFFER 11000
 #define MAX_CKE_LEN 1024
-#define MAX_CERT_ENTRY_ID 50
+/* The maimum size of string that we allow from OpenSSL */
+#define MAX_OPENSSL_STRING 32
 
 /** \remarks \verbatim
   structure for TLS awareness 
@@ -144,7 +145,7 @@ struct tls_extension {
 };
 
 struct tls_item_entry {
-    char *id; /**< Identification */
+    char id[MAX_OPENSSL_STRING]; /**< Identification (string) */
     unsigned char *data; /**< Data encapsulated within the item */
     uint16_t data_length; /**< Length of the data in bytes */
 };
@@ -155,6 +156,8 @@ struct tls_certificate {
     uint8_t serial_number_length; /**< Length of the serial number in bytes */
     unsigned char *signature; /**< Signature */
     uint16_t signature_length; /**< Length of the signature in bytes */
+    char signature_algorithm[MAX_OPENSSL_STRING]; /**< Signature algorithm (string) */
+    uint16_t signature_key_size; /**< Length of the signature key in bits */
     struct tls_item_entry issuer[MAX_RDN]; /**< Array of item entries corresponding
                                                 to the issuer information */
     uint8_t num_issuer_items;
@@ -164,16 +167,12 @@ struct tls_certificate {
     struct tls_item_entry extensions[MAX_CERT_EXTENSIONS]; /**< Array of item entries corresponding
                                                                 to the extension information */
     uint8_t num_extension_items;
-    void *validity_not_before;
-    //unsigned short validity_not_before_length;
-    void *validity_not_after;
-    //unsigned short validity_not_after_length;
-    void *subject_public_key_algorithm;
-    unsigned short subject_public_key_algorithm_length;
-    unsigned short subject_public_key_size;
-    unsigned short signature_key_size;
-    void *san[MAX_SAN];
-    unsigned short num_san;
+    unsigned char *validity_not_before;
+    uint16_t validity_not_before_length;
+    unsigned char *validity_not_after;
+    uint16_t validity_not_after_length;
+    char subject_public_key_algorithm[MAX_OPENSSL_STRING]; /**< Subject public key algorithm (string) */
+    uint16_t subject_public_key_size; /**< Length of the subject public key in bits */
 };
 
 typedef struct tls_information {
