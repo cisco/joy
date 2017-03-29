@@ -267,11 +267,11 @@ void tls_delete (struct tls_information *r) {
 	            free(entry->data);
             }
         }
-        if (r->certificates[i].validity_not_before) {
-            free(r->certificates[i].validity_not_before);
+        if (cert->validity_not_before) {
+            free(cert->validity_not_before);
         }
-        if (r->certificates[i].validity_not_after) {
-            free(r->certificates[i].validity_not_after);
+        if (cert->validity_not_after) {
+            free(cert->validity_not_after);
         }
     }
 }
@@ -463,94 +463,90 @@ static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h
 }
 
 /**
- * \fn int tls_x509_get_validity_period(X509 *cert)
+ * \fn int tls_x509_get_validity_period(X509 *cert,
+ *                                      struct tls_certificate *record)
  *
  * \brief Extract notBefore and notAfter out of a X509 certificate.
  *
  * \param cert OpenSSL X509 certificate structure.
+ * \param record Destination tls_certificate structure
+ *               that will be written into.
  *
  * \return 0 for success, 1 for failure
  */
-static int tls_x509_get_validity_period(X509 *cert) {
-    BIO *date_bio_buf = NULL;
+static int tls_x509_get_validity_period(X509 *cert,
+                                        struct tls_certificate *record) {
     ASN1_TIME *not_before = NULL;
     ASN1_TIME *not_after = NULL;
-    int not_before_len = 0;
-    int not_after_len = 0;
-    char not_before_str[50] = {'\0'};
-    char not_after_str[50] = {'\0'};
-    int rc_ssl = 0;
+    unsigned char *not_before_data_str = NULL;
+    unsigned char *not_after_data_str = NULL;
+    int not_before_data_len = 0;
+    int not_after_data_len = 0;
+    int rc_not_before = 1;
+    int rc_not_after = 1;
 
     not_before = X509_get_notBefore(cert);
     not_after = X509_get_notAfter(cert);
 
-    not_before_len = ASN1_STRING_length(not_before);
-    not_after_len = ASN1_STRING_length(not_after);
+    if (not_before != NULL) {
+        /* Get the time data */
+        not_before_data_str = ASN1_STRING_data(not_before);
+        /* Get the length of the data */
+        not_before_data_len = ASN1_STRING_length(not_before);
 
-    /*
-     * Get notBefore
-     */
-    date_bio_buf = BIO_new(BIO_s_mem());
-    if (!date_bio_buf) {
-        loginfo("error: unable to allocate BIO");
+        if (not_before_data_len > 0) {
+            /* Prepare the record */
+            record->validity_not_before = malloc(not_before_data_len);
+            record->validity_not_before_length = not_before_data_len;
+            /* Copy notBefore into record */
+            memcpy(record->validity_not_before, not_before_data_str,
+                   not_before_data_len);
+
+            /* Success */
+            rc_not_before = 0;
+        } else {
+           if (JOY_TLS_DEBUG) {
+               loginfo("warning: no data exists for notBefore");
+           }
+        }
+    } else {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: could not extract notBefore");
+        }
+    }
+
+    if (not_after != NULL) {
+        /* Get the time data */
+        not_after_data_str = ASN1_STRING_data(not_after);
+        /* Get the length of the data */
+        not_after_data_len = ASN1_STRING_length(not_after);
+
+        if (not_after_data_len > 0) {
+            /* Prepare the record */
+            record->validity_not_after = malloc(not_after_data_len);
+            record->validity_not_after_length = not_after_data_len;
+            /* Copy notAfter into record */
+            memcpy(record->validity_not_after, not_after_data_str,
+                   not_after_data_len);
+
+            /* Success */
+            rc_not_after = 0;
+        } else {
+           if (JOY_TLS_DEBUG) {
+               loginfo("warning: no data exists for notAfter");
+           }
+        }
+    } else {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: could not extract notAfter");
+        }
+    }
+
+    if (!rc_not_before || !rc_not_after) {
         return 1;
+    } else {
+        return 0;
     }
-
-    rc_ssl = ASN1_TIME_print(date_bio_buf, not_before);
-    if (rc_ssl <= 0) {
-        loginfo("error: conversion from ASN1 to BIO failed");
-        BIO_free(date_bio_buf);
-        return 1;
-    }
-
-    rc_ssl = BIO_gets(date_bio_buf, not_before_str, sizeof(not_before_str));
-    if (rc_ssl <= 0) {
-        loginfo("error: conversion from BIO to string failed");
-        BIO_free(date_bio_buf);
-        return 1;
-    }
-    /* Cleanup for next allocation */
-    BIO_free(date_bio_buf);
-    date_bio_buf = NULL;
-
-    /*
-     * Get notAfter
-     */
-    date_bio_buf = BIO_new(BIO_s_mem());
-    if (!date_bio_buf) {
-        loginfo("error: unable to allocate BIO");
-        return 1;
-    }
-
-    rc_ssl = ASN1_TIME_print(date_bio_buf, not_after);
-    if (rc_ssl <= 0) {
-        loginfo("error: conversion from ASN1 to BIO failed");
-        BIO_free(date_bio_buf);
-        return 1;
-    }
-
-    rc_ssl = BIO_gets(date_bio_buf, not_after_str, sizeof(not_after_str));
-    if (rc_ssl <= 0) {
-        loginfo("error: conversion from BIO to string failed");
-        BIO_free(date_bio_buf);
-        return 1;
-    }
-
-    /* Print it out for now */
-    if (*not_before_str) {
-        loginfo("ValidityNotBefore: %s", not_before_str);
-        loginfo("Length of notBefore: %d", not_before_len);
-    }
-
-    if (*not_after_str) {
-        loginfo("ValidityNotAfter: %s", not_after_str);
-        loginfo("Length of notAfter: %d", not_after_len);
-    }
-
-    /* Cleanup */
-    BIO_free(date_bio_buf);
-
-    return 0;
 }
 
 /**
@@ -578,6 +574,12 @@ static int tls_x509_get_subject(X509 *cert,
     int i = 0;
 
     subject = X509_get_subject_name(cert);
+    if (subject == NULL) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: could not extract subject");
+        }
+        return 1;
+    }
     num_of_entries = X509_NAME_entry_count(subject);
 
     /* Place the count in record */
@@ -673,6 +675,12 @@ static int tls_x509_get_issuer(X509 *cert,
     int i = 0;
 
     issuer = X509_get_issuer_name(cert);
+    if (issuer == NULL) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: could not extract issuer");
+        }
+        return 1;
+    }
     num_of_entries = X509_NAME_entry_count(issuer);
 
     /* Place the count in record */
@@ -761,41 +769,35 @@ static int tls_x509_get_issuer(X509 *cert,
 static int tls_x509_get_serial(X509 *cert,
                                struct tls_certificate *record) {
     ASN1_INTEGER *serial = NULL;
-    BIGNUM *serial_big = NULL;
-    char *serial_str = NULL;
-    uint16_t serial_str_length = 0;
-    int rc = 1;
+    unsigned char *serial_data = NULL;
+    uint16_t serial_data_length = 0;
 
     serial = X509_get_serialNumber(cert);
-    serial_big = ASN1_INTEGER_to_BN(serial, NULL);
-    serial_str = BN_bn2hex(serial_big);
-    serial_str_length = BN_num_bytes(serial_big);
+    if (serial == NULL) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: could not extract serial");
+        }
+        return 1;
+    }
 
-    if (serial_str_length > MAX_CERT_SERIAL_LENGTH) {
+    serial_data = ASN1_STRING_data(serial);
+    serial_data_length = ASN1_STRING_length(serial);
+
+    if (serial_data_length > MAX_CERT_SERIAL_LENGTH) {
         /* This serial number is abnormally large */
         if (JOY_TLS_DEBUG) {
             loginfo("warning: serial number is too large");
         }
-        goto cleanup;
+        return 1;
     }
 
-    if (serial_str) {
-        record->serial_number = malloc(serial_str_length);
-        memcpy(record->serial_number, serial_str, serial_str_length);
-        record->serial_number_length = (uint8_t)serial_str_length;
-
-        OPENSSL_free(serial_str);
+    if (serial_data) {
+        record->serial_number = malloc(serial_data_length);
+        memcpy(record->serial_number, serial_data, serial_data_length);
+        record->serial_number_length = (uint8_t)serial_data_length;
     }
 
-    /* Success */
-    rc = 0;
-
-cleanup:
-    if (serial_big) {
-        BN_free(serial_big);
-    }
-
-    return rc;
+    return 0;
 }
 
 /**
@@ -823,7 +825,20 @@ static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
      * Get the X509 public key.
      */
     pubkey = X509_get_X509_PUBKEY(cert);
+    if (pubkey == NULL) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: could not extract public key");
+        }
+        return 1;
+    }
+
     algorithm_asn1_obj = pubkey->algor->algorithm;
+    if (algorithm_asn1_obj == NULL) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: problem getting public key algorithm");
+        }
+        return 1;
+    }
 
     /* Look at the actual public key embedded data */
     pubkey_asn1_string = pubkey->public_key;
@@ -879,6 +894,12 @@ static int tls_x509_get_signature_algorithm(X509 *cert,
      * directly out of the X509 struct.
      */
     sig_alg_asn1_obj = cert->sig_alg->algorithm;
+    if (sig_alg_asn1_obj == NULL) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: problem getting signature algorithm");
+        }
+        return 1;
+    }
 
     /* Get the NID of the asn1_object */
     nid = OBJ_obj2nid(sig_alg_asn1_obj);
@@ -922,6 +943,13 @@ static int tls_x509_get_signature(X509 *cert,
     int sig_length = 0;
 
     sig = cert->signature;
+    if (sig == NULL) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("warning: problem getting signature");
+        }
+        return 1;
+    }
+
     sig_str = ASN1_STRING_data(sig);
     sig_length = ASN1_STRING_length(sig);
 
@@ -1007,9 +1035,8 @@ static int tls_x509_get_extensions(X509 *cert,
 
         /*
          * Prepare the extension entry in the certificate record.
-         * Give extra byte for manual null-termination.
          */
-        cert_record_entry->data = malloc(ext_data_len + 1);
+        cert_record_entry->data = malloc(ext_data_len);
         cert_record_entry->data_length = ext_data_len;
 
         if (nid == NID_undef) {
@@ -1033,30 +1060,30 @@ static int tls_x509_get_extensions(X509 *cert,
         }
 
         memcpy(cert_record_entry->data, ext_data_str, ext_data_len);
-        /* Null-terminated in case it's used as a string */
-        cert_record_entry->data[ext_data_len] = 0;
     }
 
     return 0;
 }
 
-static void tls_server_certificate_parse (const void *x,
+static void tls_server_certificate_parse (const unsigned char *data,
                                           unsigned int len,
                                           struct tls_information *r) {
 
-    const unsigned char *y = x;
-    uint16_t certs_len, cert_len, cur_cert = 0;
-    certs_len = raw_to_unsigned_short(y+1);
+    int all_certs_len = 0;
+    unsigned short cert_len, index_cert = 0;
     int rc = 0;
 
     if (JOY_TLS_DEBUG) {
-        loginfo("all certificates length: %d", certs_len);
+        loginfo("all certificates length: %d", all_certs_len);
     }
 
-    y += 3;
-    certs_len -= 3;
-  
-    while (certs_len > 0) {
+    /* Move past the all_certs_len */
+    all_certs_len = raw_to_unsigned_short(data + 1);
+    data += 3;
+
+    while (all_certs_len > 0) {
+        struct tls_certificate *certificate = NULL;
+        const unsigned char *ptr_openssl = NULL;
         X509 *x509_cert = NULL;
 
         if (r->num_certificates >= MAX_CERTIFICATES) {
@@ -1066,60 +1093,73 @@ static void tls_server_certificate_parse (const void *x,
             return;
         }
 
-        cur_cert = r->num_certificates;
+        /* The index to retrieve the proper certificate record */
+        index_cert = r->num_certificates;
         r->num_certificates += 1;
 
+        /* Point to the current certificate record */
+        certificate = &r->certificates[index_cert];
+
         /* Current certificate length */
-        cert_len = raw_to_unsigned_short(y+1);
-        r->certificates[cur_cert].length = (unsigned short)cert_len;
-        y += 3;
-        certs_len -= 3;
+        cert_len = raw_to_unsigned_short(data + 1);
+        certificate->length = cert_len;
+
+        /* Move past the cert_len */
+        data += 3;
+        all_certs_len -= 3;
+
         if (JOY_TLS_DEBUG) {
             loginfo("current certificate length: %d", cert_len);
         }
 
+        ptr_openssl = data;
         /* Convert to OpenSSL X509 object */
-        x509_cert = d2i_X509(NULL, &y, (size_t)cert_len);
+        x509_cert = d2i_X509(NULL, &ptr_openssl, (size_t)cert_len);
 
         if (x509_cert == NULL) {
             loginfo("Failed cert conversion");
         } else {
             /* Get subject */
-            tls_x509_get_subject(x509_cert, &r->certificates[cur_cert]);
+            tls_x509_get_subject(x509_cert, certificate);
 
             /* Get issuer */
-            tls_x509_get_issuer(x509_cert, &r->certificates[cur_cert]);
+            tls_x509_get_issuer(x509_cert, certificate);
 
             /* Get the validity notBefore and notAfter */
-            tls_x509_get_validity_period(x509_cert);
+            tls_x509_get_validity_period(x509_cert, certificate);
 
             /* Get serial */
-            tls_x509_get_serial(x509_cert, &r->certificates[cur_cert]);
+            tls_x509_get_serial(x509_cert, certificate);
 
             /* Get extensions */
-            tls_x509_get_extensions(x509_cert, &r->certificates[cur_cert]);
+            tls_x509_get_extensions(x509_cert, certificate);
 
             /* Get signature algorithm */
-            tls_x509_get_signature_algorithm(x509_cert, &r->certificates[cur_cert]);
+            tls_x509_get_signature_algorithm(x509_cert, certificate);
 
             /* Get signature */
-            tls_x509_get_signature(x509_cert, &r->certificates[cur_cert]);
+            tls_x509_get_signature(x509_cert, certificate);
 
             /* Get public-key info */
-            tls_x509_get_subject_pubkey_algorithm(x509_cert, &r->certificates[cur_cert]);
+            tls_x509_get_subject_pubkey_algorithm(x509_cert, certificate);
         }
-
-        /* Skip over lengths */
-        y += 14;
-        certs_len -= 14;
 
         /*
          * Skip to the next certificate
-         * FIXME this isn't working right
          */
-        y += cert_len;
-        certs_len -= cert_len;
-        goto cleanup;
+        data += cert_len;
+        all_certs_len -= cert_len;
+
+        /*
+         * Cleanup
+         */
+        if (x509_cert) {
+            X509_free(x509_cert);
+        }
+
+        if (rc) {
+            return;
+        }
 #if 0
         // parse serial number
         tmp_len = (*y);
@@ -1498,22 +1538,7 @@ static void tls_server_certificate_parse (const void *x,
         //printf("\n");
         //break;
 #endif
-
-cleanup:
-        /*
-         * Cleanup
-         */
-        if (x509_cert) {
-            X509_free(x509_cert);
-        }
-
-        if (rc) {
-            return;
-        }
     }
-  
-  
-    //printf("\n");
 }
 
 #if 0
@@ -2658,10 +2683,12 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     }
     
     if (data->validity_not_before) {
-        zprintf(f, ",\"validity_not_before\":\"%s\"", (char *)data->validity_not_before);
+        zprintf(f, ",\"validity_not_before\":");
+        zprintf_raw_as_hex_tls(f, data->validity_not_before, data->validity_not_before_length);
     }
     if (data->validity_not_after) {
-        zprintf(f, ",\"validity_not_after\":\"%s\"", (char *)data->validity_not_after);
+        zprintf(f, ",\"validity_not_after\":");
+        zprintf_raw_as_hex_tls(f, data->validity_not_after, data->validity_not_after_length);
     }
     
     if (*data->subject_public_key_algorithm) {
