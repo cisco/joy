@@ -1065,23 +1065,48 @@ static int tls_x509_get_extensions(X509 *cert,
     return 0;
 }
 
+/**
+ * \fn void tls_server_certificate_parse (const unsigned char *data,
+ *                                        unsigned int data_len,
+ *                                        struct tls_information *r)
+ *
+ * \brief Parse a server certificate chain.
+ *
+ * \param data Pointer to the certificate message payload data.
+ * \param data_len Length of the data in bytes.
+ * \param r tls_information structure that will be written into.
+ *
+ * \return
+ *
+ */
 static void tls_server_certificate_parse (const unsigned char *data,
-                                          unsigned int len,
+                                          unsigned int data_len,
                                           struct tls_information *r) {
 
-    int all_certs_len = 0;
-    unsigned short cert_len, index_cert = 0;
+    unsigned short total_certs_len = 0, remaining_certs_len,
+                   cert_len, index_cert = 0;
     int rc = 0;
 
-    if (JOY_TLS_DEBUG) {
-        loginfo("all certificates length: %d", all_certs_len);
-    }
-
     /* Move past the all_certs_len */
-    all_certs_len = raw_to_unsigned_short(data + 1);
+    total_certs_len = raw_to_unsigned_short(data + 1);
     data += 3;
 
-    while (all_certs_len > 0) {
+    if (JOY_TLS_DEBUG) {
+        loginfo("all certificates length: %d", total_certs_len);
+    }
+
+    if (total_certs_len > data_len) {
+        /*
+         * The length of all the certificates is supposedly
+         * longer than the entire handshake message.
+         * This should not be possible.
+         */
+        return;
+    }
+
+    remaining_certs_len = total_certs_len;
+
+    while (0 < remaining_certs_len && remaining_certs_len <= total_certs_len) {
         struct tls_certificate *certificate = NULL;
         const unsigned char *ptr_openssl = NULL;
         X509 *x509_cert = NULL;
@@ -1106,7 +1131,7 @@ static void tls_server_certificate_parse (const unsigned char *data,
 
         /* Move past the cert_len */
         data += 3;
-        all_certs_len -= 3;
+        remaining_certs_len -= 3;
 
         if (JOY_TLS_DEBUG) {
             loginfo("current certificate length: %d", cert_len);
@@ -1148,7 +1173,7 @@ static void tls_server_certificate_parse (const unsigned char *data,
          * Skip to the next certificate
          */
         data += cert_len;
-        all_certs_len -= cert_len;
+        remaining_certs_len -= cert_len;
 
         /*
          * Cleanup
@@ -2187,7 +2212,8 @@ void tls_update (struct tls_information *r,
  *                                  int data_len,
  *                                  struct tls_information *tls_info)
  *
- * \brief Sift through \p data processing any certificates that are encountered.
+ * \brief Sift through \p data processing any certificate
+ *        handshake messages that are encountered.
  *
  * \param data Beginning of the data to process.
  * \param data_len Length of \p data in bytes.
@@ -2208,13 +2234,18 @@ static int tls_certificate_process (const void *data,
             break;
         }
 
+        /* Get the length of the handshake portion of the message */
         tls_len = tls_header_get_length(tls_hdr);
 
+        /* Only parse Certificate message types */
         if (tls_hdr->handshake.msg_type == TLS_HANDSHAKE_CERTIFICATE) {
             tls_server_certificate_parse(&tls_hdr->handshake.body, tls_len, tls_info);
         }
 
-        tls_len += 5; /* FIXME should this be the actual body length? advance over header */
+        /* Adjust for the length of tls_hdr metadata */
+        tls_len += 5;
+
+        /* Advance over this handshake message */
         data += tls_len;
         data_len -= tls_len;
     }
@@ -2413,11 +2444,15 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 
 /**
  * \fn void tls_print_json (const struct tls_information *data,
-    const struct tls_information *data_twin, zfile f)
+ *                          const struct tls_information *data_twin,
+ *                          zfile f)
+ *
  * \param data pointer to TLS information structure
  * \param data_twin pointer to twin TLS information structure
  * \param f destination file for the output
- * \return none
+ *
+ * \return
+ *
  */
 void tls_print_json (const struct tls_information *data,
                      const struct tls_information *data_twin,
@@ -2617,6 +2652,18 @@ void tls_print_json (const struct tls_information *data,
     zprintf(f, "}");
 }
 
+/**
+ * \fn void tls_certificate_printf (const struct tls_certificate *data,
+ *                                  zfile f)
+ *
+ * \brief Print the contents of a TLS certificate to compressed JSON output.
+ *
+ * \param data pointer to TLS certificate structure
+ * \param f destination file for the output
+ *
+ * \return
+ *
+ */
 static void tls_certificate_printf (const struct tls_certificate *data, zfile f) {
     int j;
 
