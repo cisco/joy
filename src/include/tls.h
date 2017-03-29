@@ -187,13 +187,11 @@ typedef struct tls_information {
     unsigned short int num_server_tls_extensions; /**< Number of server extensions */
     struct tls_extension tls_extensions[MAX_EXTENSIONS]; /**< Extensions */
     struct tls_extension server_tls_extensions[MAX_EXTENSIONS]; /**< Extensions of server */
-    // TODO change to client/server version
     unsigned char tls_v; /**< TLS version */
     unsigned int tls_client_key_length; /**< clientKeyExchange key length */
     unsigned char clientKeyExchange[MAX_CKE_LEN]; /**< clientKeyExchange data */
     unsigned char tls_sid_len; /**< Session ID length */
     unsigned char tls_sid[MAX_SID_LEN]; /**< Session ID */
-    // TODO change to client/server random
     unsigned char tls_random[32]; /**< Random field from hello */
     struct tls_certificate certificates[MAX_CERTIFICATES]; /**< X.509 certificates */
     unsigned char num_certificates; /**< Number of certificates */
@@ -262,7 +260,8 @@ enum tls_version {
     TLS_VERSION_SSLV3 = 2,
     TLS_VERSION_1_0 = 3,
     TLS_VERSION_1_1 = 4,
-    TLS_VERSION_1_2 = 5
+    TLS_VERSION_1_2 = 5,
+    TLS_VERSION_1_3 = 6
 };
 
 /*

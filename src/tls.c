@@ -102,7 +102,7 @@ static uint8_t tls_fingerprint_db_loaded = 0;
 
 /* Local prototypes */
 static int tls_certificate_process(const void *data, int data_len, struct tls_information *tls_info);
-static int tls_version_capture(struct tls_information *tls_info, const struct tls_header *tls_hdr);
+static int tls_header_version_capture(struct tls_information *tls_info, const struct tls_header *tls_hdr);
 static void tls_certificate_printf(const struct tls_certificate *data, zfile f);
 
 
@@ -310,7 +310,7 @@ static void tls_client_hello_get_ciphersuites (const void *x,
     //  mem_print(x, len);
     //  fprintf(stderr, "TLS version %0x%0x\n", y[0], y[1]);
 
-    if ((y[0] != 3) || (y[1] > 3)) {
+    if ((y[0] != 3) || (y[1] > 4)) {
         // fprintf(stderr, "warning: TLS version %0x%0x\n", y[0], y[1]);
         return;  
     }
@@ -1625,7 +1625,7 @@ static void tls_server_hello_get_ciphersuite (const void *x,
 
     //  mem_print(x, len);
 
-    if ((y[0] != 3) || (y[1] > 3)) {
+    if ((y[0] != 3) || (y[1] > 4)) {
         // fprintf(stderr, "warning: TLS version %0x%0x\n", y[0], y[1]);
         return;  
     }
@@ -1961,6 +1961,60 @@ static unsigned int packet_is_sslv2_hello (const void *data) {
 }
 #endif
 
+static int tls_version_to_internal(unsigned char major,
+                                   unsigned char minor) {
+    int internal_version = 0;
+
+    if ((major != 3) || (minor > 4)) {
+        /* Currently only capture SSLV3, TLS1.0, 1.1, 1.2, 1.3 */
+        return 0;
+    }
+
+    switch(major) {
+        case 3:
+            switch(minor) {
+                case 0:
+                    internal_version = TLS_VERSION_SSLV3;
+                    break;
+                case 1:
+                    internal_version = TLS_VERSION_1_0;
+                    break;
+                case 2:
+                    internal_version = TLS_VERSION_1_1;
+                    break;
+                case 3:
+                    internal_version = TLS_VERSION_1_2;
+                    break;
+            }
+            break;
+        case 2:
+            internal_version = TLS_VERSION_SSLV2;
+            break;
+        default:
+            ;
+    }
+
+    return internal_version;
+}
+
+static int tls_handshake_hello_get_version(struct tls_information *tls_info,
+                                           const unsigned char *data) {
+    int internal_version = 0;
+    unsigned char major = *data;
+    unsigned char minor = *(data + 1);
+
+    internal_version = tls_version_to_internal(major, minor);
+    if (!internal_version) {
+        /* Could not get the version, error or unsupported */
+        return 1;
+    }
+
+    /* Capture it */
+    tls_info->tls_v = internal_version;
+
+    return 0;
+}
+
 /**
  * \fn void tls_update (struct tls_information *r,
  *                      const void *payload,
@@ -2103,7 +2157,7 @@ void tls_update (struct tls_information *r,
         if (tls->content_type == TLS_CONTENT_APPLICATION_DATA) {
             if (!r->tls_v) {
                 /* Write the TLS version to record if empty */
-                if (tls_version_capture(r, tls)) {
+                if (tls_header_version_capture(r, tls)) {
                     /* TLS version sanity check failed */
                     return;
                 }
@@ -2131,7 +2185,7 @@ void tls_update (struct tls_information *r,
                  */
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
-                    if (tls_version_capture(r, tls)) {
+                    if (tls_handshake_hello_get_version(r, &tls->handshake.body)) {
                         /* TLS version sanity check failed */
                         return;
                     }
@@ -2151,14 +2205,13 @@ void tls_update (struct tls_information *r,
                  */
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
-                    if (tls_version_capture(r, tls)) {
+                    if (tls_handshake_hello_get_version(r, &tls->handshake.body)) {
                         /* TLS version sanity check failed */
                         return;
                     }
                 }
 
                 r->role = role_server;
-
                 tls_server_hello_get_ciphersuite(&tls->handshake.body, tls_len, r);
                 tls_server_hello_get_extensions(&tls->handshake.body, (int)tls_len, r);
             } else if (tls->handshake.msg_type == TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE) {
@@ -2254,8 +2307,8 @@ static int tls_certificate_process (const void *data,
 }
 
 /**
- * \fn void tls_version_capture (struct tls_information *tls_info,
- *                               const struct tls_header *tls_hdr)
+ * \fn void tls_header_version_capture (struct tls_information *tls_info,
+ *                                      const struct tls_header *tls_hdr)
  *
  * \brief Get the TLS version out of the header, and write it into the record.
  *
@@ -2264,40 +2317,18 @@ static int tls_certificate_process (const void *data,
  *
  * \return 0 for success, 1 for failure
  */
-static int tls_version_capture (struct tls_information *tls_info,
-                                const struct tls_header *tls_hdr) {
+static int tls_header_version_capture (struct tls_information *tls_info,
+                                       const struct tls_header *tls_hdr) {
+    int internal_version = 0;
     struct tls_protocol_version version = tls_hdr->protocol_version;
-    unsigned char internal_version = TLS_VERSION_UNKNOWN;
 
-    if ((version.major != 3) || (version.minor > 3)) {
-        /* Currently only capture SSLV3, TLS1.0, 1.1, 1.2 */
+    internal_version = tls_version_to_internal(version.major, version.minor);
+    if (!internal_version) {
+        /* Could not get the version, error or unsupported */
         return 1;
     }
 
-    switch(version.major) {
-        case 3:
-            switch(version.minor) {
-                case 0:
-                    internal_version = TLS_VERSION_SSLV3;
-                    break;
-                case 1:
-                    internal_version = TLS_VERSION_1_0;
-                    break;
-                case 2:
-                    internal_version = TLS_VERSION_1_1;
-                    break;
-                case 3:
-                    internal_version = TLS_VERSION_1_2;
-                    break;
-            }
-            break;
-        case 2:
-            internal_version = TLS_VERSION_SSLV2;
-            break;
-        default:
-            ;
-    }
-
+    /* Capture it */
     tls_info->tls_v = internal_version;
 
     return 0;
