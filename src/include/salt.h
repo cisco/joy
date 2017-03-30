@@ -51,7 +51,7 @@
 #define MAX_NUM_PKT 200
 
 /** usage string */
-#define salt_usage "  salt=1                  include salt feature\n"
+#define salt_usage "  salt=1                     include salt feature\n"
 
 /** salt filter key */
 #define salt_filter(key) 1

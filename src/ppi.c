@@ -118,95 +118,12 @@ void ppi_update (struct ppi *ppi,
  * \return none
  */
 void ppi_print_json (const struct ppi *x1, const struct ppi *x2, zfile f) {
-    //    unsigned int i;
 
-#if 0
-
-    if (x1->np) {
-        zprintf(f, ",\"oseq\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x1->seq[i] - x1->seq[0]);
-	}
-        zprintf(f, "],oack\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x1->ack[i] - x1->ack[0]);
-	}
-        zprintf(f, "]");
-    }
-    if (x2 && x2->np) {
-        zprintf(f, ",\"iseq\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x2->seq[i] - x2->seq[0]);
-	}
-        zprintf(f, "],iack\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x2->ack[i] - x2->ack[0]);
-	}
-        zprintf(f, "]");
-    }
-
-// #else 
-    
-    if (x1->np) {
-        zprintf(f, ",\"oseq\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x1->seq[i] - x1->seq[i-1]);
-	    } else {
-		zprintf(f, "%u", x1->seq[i]);
-	    }
-	}
-        zprintf(f, "],\"oack\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x1->ack[i] - x1->ack[i-1]);
-	    } else {
-		zprintf(f, "%u", x1->ack[i]);
-	    }
-	}
-        zprintf(f, "]");
-    }
-    if (x2 && x2->np) {
-        zprintf(f, ",\"iseq\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x2->seq[i] - x2->seq[i-1]);
-	    } else {
-		zprintf(f, "%u", x2->seq[i]);
-	    }
-	}
-        zprintf(f, "],\"iack\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x2->ack[i] - x2->ack[i-1]);
-	    } else {
-		zprintf(f, "%u", x2->ack[i]);
-	    }
-	}
-        zprintf(f, "]");
-    }
-
-#endif
-
-    zprintf(f, ",\"ppi\":[");
     pkt_info_print_interleaved(f, 
 			       x1->pkt_info, 
 			       x1->np, 
 			       x2 ? x2->pkt_info : NULL, 
 			       x2 ? x2->np : 0);
-    zprintf(f, "]");	
 
 }
 
@@ -241,21 +158,9 @@ unsigned int num_pkts = NUM_PKT_LEN;
 #define OUT "<"
 #define IN  ">"
 
-#if 0
-/*
- * for portability and static analysis, we define our own timer
- * comparison functions (rather than use non-standard
- * timercmp/timersub macros)
- */
-static inline unsigned int timer_gt (const struct timeval *a, const struct timeval *b) {
-    return (a->tv_sec == b->tv_sec) ? (a->tv_usec > b->tv_usec) : (a->tv_sec > b->tv_sec);
-}
-#endif
-
 static inline unsigned int timer_lt (const struct timeval *a, const struct timeval *b) {
     return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
 }
-
 
 static inline void timer_clear (struct timeval *a) { 
     a->tv_sec = a->tv_usec = 0; 
@@ -380,60 +285,66 @@ static void pkt_info_print_interleaved(zfile f,
 				       unsigned int np2) {
     
     unsigned int i, j, imax, jmax;
-    struct timeval ts_last, ts_start;
+    struct timeval ts_last;
     struct tcp_state tcp_state = { 0, };
     struct tcp_state rev_tcp_state = { 0, };
 
-    if (pkt_info2 == NULL) {
+    imax = np  > num_pkts ? num_pkts : np;
 
-	zprintf(f, "\"NULL\"");
-	
-	/* nothing for now; this will be filled in after the other branch is finalized */
+    if (pkt_info2 == NULL) {  /* unidirectional tcp flow, no interleaving needed */
 
-    } else {
-
-	/* process the bidirectional tcp flow in (pkt_info, pkt_info2) */
-
-        if (timer_lt(&pkt_info[0].time, &pkt_info2[0].time)) {
-            ts_start = pkt_info[0].time;
-        } else {
-            ts_start = pkt_info2[0].time;
+        if (!np) {
+	    return; /* nothing to report */
         }
 
-        imax = np  > num_pkts ? num_pkts : np;
-        jmax = np2 > num_pkts ? num_pkts : np2;
-        i = j = 0;
-        ts_last = ts_start;
-        while ((i < imax) || (j < jmax)) {      
+        zprintf(f, ",\"ppi\":[");
+        ts_last = pkt_info[0].time;
+        for (i=0; i < imax; i++) { 
+	    pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
+        }
+        zprintf(f, "]");	
 
+    } else { /*  bidirectional tcp flow in (pkt_info, pkt_info2), interleaving needed */
+
+        if (timer_lt(&pkt_info[0].time, &pkt_info2[0].time)) {
+            ts_last = pkt_info[0].time;
+        } else {
+            ts_last = pkt_info2[0].time;
+        }
+
+        jmax = np2 > num_pkts ? num_pkts : np2;
+	if (!imax || !jmax) {
+	  return;   /* nothing to output */
+	}
+	zprintf(f, ",\"ppi\":[");
+        i = j = 0;
+        while ((i < imax) || (j < jmax)) {      
+	  
             if (i >= imax) {  /* record list is exhausted, so use twin */
 		pkt_info_process(f, &pkt_info2[j], &rev_tcp_state, &tcp_state, ts_last);
-		// ts_last = pkt_info2[j].time;
 		j++;
             } else if (j >= jmax) {  /* twin list is exhausted, so use record */
 		pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
-		// ts_last = pkt_info[i].time;
 		i++;
 	    } else { /* neither list is exhausted, so use list with lowest time */     
 
 	            if (timer_lt(&pkt_info[i].time, &pkt_info2[j].time)) {
 			pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
-			// ts_last = pkt_info[i].time;
 	                if (i < imax) {
 	                    i++;
 	                }
 	            } else {
 			pkt_info_process(f, &pkt_info2[j], &rev_tcp_state, &tcp_state, ts_last);
-			// ts_last = pkt_info2[j].time;
 	                if (j < jmax) {
 	                    j++;
 	                }
 	            }
-          }
-          if (!((i == imax) & (j == jmax))) { /* we are done */
-	            zprintf(f, ",");
-          }
-      }
+	    }
+	    if (!((i == imax) & (j == jmax))) { /* we are done */
+	        zprintf(f, ",");
+	    }
+	}
+	zprintf(f, "]");	
     }
 }
 

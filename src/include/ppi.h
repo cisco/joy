@@ -37,8 +37,8 @@
 /**
  * \file ppi.h
  *
- * \brief PPI module using the generic programming interface defined
- * in feature.h.
+ * \brief per-packet information (ppi) module using the generic
+ * programming interface defined in feature.h.
  *
  */
 #ifndef PPI_H
