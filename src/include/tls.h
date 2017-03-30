@@ -302,12 +302,10 @@ void tls_delete(struct tls_information *r);
 
 /** process TLS packet for consumption */
 void tls_update(struct tls_information *r,
+                const struct pcap_pkthdr *header,
                 const void *data,
                 unsigned int data_len,
-                unsigned int report_tls,
-                const void *extra,
-                const unsigned int extra_len,
-                const EXTRA_TYPE extra_type);
+                unsigned int report_tls);
 
 /** print out the TLS information to the destination file */
 void tls_print_json(const struct tls_information *data, const struct tls_information *data_twin, zfile f);

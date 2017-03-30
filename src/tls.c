@@ -2062,12 +2062,10 @@ static int tls_handshake_hello_get_version(struct tls_information *tls_info,
 
 /**
  * \fn void tls_update (struct tls_information *r,
+ *                      const struct pcap_pkthdr *header,
  *                      const void *payload,
  *                      unsigned int len,
- *                      unsigned int report_tls,
- *                      const void *extra,
- *                      const unsigned int extra_len,
- *                      const EXTRA_TYPE extra_type)
+ *                      unsigned int report_tls)
  *
  * \brief Parse, process, and record TLS payload data.
  *
@@ -2076,23 +2074,15 @@ static int tls_handshake_hello_get_version(struct tls_information *tls_info,
  * \param len Length in bytes of the data that \p payload is pointing to.
  * \param report_tls Flag indicating whether this feature should run.
  *                   0 for no, 1 for yes
- * \param extra Void pointer which gives access to any additional
- *              necessary info that this function needs to perform properly.
- * \param extra_len Length in bytes of the data that \p extra is pointing to.
- * \param extra_type Enumeration value that specifies what type
- *                   of data \p extra points to.
  *
  * \return
  */
 void tls_update (struct tls_information *r,
+                 const struct pcap_pkthdr *header,
                  const void *payload,
                  unsigned int len,
-                 unsigned int report_tls,
-                 const void *extra,
-                 const unsigned int extra_len,
-                 const EXTRA_TYPE extra_type) {
+                 unsigned int report_tls) {
     const void *start = payload;
-    const struct pcap_pkthdr *pcap_header = NULL;
     const struct tls_header *tls = NULL;
     uint16_t tls_len;
 
@@ -2116,13 +2106,6 @@ void tls_update (struct tls_information *r,
         r = malloc(sizeof(struct tls_information));
         if (r != NULL) {
             tls_init(r);
-        }
-    }
-
-    /* Get the pcap header from extra parameter */
-    if (extra != NULL){
-        if (extra_type == EXTRA_PCAP_HEADER) {
-            pcap_header = (const struct pcap_pkthdr *)extra;
         }
     }
 
@@ -2285,12 +2268,12 @@ void tls_update (struct tls_information *r,
         if (r->tls_op < MAX_NUM_RCD_LEN) {
             r->tls_type[r->tls_op].content = tls->content_type;
             r->tls_len[r->tls_op] = tls_len;
-            if (pcap_header == NULL) {
+            if (header == NULL) {
                 /* The pcap_pkthdr is not available, cannot get timestamp */
                 const struct timeval ts = {0};
                 r->tls_time[r->tls_op] = ts;
             } else {
-                r->tls_time[r->tls_op] = pcap_header->ts;
+                r->tls_time[r->tls_op] = header->ts;
             }
         }
 

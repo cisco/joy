@@ -411,7 +411,5 @@ void nfv9_flow_key_init(struct flow_key *key,
 void nfv9_process_flow_record(struct flow_record *nf_record,
                               const struct nfv9_template *cur_template,
                               const void *flow_data,
-                              int record_num,
-                              const void *extra,
-                              const unsigned int extra_len,
-                              const EXTRA_TYPE extra_type);
+                              int record_num);
+

@@ -46,7 +46,7 @@
 
 #include <stdio.h> 
 #include "output.h"
-#include "feature.h"
+#include <pcap.h>
 
 /** inclusion string */
 #define wht_usage "  wht=1                      include walsh-hadamard transform\n"
@@ -64,13 +64,11 @@ typedef struct wht {
 void wht_init(struct wht *wht);
 
 /** updates the contents of walsh-hadamard structure */
-void wht_update(struct wht *wht,
-                const void *data,
-                unsigned int data_len,
-                unsigned int report_wht,
-                const void *extra,
-                const unsigned int extra_len,
-                const EXTRA_TYPE extra_type);
+void wht_update(struct wht *wht, 
+		const struct pcap_pkthdr *header, 
+		const void *data, 
+		unsigned int len, 
+		unsigned int report_wht);
 
 /** prints out the walsh-hadamard structure in JSON format */
 void wht_print_json(const struct wht *w1, const struct wht *w2, zfile f);

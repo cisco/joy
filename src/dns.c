@@ -733,30 +733,18 @@ void dns_delete (struct dns *dns) {
 
 /**
  * \fn void dns_update (struct dns *dns,
+ *                      const struct pcap_pkthdr *header,
                         const void *start,
                         unsigned int len,
-                        unsigned int report_dns,
-                        const void *extra,
-                        const unsigned int extra_len,
-                        const EXTRA_TYPE extra_type)
+                        unsigned int report_dns)
  * \param dns DNS structure pointer
+ * \param header pointer to the pcap packet header
  * \param start pointer to the update data
  * \param len length of the update data
  * \param report_dns determine if we can report DNS info
- * \param extra Void pointer which gives access to any additional
- *              necessary info that this function needs to perform properly.
- * \param extra_len Length in bytes of the data that \p extra is pointing to.
- * \param extra_type Enumeration value that specifies what type
- *                   of data \p extra points to.
  * \return none
  */
-void dns_update (struct dns *dns,
-                 const void *start,
-                 unsigned int len,
-                 unsigned int report_dns,
-                 const void *extra,
-                 const unsigned int extra_len,
-                 const EXTRA_TYPE extra_type) {
+void dns_update (struct dns *dns, const struct pcap_pkthdr *header, const void *start, unsigned int len, unsigned int report_dns) {
     // const char *name = start + 13;
     // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
     // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;

@@ -56,30 +56,22 @@ inline void example_init (struct example *example) {
 
 /**
  * \fn void example_update (struct example *example,
+ *                          const struct pcap_pkthdr *header,
                             const void *data,
                             unsigned int len,
-                            unsigned int report_example,
-                            const void *extra,
-                            const unsigned int extra_len,
-                            const EXTRA_TYPE extra_type)
+                            unsigned int report_example)
  * \param example structure to initialize
+ * \param header pointer to the pcap packet header
  * \param data data to use for update
  * \param len length of the data
  * \param report_example flag to determine if we filter example
- * \param extra Void pointer which gives access to any additional
- *              necessary info that this function needs to perform properly.
- * \param extra_len Length in bytes of the data that \p extra is pointing to.
- * \param extra_type Enumeration value that specifies what type
- *                   of data \p extra points to.
  * \return none
  */
-void example_update (struct example *example,
-                     const void *data,
-                     unsigned int len,
-                     unsigned int report_example,
-                     const void *extra,
-                     const unsigned int extra_len,
-                     const EXTRA_TYPE extra_type) {
+void example_update (struct example *example, 
+		     const struct pcap_pkthdr *header, 
+		     const void *data, 
+		     unsigned int len, 
+		     unsigned int report_example) {
     if (report_example) {
         example->counter += len;
     }
@@ -120,6 +112,7 @@ void example_delete (struct example *example) {
  */
 void example_unit_test () {
     struct example example;
+    const struct pcap_pkthdr *header = NULL; 
     zfile output;
 
     output = zattach(stdout, "w");
@@ -127,15 +120,15 @@ void example_unit_test () {
         fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
     }
     example_init(&example);
-    example_update(&example, NULL, 1, 1, NULL, 0, 0);
-    example_update(&example, NULL, 2, 1, NULL, 0, 0);
-    example_update(&example, NULL, 3, 1, NULL, 0, 0);
-    example_update(&example, NULL, 4, 1, NULL, 0, 0);
-    example_update(&example, NULL, 5, 1, NULL, 0, 0);
-    example_update(&example, NULL, 6, 1, NULL, 0, 0);
-    example_update(&example, NULL, 7, 1, NULL, 0, 0);
-    example_update(&example, NULL, 8, 1, NULL, 0, 0);
-    example_update(&example, NULL, 9, 1, NULL, 0, 0);
+    example_update(&example, header, NULL, 1, 1);
+    example_update(&example, header, NULL, 2, 1);
+    example_update(&example, header, NULL, 3, 1);
+    example_update(&example, header, NULL, 4, 1);
+    example_update(&example, header, NULL, 5, 1);
+    example_update(&example, header, NULL, 6, 1);
+    example_update(&example, header, NULL, 7, 1);
+    example_update(&example, header, NULL, 8, 1);
+    example_update(&example, header, NULL, 9, 1);
     example_print_json(&example, NULL, output);
 } 
 

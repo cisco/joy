@@ -45,6 +45,7 @@
 #define SSH_H
 
 #include <stdio.h>   /* for FILE* */
+#include <pcap.h>
 #include "output.h"
 #include "feature.h"
 #include "utils.h"
@@ -75,13 +76,11 @@ declare_feature(ssh);
 
 void ssh_init(struct ssh *ssh);
 
-void ssh_update(struct ssh *ssh,
-                const void *data,
-                unsigned int data_len,
-                unsigned int report_ssh,
-                const void *extra,
-                const unsigned int extra_len,
-                const EXTRA_TYPE extra_type);
+void ssh_update(struct ssh *ssh, 
+                const struct pcap_pkthdr *header,
+		const void *data, 
+		unsigned int len, 
+		unsigned int report_ssh);
 
 void ssh_print_json(const struct ssh *w1, 
 		    const struct ssh *w2,

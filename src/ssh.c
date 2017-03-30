@@ -262,13 +262,11 @@ inline void ssh_init(struct ssh *ssh) {
     memset(ssh->s_languages, 0, sizeof(ssh->s_languages));
 }
 
-void ssh_update(struct ssh *ssh,
-                const void *data,
-                unsigned int len,
-                unsigned int report_ssh,
-                const void *extra,
-                const unsigned int extra_len,
-                const EXTRA_TYPE extra_type) {
+void ssh_update(struct ssh *ssh, 
+		const struct pcap_pkthdr *header,
+		const void *data, 
+		unsigned int len, 
+		unsigned int report_ssh) {
     unsigned int length;
     unsigned char msg_code;
 
@@ -337,6 +335,7 @@ void ssh_delete(struct ssh *ssh) {
 }
 
 void ssh_unit_test() {
+    const struct pcap_pkthdr *header = NULL;
     struct ssh ssh;
     zfile output;
     char *msg = "should use a valid KEXT ssh msg here";
@@ -346,15 +345,15 @@ void ssh_unit_test() {
 	fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
     }
     ssh_init(&ssh);
-    ssh_update(&ssh, msg, 1, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 2, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 3, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 4, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 5, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 6, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 7, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 8, 1, NULL, 0, 0);
-    ssh_update(&ssh, msg, 9, 1, NULL, 0, 0);
+    ssh_update(&ssh, header, msg, 1, 1);
+    ssh_update(&ssh, header, msg, 2, 1);
+    ssh_update(&ssh, header, msg, 3, 1);
+    ssh_update(&ssh, header, msg, 4, 1);
+    ssh_update(&ssh, header, msg, 5, 1);
+    ssh_update(&ssh, header, msg, 6, 1);
+    ssh_update(&ssh, header, msg, 7, 1);
+    ssh_update(&ssh, header, msg, 8, 1);
+    ssh_update(&ssh, header, msg, 9, 1);
     ssh_print_json(&ssh, NULL, output);
  
 } 

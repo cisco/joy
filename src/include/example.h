@@ -44,6 +44,7 @@
 #define EXAMPLE_H
 
 #include <stdio.h> 
+#include <pcap.h>
 #include "output.h"
 #include "feature.h"
 
@@ -65,13 +66,11 @@ declare_feature(example);
 void example_init(struct example *example);
 
 /** update example */
-void example_update(struct example *example,
-                    const void *data,
-                    unsigned int data_len,
-                    unsigned int report_example,
-                    const void *extra,
-                    const unsigned int extra_len,
-                    const EXTRA_TYPE extra_type);
+void example_update(struct example *example, 
+		    const struct pcap_pkthdr *header,
+		    const void *data, 
+		    unsigned int len, 
+		    unsigned int report_example);
 
 /** JSON print example */
 void example_print_json(const struct example *w1, 

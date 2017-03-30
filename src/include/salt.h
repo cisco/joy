@@ -51,7 +51,7 @@
 #define MAX_NUM_PKT 200
 
 /** usage string */
-#define salt_usage "  salt=1                  include salt feature\n"
+#define salt_usage "  salt=1                     include salt feature\n"
 
 /** salt filter key */
 #define salt_filter(key) 1
@@ -72,13 +72,11 @@ declare_feature(salt);
 void salt_init(struct salt *salt);
 
 /** update salt */
-void salt_update(struct salt *salt,
-                 const void *data,
-                 unsigned int data_len,
-                 unsigned int report_salt,
-                 const void *extra,
-                 const unsigned int extra_len,
-                 const EXTRA_TYPE extra_type);
+void salt_update(struct salt *salt, 
+		 const struct pcap_pkthdr *header,
+		 const void *data, 
+		 unsigned int len, 
+		 unsigned int report_salt);
 
 /** JSON print salt */
 void salt_print_json(const struct salt *w1, 

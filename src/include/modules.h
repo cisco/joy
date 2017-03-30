@@ -49,5 +49,6 @@
 #include "ssh.h"          /* secure shell protocol         */
 #include "ip_id.h"        /* ipv4 identification field     */
 #include "salt.h"         /* seq of app lengths and times  */
+#include "ppi.h"          /* per-packet information        */
 
 #endif /* MODULES_H */
