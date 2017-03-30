@@ -311,12 +311,9 @@ static void tls_client_hello_get_ciphersuites (const void *x,
     //  fprintf(stderr, "TLS version %0x%0x\n", y[0], y[1]);
 
     /* Check the TLS version */
-    if ((y[0] != 3) || (y[1] < 3)) {
-        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
-            /* Allow TLS1.3 */
-        } else {
-            return;
-        }
+    if (!r->tls_v) {
+        /* Unsupported version */
+        return;
     }
 
     /* record the 32-byte Random field */
@@ -368,12 +365,9 @@ static void tls_client_hello_get_extensions (const void *x,
 
     len -= 4; // get handshake message length
     /* Check the TLS version */
-    if ((y[0] != 3) || (y[1] < 3)) {
-        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
-            /* Allow TLS1.3 */
-        } else {
-            return;
-        }
+    if (!r->tls_v) {
+        /* Unsupported version */
+        return;
     }
 
     y += 34;  /* skip over ProtocolVersion and Random */
@@ -1634,13 +1628,14 @@ static void tls_server_hello_get_ciphersuite (const void *x,
     unsigned char flag_tls13 = 0;
 
     /* Check the TLS version */
-    if ((y[0] != 3) || (y[1] < 3)) {
-        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
-            /* Allow TLS1.3 */
-            flag_tls13 = 1;
-        } else {
-            return;
-        }
+    if (!r->tls_v) {
+        /* Unsupported version */
+        return;
+    }
+
+    if (r->tls_v == TLS_VERSION_1_3) {
+        /* Flag that this is TLS 1.3 */
+        flag_tls13 = 1;
     }
 
     /* Record the 32-byte Random field */
@@ -1685,13 +1680,14 @@ static void tls_server_hello_get_extensions (const void *x, int len,
     len -= 4;
 
     /* Check the TLS version */
-    if ((y[0] != 3) || (y[1] < 3)) {
-        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
-            /* Allow TLS1.3 */
-            flag_tls13 = 1;
-        } else {
-            return;
-        }
+    if (!r->tls_v) {
+        /* Unsupported version */
+        return;
+    }
+
+    if (r->tls_v == TLS_VERSION_1_3) {
+        /* Flag that this is TLS 1.3 */
+        flag_tls13 = 1;
     }
 
     /* Skip over ProtocolVersion and Random */
@@ -1729,7 +1725,7 @@ static void tls_server_hello_get_extensions (const void *x, int len,
 
     i = 0;
     while (len > 0) {
-        if (raw_to_unsigned_short(y+2) > 64) {
+        if (raw_to_unsigned_short(y+2) > 256) {
             break;
         }
         r->server_tls_extensions[i].type = raw_to_unsigned_short(y);
@@ -2001,8 +1997,13 @@ static int tls_version_to_internal(unsigned char major,
     int internal_version = 0;
 
     if ((major != 3) || (minor > 4)) {
-        /* Currently only capture SSLV3, TLS1.0, 1.1, 1.2, 1.3 */
-        return 0;
+        /*
+         * Currently only capture SSLV3, TLS1.0, 1.1, 1.2, 1.3
+         * Allow the dev version of TlS 1.3
+         */
+        if (major != 0x7F || minor != 0x12) {
+            return 0;
+        }
     }
 
     switch(major) {
