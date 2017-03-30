@@ -310,9 +310,13 @@ static void tls_client_hello_get_ciphersuites (const void *x,
     //  mem_print(x, len);
     //  fprintf(stderr, "TLS version %0x%0x\n", y[0], y[1]);
 
-    if ((y[0] != 3) || (y[1] > 4)) {
-        // fprintf(stderr, "warning: TLS version %0x%0x\n", y[0], y[1]);
-        return;  
+    /* Check the TLS version */
+    if ((y[0] != 3) || (y[1] < 3)) {
+        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
+            /* Allow TLS1.3 */
+        } else {
+            return;
+        }
     }
 
     /* record the 32-byte Random field */
@@ -363,8 +367,13 @@ static void tls_client_hello_get_extensions (const void *x,
 
 
     len -= 4; // get handshake message length
-    if ((y[0] != 3) || (y[1] > 3)) {
-        return;  
+    /* Check the TLS version */
+    if ((y[0] != 3) || (y[1] < 3)) {
+        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
+            /* Allow TLS1.3 */
+        } else {
+            return;
+        }
     }
 
     y += 34;  /* skip over ProtocolVersion and Random */
@@ -1622,32 +1631,43 @@ static void tls_server_hello_get_ciphersuite (const void *x,
     unsigned int session_id_len;
     const unsigned char *y = x;
     unsigned short int cs; 
+    unsigned char flag_tls13 = 0;
 
-    //  mem_print(x, len);
-
-    if ((y[0] != 3) || (y[1] > 4)) {
-        // fprintf(stderr, "warning: TLS version %0x%0x\n", y[0], y[1]);
-        return;  
+    /* Check the TLS version */
+    if ((y[0] != 3) || (y[1] < 3)) {
+        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
+            /* Allow TLS1.3 */
+            flag_tls13 = 1;
+        } else {
+            return;
+        }
     }
 
-    /* record the 32-byte Random field */
+    /* Record the 32-byte Random field */
     memcpy(r->tls_random, y+2, 32); 
 
-    y += 34;  /* skip over ProtocolVersion and Random */
-    session_id_len = *y;
-    if (session_id_len + 3 > len) {
-        //fprintf(info, "error: TLS session ID too long\n"); 
-        return;   /* error: session ID too long */
+    /* Skip over ProtocolVersion and Random */
+    y += 34;
+
+    /* If TLS 1.3, jump over this part */
+    if (!flag_tls13) {
+        session_id_len = *y;
+        if (session_id_len + 3 > len) {
+            //fprintf(info, "error: TLS session ID too long\n"); 
+            return;   /* error: session ID too long */
+        }
+
+        /* record the session id, if there is one */
+        if (session_id_len) {
+            r->tls_sid_len = session_id_len;
+            memcpy(r->tls_sid, y+1, session_id_len); 
+        }
+
+        /* Skip over SessionID and SessionIDLen */
+        y += (session_id_len + 1);
     }
 
-    /* record the session id, if there is one */
-    if (session_id_len) {
-        r->tls_sid_len = session_id_len;
-        memcpy(r->tls_sid, y+1, session_id_len); 
-    }
-
-    y += (session_id_len + 1);   /* skip over SessionID and SessionIDLen */
-    // mem_print(y, 2);
+    /* Record the single selected cipher suite */
     cs = raw_to_unsigned_short(y);
 
     r->num_ciphersuites = 1;
@@ -1660,30 +1680,45 @@ static void tls_server_hello_get_extensions (const void *x, int len,
     const unsigned char *y = x;
     unsigned short int extensions_len;
     unsigned int i = 0;
+    unsigned char flag_tls13 = 0;
 
-    //  mem_print(x, len);
     len -= 4;
+
+    /* Check the TLS version */
     if ((y[0] != 3) || (y[1] < 3)) {
-        //printf("warning: TLS version %0x%0x\n", y[0], y[1]);
-        return;  
+        if ((y[0] == 0x03 && y[1] == 0x04) || (y[0] == 0x7F && y[1] == 0x12)) {
+            /* Allow TLS1.3 */
+            flag_tls13 = 1;
+        } else {
+            return;
+        }
     }
 
-    y += 34;  /* skip over ProtocolVersion and Random */
+    /* Skip over ProtocolVersion and Random */
+    y += 34;
     len -= 34;
-    session_id_len = *y;
 
-    len -= (session_id_len + 1);
-    y += (session_id_len + 1);   /* skip over SessionID and SessionIDLen */
+    /* If TLS 1.3, jump over this part */
+    if (!flag_tls13) {
+        /* Skip over SessionID and SessionIDLen */
+        session_id_len = *y;
+        len -= (session_id_len + 1);
+        y += (session_id_len + 1);   
+    }
 
-    len -= 2; /* skip over scs */
+    /* Skip over scs (cipher_suite) */
+    len -= 2; 
     y += 2;
 
-    // skip over compression methods
-    compression_method_len = *y;
-    y += 1+compression_method_len;
-    len -= 1+compression_method_len;
+    /* If TLS 1.3, jump over this part */
+    if (!flag_tls13) {
+        /* Skip over compression methods */
+        compression_method_len = *y;
+        y += 1+compression_method_len;
+        len -= 1+compression_method_len;
+    }
 
-    // extensions length
+    /* Extensions length */
     extensions_len = raw_to_unsigned_short(y);
     if (len < extensions_len) {
         //fprintf(info, "error: TLS extensions too long\n"); 
@@ -1985,11 +2020,20 @@ static int tls_version_to_internal(unsigned char major,
                 case 3:
                     internal_version = TLS_VERSION_1_2;
                     break;
+                case 4:
+                    internal_version = TLS_VERSION_1_3;
+                    break;
             }
             break;
         case 2:
             internal_version = TLS_VERSION_SSLV2;
             break;
+        case 0x7F:
+            switch(minor) {
+                case 0x12:
+                    internal_version = TLS_VERSION_1_3;
+                    break;
+            }
         default:
             ;
     }
