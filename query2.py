@@ -7,6 +7,8 @@ import sys, json, operator, gzip, string, time, pprint, copy, re, pickle
 from optparse import OptionParser
 from math import sqrt, log
 
+badLineCount = 0
+
 class flowIterator:
    def __init__(self):
       pass
@@ -23,19 +25,19 @@ class flowIteratorFromFile(flowIterator):
       return self
 
    def next(self):
-      line = self.f.readline()
-      if line == '':
-         raise StopIteration  
-      if line.strip == '{' or 'metadata' in line:
-         print "error: legacy JSON format"
-         return
-      tmp = json.loads(line)
-      while 'version' in tmp:
-         line = self.f.readline()
-         if line == '':
-            raise StopIteration  
-         tmp = json.loads(line)
-      return tmp
+      while True:
+         try:
+            line = self.f.readline()
+            if line == '':
+               raise StopIteration
+            tmp = json.loads(line)
+            return tmp
+         except StopIteration:
+            raise
+         except:
+            pass
+            global badLineCount
+            badLineCount += 1
 
    def __init__(self, f):      
       if f is '-':
@@ -68,14 +70,11 @@ class flowProcessor:
       self.flowset.append(flow)
 
    def preProcess(self, context=None):    
-      self.context = context
+      pass
 
    def postProcess(self, proc=None):    
-      tmp = dict()
-      # tmp["key"] = self.context
-      # tmp["flows"] = self.flowset
       for flow in self.flowset:
-         print flow
+         json.dump(flow, sys.stdout)
 
 class splitProcessor(flowProcessor):
    def __init__(self, fpobj, field):
@@ -236,7 +235,7 @@ class flowProcessorDistribution:
          output.append(d)
       output.sort(key=lambda x: x["count"], reverse=True)
       for d in output:
-         print d
+         print json.dumps(d)
 
 class flowProcessorSum:
    def __init__(self, sumvars):
@@ -502,3 +501,6 @@ if __name__=='__main__':
       except:
          raise
    fp.postProcess(dist)
+
+   if badLineCount > 0:
+      sys.stderr.write("warning: could not read " + str(badLineCount) + " lines\n")
