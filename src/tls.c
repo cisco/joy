@@ -1183,6 +1183,7 @@ static void tls_server_certificate_parse (const unsigned char *data,
          */
         if (x509_cert) {
             X509_free(x509_cert);
+            CRYPTO_cleanup_all_ex_data();
         }
 
         if (rc) {
