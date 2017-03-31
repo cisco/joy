@@ -43,7 +43,6 @@
 
 #include <pcap.h>
 #include "output.h"
-#include "feature.h"
 
 /** usage string */
 #define dns_usage "  dns=1                      report DNS response information\n"

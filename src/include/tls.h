@@ -46,7 +46,6 @@
 #include <pcap.h>
 #include "output.h"
 #include "utils.h"
-#include "feature.h"
 #include "fingerprint.h"
 
 /** usage string for tls */

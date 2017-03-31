@@ -47,10 +47,7 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <openssl/x509.h>
-#include <openssl/x509v3.h>
 #include <openssl/asn1.h>
-#include <openssl/bn.h>
-#include <openssl/bio.h>
 #include "tls.h"
 #include "parson.h"
 #include "fingerprint.h"
@@ -74,6 +71,7 @@
  *  depending on the TO_SCREEN setting.
  */
 static FILE *print_dest = NULL;
+extern FILE *info;
 
 /** sends information to the destination output device */
 #define loginfo(...) { \
