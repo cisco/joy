@@ -564,6 +564,11 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
      *                rr_data   
      */
     zprintf(output, "{");
+
+    if (pkt_len < sizeof(dns_hdr)) {
+      zprintf(output, "\"malformed\":%d", len);
+      return;
+    }
     
     len = pkt_len;
     r = dns_name;

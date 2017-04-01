@@ -2145,6 +2145,9 @@ void tls_update (struct tls_information *r,
 
         /* Find the length of the TLS message */
         tls_len = tls_header_get_length(tls);
+	if ((tls_len == 0) || (tls_len > len)) {
+	  return;
+	}
 
         if (r->certificate_offset && r->start_cert == 1 &&
             ((tls->content_type == TLS_CONTENT_APPLICATION_DATA) ||
@@ -2281,6 +2284,9 @@ void tls_update (struct tls_information *r,
 
         tls_len += 5; /* Advance over header */
         start += tls_len;
+	if ((tls_len == 0) || (tls_len > len)) {
+	  return;
+	}
         len -= tls_len;
     }
 
@@ -2383,6 +2389,10 @@ static void printf_raw_as_hex_tls (const void *data, unsigned int len) {
 static void zprintf_raw_as_hex_tls (zfile f, const void *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
+
+    if (len > 1024) {
+      return;
+    }
 
     if (data == NULL) { /* special case for nfv9 TLS export */
         zprintf(f, "\"");   /* quotes needed for JSON */
