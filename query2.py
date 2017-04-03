@@ -3,11 +3,13 @@
 # query2.py is a rewrite of query.py - the goal is to implement
 # reusable classes for flow filtering and data selection functions
 
-import sys, json, operator, gzip, string, time, pprint, copy, re, pickle
+import sys, json, operator, gzip, string, time, pprint, copy, re, pickle, collections
 from optparse import OptionParser
 from math import sqrt, log
 
 badLineCount = 0
+mergeCount = 0
+lineCount = 0
 
 class flowIterator:
    def __init__(self):
@@ -25,13 +27,16 @@ class flowIteratorFromFile(flowIterator):
       return self
 
    def next(self):
+      global lineCount
       while True:
          try:
             line = self.f.readline()
             if line == '':
                raise StopIteration
             tmp = json.loads(line)
-            return tmp
+            if 'version' not in tmp:
+               lineCount += 1
+               return tmp
          except StopIteration:
             raise
          except:
@@ -61,7 +66,85 @@ class flowFilterIterator(flowIterator):
       while self.filter.match(tmp) is not True:
          tmp = self.source.next()
       return tmp
+
+class flowStitchIterator(flowIterator):
+   def __init__(self, source):
+      self.source = source
+      self.active_flows = collections.OrderedDict()
    
+      for f in source:
+         key = (f['sa'], f['da'], f['sp'], f['dp'], f['pr'])
+         revkey = (f['da'], f['sa'], f['dp'], f['sp'], f['pr'])
+         if key in self.active_flows:
+            self.active_flows[key] = self.merge(self.active_flows[key], f)
+            pass
+         elif revkey in self.active_flows:
+            self.active_flows[revkey] = self.merge_reverse(self.active_flows[revkey], f)
+            pass
+         else:
+            self.active_flows[key] = f
+
+      self.flows = iter(self.active_flows.values())
+
+   def __iter__(self):
+      return self
+
+   def next(self):
+      return self.flows.next()
+
+   # merge f2 into f1, where both flows are in the same direction, and
+   # f1 preceeds f2 (f1.ts < f2.ts)
+   #
+   def merge(self, f1, f2):
+      global mergeCount
+      mergeCount += 1
+      for k, v in f2.items():
+         if k not in f1:
+            f1[k] = f2[k]
+         else:
+            if k == 'te': 
+               f1[k] = max(f1[k],f2[k])
+            elif k == 'ip' or k == 'ib':
+               f1[k] += f2[k]
+            elif k == 'op' or k == 'ob':
+               f1[k] += f2[k]
+            elif k == 'bd':
+               for i, e in enumerate(f2[k]):
+                  f1[k][i] += e
+            else:
+               pass
+         return f1
+
+   # merge f2 into f1, where f2 is in the reverse direction to f1, and
+   # f1 preceeds f2 (f1.ts < f2.ts)
+   #
+   def merge_reverse(self, f1, f2):
+      global mergeCount
+      mergeCount += 1
+      for k, v in f2.items():
+         if k not in f1:
+            if k == 'op':
+               f1['ip'] += f2[k]
+            elif k == 'ob':
+               f1['ib'] += f2[k]
+            else:
+               f1[k] = f2[k]
+         else:
+            if k == 'te':
+               f1[k] = max(f1[k],f2[k])
+            elif k == 'ip':
+               f1[k] += f2['ob']
+            elif k == 'op':
+               f1[k] += f2['ib']
+            elif k == 'bd':
+               for i, e in enumerate(f2[k]):
+                  f1[k][i] += e
+            else:
+               pass
+         return f1
+
+
+
 class flowProcessor:
    def __init__(self):
       self.flowset = []
@@ -75,6 +158,7 @@ class flowProcessor:
    def postProcess(self, proc=None):    
       for flow in self.flowset:
          json.dump(flow, sys.stdout)
+         print ""
 
 class splitProcessor(flowProcessor):
    def __init__(self, fpobj, field):
@@ -97,6 +181,25 @@ class splitProcessor(flowProcessor):
          print self.context
       for k, v in self.dict.items():
          v.postProcess(copy.deepcopy(proc))
+
+class flowStitchProcessor:
+   def __init__(self, fp):
+      self.flowset = []
+      self.active_flows = dict()
+      self.fp
+
+   def processFlow(self, flow):
+      if 'x' in flow and flow['x'] == 'a':
+         print "found active timeout"
+      self.flowset.append(flow)
+
+   def preProcess(self, context=None):    
+      pass
+
+   def postProcess(self, proc=None):    
+      for flow in self.flowset:
+         json.dump(flow, sys.stdout)
+         print ""
 
      
 class flowElementSelector(flowProcessor):
@@ -173,40 +276,6 @@ class flowElementSelector(flowProcessor):
       proc.postProcess()
 
 
-class flowElementSelectorOld(flowProcessor):
-   def __init__(self, elements):
-      self.elements = elements
-      self.flowset = []
-
-   def processFlow(self, flow):
-      output = dict()
-      gotAll = True
-      for key in self.elements:
-         #if key in flow:
-         #   output[key] = flow[key]
-         tmp = flow
-         for x in key.split('.'):
-            if x in tmp:
-               tmp = tmp[x]
-            else:
-               tmp = flow
-               gotAll = False
-               break
-         if tmp != flow:
-            output[x] = tmp
-      if gotAll:
-         self.flowset.append(output)
-      # else:
-         # print "warning: ignoring flow that is missing at least one selected element"
-
-   def preProcess(self, context=None):    
-      self.context = context
-
-   def postProcess(self, proc=flowProcessor()):    
-      proc.preProcess(self.context)
-      for flow in self.flowset:
-         proc.processFlow(flow)
-      proc.postProcess()
 
 class flowProcessorDistribution:
    def __init__(self):
@@ -235,7 +304,8 @@ class flowProcessorDistribution:
          output.append(d)
       output.sort(key=lambda x: x["count"], reverse=True)
       for d in output:
-         print json.dumps(d)
+         json.dump(d, sys.stdout)
+         print ""
 
 class flowProcessorSum:
    def __init__(self, sumvars):
@@ -451,6 +521,7 @@ if __name__=='__main__':
    parser.add_option("--select", dest="selection", help="select field to output")
    parser.add_option("--split",  dest="splitfield", help="split processing by field")
    parser.add_option("--dist",   action="store_true", help="compute distribution over selected element(s)")
+   parser.add_option("--stitch",   action="store_true", help="stitch together successive flows separated by active timeouts")
    parser.add_option("--sum",    dest="sumvars", help="compute sum over selected element(s)")
 
    # parse command line, and check arguments
@@ -493,7 +564,10 @@ if __name__=='__main__':
    fp.preProcess()
    for x in args:
       try:
-         flowSource = flowFilterIterator(flowIteratorFromFile(x), ff)
+         if opts.stitch:
+            flowSource = flowStitchIterator(flowFilterIterator(flowIteratorFromFile(x), ff))
+         else:
+            flowSource = flowFilterIterator(flowIteratorFromFile(x), ff)
          for flow in flowSource:
             fp.processFlow(flow)
       except KeyboardInterrupt:
@@ -502,5 +576,7 @@ if __name__=='__main__':
          raise
    fp.postProcess(dist)
 
+   sys.stderr.write("read " + str(lineCount) + " JSON lines\n")
+   sys.stderr.write("merged " + str(mergeCount) + " flows\n")
    if badLineCount > 0:
       sys.stderr.write("warning: could not read " + str(badLineCount) + " lines\n")
