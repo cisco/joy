@@ -55,6 +55,8 @@
 
 /** ppi filter key */
 #define ppi_filter(key) 1
+
+#define TCP_OPT_LEN 20
   
 struct pkt_info {
     struct timeval time; 
@@ -62,6 +64,8 @@ struct pkt_info {
     unsigned int seq;
     unsigned short len;  
     unsigned char flags;
+    unsigned short opt_len;  
+    unsigned char opts[TCP_OPT_LEN];
 };
 
 /** ppi structure */
