@@ -56,7 +56,7 @@
 /** ppi filter key */
 #define ppi_filter(key) 1
 
-#define TCP_OPT_LEN 20
+#define TCP_OPT_LEN 24
   
 struct pkt_info {
     struct timeval time; 

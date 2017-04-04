@@ -261,7 +261,7 @@ void tcp_opt_print_json(zfile f, const void *tcp_options, unsigned int total_len
 	  first_line = 0;
 	}
 	if (optlen > total_len) {
-  	    zprintf(f, "{\"type\":%u,\"malformed\":%u", *opt, optlen);
+  	    zprintf(f, "{\"type\":%u,\"malformed\":%u}", *opt, optlen);
 	    goto finish;    /* incomplete or malformed data */
 	}
 	
