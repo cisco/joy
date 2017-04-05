@@ -204,6 +204,10 @@ void tls_init (struct tls_information *r) {
 void tls_delete (struct tls_information *r) {
     int i, j = 0;
 
+    if (r == NULL) {
+      return;
+    }
+
     if (r->sni) {
         free(r->sni);
     }
@@ -2264,6 +2268,19 @@ void tls_update (struct tls_information *r,
              * actually a TLS record, so we bail on decoding it.
              */      
             return;
+        } else if (tls->content_type == TLS_CONTENT_ALERT) {
+	    /* 
+	     * In the case of a Server sending an alert in response
+	     * to a ClientHello
+	     */
+            if (!r->tls_v) {
+	      /* Write the TLS version to record if empty */
+	      if (tls_handshake_hello_get_version(r, &tls->handshake.body)) {
+		/* TLS version sanity check failed */
+		return;
+	      }
+	    }
+      
         }
 
         /*
