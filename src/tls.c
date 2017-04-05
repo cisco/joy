@@ -2095,8 +2095,8 @@ void tls_update (struct tls_information *r,
 
     /* currently skipping SSLv2 */
   
-    /* currently skipping jumbo frames */
-    if (len > 3000) {
+    /* Should have a more robust way to deal with "large" packets */
+    if (len > 6000) {
         return;
     }
 
@@ -2111,7 +2111,9 @@ void tls_update (struct tls_information *r,
     /* Cast beginning of payload to a tls_header */
     tls = (const struct tls_header *)start;
 
-    if (tls->content_type == TLS_CONTENT_HANDSHAKE && tls->handshake.msg_type == TLS_HANDSHAKE_SERVER_HELLO) {
+    if (tls->content_type == TLS_CONTENT_HANDSHAKE &&
+	(tls->handshake.msg_type == TLS_HANDSHAKE_SERVER_HELLO ||
+	 tls->handshake.msg_type == TLS_HANDSHAKE_CERTIFICATE)) {
         if (r->start_cert == 0) {
             /* Create buffer to store the server certificate */
             r->certificate_buffer = calloc(1,MAX_CERTIFICATE_BUFFER);
