@@ -421,6 +421,13 @@ static void tls_client_hello_get_extensions (const void *x,
             memset(r->sni, '\0', r->sni_length);
             memcpy(r->sni, y+9, r->sni_length-1);
 
+	    r->tls_extensions[i].type = raw_to_unsigned_short(y);
+	    r->tls_extensions[i].length = raw_to_unsigned_short(y+2);
+	    r->tls_extensions[i].data = malloc(r->tls_extensions[i].length);
+	    memcpy(r->tls_extensions[i].data, y+4, r->tls_extensions[i].length);  
+	    r->num_tls_extensions += 1;
+	    i += 1;
+
             len -= 4;
             len -= raw_to_unsigned_short(y+2);
             y += 4 + raw_to_unsigned_short(y+2);
