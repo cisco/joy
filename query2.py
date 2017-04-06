@@ -284,7 +284,7 @@ class flowProcessorDistribution:
 
    def processFlow(self, flow):
       value = pickle.dumps(flow)
-      self.key = tuple(flow.keys())
+      # self.key = tuple(flow.keys())
       if value in self.dist:
          self.dist[value] += 1
       else:
@@ -345,7 +345,28 @@ class flowProcessorSum:
                d[x] = self.sums[x]
       d["sum_over"] = self.total   
       print d
-         
+
+class flowProcessorDelta:
+   def __init__(self, deltavars):
+      self.delta = dict()
+      self.deltavars = deltavars
+
+   def processFlow(self, flow):
+      self.key = tuple(flow.keys())
+      for k, v in flow.iteritems():
+         if k in self.deltavars: 
+            if k in self.delta:
+               flow[k] -= self.delta[k]
+            else:
+               self.delta[k] = flow[k]
+      json.dump(flow, sys.stdout)
+      print ""
+
+   def preProcess(self, context=None):    
+      self.context = context
+
+   def postProcess(self):    
+      pass         
 
 class filter:
    def __init__(self):
@@ -521,8 +542,9 @@ if __name__=='__main__':
    parser.add_option("--select", dest="selection", help="select field to output")
    parser.add_option("--split",  dest="splitfield", help="split processing by field")
    parser.add_option("--dist",   action="store_true", help="compute distribution over selected element(s)")
-   parser.add_option("--stitch",   action="store_true", help="stitch together successive flows separated by active timeouts")
+   parser.add_option("--stitch", action="store_true", help="stitch together successive flows separated by active timeouts")
    parser.add_option("--sum",    dest="sumvars", help="compute sum over selected element(s)")
+   parser.add_option("--delta",  dest="deltavars", help="compute deltas of selected element(s)")
 
    # parse command line, and check arguments
    (opts, args) = parser.parse_args()
@@ -541,6 +563,8 @@ if __name__=='__main__':
       dist = flowProcessorDistribution()
    elif opts.sumvars:
       dist = flowProcessorSum(opts.sumvars)
+   elif opts.deltavars:
+      dist = flowProcessorDelta(opts.deltavars)
    else:
       dist = flowProcessor()
 
