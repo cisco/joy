@@ -86,12 +86,13 @@ void ppi_update (struct ppi *ppi,
     unsigned int tcp_hdr_len;
     //    const unsigned char *payload;
     unsigned int size_payload;
+    unsigned int opt_len;
   
     tcp_hdr_len = tcp_hdr_length(tcp);
     if (tcp_hdr_len < 20 || tcp_hdr_len > tcp_len) {
         return;
     }
-    
+    opt_len = tcp_hdr_len - 20;    
     /* define/compute tcp payload (segment) offset */
     // payload = (unsigned char *)(tcp_start + tcp_hdr_len);
   
@@ -105,6 +106,12 @@ void ppi_update (struct ppi *ppi,
 	    ppi->pkt_info[ppi->np].flags = tcp->tcp_flags;
 	    ppi->pkt_info[ppi->np].len = size_payload;
 	    ppi->pkt_info[ppi->np].time = header->ts;
+	    ppi->pkt_info[ppi->np].opt_len = opt_len;
+	    if (opt_len) {
+	        memcpy(ppi->pkt_info[ppi->np].opts, 
+		       tcp_start + 20, 
+		       opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len);
+	    } 
 	    ppi->np++;
 	} 
     }
@@ -200,6 +207,116 @@ void tcp_flags_to_string(unsigned char flags, char *string) {
 
 }
 
+/*
+ * TCP Options 
+ * 
+ * https://www.iana.org/assignments/tcp-parameters/tcp-parameters.xhtml
+ */
+
+#define EOL   0
+#define NOP   1
+#define MSS   2
+#define WS    3
+#define SACKP 4
+#define SACK  5
+#define TS    8
+
+
+/* 
+ * tcp_opt_print_json(f, tcp_options, total_len) prints a JSON array
+ * containing the type and value of each TCP option
+ *
+ * this function should not actually print out any
+ */
+void tcp_opt_print_json(zfile f, const void *tcp_options, unsigned int total_len) {
+    const unsigned char *opt = tcp_options;
+    unsigned int optlen;
+    unsigned int first_line = 1;
+
+    total_len = total_len > TCP_OPT_LEN ? TCP_OPT_LEN : total_len;
+
+    // zprintf(f, ",\"opts_hex\":");
+    // zprintf_raw_as_hex(f, tcp_options, total_len);
+
+    zprintf(f, ",\"opts\":[");
+    while (total_len > 0) {
+        switch(*opt) {
+	case EOL:
+	    optlen = 1;
+	    break;
+	case NOP:
+	    optlen = 1;
+	    break;
+	default:
+	    if (total_len > 1) {
+	      optlen = opt[1];
+	    } else {
+	      goto finish;  /* incomplete or malformed data */
+	    }
+	    break;
+	}
+	if (!first_line) {
+	  zprintf(f, ",");
+	} else {
+	  first_line = 0;
+	}
+	if ((optlen > total_len) || (optlen == 0)) {
+  	    zprintf(f, "{\"type\":%u,\"malformed\":%u}", *opt, optlen);
+	    goto finish;    /* incomplete or malformed data */
+	}
+	
+	const void *data = opt + 2;
+	unsigned int datalen = optlen - 2;
+	
+	zprintf(f, "{\"type\":%u", *opt);
+	switch(*opt) {
+	case EOL:
+	case NOP:
+	    break;
+	case MSS:
+	    if (datalen != 2) {
+  	        zprintf(f, ",\"malformed\":%u", datalen);
+	    } else {
+	        const unsigned short int *mss = data; 
+  	        zprintf(f, ",\"mss\":%u", ntohs(*mss));
+                break;
+	    }
+	case WS:
+	    if (datalen != 1) {
+  	        zprintf(f, ",\"malformed\":%u", datalen);
+	    } else {
+	        const unsigned char *ws = data; 
+  	        zprintf(f, ",\"ws\":%u", *ws);
+                break;
+	    }
+	case TS:
+	    if (datalen != 8) {
+  	        zprintf(f, ",\"malformed\":%u", datalen);
+	    } else {
+	        const unsigned int *tsval = data; 
+	        const unsigned int *tsecr = tsval + 1; 
+  	        zprintf(f, ",\"tsval\":%u,\"tsecr\":%u", ntohl(*tsval), ntohl(*tsecr));
+                break;
+	    }
+	default:
+	    if (datalen > total_len) {
+  	        zprintf(f, ",\"malformed\":%u", datalen);
+	    } else {
+	        zprintf(f, ",\"data\":");
+	        zprintf_raw_as_hex(f, data, datalen);
+	    }
+	}
+	zprintf(f, "}");
+	
+	total_len -= optlen;
+	opt += optlen;    
+    } 
+
+    finish:
+    zprintf(f, "]");
+
+}
+
 #define seq_lt(x,y) ((int)((x)-(y)) < 0)
 #define seq_gt(x,y) ((int)((x)-(y)) > 0)
 #define seq_leq(x,y) ((int)((x)-(y)) <= 0)
@@ -264,15 +381,18 @@ static void pkt_info_process(zfile f,
     timer_sub(&pkt_info->time, &ts, &tmp); 
     tcp_flags_to_string(pkt_info->flags, flags_string);
     zprintf(f, 
-	    "{\"seq\":%u,\"ack\":%u,\"rseq\":%ld,\"rack\":%ld,\"b\":%u,\"dir\":\"%s\",\"t\":%u,\"flags\":\"%s\"}", 
+	    "{\"seq\":%u,\"ack\":%u,\"rseq\":%ld,\"rack\":%ld,\"b\":%u,\"olen\":%u,\"dir\":\"%s\",\"t\":%u,\"flags\":\"%s\"", 
 	    pkt_info->seq, 
 	    pkt_info->ack,
 	    rseq,
 	    rack,
 	    pkt_info->len, 
+	    pkt_info->opt_len, 
 	    dir, 
 	    timeval_to_milliseconds(tmp), // note: not pkt_info->time 
 	    flags_string);
+    tcp_opt_print_json(f, pkt_info->opts, pkt_info->opt_len);
+    zprintf(f, "}");
 
 }
 
@@ -300,6 +420,9 @@ static void pkt_info_print_interleaved(zfile f,
         zprintf(f, ",\"ppi\":[");
         ts_last = pkt_info[0].time;
         for (i=0; i < imax; i++) { 
+	    if (i) { 
+	        zprintf(f, ",");
+	    }
 	    pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
         }
         zprintf(f, "]");	
