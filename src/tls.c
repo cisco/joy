@@ -52,6 +52,8 @@
 #include "tls.h"
 #include "parson.h"
 #include "fingerprint.h"
+#include "pkt.h"
+#include "utils.h"
 
 /********************************************
  *********
@@ -292,16 +294,49 @@ static unsigned short raw_to_unsigned_short (const void *x) {
 /**
  * \fn void tls_header_get_length (const struct tls_header *hdr)
  *
- * \brief Calculate the body length encoded in the TLS header.
+ * \brief Calculate the message body length encoded in the TLS header.
  *
  * \param hdr TLS header structure pointer
  *
- * \return Length of the body.
+ * \return Length of the message body.
  */
 static unsigned int tls_header_get_length (const struct tls_header *hdr) {
     return hdr->lengthLo + (((unsigned int) hdr->lengthMid) << 8);
 }
 
+/**
+ * \fn void tls_handshake_get_length (const struct tls_handshake *hand)
+ *
+ * \brief Calculate the body length encoded in the TLS handshake header.
+ *
+ * \param hand TLS handshake structure pointer
+ *
+ * \return Length of the handshake body.
+ */
+static unsigned int tls_handshake_get_length (const struct tls_handshake *hand) {
+    unsigned int len = 0;
+
+    len = (unsigned int)hand->lengthLo;
+    len += (unsigned int)hand->lengthMid << 8;
+    len += (unsigned int)hand->lengthHi << 16;
+
+    return len;
+}
+
+/**
+ * \fn void tls_client_hello_get_ciphersuites (const void *x,
+ *                                             unsigned int len,
+ *                                             struct tls_information *r)
+ *
+ * \brief Extract the client offered ciphersuites.
+ *
+ * \param x Pointer to the hello message body data.
+ * \param len Length of the data in bytes.
+ * \param r tls_information structure that will be written into.
+ *
+ * \return
+ *
+ */
 static void tls_client_hello_get_ciphersuites (const void *x,
                                                int len,
                                                struct tls_information *r) {
@@ -357,6 +392,20 @@ static void tls_client_hello_get_ciphersuites (const void *x,
     }
 }
 
+/**
+ * \fn void tls_client_hello_get_extensions (const void *x,
+ *                                           unsigned int len,
+ *                                           struct tls_information *r)
+ *
+ * \brief Extract the client hello extensions.
+ *
+ * \param x Pointer to the hello message body data.
+ * \param len Length of the data in bytes.
+ * \param r tls_information structure that will be written into.
+ *
+ * \return
+ *
+ */
 static void tls_client_hello_get_extensions (const void *x,
                                              int len,
                                              struct tls_information *r) {
@@ -365,8 +414,6 @@ static void tls_client_hello_get_extensions (const void *x,
     unsigned short int cipher_suites_len, extensions_len;
     unsigned int i = 0;
 
-
-    len -= 4; // get handshake message length
     /* Check the TLS version */
     if (!r->tls_v) {
         /* Unsupported version */
@@ -461,9 +508,7 @@ static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h
     unsigned int byte_len = 0;
 
     if (r->tls_client_key_length == 0) {
-        byte_len = (unsigned int)h->lengthLo + 
-            (unsigned int)h->lengthMid*256 + 
-            (unsigned int)h->lengthHi*256*256;
+        byte_len = tls_handshake_get_length(h);
         r->tls_client_key_length = byte_len * 8;
 
         if (r->tls_client_key_length >= 8193) { /* too large; data is possibly corrupted */
@@ -1638,6 +1683,20 @@ static void tls_san_parse (const void *x, int len, struct tls_certificate *r) {
 }
 #endif
 
+/**
+ * \fn void tls_server_hello_get_ciphersuite (const void *x,
+ *                                            unsigned int len,
+ *                                            struct tls_information *r)
+ *
+ * \brief Extract the server selected ciphersuite (scs).
+ *
+ * \param x Pointer to the hello message body data.
+ * \param len Length of the data in bytes.
+ * \param r tls_information structure that will be written into.
+ *
+ * \return
+ *
+ */
 static void tls_server_hello_get_ciphersuite (const void *x,
                                               unsigned int len,
                                               struct tls_information *r) {
@@ -1688,6 +1747,20 @@ static void tls_server_hello_get_ciphersuite (const void *x,
     r->ciphersuites[0] = cs;
 }
 
+/**
+ * \fn void tls_server_hello_get_extensions (const void *x,
+ *                                           unsigned int len,
+ *                                           struct tls_information *r)
+ *
+ * \brief Extract the server hello extensions.
+ *
+ * \param x Pointer to the hello message body data.
+ * \param len Length of the data in bytes.
+ * \param r tls_information structure that will be written into.
+ *
+ * \return
+ *
+ */
 static void tls_server_hello_get_extensions (const void *x, int len,
     struct tls_information *r) {
     unsigned int session_id_len, compression_method_len;
@@ -1695,8 +1768,6 @@ static void tls_server_hello_get_extensions (const void *x, int len,
     unsigned short int extensions_len;
     unsigned int i = 0;
     unsigned char flag_tls13 = 0;
-
-    len -= 4;
 
     /* Check the TLS version */
     if (!r->tls_v) {
@@ -1983,13 +2054,6 @@ static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
 #endif
 
 #if 0
-static unsigned int tls_handshake_get_length (const struct tls_handshake *H) {
-    return H->lengthLo + ((unsigned int) H->lengthMid) * 0x100 
-        + ((unsigned int) H->lengthHi) * 0x10000;
-}
-#endif
-
-#if 0
 static unsigned int packet_is_sslv2_hello (const void *data) {
     const unsigned char *d = data;
     unsigned char b[3];
@@ -2234,6 +2298,8 @@ void tls_update (struct tls_information *r,
                 /*
                  * Handshake: ClientHello
                  */
+                unsigned int body_len = 0;
+
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
                     if (tls_handshake_hello_get_version(r, &tls->handshake.body)) {
@@ -2243,8 +2309,9 @@ void tls_update (struct tls_information *r,
                 }
 
                 r->role = role_client;
-                tls_client_hello_get_ciphersuites(&tls->handshake.body, tls_len, r);
-                tls_client_hello_get_extensions(&tls->handshake.body, tls_len, r);
+                body_len = tls_handshake_get_length(&tls->handshake);
+                tls_client_hello_get_ciphersuites(&tls->handshake.body, body_len, r);
+                tls_client_hello_get_extensions(&tls->handshake.body, body_len, r);
 
                 /* TODO enable fingerprint matching */
 #if 0
@@ -2254,6 +2321,8 @@ void tls_update (struct tls_information *r,
                 /*
                  * Handshake: ServerHello
                  */
+                unsigned int body_len = 0;
+
                 if (!r->tls_v) {
                     /* Write the TLS version to record if empty */
                     if (tls_handshake_hello_get_version(r, &tls->handshake.body)) {
@@ -2263,8 +2332,9 @@ void tls_update (struct tls_information *r,
                 }
 
                 r->role = role_server;
-                tls_server_hello_get_ciphersuite(&tls->handshake.body, tls_len, r);
-                tls_server_hello_get_extensions(&tls->handshake.body, (int)tls_len, r);
+                body_len = tls_handshake_get_length(&tls->handshake);
+                tls_server_hello_get_ciphersuite(&tls->handshake.body, body_len, r);
+                tls_server_hello_get_extensions(&tls->handshake.body, body_len, r);
             } else if (tls->handshake.msg_type == TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE) {
                 /*
                  * Handshake: ClientKeyExchange
@@ -2359,7 +2429,8 @@ static int tls_certificate_process (const void *data,
 
         /* Only parse Certificate message types */
         if (tls_hdr->handshake.msg_type == TLS_HANDSHAKE_CERTIFICATE) {
-            tls_server_certificate_parse(&tls_hdr->handshake.body, tls_len, tls_info);
+            unsigned int body_len = tls_handshake_get_length(&tls_hdr->handshake);
+            tls_server_certificate_parse(&tls_hdr->handshake.body, body_len, tls_info);
         }
 
         /* Adjust for the length of tls_hdr metadata */
@@ -2852,8 +2923,6 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
 /*
  * \brief Test the internal TLS X509 certificate parsing api.
  *
- * \param cert OpenSSL X509 certificate structure.
- *
  * \return 0 for success, otherwise number of failures
  */
 static int tls_test_certificate_parsing() {
@@ -2869,31 +2938,17 @@ static int tls_test_certificate_parsing() {
         struct tls_information tmp_tls_record;
         struct tls_certificate *cert_record = NULL;
         const char *filename = test_cert_filenames[i];
-        char *filepath = NULL;
-        size_t max_filepath = 50;
 
         /* Preprare the temporary record */
         tls_init(&tmp_tls_record);
         cert_record = &tmp_tls_record.certificates[0];
         tmp_tls_record.num_certificates++;
 
-        filepath = calloc(max_filepath, sizeof(char));
-        /* Assume user CWD in root of Joy source package */
-        strncpy(filepath, "./resources/test/", max_filepath);
-        strncat(filepath, filename, max_filepath);
-        fp = fopen(filepath, "r");
+        fp = joy_utils_open_resource_file(filename);
         if (!fp) {
-            /* Assume user CWD one-level subdir of Joy source package */
-            memset(filepath, 0, max_filepath);
-            strncpy(filepath, "../resources/test/", max_filepath);
-            strncat(filepath, filename, max_filepath);
-            fp = fopen(filepath, "r");
-
-            if (!fp) {
-                loginfo("failure: could not find %s", filename);
-                num_fails++;
-                goto end_loop;
-            }
+            loginfo("failure: unable to open %s", filename);
+            num_fails++;
+            goto end_loop;
         }
 
         cert = PEM_read_X509(fp, NULL, NULL, NULL);
@@ -3398,11 +3453,448 @@ end_loop:
     return num_fails;
 }
 
+static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_data,
+                                                 unsigned int packet_len,
+                                                 unsigned int *size_payload) {
+    const struct ip_hdr *ip = NULL;
+    unsigned int ip_hdr_len = 0;
+    const struct tcp_hdr *tcp = NULL;
+    unsigned int tcp_hdr_len = 0;
+    unsigned char *payload = NULL;
+
+    /* define/compute ip header offset */
+    ip = (struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
+    ip_hdr_len = ip_hdr_length(ip);
+    if (ip_hdr_len < 20) {
+        loginfo("error: invalid ip header of len %d", ip_hdr_len);
+        return NULL;
+    }
+
+    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+        /* IP packet is malformed (shorter than a complete IP header) */
+        loginfo("error: ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
+        return NULL;
+    }
+
+    tcp = (const struct tcp_hdr *)((unsigned char *)ip + ip_hdr_len);
+    tcp_hdr_len = tcp_hdr_length(tcp);
+
+    if (tcp_hdr_len < 20 || tcp_hdr_len > (packet_len - ip_hdr_len)) {
+      loginfo("error: invalid tcp hdr length");
+      return NULL;
+    }
+
+    /* define/compute tcp payload (segment) offset */
+    payload = ((unsigned char *)tcp + tcp_hdr_len);
+
+    /* compute tcp payload (segment) size */
+    *size_payload = packet_len - ETHERNET_HDR_LEN - ip_hdr_len - tcp_hdr_len;
+
+    return payload;
+}
+
+static int tls_test_extract_client_hello(const unsigned char *data,
+                                         unsigned int data_len,
+                                         char *filename) {
+    struct tls_information record;
+    const struct tls_header *tls_hdr = NULL;
+    const unsigned char *body = NULL;
+    unsigned int body_len = 0;
+    int num_fails = 0;
+
+    tls_init(&record);
+
+    tls_hdr = (const struct tls_header *)data;
+    body_len = tls_handshake_get_length(&tls_hdr->handshake);
+    body = &tls_hdr->handshake.body;
+
+    if (body_len > data_len) {
+        loginfo("error: handshake body length (%d) too long", body_len);
+        num_fails++;
+        goto end;
+    }
+
+    tls_handshake_hello_get_version(&record, body);
+    tls_client_hello_get_ciphersuites(body, body_len, &record);
+    tls_client_hello_get_extensions(body, body_len, &record);
+
+    if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
+        unsigned short known_ciphersuites_count = 15;
+        unsigned short known_extensions_count = 11;
+        struct tls_extension known_extensions[known_extensions_count];
+        int failed = 0;
+        int i = 0;
+
+        unsigned short known_ciphersuites[] = {49195, 49199, 52393, 52392, 49196, 49200, 49162, 49161,
+                                               49171, 49172, 51, 57, 47, 53, 10};
+
+        unsigned char kat_data_0[] = {0x00, 0x13, 0x00, 0x00, 0x10, 0x77, 0x77, 0x77,
+                                      0x2e, 0x66, 0x61, 0x63, 0x65, 0x62, 0x6f, 0x6f,
+                                      0x6b, 0x2e, 0x63, 0x6f, 0x6d};
+        unsigned char kat_data_3[] = {0x00, 0x08, 0x00, 0x1d, 0x00, 0x17, 0x00, 0x18,
+                                      0x00, 0x19};
+        unsigned char kat_data_4[] = {0x01, 0x00};
+        unsigned char kat_data_6[] = {0x00, 0x0c, 0x02, 0x68, 0x32, 0x08, 0x68, 0x74,
+                                      0x74, 0x70, 0x2f, 0x31, 0x2e, 0x31};
+        unsigned char kat_data_7[] = {0x01, 0x00, 0x00, 0x00, 0x00};
+        unsigned char kat_data_10[] = {0x00, 0x16, 0x04, 0x03, 0x05, 0x03, 0x06, 0x03,
+                                       0x08, 0x04, 0x08, 0x05, 0x08, 0x06, 0x04, 0x01,
+                                       0x05, 0x01, 0x06, 0x01, 0x02, 0x03, 0x02, 0x01};
+
+        memset(known_extensions, 0, sizeof(known_extensions));
+
+        /* Fill in the KAT extensions */
+        known_extensions[0].type = 0x0000;
+        known_extensions[0].length = 21;
+        known_extensions[0].data = calloc(known_extensions[0].length, sizeof(unsigned char));
+        memcpy(known_extensions[0].data, kat_data_0, known_extensions[0].length);
+
+        known_extensions[1].type = 0x0017;
+        known_extensions[1].length = 0;
+
+        known_extensions[2].type = 0xff01;
+        known_extensions[2].length = 1;
+        known_extensions[2].data = calloc(known_extensions[2].length, sizeof(unsigned char));
+
+        known_extensions[3].type = 0x000a;
+        known_extensions[3].length = 10;
+        known_extensions[3].data = calloc(known_extensions[3].length, sizeof(unsigned char));
+        memcpy(known_extensions[3].data, kat_data_3, known_extensions[3].length);
+
+        known_extensions[4].type = 0x000b;
+        known_extensions[4].length = 2;
+        known_extensions[4].data = calloc(known_extensions[4].length, sizeof(unsigned char));
+        memcpy(known_extensions[4].data, kat_data_4, known_extensions[4].length);
+
+        known_extensions[5].type = 0x0023;
+        known_extensions[5].length = 0;
+
+        known_extensions[6].type = 0x0010;
+        known_extensions[6].length = 14;
+        known_extensions[6].data = calloc(known_extensions[6].length, sizeof(unsigned char));
+        memcpy(known_extensions[6].data, kat_data_6, known_extensions[6].length);
+
+        known_extensions[7].type = 0x0005;
+        known_extensions[7].length = 5;
+        known_extensions[7].data = calloc(known_extensions[7].length, sizeof(unsigned char));
+        memcpy(known_extensions[7].data, kat_data_7, known_extensions[7].length);
+
+        known_extensions[8].type = 0x0012;
+        known_extensions[8].length = 0;
+
+        known_extensions[9].type = 0xff03;
+        known_extensions[9].length = 0;
+
+        known_extensions[10].type = 0x000d;
+        known_extensions[10].length = 24;
+        known_extensions[10].data = calloc(known_extensions[10].length, sizeof(unsigned char));
+        memcpy(known_extensions[10].data, kat_data_10, known_extensions[10].length);
+
+        if (record.num_ciphersuites != known_ciphersuites_count) {
+            loginfo("error: ciphersuites count does not match")
+            failed = 1;
+        } else {
+            for (i = 0; i < known_ciphersuites_count; i++) {
+                if (record.ciphersuites[i] != known_ciphersuites[i]) {
+                    loginfo("error: ciphersuite[%d] does not match", i)
+                    failed = 1;
+                }
+            }
+        }
+
+        if (record.num_tls_extensions != known_extensions_count) {
+            loginfo("error: extensions count does not match")
+            failed = 1;
+        } else {
+            for (i = 0; i < known_extensions_count; i++) {
+                /*
+                 * KAT
+                 */
+                if (known_extensions[i].type != record.tls_extensions[i].type) {
+                    loginfo("error: extension[%d] type does not match", i)
+                    failed = 1;
+                }
+
+                if (known_extensions[i].length != record.tls_extensions[i].length) {
+                    loginfo("error: extension[%d] length does not match", i)
+                    failed = 1;
+                }
+
+                if (known_extensions[i].data) {
+                    if (memcmp(known_extensions[i].data, record.tls_extensions[i].data,
+                               known_extensions[i].length)) {
+                        loginfo("error: extension[%d] data does not match", i)
+                        failed = 1;
+                    }
+
+                    /* Free the temporary allocated data */
+                    free(known_extensions[i].data);
+                }
+            }
+        }
+
+        if (failed) {
+            loginfo("failure: tls_test_extract_client_hello - %s", filename);
+            num_fails++;
+        }
+    }
+
+end:
+    /* Cleanup */
+    tls_delete(&record);
+
+    return num_fails;
+}
+
+static int tls_test_extract_server_hello(const unsigned char *data,
+                                         unsigned int data_len,
+                                         const char *filename) {
+    struct tls_information record;
+    const struct tls_header *tls_hdr = NULL;
+    const unsigned char *body = NULL;
+    unsigned int body_len = 0;
+    int num_fails = 0;
+
+    tls_init(&record);
+
+    tls_hdr = (const struct tls_header *)data;
+    body_len = tls_handshake_get_length(&tls_hdr->handshake);
+    body = &tls_hdr->handshake.body;
+
+    if (body_len > data_len) {
+        loginfo("error: handshake body length (%d) too long", body_len);
+        num_fails++;
+        goto end;
+    }
+
+    tls_handshake_hello_get_version(&record, body);
+    tls_server_hello_get_ciphersuite(body, body_len, &record);
+    tls_server_hello_get_extensions(body, body_len, &record);
+
+    if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
+        unsigned short known_extensions_count = 5;
+        unsigned short known_ciphersuite = 0xc02b;
+        struct tls_extension known_extensions[known_extensions_count];
+        int failed = 0;
+        int i = 0;
+
+        unsigned char kat_data_2[] = {0x03, 0x00, 0x01, 0x02};
+        unsigned char kat_data_4[] = {0x00, 0x03, 0x02, 0x68, 0x32};
+
+        memset(known_extensions, 0, sizeof(known_extensions));
+
+        /* Fill in the KAT extensions */
+        known_extensions[0].type = 0x0000;
+        known_extensions[0].length = 0;
+
+        known_extensions[1].type = 0xff01;
+        known_extensions[1].length = 1;
+        known_extensions[1].data = calloc(known_extensions[1].length, sizeof(unsigned char));
+
+        known_extensions[2].type = 0x000b;
+        known_extensions[2].length = 4;
+        known_extensions[2].data = calloc(known_extensions[2].length, sizeof(unsigned char));
+        memcpy(known_extensions[2].data, kat_data_2, known_extensions[2].length);
+
+        known_extensions[3].type = 0x0023;
+        known_extensions[3].length = 0;
+
+        known_extensions[4].type = 0x0010;
+        known_extensions[4].length = 5;
+        known_extensions[4].data = calloc(known_extensions[4].length, sizeof(unsigned char));
+        memcpy(known_extensions[4].data, kat_data_4, known_extensions[4].length);
+
+        if (record.ciphersuites[0] != known_ciphersuite) {
+            loginfo("error: ciphersuite does not match")
+            failed = 1;
+        }
+
+        if (record.num_server_tls_extensions != known_extensions_count) {
+            loginfo("error: extensions count does not match")
+            failed = 1;
+        } else {
+            for (i = 0; i < known_extensions_count; i++) {
+                /*
+                 * KAT
+                 */
+                if (known_extensions[i].type != record.server_tls_extensions[i].type) {
+                    loginfo("error: extension[%d] type does not match", i)
+                    failed = 1;
+                }
+
+                if (known_extensions[i].length != record.server_tls_extensions[i].length) {
+                    loginfo("error: extension[%d] length does not match", i)
+                    failed = 1;
+                }
+
+                if (known_extensions[i].data) {
+                    if (memcmp(known_extensions[i].data, record.server_tls_extensions[i].data,
+                               known_extensions[i].length)) {
+                        loginfo("error: extension[%d] data does not match", i)
+                        failed = 1;
+                    }
+
+                    /* Free the temporary allocated data */
+                    free(known_extensions[i].data);
+                }
+            }
+        }
+
+        if (failed) {
+            loginfo("failure: tls_test_extract_server_hello - %s", filename);
+            num_fails++;
+        }
+    }
+
+end:
+    /* Cleanup */
+    tls_delete(&record);
+
+    return num_fails;
+}
+
+static int tls_test_initial_handshake() {
+    pcap_t *pcap_handle = NULL;
+    struct pcap_pkthdr header;
+    const unsigned char *pkt_ptr = NULL;
+    const unsigned char *payload_ptr = NULL;
+    unsigned int payload_len = 0;
+    char *filename = "sample_tls12_handshake_0.pcap";
+    int num_fails = 0;
+
+    pcap_handle = joy_utils_open_resource_pcap(filename);
+    if (!pcap_handle) {
+        loginfo("failure: unable to open %s", filename);
+        num_fails++;
+        goto end;
+    }
+
+    /* Test the client hello extraction */
+    pkt_ptr = pcap_next(pcap_handle, &header);
+    payload_ptr = tls_skip_packet_tcp_header(pkt_ptr, header.len, &payload_len);
+    num_fails += tls_test_extract_client_hello(payload_ptr, payload_len, filename);
+
+    /* Test the server hello extraction */
+    pkt_ptr = pcap_next(pcap_handle, &header);
+    payload_ptr = tls_skip_packet_tcp_header(pkt_ptr, header.len, &payload_len);
+    num_fails += tls_test_extract_server_hello(payload_ptr, payload_len, filename);
+
+    /* Certificate packet */
+    pkt_ptr = pcap_next(pcap_handle, &header);
+    payload_ptr = tls_skip_packet_tcp_header(pkt_ptr, header.len, &payload_len);
+
+end:
+    if (pcap_handle) {
+        pcap_close(pcap_handle);
+    }
+
+    return num_fails;
+}
+
+/*
+ * \brief Unit test for tls_handshake_hello_get_version().
+ *
+ * \return 0 for success, otherwise number of failures
+ */
+static int tls_test_handshake_hello_get_version() {
+    struct tls_information record;
+    unsigned char ssl_v3[] = {0x03, 0x00};
+    unsigned char tls_1_0[] = {0x03, 0x01};
+    unsigned char tls_1_1[] = {0x03, 0x02};
+    unsigned char tls_1_2[] = {0x03, 0x03};
+    unsigned char tls_1_3[] = {0x03, 0x04};
+    int num_fails = 0;
+
+    tls_init(&record);
+
+    tls_handshake_hello_get_version(&record, ssl_v3);
+    if (record.tls_v != TLS_VERSION_SSLV3) {
+        loginfo("failure: sslv3 version capture");
+        num_fails++;
+    }
+
+    tls_handshake_hello_get_version(&record, tls_1_0);
+    if (record.tls_v != TLS_VERSION_1_0) {
+        loginfo("failure: tls 1.0 version capture");
+        num_fails++;
+    }
+
+    tls_handshake_hello_get_version(&record, tls_1_1);
+    if (record.tls_v != TLS_VERSION_1_1) {
+        loginfo("failure: tls 1.1 version capture");
+        num_fails++;
+    }
+
+    tls_handshake_hello_get_version(&record, tls_1_2);
+    if (record.tls_v != TLS_VERSION_1_2) {
+        loginfo("failure: tls 1.2 version capture");
+        num_fails++;
+    }
+
+    tls_handshake_hello_get_version(&record, tls_1_3);
+    if (record.tls_v != TLS_VERSION_1_3) {
+        loginfo("failure: tls 1.3 version capture");
+        num_fails++;
+    }
+
+    return num_fails;
+}
+
+static int tls_test_calculate_handshake_length() {
+    struct tls_handshake hand;
+    unsigned int result = 0;
+    int num_fails = 0;
+
+    hand.lengthHi = 0x00;
+    hand.lengthMid = 0x00;
+    hand.lengthLo = 0x01;
+    result = tls_handshake_get_length(&hand);
+    if (result != 1) {
+        loginfo("failure: expected (%d), got (%d)", 1, result);
+        num_fails++;
+    }
+
+    hand.lengthHi = 0x00;
+    hand.lengthMid = 0xff;
+    hand.lengthLo = 0xff;
+    result = tls_handshake_get_length(&hand);
+    if (result != 65535) {
+        loginfo("failure: expected (%d), got (%d)", 65535, result);
+        num_fails++;
+    }
+
+    hand.lengthHi = 0xff;
+    hand.lengthMid = 0xff;
+    hand.lengthLo = 0xff;
+    result = tls_handshake_get_length(&hand);
+    if (result != 16777215) {
+        loginfo("failure: expected (%d), got (%d)", 16777215, result);
+        num_fails++;
+    }
+
+    hand.lengthHi = 0x00;
+    hand.lengthMid = 0x00;
+    hand.lengthLo = 0x00;
+    result = tls_handshake_get_length(&hand);
+    if (result != 0) {
+        loginfo("failure: expected (%d), got (%d)", 0, result);
+        num_fails++;
+    }
+
+    return num_fails;
+}
+
 void tls_unit_test() {
     int num_fails = 0;
 
     loginfo("******************************");
     loginfo("Starting...\n");
+
+    num_fails += tls_test_handshake_hello_get_version();
+
+    num_fails += tls_test_calculate_handshake_length();
+
+    num_fails += tls_test_initial_handshake();
 
     num_fails += tls_test_certificate_parsing();
 
