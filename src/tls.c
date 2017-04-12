@@ -99,7 +99,7 @@ extern char *tls_fingerprint_file;
 
 /* Store the tls_fingerprint.json data */
 static fingerprint_db_t tls_fingerprint_db;
-static uint8_t tls_fingerprint_db_loaded = 0;
+static int tls_fingerprint_db_loaded = 0;
 
 /* Local prototypes */
 static int tls_certificate_process(const void *data, int data_len, struct tls_information *tls_info);
@@ -1906,7 +1906,7 @@ int tls_load_fingerprints(void) {
         cs_count = json_array_get_count(cipher_suites);
         ext_count = json_array_get_count(extensions);
 
-        if (cs_count + ext_count >= MAX_FINGERPRINT_LEN) {
+        if (cs_count + ext_count > MAX_FINGERPRINT_LEN / sizeof(unsigned short int)) {
             fprintf(stderr, "error: cs+ext larger than allowed fingerprint size\n");
             goto cleanup;
         }
@@ -1921,7 +1921,7 @@ int tls_load_fingerprints(void) {
             sscanf(cipher_suite_str, "%hx", &cs_val);
             /* Copy into the functions local fingerprint */
             fp_local.fingerprint[fp_local.fingerprint_len] = cs_val;
-            fp_local.fingerprint_len += 1;
+            fp_local.fingerprint_len += sizeof(unsigned short int);
         }
         for (k = 0; k < ext_count; k++) {
             extension_str = json_value_get_string(json_array_get_value(extensions, k));
@@ -1929,7 +1929,7 @@ int tls_load_fingerprints(void) {
             sscanf(extension_str, "%hx", &ext_val);
             /* Copy into the functions local fingerprint */
             fp_local.fingerprint[fp_local.fingerprint_len] = ext_val;
-            fp_local.fingerprint_len += 1;
+            fp_local.fingerprint_len += sizeof(unsigned short int);
         }
 
         /*
@@ -2004,54 +2004,80 @@ cleanup:
  *
  * return 0 for match
  */
-/* TODO re-enable this function for fingerprinting */
-#if 0
-static uint8_t tls_client_fingerprint_match(struct tls_information *tls_info,
-                                            uint8_t percent) {
-    fingerprint_t client_fingerprint;
+static int tls_client_fingerprint_match(struct tls_information *tls_info,
+                                 unsigned int percent) {
+    fingerprint_t fp;
     fingerprint_t *db_fingerprint = NULL;
-    size_t cs_byte_count = 0;
+    unsigned short cs_count = 0;
+    unsigned short ext_count = 0;
+    int i, k = 0;
 
     if (!tls_fingerprint_db_loaded) {
         /* The fingerprint database is empty, bail out */
         return 1;
     }
 
-    const unsigned short int test_cs_vector[] = {57, 56, 53, 22, 19, 10, 51, 50,
-                                                 47, 7, 102, 5, 4, 99, 98, 97,
-                                                 21, 18, 9, 101, 100, 96, 20, 17,
-                                                 8, 6, 3};
-    cs_byte_count = sizeof(test_cs_vector);
+    /* Get the number of ciphersuites and extensions */
+    cs_count = tls_info->num_ciphersuites;
+    ext_count = tls_info->num_tls_extensions;
 
-    memset(&client_fingerprint, 0, sizeof(fingerprint_t));
+    /* Zero the temporary fp */
+    memset(&fp, 0, sizeof(fingerprint_t));
+
+    fp.fingerprint_len = (cs_count + ext_count) * sizeof(unsigned short);
+
+    if (fp.fingerprint_len > MAX_FINGERPRINT_LEN) {
+        if (JOY_TLS_DEBUG) {
+            loginfo("error: fingerprint too large, aborting");
+        }
+        return 1;
+    }
 
     /*
-     * Copy test data into client fingerprint.
+     * Copy data into temporary fingerprint.
      */
-    memcpy(client_fingerprint.fingerprint, test_cs_vector, cs_byte_count);
-    client_fingerprint.fingerprint_len = (cs_byte_count / sizeof(unsigned short int));
+    if (cs_count) {
+        k = 0;
+        for (i = 0; i < cs_count; i++) {
+            /* Convert ciphersuite to network byte order */
+            unsigned short nbo_cs = htons(tls_info->ciphersuites[i]);
+
+            memcpy(&fp.fingerprint[k], (unsigned char *)&nbo_cs,
+                   sizeof(unsigned short));
+
+            k += sizeof(unsigned short);
+        }
+    }
+    if (ext_count) {
+        /* Start just beyond the cs data */
+        int start_pos = cs_count * 2;
+        k = 0;
+        for (i = 0; i < ext_count; i ++) {
+            /* Convert extension type to network byte order */
+            unsigned short nbo_ext = htons(tls_info->tls_extensions[i].type);
+
+            memcpy(&fp.fingerprint[k + start_pos], (unsigned char *)&nbo_ext,
+                   sizeof(unsigned short));
+
+            k += sizeof(unsigned short);
+        }
+    }
 
     if (percent == 100) {
         /* Find an exact database fingerprint match */
-        db_fingerprint = fingerprint_db_match_exact(&tls_fingerprint_db,
-                                                    &client_fingerprint);
+        db_fingerprint = fingerprint_db_match_exact(&tls_fingerprint_db, &fp);
     } else {
-        fprintf(stderr, "api-error: partial matching not supported yet");
+        loginfo("api-error: partial matching not supported yet");
         return 1;
     }
 
     if (db_fingerprint != NULL) {
         /* Point to database entry in client tls info */
         tls_info->tls_fingerprint = db_fingerprint;
-
-#if 0
-        printf("FINGERPRINT MATCH!\n");
-#endif
     }
 
     return 0;
 }
-#endif
 
 #if 0
 static unsigned int packet_is_sslv2_hello (const void *data) {
@@ -2313,10 +2339,9 @@ void tls_update (struct tls_information *r,
                 tls_client_hello_get_ciphersuites(&tls->handshake.body, body_len, r);
                 tls_client_hello_get_extensions(&tls->handshake.body, body_len, r);
 
-                /* TODO enable fingerprint matching */
-#if 0
-                tls_client_fingerprint_match(r, 100);
-#endif
+                if (r->tls_fingerprint == NULL) {
+                    tls_client_fingerprint_match(r, 100);
+                }
             } else if (tls->handshake.msg_type == TLS_HANDSHAKE_SERVER_HELLO) {
                 /*
                  * Handshake: ServerHello
@@ -2789,6 +2814,18 @@ void tls_print_json (const struct tls_information *data,
         zprintf(f, "}]");
     }
 
+    if (data->tls_fingerprint) {
+        zprintf(f, ",\"fingerprint_labels\":[");
+        for (i = 0; i < data->tls_fingerprint->label_count; i++) {
+	        zprintf(f, "\"%s\"", data->tls_fingerprint->labels[i]);
+            if (i == (data->tls_fingerprint->label_count - 1)) {
+                zprintf(f, "]");
+            } else {
+                zprintf(f, ", ");
+            }
+        }
+    }
+
     if (data->num_certificates) {
         zprintf(f, ",\"server_cert\":[");
         for (i = 0; i < data->num_certificates-1; i++) {
@@ -2821,7 +2858,7 @@ void tls_print_json (const struct tls_information *data,
 	        len_time_print_interleaved_tls(data->tls_op, data->tls_len, data->tls_time, data->tls_type, 0, NULL, NULL, NULL, f);
         }
     }
- 
+
     zprintf(f, "}");
 }
 
