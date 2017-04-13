@@ -1992,8 +1992,8 @@ cleanup:
  *
  * Use data from the current flow's \p tls_info to search
  * the known tls fingerprint database for any matches.
- * If any matches are found, relevant data is copied
- * into the \p tls_info for later retrieval. The \p percent
+ * If any matches are found, a pointer to the entry in the database
+ * is set in \p tls_info for later retrieval. The \p percent
  * represents the users required percent of confidence in
  * order for a match to occur, 0 to 100. 100 means an exact match
  * (100% of fingerprint must be matched). 70 means a partial
@@ -2002,10 +2002,10 @@ cleanup:
  * @param tls_info The client TLS information
  * @param percent The callers required percent of fingerprint match.
  *
- * return 0 for match
+ * return 0 for success, 1 for error
  */
 static int tls_client_fingerprint_match(struct tls_information *tls_info,
-                                 unsigned int percent) {
+                                        unsigned int percent) {
     fingerprint_t fp;
     fingerprint_t *db_fingerprint = NULL;
     unsigned short cs_count = 0;
@@ -2039,10 +2039,12 @@ static int tls_client_fingerprint_match(struct tls_information *tls_info,
     if (cs_count) {
         k = 0;
         for (i = 0; i < cs_count; i++) {
-            /* Convert ciphersuite to network byte order */
-            unsigned short nbo_cs = htons(tls_info->ciphersuites[i]);
-
-            memcpy(&fp.fingerprint[k], (unsigned char *)&nbo_cs,
+            /*
+             * Kinda weird because we're copying 2 bytes
+             * at a time into a raw byte buffer
+             */
+            memcpy(&fp.fingerprint[k],
+                   (unsigned char *)&tls_info->ciphersuites[i],
                    sizeof(unsigned short));
 
             k += sizeof(unsigned short);
@@ -2053,10 +2055,12 @@ static int tls_client_fingerprint_match(struct tls_information *tls_info,
         int start_pos = cs_count * 2;
         k = 0;
         for (i = 0; i < ext_count; i ++) {
-            /* Convert extension type to network byte order */
-            unsigned short nbo_ext = htons(tls_info->tls_extensions[i].type);
-
-            memcpy(&fp.fingerprint[k + start_pos], (unsigned char *)&nbo_ext,
+            /*
+             * Kinda weird because we're copying 2 bytes
+             * at a time into a raw byte buffer
+             */
+            memcpy(&fp.fingerprint[k + start_pos],
+                   (unsigned char *)&tls_info->tls_extensions[i].type,
                    sizeof(unsigned short));
 
             k += sizeof(unsigned short);
@@ -2955,6 +2959,56 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     if (data->subject_public_key_size) {
         zprintf(f, ",\"subject_public_key_size\":%i", data->subject_public_key_size);
     }
+}
+
+/*
+ * \brief Unit test for ts_client_fingerprint_match().
+ *
+ * \return 0 for success, otherwise number of failures
+ */
+static int tls_test_client_fingerprint_match() {
+    struct tls_information record;
+    int num_fails = 0;
+
+    tls_init(&record);
+
+    record.num_ciphersuites = 20;
+    record.num_tls_extensions = 1;
+
+    /* Known ciphersuites */
+    record.ciphersuites[0] = 0x0039;
+    record.ciphersuites[1] = 0x0038;
+    record.ciphersuites[2] = 0x0035;
+    record.ciphersuites[3] = 0x0016;
+    record.ciphersuites[4] = 0x0013;
+    record.ciphersuites[5] = 0x000a;
+    record.ciphersuites[6] = 0x0033;
+    record.ciphersuites[7] = 0x0032;
+    record.ciphersuites[8] = 0x002f;
+    record.ciphersuites[9] = 0x0007;
+    record.ciphersuites[10] = 0x0005;
+    record.ciphersuites[11] = 0x0004;
+    record.ciphersuites[12] = 0x0015;
+    record.ciphersuites[13] = 0x0012;
+    record.ciphersuites[14] = 0x0009;
+    record.ciphersuites[15] = 0x0014;
+    record.ciphersuites[16] = 0x0011;
+    record.ciphersuites[17] = 0x0008;
+    record.ciphersuites[18] = 0x0006;
+    record.ciphersuites[19] = 0x0003;
+
+    /* Known extensions */
+    record.tls_extensions[0].type = 0x0023;
+
+    tls_client_fingerprint_match(&record, 100);
+    if (record.tls_fingerprint == NULL) {
+        loginfo("failure: could not match known fingerprint");
+        num_fails++;
+    }
+
+    tls_delete(&record);
+
+    return num_fails;
 }
 
 /*
@@ -3924,12 +3978,19 @@ static int tls_test_calculate_handshake_length() {
 void tls_unit_test() {
     int num_fails = 0;
 
+    if (tls_fingerprint_db_loaded == 0) {
+        /* Attempt to load in the TLS fingerprints for testing */
+        tls_load_fingerprints();
+    }
+
     loginfo("******************************");
     loginfo("Starting...\n");
 
     num_fails += tls_test_handshake_hello_get_version();
 
     num_fails += tls_test_calculate_handshake_length();
+
+    num_fails += tls_test_client_fingerprint_match();
 
     num_fails += tls_test_initial_handshake();
 
