@@ -2310,6 +2310,9 @@ void tls_update (struct tls_information *r,
 
                 r->role = role_client;
                 body_len = tls_handshake_get_length(&tls->handshake);
+		if (body_len > tls_len) {
+		  return ;
+		}
                 tls_client_hello_get_ciphersuites(&tls->handshake.body, body_len, r);
                 tls_client_hello_get_extensions(&tls->handshake.body, body_len, r);
 
@@ -2333,6 +2336,9 @@ void tls_update (struct tls_information *r,
 
                 r->role = role_server;
                 body_len = tls_handshake_get_length(&tls->handshake);
+		if (body_len > tls_len) {
+		  return ;
+		}
                 tls_server_hello_get_ciphersuite(&tls->handshake.body, body_len, r);
                 tls_server_hello_get_extensions(&tls->handshake.body, body_len, r);
             } else if (tls->handshake.msg_type == TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE) {
@@ -2430,6 +2436,9 @@ static int tls_certificate_process (const void *data,
         /* Only parse Certificate message types */
         if (tls_hdr->handshake.msg_type == TLS_HANDSHAKE_CERTIFICATE) {
             unsigned int body_len = tls_handshake_get_length(&tls_hdr->handshake);
+	    if (body_len > tls_len) {
+	      return 0;
+	    }
             tls_server_certificate_parse(&tls_hdr->handshake.body, body_len, tls_info);
         }
 
