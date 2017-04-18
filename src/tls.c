@@ -2974,7 +2974,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_subject - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 int known_items_count = 7;
                 int failed = 0;
@@ -3064,7 +3064,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_issuer - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 int known_items_count = 7;
                 int failed = 0;
@@ -3154,7 +3154,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_validity_period - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 uint16_t known_not_before_length = 13;
                 uint16_t known_not_after_length = 13;
@@ -3205,7 +3205,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_serial - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 uint16_t known_serial_length = 8;
                 int failed = 0;
@@ -3239,7 +3239,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_extensions - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 int known_items_count = 3;
                 int failed = 0;
@@ -3325,7 +3325,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_signature_algorithm - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 char *known_signature_algorithm = "sha256WithRSAEncryption";
                 int failed = 0;
@@ -3350,7 +3350,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_signature - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 uint16_t known_signature_length = 256;
                 uint16_t known_signature_key_size = 2048;
@@ -3421,7 +3421,7 @@ static int tls_test_certificate_parsing() {
             loginfo("failure: tls_x509_get_subject_pubkey_algorithm - %s", filename);
             num_fails++;
         } else {
-            if (!strncmp(filename, "dummy_rsa2048.crt", max_filename_len)) {
+            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 char *known_public_key_algorithm = "rsaEncryption";
                 uint16_t known_public_key_size = 2160;
