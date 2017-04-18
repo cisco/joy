@@ -62,13 +62,13 @@ FILE* joy_utils_open_resource_file(const char *filename) {
 
     /* Assume user CWD in root of Joy source package */
     strncpy(filepath, "./resources/", JOY_UTILS_MAX_FILEPATH);
-    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH);
+    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
     fp = fopen(filepath, "r");
     if (!fp) {
         /* Assume user CWD one-level subdir of Joy source package */
         memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
         strncpy(filepath, "../resources/", JOY_UTILS_MAX_FILEPATH);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH);
+        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
         fp = fopen(filepath, "r");
 
         if (!fp) {
@@ -103,13 +103,13 @@ pcap_t* joy_utils_open_resource_pcap(const char *filename) {
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
     /* Assume user CWD in root of Joy source package */
     strncpy(filepath, "./resources/", JOY_UTILS_MAX_FILEPATH);
-    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH);
+    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
     handle = pcap_open_offline(filepath, errbuf);
     if (!handle) {
         /* Assume user CWD one-level subdir of Joy source package */
         memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
         strncpy(filepath, "../resources/", JOY_UTILS_MAX_FILEPATH);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH);
+        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
         handle = pcap_open_offline(filepath, errbuf);
 
         if (!handle) {
