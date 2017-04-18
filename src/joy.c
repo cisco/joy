@@ -116,8 +116,6 @@ extern unsigned int report_idp;
 
 extern unsigned int report_hd;
 
-extern unsigned int include_tls;
-
 extern unsigned int include_classifier;
 
 extern unsigned int nfv9_capture_port;
@@ -330,7 +328,7 @@ static int usage (char *s) {
            "  dist=1                     include byte distribution array\n" 
            "  cdist=F                    include compact byte distribution array using the mapping file, F\n" 
            "  entropy=1                  include byte entropy\n" 
-           "  tls=1                      include TLS data (ciphersuites, record lengths and times, ...)\n" 
+           "  http=1                     include HTTP data\n" 
            "  exe=1                      include information about host process associated with flow\n" 
            "  classify=1                 include results of post-collection classification\n" 
            "  num_pkts=N                 report on at most N packets per flow (0 <= N < %d)\n" 
@@ -483,7 +481,6 @@ int main (int argc, char **argv) {
         compact_byte_distribution = config.compact_byte_distribution;
         report_entropy = config.report_entropy;
         report_hd = config.report_hd;
-        include_tls = config.include_tls;
         include_classifier = config.include_classifier;
         output_level = config.output_level;
         report_idp = config.idp;
@@ -769,7 +766,7 @@ int main (int argc, char **argv) {
         argv[1+opt_count] = ifile; 
     }
 
-    if (config.include_tls) {
+    if (config.report_tls) {
         /*
          * Load the TLS fingerprints into memory
          * for use in any mode.

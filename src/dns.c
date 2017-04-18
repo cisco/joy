@@ -564,6 +564,11 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
      *                rr_data   
      */
     zprintf(output, "{");
+
+    if (pkt_len < sizeof(dns_hdr)) {
+      zprintf(output, "\"malformed\":%d", len);
+      return;
+    }
     
     len = pkt_len;
     r = dns_name;
@@ -732,14 +737,19 @@ void dns_delete (struct dns *dns) {
 }
 
 /**
- * \fn void dns_update (struct dns *dns, const void *start, unsigned int len, unsigned int report_dns) 
+ * \fn void dns_update (struct dns *dns,
+ *                      const struct pcap_pkthdr *header,
+                        const void *start,
+                        unsigned int len,
+                        unsigned int report_dns)
  * \param dns DNS structure pointer
+ * \param header pointer to the pcap packet header
  * \param start pointer to the update data
  * \param len length of the update data
  * \param report_dns determine if we can report DNS info
  * \return none
  */
-void dns_update (struct dns *dns, const void *start, unsigned int len, unsigned int report_dns) {
+void dns_update (struct dns *dns, const struct pcap_pkthdr *header, const void *start, unsigned int len, unsigned int report_dns) {
     // const char *name = start + 13;
     // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
     // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;

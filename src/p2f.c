@@ -209,8 +209,6 @@ unsigned int report_hd = 0;
 
 // unsigned int report_dns = 0;
 
-unsigned int include_tls = 0;
-
 unsigned int include_classifier = 0;
 
 unsigned int nfv9_capture_port = 0;
@@ -477,10 +475,6 @@ static void flow_record_init (/* @out@ */ struct flow_record *record,
     record->time_prev = NULL;
     record->time_next = NULL;
     record->twin = NULL;
-
-    /* initialize TLS data */
-    //tls_record_init(&record->tls_info);
-    record->tls_info = NULL;
 
     http_init(&record->http_data);
     init_all_features(feature_list);
@@ -827,13 +821,6 @@ static void flow_record_delete (struct flow_record *r) {
     // dns_delete(&r->dns);
     if (r->idp) {
         free(r->idp);
-    }
-
-    /* cleanup TLS info structure */
-    if (r->tls_info != NULL) {
-        tls_record_delete(r->tls_info);
-        free(r->tls_info);
-        r->tls_info = NULL;
     }
 
     http_delete(&r->http_data);
@@ -1601,14 +1588,6 @@ static void flow_record_print_json (const struct flow_record *record) {
             os_printf(output, rec->ttl, rec->tcp_initial_window_size, rec->twin->ttl, rec->twin->tcp_initial_window_size);
         } else {
             os_printf(output, rec->ttl, rec->tcp_initial_window_size, 0, 0);
-        }
-    }
-
-    if (include_tls) { 
-        if (rec->twin) {
-            tls_printf(rec->tls_info, rec->twin->tls_info, output);
-        } else {
-            tls_printf(rec->tls_info, NULL, output);
         }
     }
 

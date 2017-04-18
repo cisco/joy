@@ -35,58 +35,66 @@
  */
 
 /**
- * \file ip_id.h
+ * \file ppi.h
  *
- * \brief ip_id generic programming interface defined in feature.h.
+ * \brief per-packet information (ppi) module using the generic
+ * programming interface defined in feature.h.
  *
  */
-#ifndef IP_ID_H
-#define IP_ID_H
+#ifndef PPI_H
+#define PPI_H
 
 #include <stdio.h> 
 #include "output.h"
 #include "feature.h"
 
-/** 
- * MAX_NUM_IP_ID is the maximum number of IP ID fields that will be
- * reported for a single flow
- */
-#define MAX_NUM_IP_ID 50
+#define MAX_NUM_PKT 200
 
 /** usage string */
-#define ip_id_usage "  ip_id=1                    include ip_id feature\n"
+#define ppi_usage "  ppi=1                      include per-packet info (ppi)\n"
 
-/** ip_id filter key */
-#define ip_id_filter(key) 1
+/** ppi filter key */
+#define ppi_filter(key) 1
+
+#define TCP_OPT_LEN 24
   
-/** ip_id structure */
-typedef struct ip_id {
-    unsigned short int num_ip_id;
-    unsigned short int id[MAX_NUM_IP_ID];
-} ip_id_t;
+struct pkt_info {
+    struct timeval time; 
+    unsigned int ack;
+    unsigned int seq;
+    unsigned short len;  
+    unsigned char flags;
+    unsigned short opt_len;  
+    unsigned char opts[TCP_OPT_LEN];
+};
 
+/** ppi structure */
+typedef struct ppi {
+    unsigned int np;
+    struct pkt_info pkt_info[MAX_NUM_PKT];
+} ppi_t;
 
-declare_feature(ip_id);
+declare_feature(ppi);
 
 /** initialization function */
-void ip_id_init(struct ip_id *ip_id);
+void ppi_init(struct ppi *ppi);
 
-/** update ip_id */
-void ip_id_update(struct ip_id *ip_id, 
-		  const struct pcap_pkthdr *header,
-		  const void *data, 
-		  unsigned int len, 
-		  unsigned int report_ip_id);
+/** update ppi */
+void ppi_update(struct ppi *ppi, 
+		const struct pcap_pkthdr *header,
+		const void *data, 
+		unsigned int len, 
+		unsigned int report_ppi);
 
-/** JSON print ip_id */
-void ip_id_print_json(const struct ip_id *w1, 
-		    const struct ip_id *w2,
-		    zfile f);
+/** JSON print ppi */
+void ppi_print_json(const struct ppi *w1, 
+		     const struct ppi *w2,
+		     zfile f);
 
-/** delete ip_id */
-void ip_id_delete(struct ip_id *ip_id);
+/** delete ppi */
+void ppi_delete(struct ppi *ppi);
 
-/** ip_id unit test entry point */
-void ip_id_unit_test();
+/** ppi unit test entry point */
+void ppi_unit_test();
 
-#endif /* IP_ID_H */
+#endif /* PPI_H */

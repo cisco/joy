@@ -149,7 +149,6 @@ static struct ipfix_message *export_message = NULL;
 extern unsigned int ipfix_collect_port;
 extern unsigned int ipfix_export_port;
 extern unsigned int ipfix_export_remote_port;
-extern unsigned int include_tls;
 extern struct configuration config;
 define_all_features_config_extern_uint(feature_list);
 
@@ -194,9 +193,9 @@ static int ipfix_skip_idp_header(struct flow_record *nf_record,
                                  unsigned int *size_payload);
 
 static void ipfix_process_flow_record(struct flow_record *ix_record,
-                               const struct ipfix_template *cur_template,
-                               const void *flow_data,
-                               int record_num);
+                                      const struct ipfix_template *cur_template,
+                                      const void *flow_data,
+                                      int record_num);
 
 
 /*
@@ -1770,10 +1769,11 @@ static void ipfix_parse_basic_list(struct flow_record *ix_record,
  *
  */
 static void ipfix_process_flow_record(struct flow_record *ix_record,
-                               const struct ipfix_template *cur_template,
-                               const void *flow_data,
-                               int record_num) {
+                                      const struct ipfix_template *cur_template,
+                                      const void *flow_data,
+                                      int record_num) {
   //uint16_t bd_format = 1;
+    const struct pcap_pkthdr *header = NULL;   /* dummy */
   const void *flow_ptr = flow_data;
   const unsigned char *payload = NULL;
   unsigned int size_payload = 0;
@@ -1898,36 +1898,16 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
             break;
           }
 
-          /* If packet has port 443 and nonzero data length, process it as TLS */
-          if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-            struct timeval ts = {0}; /* Zeroize temporary timestamp */
-
-            /* allocate TLS info struct if needed and initialize */
-            if (record->tls_info == NULL) {
-                record->tls_info = malloc(sizeof(struct tls_information));
-                if (record->tls_info != NULL) {
-                    tls_record_init(record->tls_info);
-                }
-            }
-           
-            /* process tls information */
-            if (record->tls_info != NULL) {
-                process_tls(ts, payload, size_payload, record->tls_info);
-            } else {
-                /* couldn't allocate TLS information structure, can't process */
-            }
-          }
-
           /* If packet has port 80 and nonzero data length, process it as HTTP */
-          else if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+          if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
             http_update(&record->http_data, payload, size_payload, config.http);
           }
 
           /* Update all enabled feature modules */
           update_all_features(feature_list);
           flow_ptr += field_length;
+          break;
         }
-        break;
 #if 0
       case IPFIX_BYTE_DISTRIBUTION_FORMAT:
         bd_format = (uint16_t)*((const uint16_t *)flow_data);

@@ -44,6 +44,7 @@
 #define EXAMPLE_H
 
 #include <stdio.h> 
+#include <pcap.h>
 #include "output.h"
 #include "feature.h"
 
@@ -66,6 +67,7 @@ void example_init(struct example *example);
 
 /** update example */
 void example_update(struct example *example, 
+		    const struct pcap_pkthdr *header,
 		    const void *data, 
 		    unsigned int len, 
 		    unsigned int report_example);

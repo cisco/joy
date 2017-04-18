@@ -67,7 +67,11 @@ typedef struct dns {
 void dns_init(struct dns *dns);
 
 /** DNS structure update */
-void dns_update(struct dns *dns, const void *data, unsigned int len, unsigned int report_dns);
+void dns_update(struct dns *dns, 
+		const struct pcap_pkthdr *header,
+		const void *data, 
+		unsigned int len, 
+		unsigned int report_dns);
 
 /** print DNS data out in JSON format */
 void dns_print_json(const struct dns *dns1, const struct dns *dns2, zfile f);
