@@ -58,7 +58,6 @@
 /*
  * External objects, defined in joy
  */
-extern unsigned int include_tls;
 extern struct configuration config;
 define_all_features_config_extern_uint(feature_list);
 
@@ -400,17 +399,18 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
 
 /**
  * \fn void nfv9_process_flow_record (struct flow_record *nf_record, 
-        const struct nfv9_template *cur_template, 
-        const void *flow_data, int record_num)
+        const struct nfv9_template *cur_template, const void *header,
+        unsigned int header_len, const void *flow_data, int record_num)
  * \param nf_record
  * \param cur_template
  * \param flow_data
  * \param record_num
  * \return none
 */
-void nfv9_process_flow_record (struct flow_record *nf_record, 
-        const struct nfv9_template *cur_template, 
-        const void *flow_data, int record_num) {
+void nfv9_process_flow_record (struct flow_record *nf_record,
+                               const struct nfv9_template *cur_template,
+                               const void *flow_data,
+                               int record_num) {
 
     const struct pcap_pkthdr *header = NULL;   /* dummy */
     struct timeval old_val_time;
@@ -529,29 +529,8 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
                 size_payload = 0;
                 nfv9_skip_idp_header(nf_record, &payload, &size_payload);
 
-                /* if packet has port 443 and nonzero data length, process it as TLS */
-                if (include_tls && size_payload && (key->sp == 443 || key->dp == 443)) {
-                    struct timeval ts = {0}; /* Zeroize temporary timestamp */
-
-                    /* allocate TLS info struct if needed and initialize */
-                    if (nf_record->tls_info == NULL) {
-                        nf_record->tls_info = malloc(sizeof(struct tls_information));
-                        if (nf_record->tls_info != NULL) {
-                            tls_record_init(nf_record->tls_info);
-                        }
-                    }
-                   
-                    /* process tls information */
-                    if (nf_record->tls_info != NULL) {
-                        process_tls(ts, payload, size_payload, nf_record->tls_info);
-                    } else {
-                        /* couldn't allocate TLS information structure, can't process */
-                    }
-
-                }
-
                 /* if packet has port 80 and nonzero data length, process it as HTTP */
-                else if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
+                if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
                     http_update(&nf_record->http_data, payload, size_payload, config.http);
                 }
 

@@ -68,7 +68,7 @@ void dns_init(struct dns *dns);
 
 /** DNS structure update */
 void dns_update(struct dns *dns, 
-		const struct pcap_pkthdr *,
+		const struct pcap_pkthdr *header,
 		const void *data, 
 		unsigned int len, 
 		unsigned int report_dns);

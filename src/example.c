@@ -56,10 +56,12 @@ inline void example_init (struct example *example) {
 
 /**
  * \fn void example_update (struct example *example,
-        const void *data,
-        unsigned int len,
-        unsigned int report_example)
+ *                          const struct pcap_pkthdr *header,
+                            const void *data,
+                            unsigned int len,
+                            unsigned int report_example)
  * \param example structure to initialize
+ * \param header pointer to the pcap packet header
  * \param data data to use for update
  * \param len length of the data
  * \param report_example flag to determine if we filter example

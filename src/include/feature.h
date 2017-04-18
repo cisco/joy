@@ -107,7 +107,7 @@
  */
 #define ip_feature_list ip_id
 #define tcp_feature_list salt, ppi
-#define payload_feature_list wht, example, dns, ssh
+#define payload_feature_list wht, example, dns, ssh, tls
 #define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
 
@@ -131,11 +131,10 @@
 #define declare_init(F) void F##_init(F##_t *f)
 
 /** \brief \verbatim
- * The function feature_update(feature, data, len) updates the data
- * feature context "feature" stored in a flow_record, based on the
- * packet located at "data", which has length "len", whenever
- * "report_feature" is nonzero
- * 
+ * The function feature_update(feature, header, data, data_len, report_feature)
+ * updates the data feature context "feature" stored in a flow_record, based on
+ * the packet located at "data", which has length "len", whenever "report_feature" is nonzero.
+ *
  * return value: 
  *     no_more_packets_needed  (if enough packets in flow have been seen)
  *     more_packets_needed     (otherwise)

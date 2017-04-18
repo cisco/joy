@@ -78,8 +78,13 @@ static inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) {
 }
 
 /**
- * \fn void wht_update (struct wht *wht, const void *data, unsigned int len, unsigned int report_wht)
+ * \fn void wht_update (struct wht *wht,
+ *                      const struct pcap_pkthdr *header,
+                        const void *data,
+                        unsigned int len,
+                        unsigned int report_wht)
  * \param wht point to the structure
+ * \param header pointer to the pcap packet header
  * \param data pointer to the data to update with
  * \param len length of the data passed in
  * \param report_wht value used to determine processing

@@ -62,13 +62,16 @@ inline void ip_id_init (struct ip_id *ip_id) {
 
 /**
  * \fn void ip_id_update (struct ip_id *ip_id,
-        const void *data,
-        unsigned int len,
-        unsigned int report_ip_id)
- * \param ip_id structure to initialize
+ *                        const struct pcap_pkthdr *header,
+                          const void *data,
+                          unsigned int len,
+                          unsigned int report_ip_id)
+ * \param ip_id structure pointer
+ * \param header pointer to the pcap packet header
  * \param data data to use for update
- * \param len length of the data
+ * \param data_len length of the data
  * \param report_ip_id flag to determine if we filter ip_id
+ * 
  * \return none
  */
 void ip_id_update (struct ip_id *ip_id, 
