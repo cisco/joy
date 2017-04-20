@@ -4066,6 +4066,7 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
     struct ipfix_exporter_template *local_tmp = NULL;
     int flag_send_template = 0;
     int signal = 0;
+    int flag_cleanup = 1;
     int rc = 1;
 
     /*
@@ -4199,13 +4200,19 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
                 goto end;
             }
         }
+
+        /*
+         * Attached the set node and template to message
+         * so don't cleanup those objects.
+         */
+        flag_cleanup = 0;
     }
 
     /* Successfully attached */
     rc = 0;
 
 end:
-    if (rc) {
+    if (flag_cleanup) {
         /* Did not attach to message so cleanup here */
         if (set_node) {
             ipfix_delete_exp_set_node(set_node);
