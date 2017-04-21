@@ -58,6 +58,7 @@
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "config.h"     /* configuration                 */
 #include "output.h"     /* compressed output             */
+#include "ipfix.h"
 
 
 /* local prototypes */
@@ -222,6 +223,8 @@ unsigned int ipfix_export_port = 0;
 unsigned int ipfix_export_remote_port = 0;
 
 char *ipfix_export_remote_host = NULL;
+
+char *ipfix_export_template = NULL;
 
 char *tls_fingerprint_file = NULL;
 
@@ -1731,6 +1734,14 @@ static unsigned int flow_record_is_expired (struct flow_record *record,
 static void flow_record_print_and_delete (struct flow_record *record) {
   
     flow_record_print_json(record);
+
+    /*
+     * Export this record before deletion if running in
+     * IPFIX exporter mode.
+     */
+    if (ipfix_export_port) {
+        ipfix_export_main(record);
+    }
   
     /* delete twin, if there is one */
     if (record->twin != NULL) {

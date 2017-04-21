@@ -142,6 +142,8 @@ static struct ipfix_raw_message raw_message;
 /* Used for storing IPFIX messages before transmission */
 static struct ipfix_message *export_message = NULL;
 
+enum ipfix_template_type export_template_type;
+
 
 /*
  * External objects, defined in joy
@@ -149,6 +151,8 @@ static struct ipfix_message *export_message = NULL;
 extern unsigned int ipfix_collect_port;
 extern unsigned int ipfix_export_port;
 extern unsigned int ipfix_export_remote_port;
+extern char *ipfix_export_remote_host;
+extern char *ipfix_export_template;
 extern struct configuration config;
 define_all_features_config_extern_uint(feature_list);
 
@@ -230,6 +234,10 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
     return 1;
   }
 
+  loginfo("IPFIX collector configured...");
+  loginfo("Host Port: %u", ipfix_collect_port);
+  loginfo("Ready!\n");
+
   return 0;
 }
 
@@ -274,13 +282,12 @@ static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
    * Infinite loop, ends with process termination.
    */
   while(1) {
-    loginfo("waiting on port %d", ipfix_collect_port);
     recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
                        (struct sockaddr *)&remote_addr, &remote_addrlen);
     if (recvlen > 0) {
       ipfix_collect_process_socket(buf, recvlen, &remote_addr);
     }
-    loginfo("received %d bytes\n", recvlen);
+    loginfo("received %d bytes", recvlen);
 #if 0
     if (recvlen > 0) {
       buf[recvlen] = '\0';
@@ -447,9 +454,7 @@ void *ipfix_cts_monitor(void *ptr) {
   while (1) {
     /* let's only wake up and do work at specific intervals */
     num_expired = ipfix_cts_scan_expired();
-    if (!num_expired) {
-      loginfo("No templates were expired.");
-    } else {
+    if (num_expired) {
       loginfo("%d templates were expired.", num_expired);
     }
 
@@ -1945,6 +1950,7 @@ static uint32_t exporter_obs_dom_id = 0;
 
 #define IPFIX_COLLECTOR_DEFAULT_PORT 4739
 #define HOST_NAME_MAX_SIZE 50
+#define TEMPLATE_NAME_MAX_SIZE 50
 
 static uint16_t exporter_template_id = 256;
 
@@ -2974,6 +2980,7 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   struct hostent *host = NULL;
   char host_desc [HOST_NAME_MAX_SIZE];
   in_addr_t localhost = 0;
+  unsigned int remote_port = 0;
 
   memset(e, 0, sizeof(struct ipfix_exporter));
 
@@ -3000,20 +3007,23 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   /* Set remote (collector) address */
   e->clctr_addr.sin_family = AF_INET;
   if (ipfix_export_remote_port) {
-    e->clctr_addr.sin_port = htons(ipfix_export_remote_port);
+    remote_port = ipfix_export_remote_port;
+    e->clctr_addr.sin_port = htons(remote_port);
   } else {
-    e->clctr_addr.sin_port = htons(IPFIX_COLLECTOR_DEFAULT_PORT);
+    remote_port = IPFIX_COLLECTOR_DEFAULT_PORT;
+    e->clctr_addr.sin_port = htons(remote_port);
   }
 
   if (host_name != NULL) {
     host = gethostbyname(host_desc);
     if (!host) {
-      loginfo("could not find address for collector %s", host_desc);
+      loginfo("error: could not find address for collector %s", host_desc);
       return 1;
     }
     memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
   } else {
-    localhost = inet_addr("127.0.0.1");
+    strncpy(host_desc, "127.0.0.1", HOST_NAME_MAX_SIZE);
+    localhost = inet_addr(host_desc);
     e->clctr_addr.sin_addr.s_addr = localhost;
   }
 
@@ -3025,6 +3035,32 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
     }
     exporter_obs_dom_id = bytes_to_u32(rand_buf);
   }
+
+  loginfo("IPFIX exporter configured...");
+  loginfo("Observation Domain ID: %u", exporter_obs_dom_id);
+  loginfo("Host Port: %u", ipfix_export_port);
+  loginfo("Remote IP Address: %s", host_desc);
+  loginfo("Remote Port: %u", remote_port);
+
+  /* Set the template type to use */
+  if (ipfix_export_template) {
+      if (!strncmp(ipfix_export_template, "simple", TEMPLATE_NAME_MAX_SIZE)) {
+          export_template_type = IPFIX_SIMPLE_TEMPLATE;
+          loginfo("Template Type: %s", "simple");
+      } else if (!strncmp(ipfix_export_template, "idp", TEMPLATE_NAME_MAX_SIZE)) {
+          export_template_type = IPFIX_IDP_TEMPLATE;
+          loginfo("Template Type: %s", "idp");
+      } else {
+          loginfo("warning: template type invalid, defaulting to \"simple\"");
+          export_template_type = IPFIX_SIMPLE_TEMPLATE;
+          loginfo("Template Type: %s", "simple");
+      }
+  } else {
+      export_template_type = IPFIX_SIMPLE_TEMPLATE;
+      loginfo("Template Type: %s", "simple");
+  }
+
+  loginfo("Ready!\n");
 
   return 0;
 }
@@ -3904,6 +3940,8 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
   if (bytes < 0) {
     loginfo("error: ipfix message could not be sent");
     return 1;
+  } else {
+    loginfo("info: sequence # %d, sent %lu bytes", e->msg_count, bytes);
   }
 
   /* Increment the exporter's message count */
@@ -4019,7 +4057,7 @@ static int ipfix_export_message_attach_data_set(const struct flow_record *fr_rec
             loginfo("error: unable to attach set_node to message");
             goto end;
         } else if (signal == 2) {
-            loginfo("info: not enough space for data set");
+            /* Not enough space in message */
             rc = 2;
             goto end;
         }
@@ -4035,7 +4073,7 @@ static int ipfix_export_message_attach_data_set(const struct flow_record *fr_rec
             /* Add the data record to the existing data set */
             ipfix_exp_data_set_add(data_set, data_record);
         } else {
-            loginfo("info: not enough space for data record");
+            /* Not enough space in message */
             rc = 2;
             goto end;
         }
@@ -4174,7 +4212,7 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
                 loginfo("error: unable to attach set_node to message");
                 goto end;
             } else if (signal == 2) {
-                loginfo("info: not enough space for template set");
+                /* Not enough space in message */
                 rc = 2;
                 goto end;
             }
@@ -4195,7 +4233,7 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
                     db_tmp->last_sent = time(NULL);
                 }
             } else {
-                loginfo("info: not enough space for template record");
+                /* Not enough space in message */
                 rc = 2;
                 goto end;
             }
@@ -4227,12 +4265,11 @@ end:
 
 
 int ipfix_export_main(const struct flow_record *fr_record) {
-    enum  ipfix_template_type template_type = IPFIX_IDP_TEMPLATE;
     int attach_code = 0;
 
     /* Init the exporter for use, if not done already */
     if (gateway_export.socket == 0) {
-        ipfix_exporter_init(&gateway_export, NULL);
+        ipfix_exporter_init(&gateway_export, ipfix_export_remote_host);
     }
 
     /* Create and init the IPFIX message */
@@ -4247,7 +4284,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
      * Attach a template if necessary.
      */
     attach_code = ipfix_export_message_attach_template_set(export_message,
-                                                           template_type);
+                                                           export_template_type);
     if (attach_code == 2) {
         /* 
          * Could not attach template to the message because
@@ -4268,7 +4305,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
         }
 
         if (ipfix_export_message_attach_template_set(export_message,
-                                                     template_type)) {
+                                                     export_template_type)) {
             /*
              * We either had an error or could not attach again.
              * This is a problem...
@@ -4282,7 +4319,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
      */
     attach_code = ipfix_export_message_attach_data_set(fr_record,
                                                        export_message,
-                                                       template_type);
+                                                       export_template_type);
     if (attach_code == 2) {
         /* 
          * Could not attach data record to the message because
@@ -4304,7 +4341,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
 
         if (ipfix_export_message_attach_data_set(fr_record,
                                                  export_message,
-                                                 template_type)) {
+                                                 export_template_type)) {
             /*
              * We either had an error or could not attach again.
              * This is a problem...
