@@ -130,7 +130,7 @@ extern unsigned int ipfix_export_remote_port;
 
 extern char *ipfix_export_remote_host;
 
-extern char *tls_fingerprint_file;
+extern char *aux_resource_path;
 
 extern zfile output;
 
@@ -319,7 +319,8 @@ static int usage (char *s) {
            "  ipfix_export_remote_host=\"host\"\n"
            "                             Use \"host\" as the remote server target for the IPFIX exporter\n"
            "                             Default=\"127.0.0.1\" (localhost)\n"
-           "  fingerprint_file_tls=F\n   Use json file F as the known dataset for TLS fingerprinting\n"
+           "  aux_resource_path=\"path\"\n"
+           "                             The path to directory where auxillary resources are stored\n"
            "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
@@ -491,7 +492,7 @@ int main (int argc, char **argv) {
         ipfix_export_port = config.ipfix_export_port;
         ipfix_export_remote_port = config.ipfix_export_remote_port;
         ipfix_export_remote_host = config.ipfix_export_remote_host;
-        tls_fingerprint_file = config.tls_fingerprint_file;
+        aux_resource_path = config.aux_resource_path;
 
         set_config_all_features(feature_list);
 

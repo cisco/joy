@@ -92,11 +92,6 @@ extern FILE *info;
  */
 #define MAX_CERT_SERIAL_LENGTH 24
 
-/*
- * External objects, defined in joy.c
- */
-extern char *tls_fingerprint_file;
-
 /* Store the tls_fingerprint.json data */
 static fingerprint_db_t tls_fingerprint_db;
 static int tls_fingerprint_db_loaded = 0;
@@ -1854,20 +1849,11 @@ int tls_load_fingerprints(void) {
     const char *lib_name_str = NULL;
     const char *cipher_suite_str = NULL;
     const char *extension_str = NULL;
-    const char *fingerprint_file = NULL;
     size_t i = 0;
     int rc = 1;
 
-    if (tls_fingerprint_file != NULL) {
-        /* Use the provided file path */
-        fingerprint_file = tls_fingerprint_file;
-    } else {
-        /* Use the package source location */
-        fingerprint_file = "tls_fingerprint.json";
-    }
-
     /* Parse the Json file and validate */
-    root_value = json_parse_file(fingerprint_file);
+    root_value = joy_utils_open_resource_parson("tls_fingerprint.json");
     if (json_value_get_type(root_value) != JSONObject) {
         fprintf(stderr, "error: expected JSON object\n");
         goto cleanup;

@@ -42,7 +42,7 @@ CONFIGFILE=${CWD}/options.cfg
 ANONFILE=${APP_ROOT}/internal.net
 WATCHFILE=""
 KEYFILE=""
-TLS_FINGERPRINT_FILE=${APP_ROOT}/tls_fingerprint.json
+TLS_FINGERPRINT_FILE=${APP_ROOT}/resources/tls_fingerprint.json
 
 echo
 echo JOY INSTALL-SH

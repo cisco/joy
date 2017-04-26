@@ -223,7 +223,7 @@ unsigned int ipfix_export_remote_port = 0;
 
 char *ipfix_export_remote_host = NULL;
 
-char *tls_fingerprint_file = NULL;
+char *aux_resource_path = NULL;
 
 zfile output = NULL;
 
