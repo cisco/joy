@@ -354,6 +354,11 @@ static void tls_client_hello_get_ciphersuites (const void *x,
         return;
     }
 
+    if (r->num_ciphersuites) {
+        /* Already have the ciphersuites */
+        return;
+    }
+
     /* record the 32-byte Random field */
     memcpy(r->tls_random, y+2, 32); 
 
@@ -417,6 +422,11 @@ static void tls_client_hello_get_extensions (const void *x,
     /* Check the TLS version */
     if (!r->tls_v) {
         /* Unsupported version */
+        return;
+    }
+
+    if (r->num_tls_extensions) {
+        /* Already have the extensions */
         return;
     }
 
@@ -1711,6 +1721,11 @@ static void tls_server_hello_get_ciphersuite (const void *x,
         return;
     }
 
+    if (r->num_ciphersuites) {
+        /* Already have the ciphersuite */
+        return;
+    }
+
     if (r->tls_v == TLS_VERSION_1_3) {
         /* Flag that this is TLS 1.3 */
         flag_tls13 = 1;
@@ -1772,6 +1787,11 @@ static void tls_server_hello_get_extensions (const void *x, int len,
     /* Check the TLS version */
     if (!r->tls_v) {
         /* Unsupported version */
+        return;
+    }
+
+    if (r->num_server_tls_extensions) {
+        /* Already have the extensions */
         return;
     }
 

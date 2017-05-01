@@ -240,6 +240,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "ipfix_export_remote_host")) {
         parse_check(parse_string(&config->ipfix_export_remote_host, arg, num));
 
+    } else if (match(command, "ipfix_export_template")) {
+        parse_check(parse_string(&config->ipfix_export_template, arg, num));
+
     } else if (match(command, "nat")) {
         parse_check(parse_bool(&config->flow_key_match_method, arg, num));
 
