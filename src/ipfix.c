@@ -3992,6 +3992,18 @@ void ipfix_module_cleanup(void) {
   }
 }
 
+/*
+ * @brief Encapsulate a data record within a data set and then
+ *        attach it to an IPFIX \p message.
+ *
+ * @param fr_record Joy flow record created during the metric observation
+ *                  phase of the process, i.e. process_packet(). It contains
+ *                  information that will be encoded into the new data record.
+ * @param message IPFIX message that the data record/set will be encoded and written into.
+ * @param template_type The template that will be adhered to for new data record creation.
+ *
+ * @return 0 for success, 1 for failure
+ */
 static int ipfix_export_message_attach_data_set(const struct flow_record *fr_record,
                                                 struct ipfix_message *message,
                                                 enum ipfix_template_type template_type) {
@@ -4096,6 +4108,15 @@ end:
     return rc;
 }
 
+/*
+ * @brief Encapsulate a template record within a template set and then
+ *        attach it to an IPFIX \p message.
+ *
+ * @param message IPFIX message that the template record/set will be encoded and written into.
+ * @param template_type The template type to create.
+ *
+ * @return 0 for success, 1 for failure
+ */
 static int ipfix_export_message_attach_template_set(struct ipfix_message *message,
                                                     enum ipfix_template_type template_type) {
     struct ipfix_exporter_set_node *set_node = NULL;
@@ -4263,7 +4284,16 @@ end:
     return rc;
 }
 
-
+/*
+ * @brief The main IPFIX exporting control function for creating messages that
+ *        that will be sent along the network.
+ *
+ * @param fr_record Joy flow record created during the metric observation
+ *                  phase of the process, i.e. process_packet(). It contains
+ *                  information that will be encoded into the message.
+ *
+ * @return 0 for success, 1 for failure
+ */
 int ipfix_export_main(const struct flow_record *fr_record) {
     int attach_code = 0;
 
