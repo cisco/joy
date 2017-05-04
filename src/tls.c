@@ -96,6 +96,7 @@ extern FILE *info;
  * External objects, defined in joy.c
  */
 extern char *tls_fingerprint_file;
+extern unsigned int ipfix_collect_port;
 
 /* Store the tls_fingerprint.json data */
 static fingerprint_db_t tls_fingerprint_db;
@@ -2250,15 +2251,18 @@ void tls_update (struct tls_information *r,
 
         /* Find the length of the TLS message */
         tls_len = tls_header_get_length(tls);
-	if ((tls_len == 0) || (tls_len > len)) {
-	  return;
-	}
+
+        if (((tls_len == 0) || (tls_len > len)) && !ipfix_collect_port) {
+            return;
+        }
 
         if (r->certificate_offset && r->start_cert == 1 &&
             ((tls->content_type == TLS_CONTENT_APPLICATION_DATA) ||
              (tls->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC) ||
              (tls->content_type == TLS_CONTENT_ALERT) ||
-             (r->certificate_offset >= MAX_CERTIFICATE_BUFFER - 300))) {
+             (r->certificate_offset >= MAX_CERTIFICATE_BUFFER - 300) ||
+             (ipfix_collect_port && tls->content_type == TLS_CONTENT_HANDSHAKE &&
+              tls->handshake.msg_type == TLS_HANDSHAKE_CERTIFICATE))) {
             /*
              * We are past the certificate exchange phase in the handshake.
              * Now decide if we want to process the data in certificate buffer or not.
@@ -2330,9 +2334,9 @@ void tls_update (struct tls_information *r,
 
                 r->role = role_client;
                 body_len = tls_handshake_get_length(&tls->handshake);
-		if (body_len > tls_len) {
-		  return ;
-		}
+                if (body_len > tls_len) {
+                    return;
+                }
                 tls_client_hello_get_ciphersuites(&tls->handshake.body, body_len, r);
                 tls_client_hello_get_extensions(&tls->handshake.body, body_len, r);
 
@@ -2356,9 +2360,9 @@ void tls_update (struct tls_information *r,
 
                 r->role = role_server;
                 body_len = tls_handshake_get_length(&tls->handshake);
-		if (body_len > tls_len) {
-		  return ;
-		}
+                if (body_len > tls_len) {
+                    return;
+                }
                 tls_server_hello_get_ciphersuite(&tls->handshake.body, body_len, r);
                 tls_server_hello_get_extensions(&tls->handshake.body, body_len, r);
             } else if (tls->handshake.msg_type == TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE) {
