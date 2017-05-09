@@ -2927,7 +2927,7 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
 	        zprintf(f, "\"entry_data\": ");
 	        zprintf_raw_as_hex_tls(f, data->extensions[j].data, data->extensions[j].data_length);
 	        zprintf(f, "}");
-            if (j == (data->num_subject_items - 1)) {
+            if (j == (data->num_extension_items - 1)) {
                 zprintf(f, "]");
             } else {
                 zprintf(f, ",");
