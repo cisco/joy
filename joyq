@@ -1,0 +1,627 @@
+#!/usr/bin/python
+#
+# joyq performs query operations on JSON-formatted flow objects; see
+# joyq --help for more details
+
+import sys, json, operator, gzip, string, time, pprint, copy, re, pickle, collections, fnmatch
+from optparse import OptionParser
+from math import sqrt, log
+
+# global variables 
+#
+
+# flow iterator classes
+#
+class flowIterator:
+   def __init__(self):
+      pass
+
+   def __iter__(self):
+      return self
+
+   def next(self):
+      flow = dict()
+      return flow
+
+class flowIteratorFromFile(flowIterator):
+
+   def next(self):
+      while True:
+         try:
+            line = self.f.readline()
+            if line == '':
+               raise StopIteration
+            tmp = json.loads(line)
+            if 'version' not in tmp:
+               self.lineCount += 1
+               return tmp
+         except StopIteration:
+            sys.stderr.write("read " + str(self.lineCount) + " lines\n")
+            if self.badLineCount > 0:
+               sys.stderr.write("warning: could not parse " + str(self.badLineCount) + " lines\n")
+            raise
+         except:
+            pass
+            self.badLineCount += 1
+
+   def __init__(self, f):
+      self.badLineCount = 0
+      self.lineCount = 0
+      if f is '-':
+         self.f = sys.stdin
+      else:
+         if ".gz" in f:
+            self.f = gzip.open(f,'r')
+         else:
+            self.f = open(f,'r') 
+         #
+         # TODO: add the ability to read PCAP files by pipeing them through joy
+
+class flowFilterIterator(flowIterator):
+   def __init__(self, source, filter):
+      self.source = source
+      self.filter = filter
+
+   def next(self):
+      tmp = self.source.next()
+      while self.filter.match(tmp) is not True:
+         tmp = self.source.next()
+      return tmp
+
+class flowStitchIterator(flowIterator):
+   def __init__(self, source):
+      self.source = source
+      self.active_flows = collections.OrderedDict()
+   
+      for f in source:
+         key = (f['sa'], f['da'], f['sp'], f['dp'], f['pr'])
+         revkey = (f['da'], f['sa'], f['dp'], f['sp'], f['pr'])
+         if key in self.active_flows:
+            self.active_flows[key] = self.merge(self.active_flows[key], f)
+            pass
+         elif revkey in self.active_flows:
+            self.active_flows[revkey] = self.merge_reverse(self.active_flows[revkey], f)
+            pass
+         else:
+            self.active_flows[key] = f
+
+      self.flows = iter(self.active_flows.values())
+
+   def next(self):
+      return self.flows.next()
+
+   # merge f2 into f1, where both flows are in the same direction, and
+   # f1 preceeds f2 (f1.ts < f2.ts)
+   #
+   def merge(self, f1, f2):
+      for k, v in f2.items():
+         if k not in f1:
+            f1[k] = f2[k]
+         else:
+            if k == 'te': 
+               f1[k] = max(f1[k],f2[k])
+            elif k == 'ip' or k == 'ib':
+               f1[k] += f2[k]
+            elif k == 'op' or k == 'ob':
+               f1[k] += f2[k]
+            elif k == 'bd':
+               for i, e in enumerate(f2[k]):
+                  f1[k][i] += e
+            else:
+               pass
+         return f1
+
+   # merge f2 into f1, where f2 is in the reverse direction to f1, and
+   # f1 preceeds f2 (f1.ts < f2.ts)
+   #
+   def merge_reverse(self, f1, f2):
+      for k, v in f2.items():
+         if k not in f1:
+            if k == 'op':
+               f1['ip'] += f2[k]
+            elif k == 'ob':
+               f1['ib'] += f2[k]
+            else:
+               f1[k] = f2[k]
+         else:
+            if k == 'te':
+               f1[k] = max(f1[k],f2[k])
+            elif k == 'ip':
+               f1[k] += f2['ob']
+            elif k == 'op':
+               f1[k] += f2['ib']
+            elif k == 'bd':
+               for i, e in enumerate(f2[k]):
+                  f1[k][i] += e
+            else:
+               pass
+         return f1
+
+
+# flow processor classes
+#
+class flowProcessor:
+   def __init__(self, indent=None):
+      self.flowset = []
+      self.indent = indent
+
+   def processFlow(self, flow):
+      self.flowset.append(flow)
+
+   def preProcess(self, context=None):    
+      self.context = context
+
+   def postProcess(self, proc=None):    
+      for flow in self.flowset:
+         json.dump(flow, sys.stdout, indent=self.indent)
+         print ""
+
+class splitProcessor(flowProcessor):
+   def __init__(self, fpobj, field):
+      self.fpobj = fpobj
+      self.dict = dict()
+      self.field = field
+      self.template = templateDict(field)
+      # print "field: " + str(field)
+
+   def processFlow(self, flow):
+      value = pickle.dumps(self.template.copySelectedElements(self.template.template, flow))
+      # flow['value'] = value
+      if value not in self.dict:
+         self.dict[value] = copy.deepcopy(self.fpobj)
+         self.dict[value].preProcess([self.field, value])
+      self.dict[value].processFlow(flow)
+
+   def postProcess(self, proc=None):
+      if self.context:
+         print self.context
+      for k, v in self.dict.items():
+         v.postProcess(copy.deepcopy(proc))
+
+class flowStitchProcessor:
+   def __init__(self, fp):
+      self.flowset = []
+      self.active_flows = dict()
+      self.fp
+
+   def processFlow(self, flow):
+      if 'x' in flow and flow['x'] == 'a':
+         pass
+         # print "found active timeout"
+      self.flowset.append(flow)
+
+   def postProcess(self, proc=None):    
+      for flow in self.flowset:
+         json.dump(flow, sys.stdout)
+         print ""
+
+class templateDict:
+   def __init__(self, elements):
+      self.template = self.string_to_template_object(elements)
+
+   def string_to_template_object(self, s):
+      t = '{'
+      needArg = False
+      for x in re.split('([\{\}\[\],])', s):         
+         if x == '':
+            pass
+         elif x == '{' or x == '[':
+            t += x
+            needArg = False
+         elif x == '}' or x == ']' or x == ',':
+            if needArg:
+               t += "None"
+               needArg = False
+            t += x
+         else:
+            t += '\"' + x + '\":'
+            needArg = True
+      if needArg:
+         t += "None"
+      t += '}'
+      # print "t: " + t
+      return eval(t)
+      
+   def copySelectedElements(self, tmplDict, flow):
+      outDict = dict()
+      for k, v in tmplDict.items():
+         if k in flow:
+            if isinstance(v, list):
+               flowList = flow[k]
+               if flowList:
+                  outDict[k] = list()
+                  for x in flowList:
+                     for y in v:
+                        tmp = self.copySelectedElements(y, x)
+                        if tmp:
+                           outDict[k].append(tmp)
+                  if not outDict[k]:
+                     outDict = {}
+            elif isinstance(v, dict):
+               tmp = self.copySelectedElements(v, flow[k])
+               if tmp:
+                  outDict[k] = tmp
+            else:
+               if v:
+                  if flow[k] == v:
+                     outDict[k] = flow[k]
+               else:
+                  outDict[k] = flow[k]
+      if outDict:
+         return outDict
+      else:
+         return None
+
+   def getSelectedElement(self, tmplDict, flow):
+      outDict = dict()
+      for k, v in tmplDict.items():
+         if k in flow:
+            if isinstance(v, list):
+               flowList = flow[k]
+               if flowList:
+                  outDict[k] = list()
+                  for x in flowList:
+                     for y in v:
+                        tmp = self.getSelectedElement(y, x)
+                        if tmp:
+                           outDict[k].append(tmp)
+                  if not outDict[k]:
+                     outDict = {}
+            elif isinstance(v, dict):
+               tmp = self.getSelectedElement(v, flow[k])
+               if tmp:
+                  outDict[k] = tmp
+            else:
+               if v:
+                  if flow[k] == v:
+                     outDict[k] = flow[k]
+               else:
+                  outDict[k] = flow[k]
+      if outDict:
+         return outDict
+      else:
+         return None
+
+   
+class flowElementSelector(flowProcessor):
+
+   def __init__(self, elements):
+      self.flowset = []
+      self.template = templateDict(elements)
+      
+   def processFlow(self, flow):
+      output = self.template.copySelectedElements(self.template.template, flow)
+      if output:
+         self.flowset.append(output)
+
+   def postProcess(self, proc=flowProcessor()):    
+      proc.preProcess(self.context)
+      for flow in self.flowset:
+         proc.processFlow(flow)
+      proc.postProcess()
+     
+class flowProcessorDistribution(flowProcessor):
+   def __init__(self):
+      self.dist = dict()
+      self.total = 0
+
+   def processFlow(self, flow):
+      value = pickle.dumps(flow)
+      self.key = tuple(flow.keys())
+      if value in self.dist:
+         self.dist[value] += 1
+      else:
+         self.dist[value] = 1
+      self.total += 1
+
+   def postProcess(self):    
+      output = list()
+      for k, v in self.dist.iteritems():
+         d = pickle.loads(k)
+         d["count"] = v   
+         d["total"] = self.total   
+         # d["fraction"] = v/self.total   
+         output.append(d)
+      output.sort(key=lambda x: x["count"], reverse=True)
+      for d in output:
+         json.dump(d, sys.stdout)
+         print ""
+
+class flowProcessorSum(flowProcessor):
+   def __init__(self, sumvars, indent=None):
+      self.sums = dict()
+      self.fixed_fields = dict()
+      self.total = 0
+      self.sumvars = sumvars
+      self.indent = indent
+
+   def processFlow(self, flow):
+      self.key = tuple(flow.keys())
+      for k, v in flow.iteritems():
+         if k in self.sumvars: # assume isinstance(v, int):
+            if k in self.sums:
+               self.sums[k] += v
+            else:
+               self.sums[k] = 0
+         else:
+            if k not in self.fixed_fields:
+               self.fixed_fields[k] = set()
+            self.fixed_fields[k].add(v)
+      self.total += 1
+
+   def postProcess(self):    
+      d = dict()
+      for k, v in self.fixed_fields.iteritems():
+         if len(v) == 1:
+            d[k] = list(v)[0]
+         else:
+            d[k] = list(v)
+      for k, v in self.sums.iteritems():
+         klist = list(k)
+         for i, x in enumerate(list(self.key)):
+            if x in self.sums:
+               d[x] = self.sums[x]
+      # NOTE: sum_over might interfere with --dist
+      d["sum_over"] = self.total   
+      json.dump(d, sys.stdout, indent=self.indent)   
+      print ""
+
+# fnmatch 
+# *	  matches everything
+# ?       matches any single character
+# [seq]	  matches any character in seq       *** DOES NOT WORK YET ***
+# [!seq]  matches any character not in seq   *** DOES NOT WORK YET ***
+
+class simplePredicate:
+
+   def __init__(self, elements):
+      self.flowset = []
+      if elements:
+         tokens = re.split('([=<>~])', elements)
+         self.template = templateDict(tokens[0]) 
+         self.op = tokens[1]
+         self.arg = tokens[2]
+         if self.arg.isdigit():
+            self.arg = int(self.arg) # TODO - check for float()
+         self.matchAll = False
+      else:
+         self.matchAll = True
+
+   def eval(self, flow):
+      # print 'flow: ' + str(flow)
+      # print 'op: ' + str(self.op)
+      # print 'arg: ' + str(self.arg)
+
+      # if flow is list, match any element in it
+      if isinstance(flow, list):
+         listMatch = False
+         if flow:
+            for x in flow:
+               x = x.values()[0]
+               if self.eval(x):
+                  listMatch = True
+         return listMatch
+      elif isinstance(flow, dict):
+         # print 'dict flow: ' + str(flow)
+         x = flow.values()[0]
+         self.eval(x)
+      
+      if self.op == '=':
+         if self.arg == '*':
+            return True
+         elif isinstance(self.arg, int):
+            return self.arg == flow
+         else:
+            #print '------------------'
+            #print 'flow: ' + str(flow)
+            #print 'arg:  ' + str(self.arg)
+            return fnmatch.fnmatch(flow, self.arg)
+      elif self.op == '~':
+         if self.arg == '*':
+            return False
+         elif isinstance(self.arg, int):
+            return self.arg != flow
+         else:
+            return not fnmatch.fnmatch(flow, self.arg)
+      elif self.op == '>':
+         return flow > self.arg
+      elif self.op == '<':
+         return flow < self.arg
+
+   def match(self, flow):
+      if self.matchAll is True:
+         return True         
+      else:
+         output = self.template.getSelectedElement(self.template.template, flow)
+         if output:
+            return self.eval(output.values()[0])
+         else:
+            return False
+
+
+class andFilter:
+   def __init__(self, L, R):
+      self.L = L
+      self.R = R
+
+   def match(self, flow):
+      return (self.L.match(flow) & self.R.match(flow))
+
+class orFilter:
+   def __init__(self, L, R):
+      self.L = L
+      self.R = R
+
+   def match(self, flow):
+      return (self.L.match(flow) | self.R.match(flow))
+
+def predicate_from_postfix(tokenList):
+   #print 'postfix: ' + str(tokenList)
+
+   stack = list()
+   for t in tokenList:
+      # print t
+      if t == ',':
+         if len(stack) > 1:
+            stack.append(andFilter(stack.pop(), stack.pop()))
+      elif t == '|':
+         if len(stack) > 1:
+            stack.append(orFilter(stack.pop(), stack.pop()))
+      else:
+         stack.append(simplePredicate(t))   
+   return stack.pop()
+
+def infix_to_postfix(s):
+   # operator precedence 
+   prec = { '|': 3, ',': 2, '(': 1 }
+    
+   s = s.replace(' ', '')    # remove whitespace from input string
+   # print 'infix: ' + str(s)
+   
+   # tokenize s into operators (',' or '|') and predicates, then
+   # convert token list to postfix output 
+   # 
+   stack = list()
+   output = []
+   for t in re.findall("[\w><=~.*\{\}\[\]?\-+]+|[\(,|\)]", s):
+      if '>' in t or '<' in t or '=' in t or '~' in t: 
+         output.append(t)
+      elif t == '(':
+         stack.append(t)
+      elif t == ')':
+         topToken = stack.pop()
+         while topToken != '(':
+            output.append(topToken)
+            topToken = stack.pop()
+      else:
+         while (not stack == []) and (prec[stack[-1]] >= prec[t]):
+            output.append(stack.pop())
+         stack.append(t)
+   while stack != []:
+      output.append(stack.pop())
+   return output
+      
+         
+class flowPredicate:
+   def __init__(self, pred):
+      if pred:
+         self.pred = predicate_from_postfix(infix_to_postfix(pred))
+      else:
+         self.pred = None
+
+   def match(self, flow):
+      if self.pred:
+         return self.pred.match(flow)
+      else:
+         return True
+      
+
+# command line processing (not yet utilized)
+#
+commands = { 
+   "--from":   { 'needArg': True  },
+   "--where":  { 'needArg': True  },
+   "--select": { 'needArg': True  },
+   "--split":  { 'needArg': True  },
+   "--dist":   { 'needArg': False },
+   "--sum":    { 'needArg': True  },
+   "--stitch": { 'needArg': False }
+}
+
+def process_commands(command_string):
+   needArg = False
+   for a in command_string[1:]:
+      print ">   " + a
+      if a in commands:
+         if needArg:
+            print "error: command " + cmnd + " needs an argument"
+            sys.exit()
+         else:
+            if not commands[a]['needArg']:
+               print "executing " + a
+            else:
+               needArg = True
+               cmnd = a
+      else:
+         if not needArg:
+            print "error: argument " + a + " not proceeded by a command" 
+            sys.exit()
+         else:
+            print "executing " + cmnd + " " + a
+            needArg = False
+            cmnd = None
+
+
+def pipeline():
+
+   # process_commands(sys.argv)         
+   #exit()
+
+   parser = OptionParser()
+   parser.set_description("filter JSON flow data and print out matching flows, selected fields, or stats")
+   # parser.add_option("--from",  dest="inputfile", help="JSON input file")
+   parser.add_option("--where",  dest="filter", help="filter flows")
+   parser.add_option("--select", dest="selection", help="select field to output")
+   parser.add_option("--split",  dest="splitfield", help="split processing by field")
+   parser.add_option("--dist",   action="store_true", help="compute distribution over selected element(s)")
+   parser.add_option("--stitch", action="store_true", help="stitch together successive flows separated by active timeouts")
+   parser.add_option("--pretty", action="store_true", help="pretty-print JSON output")
+   parser.add_option("--sum",    dest="sumvars", help="compute sum over selected element(s)")
+
+   # parse command line, and check arguments
+   (opts, args) = parser.parse_args()
+   if not args:
+      args.append('-')   # no input files, so assume stdin 
+
+   if opts.pretty:
+      json_indent = 3
+   else:
+      json_indent = None
+
+   # set flow processor
+   #
+   if opts.selection is not None:
+      fp = flowElementSelector(opts.selection)
+   else:
+      fp = flowProcessor()      
+   if opts.splitfield:
+      fp = splitProcessor(fp, opts.splitfield)
+
+   # set post-processor
+   #
+   if opts.dist:
+      postproc = flowProcessorDistribution()
+   elif opts.sumvars:
+      postproc = flowProcessorSum(opts.sumvars,indent=json_indent)
+   else:
+      postproc = flowProcessor(indent=json_indent)
+
+   # process all files, with pre- and post-processing
+   #
+   fp.preProcess()
+   for x in args:
+
+      # set flow source
+      #
+      flowSource = flowIteratorFromFile(x)
+      if opts.stitch:
+         flowSource = flowStitchIterator(flowSource)
+      if opts.filter:
+         flowSource = flowFilterIterator(flowSource, flowPredicate(opts.filter))
+      
+      # process all flows from source
+      try:
+         for flow in flowSource:
+            fp.processFlow(flow)
+      except KeyboardInterrupt:
+         sys.exit()
+      except:
+         raise
+   fp.postProcess(postproc)
+
+
+#
+# main function 
+#
+if __name__=='__main__':
+   pipeline()
