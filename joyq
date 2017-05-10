@@ -436,6 +436,8 @@ class simplePredicate:
          if output:
             return self.eval(output.values()[0])
          else:
+            if self.op == '~' and self.arg == '*':
+               return True  # true since element is absent from flow
             return False
 
 
