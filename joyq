@@ -4,6 +4,8 @@
 # joyq --help for more details
 
 import sys, json, operator, gzip, string, time, pprint, copy, re, pickle, collections, fnmatch
+import os
+import subprocess
 from optparse import OptionParser
 from math import sqrt, log
 
@@ -23,7 +25,72 @@ class flowIterator:
       flow = dict()
       return flow
 
+
 class flowIteratorFromFile(flowIterator):
+   """
+   Create a new flowIterator instance from the given input file.
+   This allows iteration over all JSON objects within the file.
+   If the file given is a PCAP, it will first be run through Joy
+   in order to generate the necessary JSON output for use here.
+   """
+   def __init__(self, f):
+      self.file = f
+      self.badLineCount = 0
+      self.lineCount = 0
+
+      if f is '-':
+         self.f = sys.stdin
+      else:
+         if ".gz" in f:
+            self.f = gzip.open(f,'r')
+         elif self.__is_pcap():
+            self.__run_joy()
+            self.f = gzip.open(self.gen_json_file, 'r')
+         else:
+            self.f = open(f,'r')
+
+   def __is_pcap(self):
+      """
+      Determine whether a file is pcap.
+      :return: True if pcap file, False otherwise
+      """
+      if self.file.endswith('.pcap'):
+         return True
+      else:
+         # Look inside the file and check for magic number
+         if sys.byteorder == 'little':
+            magic_number = bytearray.fromhex('d4 c3 b2 a1')
+         else:
+            magic_number = bytearray.fromhex('a1 b2 c3 d4')
+
+         with open(self.file, 'rb') as fbin:
+            ba = bytearray(fbin.readline())
+
+            if ba[:4] == magic_number:
+               return True
+            else:
+               return False
+
+   def __run_joy(self):
+      """
+
+      :return:
+      """
+      self.gen_json_file = 'generated-joyq.json.gz'
+      cur_dir = os.path.dirname(__file__)
+
+      enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
+                          'ssh=1', 'ppi=1']
+
+      print('\033[93m' + 'Input is pcap file. Running JOY...\n' + '\033[0m')
+
+      subprocess.call([os.path.join(cur_dir, './bin/joy'), 'output=' + self.gen_json_file] +
+                       enabled_features +
+                       [os.path.join(cur_dir, self.file)])
+
+      print('')
+      print('\033[93m' + 'Made file: ' + self.gen_json_file + '\033[0m')
+      print('\033[93m' + 'Please delete if necessary!\n' + '\033[0m')
 
    def next(self):
       while True:
@@ -44,18 +111,6 @@ class flowIteratorFromFile(flowIterator):
             pass
             self.badLineCount += 1
 
-   def __init__(self, f):
-      self.badLineCount = 0
-      self.lineCount = 0
-      if f is '-':
-         self.f = sys.stdin
-      else:
-         if ".gz" in f:
-            self.f = gzip.open(f,'r')
-         else:
-            self.f = open(f,'r') 
-         #
-         # TODO: add the ability to read PCAP files by pipeing them through joy
 
 class flowFilterIterator(flowIterator):
    def __init__(self, source, filter):
@@ -626,4 +681,13 @@ def pipeline():
 # main function 
 #
 if __name__=='__main__':
+   print('\033[92m' + """
+             __ _____ __ __
+          __|  |     |  |  |___
+         |  |  |  |  |_   _| . |
+         |_____|_____| |_| |_  |
+                             |_|
+
+         """ + '\033[0m')
+
    pipeline()
