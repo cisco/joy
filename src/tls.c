@@ -92,6 +92,11 @@ extern FILE *info;
  */
 #define MAX_CERT_SERIAL_LENGTH 24
 
+/*
+ * External objects, defined in joy.c
+ */
+extern unsigned int ipfix_collect_port;
+
 /* Store the tls_fingerprint.json data */
 static fingerprint_db_t tls_fingerprint_db;
 static int tls_fingerprint_db_loaded = 0;
@@ -349,6 +354,11 @@ static void tls_client_hello_get_ciphersuites (const void *x,
         return;
     }
 
+    if (r->num_ciphersuites) {
+        /* Already have the ciphersuites */
+        return;
+    }
+
     /* record the 32-byte Random field */
     memcpy(r->tls_random, y+2, 32); 
 
@@ -412,6 +422,11 @@ static void tls_client_hello_get_extensions (const void *x,
     /* Check the TLS version */
     if (!r->tls_v) {
         /* Unsupported version */
+        return;
+    }
+
+    if (r->num_tls_extensions) {
+        /* Already have the extensions */
         return;
     }
 
@@ -1706,6 +1721,11 @@ static void tls_server_hello_get_ciphersuite (const void *x,
         return;
     }
 
+    if (r->num_ciphersuites) {
+        /* Already have the ciphersuite */
+        return;
+    }
+
     if (r->tls_v == TLS_VERSION_1_3) {
         /* Flag that this is TLS 1.3 */
         flag_tls13 = 1;
@@ -1767,6 +1787,11 @@ static void tls_server_hello_get_extensions (const void *x, int len,
     /* Check the TLS version */
     if (!r->tls_v) {
         /* Unsupported version */
+        return;
+    }
+
+    if (r->num_server_tls_extensions) {
+        /* Already have the extensions */
         return;
     }
 
@@ -2246,15 +2271,18 @@ void tls_update (struct tls_information *r,
 
         /* Find the length of the TLS message */
         tls_len = tls_header_get_length(tls);
-	if ((tls_len == 0) || (tls_len > len)) {
-	  return;
-	}
+
+        if (((tls_len == 0) || (tls_len > len)) && !ipfix_collect_port) {
+            return;
+        }
 
         if (r->certificate_offset && r->start_cert == 1 &&
             ((tls->content_type == TLS_CONTENT_APPLICATION_DATA) ||
              (tls->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC) ||
              (tls->content_type == TLS_CONTENT_ALERT) ||
-             (r->certificate_offset >= MAX_CERTIFICATE_BUFFER - 300))) {
+             (r->certificate_offset >= MAX_CERTIFICATE_BUFFER - 300) ||
+             (ipfix_collect_port && tls->content_type == TLS_CONTENT_HANDSHAKE &&
+              tls->handshake.msg_type == TLS_HANDSHAKE_CERTIFICATE))) {
             /*
              * We are past the certificate exchange phase in the handshake.
              * Now decide if we want to process the data in certificate buffer or not.
@@ -2326,9 +2354,9 @@ void tls_update (struct tls_information *r,
 
                 r->role = role_client;
                 body_len = tls_handshake_get_length(&tls->handshake);
-		if (body_len > tls_len) {
-		  return ;
-		}
+                if (body_len > tls_len) {
+                    return;
+                }
                 tls_client_hello_get_ciphersuites(&tls->handshake.body, body_len, r);
                 tls_client_hello_get_extensions(&tls->handshake.body, body_len, r);
 
@@ -2351,9 +2379,9 @@ void tls_update (struct tls_information *r,
 
                 r->role = role_server;
                 body_len = tls_handshake_get_length(&tls->handshake);
-		if (body_len > tls_len) {
-		  return ;
-		}
+                if (body_len > tls_len) {
+                    return;
+                }
                 tls_server_hello_get_ciphersuite(&tls->handshake.body, body_len, r);
                 tls_server_hello_get_extensions(&tls->handshake.body, body_len, r);
             } else if (tls->handshake.msg_type == TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE) {
@@ -2930,7 +2958,7 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
 	        zprintf(f, "\"entry_data\": ");
 	        zprintf_raw_as_hex_tls(f, data->extensions[j].data, data->extensions[j].data_length);
 	        zprintf(f, "}");
-            if (j == (data->num_subject_items - 1)) {
+            if (j == (data->num_extension_items - 1)) {
                 zprintf(f, "]");
             } else {
                 zprintf(f, ",");

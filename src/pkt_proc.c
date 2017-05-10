@@ -1052,11 +1052,6 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     /* increment overall byte count */
     flocap_stats_incr_num_bytes(transport_len);
 
-    if (ipfix_export_port) {
-        /* Ipfix exporting is on */
-        ipfix_export_main(record);
-    }
- 
     return;
 }
 

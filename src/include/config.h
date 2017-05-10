@@ -96,6 +96,7 @@ struct configuration {
     char *bpf_filter_exp;
     char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
     char *ipfix_export_remote_host;
+    char *ipfix_export_template;
     char *aux_resource_path;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
 };
