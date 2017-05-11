@@ -1,16 +1,55 @@
 #!/usr/bin/python
-#
-# joyq performs query operations on JSON-formatted flow objects; see
-# joyq --help for more details
+
+"""
+joyq performs query operations on JSON-formatted flow objects; see joyq --help for more details
+"""
+
+"""
+ *
+ * Copyright (c) 2017 Cisco Systems, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ *   Redistributions in binary form must reproduce the above
+ *   copyright notice, this list of conditions and the following
+ *   disclaimer in the documentation and/or other materials provided
+ *   with the distribution.
+ *
+ *   Neither the name of the Cisco Systems, Inc. nor the names of its
+ *   contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+"""
 
 import sys, json, operator, gzip, string, time, pprint, copy, re, pickle, collections, fnmatch
 import os
 import subprocess
+import atexit
 from optparse import OptionParser
 from math import sqrt, log
 
 # global variables 
 #
+temp_json_file = None
 
 # flow iterator classes
 #
@@ -44,8 +83,9 @@ class flowIteratorFromFile(flowIterator):
          if ".gz" in f:
             self.f = gzip.open(f,'r')
          elif self.__is_pcap():
+            global temp_json_file
             self.__run_joy()
-            self.f = gzip.open(self.gen_json_file, 'r')
+            self.f = gzip.open(temp_json_file, 'r')
          else:
             self.f = open(f,'r')
 
@@ -73,24 +113,57 @@ class flowIteratorFromFile(flowIterator):
 
    def __run_joy(self):
       """
-
+      Run Joy with the pcap file as input.
+      The json output will then be operated upon in this program (joyq).
+      A temporary json file (temp-joyq.json.gz) will be written to the user's "home" directory.
+      Assuming no internal errors occur, the temporary json file  will be deleted before program exit
+      in the cleanup() function at bottom of script.
       :return:
       """
-      self.gen_json_file = 'generated-joyq.json.gz'
+      global temp_json_file
+      temp_json_dir = os.path.expanduser('~')
+      temp_json_filename = 'temp-joyq.json.gz'
+      temp_json_file = os.path.join(temp_json_dir, temp_json_filename)
       cur_dir = os.path.dirname(__file__)
 
       enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
                           'ssh=1', 'ppi=1']
 
-      print('\033[93m' + 'Input is pcap file. Running JOY...\n' + '\033[0m')
+      # Construct the commands
+      command = ['joy', 'outdir=' + temp_json_dir, 'output=' + temp_json_filename]
+      command += enabled_features
+      command.append(os.path.join(cur_dir, self.file))
 
-      subprocess.call([os.path.join(cur_dir, './bin/joy'), 'output=' + self.gen_json_file] +
-                       enabled_features +
-                       [os.path.join(cur_dir, self.file)])
+      command_local = copy.deepcopy(command)
+      command_local[0] = './joy'
 
-      print('')
-      print('\033[93m' + 'Made file: ' + self.gen_json_file + '\033[0m')
-      print('\033[93m' + 'Please delete if necessary!\n' + '\033[0m')
+      command_source = copy.deepcopy(command)
+      command_source[0] = './bin/joy'
+
+      try:
+         subprocess.call(command)
+      except OSError as e:
+         if e.errno == os.errno.ENOENT:
+            # Look within the same directory where joyq lives.
+            try:
+               subprocess.call(command_local)
+            except OSError as ee:
+               if ee.errno == os.errno.ENOENT:
+                  # Look in typical source location
+                  try:
+                     subprocess.call(command_source)
+                  except OSError as eee:
+                     if eee.errno == os.errno.ENOENT:
+                        # Look in typical source location
+                        print('\033[91m' + 'error: could not locate "joy" executable. exiting.' + '\033[0m')
+                        cleanup()
+                        sys.exit(1)
+               else:
+                  cleanup()
+                  raise
+         else:
+            cleanup()
+            raise
 
    def next(self):
       while True:
@@ -677,17 +750,22 @@ def pipeline():
    fp.postProcess(postproc)
 
 
+@atexit.register
+def cleanup():
+   """
+   Cleanup any files, processes, etc before program exit.
+   :return:
+   """
+   global temp_json_file
+
+   # Delete the tempoary JSON file that we made.
+   try:
+      os.remove(temp_json_file)
+   except OSError:
+      pass
+
 #
 # main function 
 #
 if __name__=='__main__':
-   print('\033[92m' + """
-             __ _____ __ __
-          __|  |     |  |  |___
-         |  |  |  |  |_   _| . |
-         |_____|_____| |_| |_  |
-                             |_|
-
-         """ + '\033[0m')
-
    pipeline()
