@@ -404,7 +404,7 @@ class simplePredicate:
       elif isinstance(flow, dict):
          # print 'dict flow: ' + str(flow)
          x = flow.values()[0]
-         self.eval(x)
+         return self.eval(x)
       
       if self.op == '=':
          if self.arg == '*':
