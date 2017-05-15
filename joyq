@@ -47,9 +47,6 @@ import atexit
 from optparse import OptionParser
 from math import sqrt, log
 
-# global variables 
-#
-temp_json_file = None
 
 # flow iterator classes
 #
@@ -73,97 +70,22 @@ class flowIteratorFromFile(flowIterator):
    in order to generate the necessary JSON output for use here.
    """
    def __init__(self, f):
-      self.file = f
       self.badLineCount = 0
       self.lineCount = 0
+      self.pcap_loader = PcapLoader(file=f)
 
       if f is '-':
          self.f = sys.stdin
       else:
          if ".gz" in f:
             self.f = gzip.open(f,'r')
-         elif self.__is_pcap():
-            global temp_json_file
-            self.__run_joy()
-            self.f = gzip.open(temp_json_file, 'r')
+         elif self.pcap_loader.is_pcap():
+            # Run Joy to generate some JSON for use in this script.
+            self.pcap_loader.run()
+            # Open the json file that was just made.
+            self.f = gzip.open(self.pcap_loader.temp_json['file'], 'r')
          else:
             self.f = open(f,'r')
-
-   def __is_pcap(self):
-      """
-      Determine whether a file is pcap.
-      :return: True if pcap file, False otherwise
-      """
-      if self.file.endswith('.pcap'):
-         return True
-      else:
-         # Look inside the file and check for magic number
-         if sys.byteorder == 'little':
-            magic_number = bytearray.fromhex('d4 c3 b2 a1')
-         else:
-            magic_number = bytearray.fromhex('a1 b2 c3 d4')
-
-         with open(self.file, 'rb') as fbin:
-            ba = bytearray(fbin.readline())
-
-            if ba[:4] == magic_number:
-               return True
-            else:
-               return False
-
-   def __run_joy(self):
-      """
-      Run Joy with the pcap file as input.
-      The json output will then be operated upon in this program (joyq).
-      A temporary json file (temp-joyq.json.gz) will be written to the user's "home" directory.
-      Assuming no internal errors occur, the temporary json file  will be deleted before program exit
-      in the cleanup() function at bottom of script.
-      :return:
-      """
-      global temp_json_file
-      temp_json_dir = os.path.expanduser('~')
-      temp_json_filename = 'temp-joyq.json.gz'
-      temp_json_file = os.path.join(temp_json_dir, temp_json_filename)
-      cur_dir = os.path.dirname(__file__)
-
-      enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
-                          'ssh=1', 'ppi=1']
-
-      # Construct the commands
-      command = ['joy', 'outdir=' + temp_json_dir, 'output=' + temp_json_filename]
-      command += enabled_features
-      command.append(os.path.join(cur_dir, self.file))
-
-      command_local = copy.deepcopy(command)
-      command_local[0] = './joy'
-
-      command_source = copy.deepcopy(command)
-      command_source[0] = './bin/joy'
-
-      try:
-         subprocess.call(command)
-      except OSError as e:
-         if e.errno == os.errno.ENOENT:
-            # Look within the same directory where joyq lives.
-            try:
-               subprocess.call(command_local)
-            except OSError as ee:
-               if ee.errno == os.errno.ENOENT:
-                  # Look in typical source location
-                  try:
-                     subprocess.call(command_source)
-                  except OSError as eee:
-                     if eee.errno == os.errno.ENOENT:
-                        # Look in typical source location
-                        print('\033[91m' + 'error: could not locate "joy" executable. exiting.' + '\033[0m')
-                        cleanup()
-                        sys.exit(1)
-               else:
-                  cleanup()
-                  raise
-         else:
-            cleanup()
-            raise
 
    def next(self):
       while True:
@@ -179,6 +101,7 @@ class flowIteratorFromFile(flowIterator):
             sys.stderr.write("read " + str(self.lineCount) + " lines\n")
             if self.badLineCount > 0:
                sys.stderr.write("warning: could not parse " + str(self.badLineCount) + " lines\n")
+            self.pcap_loader.cleanup()
             raise
          except:
             pass
@@ -682,6 +605,99 @@ def process_commands(command_string):
             cmnd = None
 
 
+class PcapLoader:
+   """
+   Helper to operate on PCAP files directly
+   """
+   def __init__(self, file):
+      self.file = file
+      self.temp_json = {'file': None, 'created': False}
+
+   def cleanup(self):
+      """
+      Delete the temporary JSON file that was created.
+      :return:
+      """
+      if self.temp_json['created'] is True:
+         try:
+            os.remove(self.temp_json['file'])
+         except OSError:
+            pass
+
+   def is_pcap(self):
+      """
+      Determine whether a file is pcap.
+      :return: True if pcap file, False otherwise
+      """
+      if self.file.endswith('.pcap'):
+         return True
+      else:
+         # Look inside the file and check for pcap magic number
+         if sys.byteorder == 'little':
+            magic_number = bytearray.fromhex('d4 c3 b2 a1')
+         else:
+            magic_number = bytearray.fromhex('a1 b2 c3 d4')
+
+         with open(self.file, 'rb') as f:
+            ba = bytearray(f.readline())
+
+            if ba[:4] == magic_number:
+               return True
+            else:
+               return False
+
+   def run(self):
+      """
+      Run Joy with the pcap file as input.
+      The json output will then be operated upon in this program (joyq).
+      A temporary json file (temp-joyq.json.gz) will be written to the user's "home" directory.
+      Use the function cleanup() within this class to delete the file before program exit.
+      :return:
+      """
+      cur_dir = os.path.dirname(__file__)
+      temp_json_dir = os.path.expanduser('~')
+      temp_json_filename = 'temp-joyq.json.gz'
+      self.temp_json['file'] = os.path.join(temp_json_dir, temp_json_filename)
+
+      enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
+                          'ssh=1', 'ppi=1']
+
+      # Construct the commands
+      command = ['joy', 'outdir=' + temp_json_dir, 'output=' + temp_json_filename]
+      command += enabled_features
+      command.append(os.path.join(cur_dir, self.file))
+
+      command_local = copy.deepcopy(command)
+      command_local[0] = './joy'
+
+      command_source = copy.deepcopy(command)
+      command_source[0] = './bin/joy'
+
+      try:
+         subprocess.call(command)
+      except OSError as e:
+         if e.errno == os.errno.ENOENT:
+            # Look within the same directory where joyq lives.
+            try:
+               subprocess.call(command_local)
+            except OSError as ee:
+               if ee.errno == os.errno.ENOENT:
+                  # Look in typical source location
+                  try:
+                     subprocess.call(command_source)
+                  except OSError as eee:
+                     if eee.errno == os.errno.ENOENT:
+                        print('\033[91m' + 'error: could not locate "joy" executable. exiting.' + '\033[0m')
+                        sys.exit(1)
+               else:
+                  raise
+         else:
+            raise
+
+      # Set flag indicating the temporary JSON file was made.
+      self.temp_json['created'] = True
+
+
 def pipeline():
 
    # process_commands(sys.argv)         
@@ -749,20 +765,6 @@ def pipeline():
          raise
    fp.postProcess(postproc)
 
-
-@atexit.register
-def cleanup():
-   """
-   Cleanup any files, processes, etc before program exit.
-   :return:
-   """
-   global temp_json_file
-
-   # Delete the tempoary JSON file that we made.
-   try:
-      os.remove(temp_json_file)
-   except OSError:
-      pass
 
 #
 # main function 
