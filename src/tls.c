@@ -47,8 +47,10 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 #include <openssl/asn1.h>
 #include <openssl/pem.h>
+#include <openssl/bio.h>
 #include "tls.h"
 #include "parson.h"
 #include "fingerprint.h"
@@ -1059,8 +1061,6 @@ static int tls_x509_get_extensions(X509 *cert,
                                    struct tls_certificate *record) {
     X509_EXTENSION *extension = NULL;
     ASN1_OBJECT *ext_asn1_object = NULL;
-    ASN1_OCTET_STRING *ext_asn1_string = NULL;
-    unsigned char *ext_data_str = NULL;
     int ext_data_len = 0;
     int nid = 0;
     int num_exts = 0;
@@ -1080,7 +1080,9 @@ static int tls_x509_get_extensions(X509 *cert,
      * Iterate over all of the extensions.
      */
     for (i= 0; i < num_exts; i++) {
+        BIO *ext_bio = NULL;
         const char *ext_name_str = NULL;
+        char *ext_data_str = NULL;
         struct tls_item_entry *cert_record_entry = &record->extensions[i];
 
         if (i == MAX_CERT_EXTENSIONS) {
@@ -1092,20 +1094,27 @@ static int tls_x509_get_extensions(X509 *cert,
             break;
         }
 
+        ext_bio = BIO_new(BIO_s_mem());
+
         /* Current extension */
         extension = X509_get_ext(cert, i);
         ext_asn1_object = X509_EXTENSION_get_object(extension);
-        ext_asn1_string = X509_EXTENSION_get_data(extension);
-        ext_data_str = ASN1_STRING_data(ext_asn1_string);
-        ext_data_len = ASN1_STRING_length(ext_asn1_string);
 
         /* NID of the asn1_object */
         nid = OBJ_obj2nid(ext_asn1_object);
 
+        if (!X509V3_EXT_print(ext_bio, extension, 0, 0)) {
+            M_ASN1_OCTET_STRING_print(ext_bio, extension->value);
+        }
+
+        /* Get length and pointer to memory inside of bio */
+        ext_data_len = (int) BIO_get_mem_data(ext_bio, &ext_data_str);
+
         /*
          * Prepare the extension entry in the certificate record.
          */
-        cert_record_entry->data = malloc(ext_data_len);
+        cert_record_entry->data = malloc(ext_data_len + 1);
+        memset(cert_record_entry->data, 0, ext_data_len + 1);
         cert_record_entry->data_length = ext_data_len;
 
         if (nid == NID_undef) {
@@ -1129,6 +1138,12 @@ static int tls_x509_get_extensions(X509 *cert,
         }
 
         memcpy(cert_record_entry->data, ext_data_str, ext_data_len);
+        /* Null-terminated in case it's used as a string */
+        cert_record_entry->data[ext_data_len] = 0;
+
+        if (ext_bio) {
+            BIO_free(ext_bio);
+        }
     }
 
     return 0;
@@ -2923,10 +2938,8 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     if (data->num_extension_items) {
         zprintf(f, ",\"extensions\":[");
         for (j = 0; j < data->num_extension_items; j++) {
-	        zprintf(f, "{\"entry_id\": \"%s\",", data->extensions[j].id);
-	        zprintf(f, "\"entry_data\": ");
-	        zprintf_raw_as_hex_tls(f, data->extensions[j].data, data->extensions[j].data_length);
-	        zprintf(f, "}");
+	        zprintf(f, "{\"entry_id\": \"%s\", ", data->extensions[j].id);
+	        zprintf(f, "\"entry_data\": \"%s\"}", (char *)data->extensions[j].data);
             if (j == (data->num_extension_items - 1)) {
                 zprintf(f, "]");
             } else {
