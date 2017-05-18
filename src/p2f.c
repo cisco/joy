@@ -226,7 +226,7 @@ char *ipfix_export_remote_host = NULL;
 
 char *ipfix_export_template = NULL;
 
-char *tls_fingerprint_file = NULL;
+char *aux_resource_path = NULL;
 
 zfile output = NULL;
 

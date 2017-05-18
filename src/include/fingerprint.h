@@ -45,23 +45,23 @@
 
 #include <stdint.h>
 
-#define MAX_FINGERPRINT_LEN 512
+#define MAX_FINGERPRINT_LEN 1024
 #define MAX_FINGERPRINT_LABELS 64
 #define MAX_FINGERPRINT_LABEL_LEN 64
 #define MAX_FINGERPRINT_DESCRIPTION 64
 #define MAX_FINGERPRINT_DB 100
 
 typedef struct fingerprint {
-    char description[MAX_FINGERPRINT_DESCRIPTION];
-    char labels[MAX_FINGERPRINT_LABELS][MAX_FINGERPRINT_LABEL_LEN];
-    uint8_t label_count;
-    uint16_t fingerprint[MAX_FINGERPRINT_LEN];
-    uint16_t fingerprint_len;
+    char description[MAX_FINGERPRINT_DESCRIPTION]; /**< Description */
+    char labels[MAX_FINGERPRINT_LABELS][MAX_FINGERPRINT_LABEL_LEN]; /**< Labels */
+    uint8_t label_count; /**< Number of labels */
+    unsigned char fingerprint[MAX_FINGERPRINT_LEN]; /* Fingerprint data */
+    uint16_t fingerprint_len; /**< Length of the fingerprint in bytes */
 } fingerprint_t;
 
 typedef struct fingerprint_db {
-    fingerprint_t fingerprints[MAX_FINGERPRINT_DB];
-    uint16_t fingerprint_count;
+    fingerprint_t fingerprints[MAX_FINGERPRINT_DB]; /**< Fingerprints */
+    uint16_t fingerprint_count; /**< Number of fingerprints */
 } fingerprint_db_t;
 
 int fingerprint_copy(fingerprint_t *dest_fp,
