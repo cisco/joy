@@ -1061,7 +1061,6 @@ static int tls_x509_get_extensions(X509 *cert,
                                    struct tls_certificate *record) {
     X509_EXTENSION *extension = NULL;
     ASN1_OBJECT *ext_asn1_object = NULL;
-    int ext_data_len = 0;
     int nid = 0;
     int num_exts = 0;
     int i = 0;
@@ -1081,9 +1080,11 @@ static int tls_x509_get_extensions(X509 *cert,
      */
     for (i= 0; i < num_exts; i++) {
         BIO *ext_bio = NULL;
+        BUF_MEM *bio_mem_ptr = NULL;
+        int ext_data_len = 0;
         const char *ext_name_str = NULL;
-        char *ext_data_str = NULL;
         struct tls_item_entry *cert_record_entry = &record->extensions[i];
+        int k = 0;
 
         if (i == MAX_CERT_EXTENSIONS) {
             /* Best effort, got as many as we could */
@@ -1094,8 +1095,6 @@ static int tls_x509_get_extensions(X509 *cert,
             break;
         }
 
-        ext_bio = BIO_new(BIO_s_mem());
-
         /* Current extension */
         extension = X509_get_ext(cert, i);
         ext_asn1_object = X509_EXTENSION_get_object(extension);
@@ -1103,12 +1102,27 @@ static int tls_x509_get_extensions(X509 *cert,
         /* NID of the asn1_object */
         nid = OBJ_obj2nid(ext_asn1_object);
 
+        /*
+         * Convert the extension value into readable string format.
+         */
+        ext_bio = BIO_new(BIO_s_mem());
+
         if (!X509V3_EXT_print(ext_bio, extension, 0, 0)) {
             M_ASN1_OCTET_STRING_print(ext_bio, extension->value);
         }
 
         /* Get length and pointer to memory inside of bio */
-        ext_data_len = (int) BIO_get_mem_data(ext_bio, &ext_data_str);
+        BIO_get_mem_ptr(ext_bio, &bio_mem_ptr);
+        ext_data_len = (int) bio_mem_ptr->length;
+
+        /* Find any newline characters and replace them */
+        for (k = 0; k < ext_data_len; k++){
+            if (bio_mem_ptr->data[k] == '\n' || bio_mem_ptr->data[k] == '\r') {
+                bio_mem_ptr->data[k] = '.';
+            }
+        }
+        /* Make sure it's null-terminated */
+        bio_mem_ptr->data[ext_data_len] = '\0';
 
         /*
          * Prepare the extension entry in the certificate record.
@@ -1137,7 +1151,7 @@ static int tls_x509_get_extensions(X509 *cert,
             cert_record_entry->id[MAX_OPENSSL_STRING - 1] = '\0';
         }
 
-        memcpy(cert_record_entry->data, ext_data_str, ext_data_len);
+        memcpy(cert_record_entry->data, bio_mem_ptr->data, ext_data_len);
         /* Null-terminated in case it's used as a string */
         cert_record_entry->data[ext_data_len] = 0;
 
