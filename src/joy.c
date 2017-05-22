@@ -730,7 +730,7 @@ int main (int argc, char **argv) {
          */
         if (strncmp(config.filename, "auto", strlen("auto")) == 0) {
 
-            if (mode == mode_online) {
+            if (mode == mode_online || mode == mode_ipfix_collect_online) {
 	               unsigned char *addr = ifl[0].mac_addr;
 	               time_t now = time(0);   
 	               struct tm *t = localtime(&now);
