@@ -105,8 +105,10 @@ void ppi_update (struct ppi *ppi,
 	    ppi->pkt_info[ppi->np].ack = ntohl(tcp->tcp_ack);	
 	    ppi->pkt_info[ppi->np].flags = tcp->tcp_flags;
 	    ppi->pkt_info[ppi->np].len = size_payload;
-	    ppi->pkt_info[ppi->np].time = header->ts;
 	    ppi->pkt_info[ppi->np].opt_len = opt_len;
+        if (header != NULL) {
+            ppi->pkt_info[ppi->np].time = header->ts;
+        }
 	    if (opt_len) {
 	        memcpy(ppi->pkt_info[ppi->np].opts, 
 		       tcp_start + 20, 
