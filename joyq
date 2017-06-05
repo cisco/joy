@@ -248,6 +248,8 @@ class flowStitchProcessor:
 
 class templateDict:
    def __init__(self, elements):
+      whitespace_pattern = re.compile(r'\s+')
+      elements = re.sub(whitespace_pattern, '', elements)
       self.template = self.string_to_template_object(elements)
 
    def string_to_template_object(self, s):
@@ -432,8 +434,15 @@ class simplePredicate:
          self.template = templateDict(tokens[0]) 
          self.op = tokens[1]
          self.arg = tokens[2]
+
          if self.arg.isdigit():
-            self.arg = int(self.arg) # TODO - check for float()
+            self.arg = int(self.arg)
+         else:
+            try:
+                self.arg = float(self.arg)
+            except:
+                pass
+
          self.matchAll = False
       else:
          self.matchAll = True
@@ -660,7 +669,7 @@ class PcapLoader:
       self.temp_json['file'] = os.path.join(temp_json_dir, temp_json_filename)
 
       enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
-                          'ssh=1', 'ppi=1']
+                          'ssh=1', 'ppi=1', 'entropy=1']
 
       # Construct the commands
       command = ['joy', 'outdir=' + temp_json_dir, 'output=' + temp_json_filename]
