@@ -159,6 +159,7 @@ void tls_init (struct tls_information *r) {
     r->start_cert = 0;
     r->sni = 0;
     r->sni_length = 0;
+    r->tls_fingerprint = NULL;
 
     memset(r->tls_len, 0, sizeof(r->tls_len));
     memset(r->tls_time, 0, sizeof(r->tls_time));
@@ -1114,14 +1115,16 @@ static int tls_x509_get_extensions(X509 *cert,
         BIO_get_mem_ptr(ext_bio, &bio_mem_ptr);
         ext_data_len = (int) bio_mem_ptr->length;
 
-        /* Find any newline characters and replace them */
+        /* Find any special (json) characters and replace them */
         for (k = 0; k < ext_data_len; k++){
-            if (bio_mem_ptr->data[k] == '\n' || bio_mem_ptr->data[k] == '\r') {
+            if (bio_mem_ptr->data[k] == '\n' || bio_mem_ptr->data[k] == '\r' ||
+                bio_mem_ptr->data[k] == '\\' || bio_mem_ptr->data[k] == '"' ||
+                bio_mem_ptr->data[k] == '\b' || bio_mem_ptr->data[k] == '\f' ||
+                bio_mem_ptr->data[k] == '\t') {
+
                 bio_mem_ptr->data[k] = '.';
             }
         }
-        /* Make sure it's null-terminated */
-        bio_mem_ptr->data[ext_data_len] = '\0';
 
         /*
          * Prepare the extension entry in the certificate record.
