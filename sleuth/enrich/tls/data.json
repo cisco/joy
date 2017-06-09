@@ -1,0 +1,2286 @@
+{
+  "tls_params": {
+    "c005": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c004": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c007": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c006": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "ECDSA",
+      "auth": "NULL",
+      "kex": "ECDHE"
+    },
+    "0039": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0038": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c003": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c002": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "0035": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0034": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "0037": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0036": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0031": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0030": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0033": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0032": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c04a": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c07b": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "RSA-KT",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "RSA"
+    },
+    "c07c": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "DHE"
+    },
+    "c07d": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "DHE"
+    },
+    "c07e": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "DH"
+    },
+    "c07f": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "DH"
+    },
+    "c001": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "ECDSA",
+      "auth": "NULL",
+      "kex": "ECDH"
+    },
+    "c0a7": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM",
+      "sig": "PSK",
+      "auth": "AES_256_CCM",
+      "kex": "DHE_PSK"
+    },
+    "cca9": {
+      "hash": "SHA256",
+      "enc": "CHACHA20_POLY1305",
+      "sig": "ECDSA",
+      "auth": "CHACHA20_POLY1305",
+      "kex": "ECDHE"
+    },
+    "c04c": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c0a4": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM",
+      "sig": "PSK",
+      "auth": "AES_128_CCM",
+      "kex": "PSK"
+    },
+    "c037": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c089": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "ECDSA",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "ECDH"
+    },
+    "c088": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "ECDSA",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "ECDH"
+    },
+    "c09c": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM",
+      "sig": "RSA-KT",
+      "auth": "AES_128_CCM",
+      "kex": "RSA"
+    },
+    "c085": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "anon",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "DH_anon"
+    },
+    "c04e": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c087": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "ECDSA",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "ECDHE"
+    },
+    "c086": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "ECDSA",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "ECDHE"
+    },
+    "c081": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "DSS",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "DHE"
+    },
+    "c080": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "DSS",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "DHE"
+    },
+    "c083": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "DSS",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "DH"
+    },
+    "c04d": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c041": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "c040": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "c09f": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM",
+      "sig": "RSA",
+      "auth": "AES_256_CCM",
+      "kex": "DHE"
+    },
+    "c04f": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c043": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c070": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c071": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c072": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c073": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c074": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c075": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c076": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c077": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "0040": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0041": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0042": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0043": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0044": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0045": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0046": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "c008": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c00e": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c00d": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c00f": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c00a": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c047": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "c00c": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c00b": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "RSA",
+      "auth": "NULL",
+      "kex": "ECDH"
+    },
+    "003e": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "003d": {
+      "hash": "SHA256",
+      "enc": "AES_256_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "003f": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "003a": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "003c": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "003b": {
+      "hash": "SHA256",
+      "enc": "NULL",
+      "sig": "RSA-KT",
+      "auth": "NULL",
+      "kex": "RSA"
+    },
+    "c028": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c07a": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "RSA-KT",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "RSA"
+    },
+    "00be": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "00ff": {
+      "hash": "",
+      "enc": "",
+      "sig": "",
+      "auth": "",
+      "kex": ""
+    },
+    "c08e": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "PSK",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "PSK"
+    },
+    "c08d": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "ECDH"
+    },
+    "c08f": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "PSK",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "PSK"
+    },
+    "c08a": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "ECDHE"
+    },
+    "c08c": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "ECDH"
+    },
+    "c08b": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "RSA",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "ECDHE"
+    },
+    "c063": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_256_GCM",
+      "kex": "ECDH"
+    },
+    "c062": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_128_GCM",
+      "kex": "ECDH"
+    },
+    "c061": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_256_GCM",
+      "kex": "ECDHE"
+    },
+    "c060": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_128_GCM",
+      "kex": "ECDHE"
+    },
+    "c067": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "c066": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "c065": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "c064": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "c069": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "c068": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "c0a9": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM_8",
+      "sig": "PSK",
+      "auth": "AES_256_CCM_8",
+      "kex": "PSK"
+    },
+    "5600": {
+      "hash": "",
+      "enc": "",
+      "sig": "",
+      "auth": "",
+      "kex": ""
+    },
+    "c05f": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "ECDSA",
+      "auth": "ARIA_256_GCM",
+      "kex": "ECDH"
+    },
+    "c0ac": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM",
+      "sig": "ECDSA",
+      "auth": "AES_128_CCM",
+      "kex": "ECDHE"
+    },
+    "c05d": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "ECDSA",
+      "auth": "ARIA_256_GCM",
+      "kex": "ECDHE"
+    },
+    "c05e": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "ECDSA",
+      "auth": "ARIA_128_GCM",
+      "kex": "ECDH"
+    },
+    "c05b": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "anon",
+      "auth": "ARIA_256_GCM",
+      "kex": "DH_anon"
+    },
+    "c05c": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "ECDSA",
+      "auth": "ARIA_128_GCM",
+      "kex": "ECDHE"
+    },
+    "c0ad": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM",
+      "sig": "ECDSA",
+      "auth": "AES_256_CCM",
+      "kex": "ECDHE"
+    },
+    "c05a": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "anon",
+      "auth": "ARIA_128_GCM",
+      "kex": "DH_anon"
+    },
+    "00af": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "00ae": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "00ad": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "PSK",
+      "auth": "AES_256_GCM",
+      "kex": "RSA"
+    },
+    "00ac": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "PSK",
+      "auth": "AES_128_GCM",
+      "kex": "RSA"
+    },
+    "00ab": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "PSK",
+      "auth": "AES_256_GCM",
+      "kex": "DHE_PSK"
+    },
+    "00aa": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "PSK",
+      "auth": "AES_128_GCM",
+      "kex": "DHE_PSK"
+    },
+    "c04b": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c0a2": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM_8",
+      "sig": "RSA",
+      "auth": "AES_128_CCM_8",
+      "kex": "DHE"
+    },
+    "c0a3": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM_8",
+      "sig": "RSA",
+      "auth": "AES_256_CCM_8",
+      "kex": "DHE"
+    },
+    "c02e": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "ECDSA",
+      "auth": "AES_256_GCM",
+      "kex": "ECDH"
+    },
+    "c0a8": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM_8",
+      "sig": "PSK",
+      "auth": "AES_128_CCM_8",
+      "kex": "PSK"
+    },
+    "c02d": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "ECDSA",
+      "auth": "AES_128_GCM",
+      "kex": "ECDH"
+    },
+    "c0aa": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM_8",
+      "sig": "PSK",
+      "auth": "AES_128_CCM_8",
+      "kex": "DHE"
+    },
+    "c058": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "DSS",
+      "auth": "ARIA_128_GCM",
+      "kex": "DH"
+    },
+    "c059": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "DSS",
+      "auth": "ARIA_256_GCM",
+      "kex": "DH"
+    },
+    "c056": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "DSS",
+      "auth": "ARIA_128_GCM",
+      "kex": "DHE"
+    },
+    "c057": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "DSS",
+      "auth": "ARIA_256_GCM",
+      "kex": "DHE"
+    },
+    "c054": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_128_GCM",
+      "kex": "DH"
+    },
+    "c055": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_256_GCM",
+      "kex": "DH"
+    },
+    "c052": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_128_GCM",
+      "kex": "DHE"
+    },
+    "c053": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "RSA",
+      "auth": "ARIA_256_GCM",
+      "kex": "DHE"
+    },
+    "c050": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "RSA-KT",
+      "auth": "ARIA_128_GCM",
+      "kex": "RSA"
+    },
+    "c051": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "RSA-KT",
+      "auth": "ARIA_256_GCM",
+      "kex": "RSA"
+    },
+    "c06c": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "PSK",
+      "auth": "ARIA_128_GCM",
+      "kex": "DHE_PSK"
+    },
+    "c06b": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "PSK",
+      "auth": "ARIA_256_GCM",
+      "kex": "PSK"
+    },
+    "c06a": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "PSK",
+      "auth": "ARIA_128_GCM",
+      "kex": "PSK"
+    },
+    "c06f": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "PSK",
+      "auth": "ARIA_256_GCM",
+      "kex": "RSA"
+    },
+    "c06e": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_GCM",
+      "sig": "PSK",
+      "auth": "ARIA_128_GCM",
+      "kex": "RSA"
+    },
+    "c06d": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_GCM",
+      "sig": "PSK",
+      "auth": "ARIA_256_GCM",
+      "kex": "DHE_PSK"
+    },
+    "c0a5": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM",
+      "sig": "PSK",
+      "auth": "AES_256_CCM",
+      "kex": "PSK"
+    },
+    "ccaa": {
+      "hash": "SHA256",
+      "enc": "CHACHA20_POLY1305",
+      "sig": "RSA",
+      "auth": "CHACHA20_POLY1305",
+      "kex": "DHE"
+    },
+    "c018": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "ECDH_anon"
+    },
+    "c0a1": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM_8",
+      "sig": "RSA-KT",
+      "auth": "AES_256_CCM_8",
+      "kex": "RSA"
+    },
+    "00a7": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "anon",
+      "auth": "AES_256_GCM",
+      "kex": "DH_anon"
+    },
+    "00a6": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "anon",
+      "auth": "AES_128_GCM",
+      "kex": "DH_anon"
+    },
+    "00a5": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "DSS",
+      "auth": "AES_256_GCM",
+      "kex": "DH"
+    },
+    "00a4": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "DSS",
+      "auth": "AES_128_GCM",
+      "kex": "DH"
+    },
+    "00a3": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "DSS",
+      "auth": "AES_256_GCM",
+      "kex": "DHE"
+    },
+    "00a2": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "DSS",
+      "auth": "AES_128_GCM",
+      "kex": "DHE"
+    },
+    "00a1": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "RSA",
+      "auth": "AES_256_GCM",
+      "kex": "DH"
+    },
+    "00a0": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "RSA",
+      "auth": "AES_128_GCM",
+      "kex": "DH"
+    },
+    "c098": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "00a9": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "PSK",
+      "auth": "AES_256_GCM",
+      "kex": "PSK"
+    },
+    "00a8": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "PSK",
+      "auth": "AES_128_GCM",
+      "kex": "PSK"
+    },
+    "c049": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c048": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c0ab": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM_8",
+      "sig": "PSK",
+      "auth": "AES_256_CCM_8",
+      "kex": "DHE"
+    },
+    "cca8": {
+      "hash": "SHA256",
+      "enc": "CHACHA20_POLY1305",
+      "sig": "RSA",
+      "auth": "CHACHA20_POLY1305",
+      "kex": "ECDHE"
+    },
+    "c03d": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "c03e": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "c03f": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "c042": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c045": {
+      "hash": "SHA384",
+      "enc": "ARIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c03a": {
+      "hash": "SHA256",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "ECDHE"
+    },
+    "c03b": {
+      "hash": "SHA384",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "ECDHE"
+    },
+    "c03c": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "000d": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "000e": {
+      "hash": "SHA",
+      "enc": "DES40_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "000f": {
+      "hash": "SHA",
+      "enc": "DES_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "000a": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "000b": {
+      "hash": "SHA",
+      "enc": "DES40_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "000c": {
+      "hash": "SHA",
+      "enc": "DES_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "c082": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "DSS",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "DH"
+    },
+    "c0ae": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM_8",
+      "sig": "ECDSA",
+      "auth": "AES_128_CCM_8",
+      "kex": "ECDHE"
+    },
+    "ccac": {
+      "hash": "SHA256",
+      "enc": "CHACHA20_POLY1305",
+      "sig": "PSK",
+      "auth": "CHACHA20_POLY1305",
+      "kex": "ECDHE"
+    },
+    "c009": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "ccab": {
+      "hash": "SHA256",
+      "enc": "CHACHA20_POLY1305",
+      "sig": "PSK",
+      "auth": "CHACHA20_POLY1305",
+      "kex": "PSK"
+    },
+    "c029": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "00b3": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "ccae": {
+      "hash": "SHA256",
+      "enc": "CHACHA20_POLY1305",
+      "sig": "PSK",
+      "auth": "CHACHA20_POLY1305",
+      "kex": "RSA"
+    },
+    "ccad": {
+      "hash": "SHA256",
+      "enc": "CHACHA20_POLY1305",
+      "sig": "PSK",
+      "auth": "CHACHA20_POLY1305",
+      "kex": "DHE_PSK"
+    },
+    "00b2": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "0067": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "00b0": {
+      "hash": "SHA256",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "PSK"
+    },
+    "00b1": {
+      "hash": "SHA384",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "PSK"
+    },
+    "00b6": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "00b7": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "00b4": {
+      "hash": "SHA256",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "DHE_PSK"
+    },
+    "00b5": {
+      "hash": "SHA384",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "DHE_PSK"
+    },
+    "00b8": {
+      "hash": "SHA256",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "RSA"
+    },
+    "00b9": {
+      "hash": "SHA384",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "RSA"
+    },
+    "c0af": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM_8",
+      "sig": "ECDSA",
+      "auth": "AES_256_CCM_8",
+      "kex": "ECDHE"
+    },
+    "0068": {
+      "hash": "SHA256",
+      "enc": "AES_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0069": {
+      "hash": "SHA256",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0004": {
+      "hash": "MD5",
+      "enc": "RC4_128",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0005": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0006": {
+      "hash": "MD5",
+      "enc": "RC2_CBC_40",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0007": {
+      "hash": "SHA",
+      "enc": "IDEA_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0000": {
+      "hash": "NULL",
+      "enc": "NULL",
+      "sig": "NULL",
+      "auth": "NULL",
+      "kex": "NULL"
+    },
+    "0001": {
+      "hash": "MD5",
+      "enc": "NULL",
+      "sig": "RSA-KT",
+      "auth": "NULL",
+      "kex": "RSA"
+    },
+    "0002": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "RSA-KT",
+      "auth": "NULL",
+      "kex": "RSA"
+    },
+    "0003": {
+      "hash": "MD5",
+      "enc": "RC4_40",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "00bf": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "0008": {
+      "hash": "SHA",
+      "enc": "DES40_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0009": {
+      "hash": "SHA",
+      "enc": "DES_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "c09e": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM",
+      "sig": "RSA",
+      "auth": "AES_128_CCM",
+      "kex": "DHE"
+    },
+    "c038": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c01d": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "SRP_SHA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA"
+    },
+    "c034": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c035": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c036": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c01e": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "SRP_SHA_RSA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA_RSA"
+    },
+    "c030": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "RSA",
+      "auth": "AES_256_GCM",
+      "kex": "ECDHE"
+    },
+    "c031": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "RSA",
+      "auth": "AES_128_GCM",
+      "kex": "ECDH"
+    },
+    "c032": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "RSA",
+      "auth": "AES_256_GCM",
+      "kex": "ECDH"
+    },
+    "c033": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "00bb": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "00bc": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "006d": {
+      "hash": "SHA256",
+      "enc": "AES_256_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "00ba": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "006b": {
+      "hash": "SHA256",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "006c": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "00bd": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "006a": {
+      "hash": "SHA256",
+      "enc": "AES_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c096": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "c039": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "ECDHE"
+    },
+    "00c5": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "00c4": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "00c1": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "00c0": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "00c3": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "00c2": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0017": {
+      "hash": "MD5",
+      "enc": "RC4_40",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "0016": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0015": {
+      "hash": "SHA",
+      "enc": "DES_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0014": {
+      "hash": "SHA",
+      "enc": "DES40_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0013": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0012": {
+      "hash": "SHA",
+      "enc": "DES_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0011": {
+      "hash": "SHA",
+      "enc": "DES40_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0010": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "c01b": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "SRP_SHA_RSA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA_RSA"
+    },
+    "c01c": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "SRP_SHA_RSA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA_RSA"
+    },
+    "c01a": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "SRP_SHA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA"
+    },
+    "c01f": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "SRP_SHA_RSA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA_RSA"
+    },
+    "0019": {
+      "hash": "SHA",
+      "enc": "DES40_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "0018": {
+      "hash": "MD5",
+      "enc": "RC4_128",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "002b": {
+      "hash": "MD5",
+      "enc": "RC4_40",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "002c": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "PSK"
+    },
+    "002a": {
+      "hash": "MD5",
+      "enc": "RC2_CBC_40",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "002f": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "002d": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "DHE_PSK"
+    },
+    "002e": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "PSK",
+      "auth": "NULL",
+      "kex": "RSA"
+    },
+    "c027": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c026": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c025": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c024": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c023": {
+      "hash": "SHA256",
+      "enc": "AES_128_CBC",
+      "sig": "ECDSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c022": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "SRP_SHA_RSA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA_RSA"
+    },
+    "c021": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "SRP_SHA_RSA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA_RSA"
+    },
+    "c020": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "SRP_SHA",
+      "auth": "HMAC",
+      "kex": "SRP_SHA"
+    },
+    "c046": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "c0a0": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM_8",
+      "sig": "RSA-KT",
+      "auth": "AES_128_CCM_8",
+      "kex": "RSA"
+    },
+    "009f": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "RSA",
+      "auth": "AES_256_GCM",
+      "kex": "DHE"
+    },
+    "009e": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "RSA",
+      "auth": "AES_128_GCM",
+      "kex": "DHE"
+    },
+    "009d": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "RSA-KT",
+      "auth": "AES_256_GCM",
+      "kex": "RSA"
+    },
+    "009c": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "RSA-KT",
+      "auth": "AES_128_GCM",
+      "kex": "RSA"
+    },
+    "009b": {
+      "hash": "SHA",
+      "enc": "SEED_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "009a": {
+      "hash": "SHA",
+      "enc": "SEED_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c09b": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c078": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "c09a": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "0088": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0089": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "c09d": {
+      "hash": "SHA",
+      "enc": "AES_256_CCM",
+      "sig": "RSA-KT",
+      "auth": "AES_256_CCM",
+      "kex": "RSA"
+    },
+    "c079": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "0084": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0085": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0086": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0087": {
+      "hash": "SHA",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c0a6": {
+      "hash": "SHA",
+      "enc": "AES_128_CCM",
+      "sig": "PSK",
+      "auth": "AES_128_CCM",
+      "kex": "DHE_PSK"
+    },
+    "0022": {
+      "hash": "MD5",
+      "enc": "DES_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0023": {
+      "hash": "MD5",
+      "enc": "3DES_EDE_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0020": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0021": {
+      "hash": "SHA",
+      "enc": "IDEA_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0026": {
+      "hash": "SHA",
+      "enc": "DES40_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0027": {
+      "hash": "SHA",
+      "enc": "RC2_CBC_40",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0024": {
+      "hash": "MD5",
+      "enc": "RC4_128",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0025": {
+      "hash": "MD5",
+      "enc": "IDEA_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "c02f": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "RSA",
+      "auth": "AES_128_GCM",
+      "kex": "ECDHE"
+    },
+    "0028": {
+      "hash": "SHA",
+      "enc": "RC4_40",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "0029": {
+      "hash": "MD5",
+      "enc": "DES40_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "c02c": {
+      "hash": "SHA384",
+      "enc": "AES_256_GCM",
+      "sig": "ECDSA",
+      "auth": "AES_256_GCM",
+      "kex": "ECDHE"
+    },
+    "c02b": {
+      "hash": "SHA256",
+      "enc": "AES_128_GCM",
+      "sig": "ECDSA",
+      "auth": "AES_128_GCM",
+      "kex": "ECDHE"
+    },
+    "c02a": {
+      "hash": "SHA384",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDH"
+    },
+    "001f": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "001e": {
+      "hash": "SHA",
+      "enc": "DES_CBC",
+      "sig": "KRB5",
+      "auth": "HMAC",
+      "kex": "KRB5"
+    },
+    "c019": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "ECDH_anon"
+    },
+    "001b": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "001a": {
+      "hash": "SHA",
+      "enc": "DES_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "DH_anon"
+    },
+    "c012": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c013": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c010": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "RSA",
+      "auth": "NULL",
+      "kex": "ECDHE"
+    },
+    "c011": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c016": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "ECDH_anon"
+    },
+    "c017": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "anon",
+      "auth": "HMAC",
+      "kex": "ECDH_anon"
+    },
+    "c014": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "ECDHE"
+    },
+    "c015": {
+      "hash": "SHA",
+      "enc": "NULL",
+      "sig": "anon",
+      "auth": "NULL",
+      "kex": "ECDH_anon"
+    },
+    "c092": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "PSK",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "RSA"
+    },
+    "c093": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "PSK",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "RSA"
+    },
+    "c090": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "PSK",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "DHE_PSK"
+    },
+    "c091": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_GCM",
+      "sig": "PSK",
+      "auth": "CAMELLIA_256_GCM",
+      "kex": "DHE_PSK"
+    },
+    "c044": {
+      "hash": "SHA256",
+      "enc": "ARIA_128_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "c097": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "c094": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "c095": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "008d": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "008e": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "008f": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "c099": {
+      "hash": "SHA384",
+      "enc": "CAMELLIA_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "008a": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "008b": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "008c": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "PSK"
+    },
+    "c084": {
+      "hash": "SHA256",
+      "enc": "CAMELLIA_128_GCM",
+      "sig": "anon",
+      "auth": "CAMELLIA_128_GCM",
+      "kex": "DH_anon"
+    },
+    "0099": {
+      "hash": "SHA",
+      "enc": "SEED_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DHE"
+    },
+    "0098": {
+      "hash": "SHA",
+      "enc": "SEED_CBC",
+      "sig": "RSA",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0097": {
+      "hash": "SHA",
+      "enc": "SEED_CBC",
+      "sig": "DSS",
+      "auth": "HMAC",
+      "kex": "DH"
+    },
+    "0096": {
+      "hash": "SHA",
+      "enc": "SEED_CBC",
+      "sig": "RSA-KT",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0095": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0094": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0093": {
+      "hash": "SHA",
+      "enc": "3DES_EDE_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0092": {
+      "hash": "SHA",
+      "enc": "RC4_128",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "RSA"
+    },
+    "0091": {
+      "hash": "SHA",
+      "enc": "AES_256_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    },
+    "0090": {
+      "hash": "SHA",
+      "enc": "AES_128_CBC",
+      "sig": "PSK",
+      "auth": "HMAC",
+      "kex": "DHE_PSK"
+    }
+  }
+}
