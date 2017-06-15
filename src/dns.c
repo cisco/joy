@@ -547,7 +547,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
     const dns_hdr *rh;
     const dns_question *question;
     const dns_rr *rr;
-    int len;
+    int len = 0;
     char qr;
     uint16_t qdcount, ancount;
     int rdlength;

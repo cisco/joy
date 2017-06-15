@@ -171,9 +171,11 @@ static inline unsigned int timer_lt (const struct timeval *a, const struct timev
     return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
 }
 
+#if 0
 static inline void timer_clear (struct timeval *a) { 
     a->tv_sec = a->tv_usec = 0; 
 }
+#endif
 
 static unsigned int timeval_to_milliseconds (struct timeval ts) {
     unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;

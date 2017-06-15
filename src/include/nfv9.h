@@ -248,18 +248,18 @@ enum nfv9_type {
     layer2packetSectionOffset =    102,   
     layer2packetSectionSize =      103,   
     layer2packetSectionData =      104,   
-    IDP =                        16386,
-    SPLT =                       16387,
-    SALT =                       16388,
-    SPLT_NGA =                   16389,
-    BYTE_DISTRIBUTION =          16390,
-    TLS_SRLT =                   16391,
-    TLS_CS =                     16392,
-    TLS_EXT =                    16393,
-    TLS_VERSION =                16394,
-    TLS_CLIENT_KEY_LENGTH =      16395,
-    TLS_SESSION_ID =             16396,
-    TLS_HELLO_RANDOM =           16397
+    IDP =                        44940,
+    SPLT =                       44941,
+    SALT =                       44942,
+    BYTE_DISTRIBUTION_FMT =      44943,
+    BYTE_DISTRIBUTION =          44944,
+    TLS_SRLT =                   44945,
+    TLS_CS =                     44946,
+    TLS_EXT =                    44947,
+    TLS_VERSION =                44948,
+    TLS_CLIENT_KEY_LENGTH =      44949,
+    TLS_SESSION_ID =             44950,
+    TLS_HELLO_RANDOM =           44951
 };
 
 

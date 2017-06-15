@@ -539,7 +539,7 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case SPLT:
-            case SPLT_NGA: ;
+            {
                 int max_length_array = (int)htons(cur_template->fields[i].FieldLength)/2;
                 const void *length_data = flow_data;
                 const void *time_data = flow_data + max_length_array;
@@ -566,6 +566,7 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
+            }
             case BYTE_DISTRIBUTION: ;
                 int field_length = htons(cur_template->fields[i].FieldLength);
                 int bytes_per_val = field_length/256;
