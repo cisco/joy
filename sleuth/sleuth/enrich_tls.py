@@ -162,7 +162,7 @@ def tls_seclevel(scs, client_key_length, certs):
         return 'unknown'
 
     cur_dir = os.path.dirname(__file__)
-    data_file = "data.json"
+    data_file = "data_tls_params.json"
     data_path = os.path.join(cur_dir, data_file)
 
     with open(data_path) as f:
@@ -238,7 +238,7 @@ def tls_seclevel(scs, client_key_length, certs):
                             hash_policy[params['hash']]))
 
 
-def tls_enrich(flow):
+def enrich_tls(flow):
     if 'tls' not in flow:
         return None
     else:

@@ -47,17 +47,17 @@ import collections
 import os
 import subprocess
 from optparse import OptionParser
-from sleuth import SleuthIterator
-from sleuth import SleuthIteratorFromFile
-from sleuth import SleuthFilterIterator
-from sleuth import SleuthEnrichIterator
-from sleuth import SleuthProcessor
-from sleuth import SleuthSumProcessor
-from sleuth import SleuthDistributionProcessor
-from sleuth import SleuthSplitProcessor
-from sleuth import SleuthElementSelectProcessor
+from sleuth import DictStreamIterator
+from sleuth import DictStreamIteratorFromFile
+from sleuth import DictStreamFilterIterator
+from sleuth import DictStreamEnrichIterator
+from sleuth import DictStreamProcessor
+from sleuth import DictStreamSumProcessor
+from sleuth import DictStreamDistributionProcessor
+from sleuth import DictStreamSplitProcessor
+from sleuth import DictStreamElementSelectProcessor
 from sleuth import SleuthPredicate
-from sleuth.enrich import tls_enrich
+from sleuth import enrich_tls
 
 
 """
@@ -65,7 +65,7 @@ Flow Iterator Classes
 """
 
 
-class FlowIteratorFromFile(SleuthIteratorFromFile):
+class FlowIteratorFromFile(DictStreamIteratorFromFile):
    """
    Create a new DictIterator instance from the given input file.
    This allows iteration over all JSON objects within the file.
@@ -109,7 +109,7 @@ class FlowIteratorFromFile(SleuthIteratorFromFile):
             self.f = open(self.file_name, 'r')
 
 
-class FlowStitchIterator(SleuthIterator):
+class FlowStitchIterator(DictStreamIterator):
    def __init__(self, source):
       self.source = source
       self.active_flows = collections.OrderedDict()
@@ -299,21 +299,21 @@ def pipeline():
    # set flow processor
    #
    if opts.selection is not None:
-      fp = SleuthElementSelectProcessor(opts.selection)
+      fp = DictStreamElementSelectProcessor(opts.selection)
    else:
-      fp = SleuthProcessor()
+      fp = DictStreamProcessor()
 
    if opts.splitfield:
-      fp = SleuthSplitProcessor(fp, opts.splitfield)
+      fp = DictStreamSplitProcessor(fp, opts.splitfield)
 
    # set post-processor
    #
    if opts.dist:
-      postproc = SleuthDistributionProcessor()
+      postproc = DictStreamDistributionProcessor()
    elif opts.sumvars:
-      postproc = SleuthSumProcessor(opts.sumvars, indent=json_indent)
+      postproc = DictStreamSumProcessor(opts.sumvars, indent=json_indent)
    else:
-      postproc = SleuthProcessor(indent=json_indent)
+      postproc = DictStreamProcessor(indent=json_indent)
 
    # process all files, with pre- and post-processing
    #
@@ -326,9 +326,9 @@ def pipeline():
       if opts.stitch:
          flowSource = FlowStitchIterator(flowSource)
       if opts.filter:
-         flowSource = SleuthFilterIterator(flowSource, SleuthPredicate(opts.filter))
+         flowSource = DictStreamFilterIterator(flowSource, SleuthPredicate(opts.filter))
       if opts.seclevel:
-         flowSource = SleuthEnrichIterator(flowSource, "seclevel", tls_enrich)
+         flowSource = DictStreamEnrichIterator(flowSource, "seclevel", enrich_tls)
 
       # process all flows from source
       try:

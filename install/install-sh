@@ -364,13 +364,16 @@ elif [ "$sysname" == "Linux" ]; then
         exit
     fi
 
-    # Install query
-    cp ${APP_ROOT}/query.py /usr/local/bin/
+    # Install joyq
+    cp ${APP_ROOT}/joyq /usr/local/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy to /usr/local/bin/"
         exit
     fi
+
+    # Install the sleuth python module (dependency of joyq)
+    pip install ${APP_ROOT}/sleuth/
 
     # Install the configuration file
     if [ -f /usr/local/etc/joy/options.cfg ]; then

@@ -43,11 +43,11 @@ import fnmatch
 
 
 """
-Sleuth Iterator Classes
+Dictionary Iterator Classes
 """
 
 
-class SleuthIterator(object):
+class DictStreamIterator(object):
     def __init__(self):
         pass
 
@@ -59,7 +59,7 @@ class SleuthIterator(object):
         return n
 
 
-class SleuthIteratorFromFile(SleuthIterator):
+class DictStreamIteratorFromFile(DictStreamIterator):
     """
     Create a new DictIterator instance from the given input file.
     This allows iteration over all JSON objects within the file.
@@ -116,7 +116,7 @@ class SleuthIteratorFromFile(SleuthIterator):
                 self.badLineCount += 1
 
 
-class SleuthFilterIterator(SleuthIterator):
+class DictStreamFilterIterator(DictStreamIterator):
     def __init__(self, source, filter):
         self.source = source
         self.filter = filter
@@ -134,7 +134,7 @@ class SleuthFilterIterator(SleuthIterator):
         return tmp
 
 
-class SleuthEnrichIterator(SleuthIterator):
+class DictStreamEnrichIterator(DictStreamIterator):
     def __init__(self, source, name, function):
         self.source = source
         self.name = name
@@ -149,11 +149,11 @@ class SleuthEnrichIterator(SleuthIterator):
 
 
 """
-Sleuth Processor Classes
+Dictionary Processor Classes
 """
 
 
-class SleuthProcessor(object):
+class DictStreamProcessor(object):
     def __init__(self, indent=None):
         self.obj_set = list()
         self.indent = indent
@@ -170,7 +170,7 @@ class SleuthProcessor(object):
             print ""
 
 
-class SleuthElementSelectProcessor(SleuthProcessor):
+class DictStreamElementSelectProcessor(DictStreamProcessor):
     def __init__(self, elements):
         self.set = []
         self.template = SleuthTemplateDict(elements)
@@ -180,14 +180,14 @@ class SleuthElementSelectProcessor(SleuthProcessor):
         if output:
             self.set.append(output)
 
-    def post_process(self, proc=SleuthProcessor()):
+    def post_process(self, proc=DictStreamProcessor()):
         proc.pre_process(self.context)
         for obj in self.set:
             proc.main_process(obj)
         proc.post_process()
 
 
-class SleuthSplitProcessor(SleuthProcessor):
+class DictStreamSplitProcessor(DictStreamProcessor):
     def __init__(self, fpobj, field):
         self.fpobj = fpobj
         self.dict = dict()
@@ -195,7 +195,7 @@ class SleuthSplitProcessor(SleuthProcessor):
         self.template = SleuthTemplateDict(field)
 
     def main_process(self, obj):
-        value = pickle.dumps(self.template.copySelectedElements(self.template.template, obj))
+        value = pickle.dumps(self.template.copy_selected_elements(self.template.template, obj))
 
         if value not in self.dict:
             self.dict[value] = copy.deepcopy(self.fpobj)
@@ -208,10 +208,10 @@ class SleuthSplitProcessor(SleuthProcessor):
             print self.context
 
         for k, v in self.dict.items():
-            v.postProcess(copy.deepcopy(proc))
+            v.post_process(copy.deepcopy(proc))
 
 
-class SleuthSumProcessor(SleuthProcessor):
+class DictStreamSumProcessor(DictStreamProcessor):
     def __init__(self, sumvars, indent=None):
         self.sums = dict()
         self.fixed_fields = dict()
@@ -252,7 +252,7 @@ class SleuthSumProcessor(SleuthProcessor):
         print ""
 
 
-class SleuthDistributionProcessor(SleuthProcessor):
+class DictStreamDistributionProcessor(DictStreamProcessor):
     def __init__(self):
         self.dist = dict()
         self.total = 0
@@ -356,13 +356,13 @@ class SleuthTemplateDict(object):
                         outDict[k] = list()
                         for x in obj_list:
                             for y in v:
-                                tmp = self.getSelectedElement(y, x)
+                                tmp = self.get_selected_element(y, x)
                                 if tmp:
                                     outDict[k].append(tmp)
                         if not outDict[k]:
                             outDict = {}
                 elif isinstance(v, dict):
-                    tmp = self.getSelectedElement(v, obj[k])
+                    tmp = self.get_selected_element(v, obj[k])
                     if tmp:
                         outDict[k] = tmp
                 else:
@@ -450,7 +450,7 @@ class SimplePredicate(object):
         if self.matchAll is True:
             return True
         else:
-            output = self.template.getSelectedElement(self.template.template, flow)
+            output = self.template.get_selected_element(self.template.template, flow)
             if output:
                 return self.eval(output.values()[0])
             else:
