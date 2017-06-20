@@ -119,7 +119,7 @@ the run-on-boot feature of joy (and many other programs that
 relied on /System/Library/LaunchDaemons), so for now that program
 can only perform live capture from the command line.
 
-Set COMPRESSED_OUTPUT (in src/output.h) to 1 for gzip-compressed
+Set COMPRESSED_OUTPUT (in src/include/output.h) to 1 for gzip-compressed
 JSON output. This compile-time option is on by default. If that
 \#define is instead set to 0, then normal JSON will be output.
 There are many tools that can be used to work with gzip-compressed
