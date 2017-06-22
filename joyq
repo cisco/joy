@@ -300,7 +300,7 @@ def pipeline():
     if opts.selection is not None:
         fp = DictStreamElementSelectProcessor(opts.selection)
     else:
-        fp = DictStreamProcessor()
+        fp = DictStreamProcessor(indent=json_indent)
 
     if opts.splitfield:
         fp = DictStreamSplitProcessor(fp, opts.splitfield)
