@@ -5,8 +5,8 @@
 #    Valid options are:
 #         -h | --help           - Help screen
 #         -l | --lib-path       - specify the library path
-#         -s | --ssl-path       - speacify the OpenSSL header path
-#         -c | --curl-path      - speacify the Curl header path
+#         -s | --ssl-path       - specify the OpenSSL header path
+#         -c | --curl-path      - specify the Curl header path
 ##
 print_usage ()
 {
@@ -44,6 +44,16 @@ string_has ()
 ##
 find_ssl_headers ()
 {
+    if [ $1 ]; then
+        ssl_crypto=`find "$1" -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+        if [ "$ssl_crypto" != "" ]; then
+           echo "Searching for OpenSSL headers...found"
+           ## remove /openssl/crypto.h from the end of the path
+           ssl_crypto_path=${ssl_crypto::${#ssl_crypto}-17}
+           return
+        fi
+    fi
+
     ssl_crypto=`find /usr -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
@@ -66,16 +76,6 @@ find_ssl_headers ()
         ## remove /openssl/crypto.h from the end of the path
         ssl_crypto_path=${ssl_crypto::${#ssl_crypto}-17}
         return
-    fi
-
-    if [ $1 ]; then
-        ssl_crypto=`find "$1" -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
-        if [ "$ssl_crypto" != "" ]; then
-           echo "Searching for OpenSSL headers...found"
-           ## remove /openssl/crypto.h from the end of the path
-           ssl_crypto_path=${ssl_crypto::${#ssl_crypto}-17}
-           return
-        fi
     fi
 
     if [ $1 ]; then
