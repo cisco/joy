@@ -67,6 +67,16 @@ Joy is alpha/beta software; we hope that you use it and benefit
 from it, but do understand that it is not suitable for production
 use.
 
+#### Relation to Cisco ETA
+
+Joy has helped support the research that paved the way for Cisco’s Encrypted
+Traffic Analytics (ETA), but it is not directly integrated into any of the
+Cisco products or services that implement ETA. The classifiers in Joy were
+trained on a small dataset several years ago, and do not represent the
+classification methods or performance of ETA. The intent of this feature is
+to allow network researchers to quickly train and deploy their own classifiers
+on a subset of the data features that Joy produces. For more information on
+training your own classifier, see saltUI/README or reach out to joy-users@cisco.com.
 
 #### Credits
 
