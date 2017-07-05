@@ -107,7 +107,7 @@
  */
 #define ip_feature_list ip_id
 #define tcp_feature_list salt, ppi
-#define payload_feature_list wht, example, dns, ssh, tls
+#define payload_feature_list wht, example, dns, ssh, tls, dhcp
 #define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
 

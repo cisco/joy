@@ -54,9 +54,9 @@ CFLAGS = -Wall -Wno-deprecated-declarations -g -O3  # -pg # -g # -fstack-protect
 ##
 # variables to make source file handling easier
 ##
-JOY_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c updater.c ipfix.c ssh.c ip_id.c salt.c parson.c fingerprint.c ppi.c utils.c
+JOY_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c updater.c ipfix.c ssh.c ip_id.c salt.c parson.c fingerprint.c ppi.c utils.c dhcp.c
 JFDANON_SRC = anon.c addr.c str_match.c acsm.c
-ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h updater.h ipfix.h ssh.h ip_id.h salt.h parson.h fingerprint.h ppi.h utils.h
+ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h updater.h ipfix.h ssh.h ip_id.h salt.h parson.h fingerprint.h ppi.h utils.h dhcp.h
 ALL_FILES = joy.c jfd-anon.c unit_test.c str_match_test.c $(JOY_SRC) $(JFDANON_SRC) $(ALL_HEADER_FILES)
 
 ##
