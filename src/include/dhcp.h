@@ -47,6 +47,7 @@
 #include <stdio.h>   /* for FILE* */
 #include <stdint.h>
 #include <pcap.h>
+#include <netinet/in.h>
 #include "output.h"
 #include "utils.h"
 
@@ -64,7 +65,8 @@
 struct dhcp_option {
     unsigned char code; /**< Typecode */
     unsigned char len; /**< Length (octets) of value */
-    unsigned char *value; /**< Data value */
+    unsigned char *value; /**< Data value, if the string repr is found, this should not be used */
+    const char *value_str; /**< String repr of value (IANA), should point to lookup table */
 };
 
 struct dhcp_message {
@@ -75,10 +77,10 @@ struct dhcp_message {
     uint32_t xid; /**< Transaction ID */
     uint16_t secs; /**< Seconds since client began exchange */
     uint16_t flags; /**< Flags */
-    uint32_t ciaddr; /**< Client IP address */
-    uint32_t yiaddr; /**< IP address offered to client */
-    uint32_t siaddr; /**< Server IP address */
-    uint32_t giaddr; /**< Gateway IP address */
+    struct in_addr ciaddr; /**< Client IP address */
+    struct in_addr yiaddr; /**< IP address offered to client */
+    struct in_addr siaddr; /**< Server IP address */
+    struct in_addr giaddr; /**< Gateway IP address */
     unsigned char chaddr[MAX_DHCP_CHADDR]; /**< Client hardware (MAC) address */
     char *sname; /**< Optional server host name string */
     char *file; /**< Boot file name string */
