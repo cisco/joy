@@ -96,9 +96,6 @@
     <ClCompile Include="..\..\src\wht.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\joy-anon.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\getline.c">
       <Filter>Source Files</Filter>
     </ClCompile>

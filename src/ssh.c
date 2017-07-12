@@ -317,7 +317,7 @@ void ssh_update(struct ssh *ssh,
 	      return ;
 	    }
 
-	    ssh_parse_kexinit(ssh, data + sizeof(struct ssh_packet), length);
+	    ssh_parse_kexinit(ssh, (const char*)data + sizeof(struct ssh_packet), length);
 	    break;
 	default:
 	    ; /* noop */
