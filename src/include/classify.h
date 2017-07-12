@@ -43,6 +43,10 @@
 #ifndef CLASSIFY_H
 #define CLASSIFY_H
 
+#ifdef WIN32
+#include "win_types.h"
+#endif
+
 /* constants */
 #define NUM_PARAMETERS_SPLT_LOGREG 208
 #define NUM_PARAMETERS_BD_LOGREG 464

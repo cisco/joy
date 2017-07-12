@@ -50,9 +50,14 @@
 #ifndef RADIX_TRIE_H 
 #define RADIX_TRIE_H 
 
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
+
 #include "err.h" 
 #include "addr_attr.h"
 #include "output.h"

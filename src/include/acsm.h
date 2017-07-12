@@ -46,6 +46,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stddef.h>
 
+#ifdef WIN32
+#include "win_types.h"
+#endif
+
 #define ASCIITABLE_SIZE    (256)     
 
 #define PATTERN_MAXLEN   (1024) 

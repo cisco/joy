@@ -53,10 +53,18 @@
 #include <ctype.h>
 #include <unistd.h>  
 #include "anon.h"
-#include "radix_trie.h" 
+#include "radix_trie.h"
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+
+size_t getline(char **lineptr, size_t *n, FILE *stream);
+
+#else
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
 
 extern str_match_ctx  usernames_ctx;
 
@@ -69,7 +77,11 @@ static char *address_string_anonymize (char *addr_string) {
         return addr_string;  /* probably already anonymized */
     }
 
-    if (inet_aton(addr_string, &addr) == 0) {
+#ifdef WIN32
+	if (inet_pton(AF_INET,addr_string, &addr) == 0) {
+#else
+	if (inet_aton(addr_string, &addr) == 0) {
+#endif
         return NULL;
     }
     if (ipv4_addr_needs_anonymization(&addr)) {

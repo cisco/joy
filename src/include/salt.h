@@ -48,6 +48,10 @@
 #include "output.h"
 #include "feature.h"
 
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#endif
+
 #define MAX_NUM_PKT 200
 
 /** usage string */
@@ -67,6 +71,22 @@ typedef struct salt {
 
 
 declare_feature(salt);
+
+#if 0
+/** initialization function */
+/**
+* \fn __inline void salt_init (struct salt *salt)
+* \param salt structure to initialize
+* \return none
+*/
+__inline void salt_init(struct salt *salt) {
+    salt->np = 0;
+    memset(salt->pkt_len, 0, sizeof(salt->pkt_len));
+    memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
+    memset(salt->seq, 0, sizeof(salt->seq));
+    memset(salt->ack, 0, sizeof(salt->ack));
+}
+#endif
 
 /** initialization function */
 void salt_init(struct salt *salt);

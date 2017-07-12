@@ -46,11 +46,11 @@
 #include "example.h"     
 
 /**
- * \fn inline void example_init (struct example *example)
+ * \fn __inline void example_init (struct example *example)
  * \param example structure to initialize
  * \return none
  */
-inline void example_init (struct example *example) {
+__inline void example_init (struct example *example) {
     example->counter = 0;
 }
 

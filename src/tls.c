@@ -45,7 +45,13 @@
 #include <ctype.h>   
 #include <string.h> 
 #include <stdlib.h>
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
 #include <netinet/in.h>
+#endif
+
 #include "tls.h"
 #include "parson.h"
 #include "fingerprint.h"
@@ -61,7 +67,7 @@ static uint8_t tls_fingerprint_db_loaded = 0;
 
 /* local prototypes */
 static void parse_san(const void *x, int len, struct tls_certificate *r);
-static struct tls_information *process_certificate(const void *start, int len, struct tls_information *r);
+static struct tls_information *process_certificate(const char *start, int len, struct tls_information *r);
 static int tls_version_capture(struct tls_information *tls_info, const struct tls_header *tls_hdr);
 static void certificate_printf(const struct tls_certificate *data, zfile f);
 
@@ -820,9 +826,9 @@ static void parse_san (const void *x, int len, struct tls_certificate *r) {
         }
 
         r->san[num_san] = malloc(tmp_len+1);
-        memset(r->san[num_san], '\0', tmp_len+1);
+        memset((void*)r->san[num_san], '\0', tmp_len+1);
         //((char *)r->san[num_san])[tmp_len] = '\0';
-        memcpy(r->san[num_san], y+2, tmp_len);
+        memcpy((void*)r->san[num_san], y+2, tmp_len);
 
         //printf("%s\n",r->san[num_san]);
         //printf("%i\n",tmp_len);
@@ -999,8 +1005,8 @@ int tls_load_fingerprints(void) {
         fingerprint_t *fp_match = NULL;
         unsigned short int cs_val = 0;
         unsigned short int ext_val = 0;
-        uint16_t cs_count = 0;
-        uint16_t ext_count = 0;
+        size_t cs_count = 0;
+        size_t ext_count = 0;
         size_t k = 0;
 
         library_obj = json_array_get_object(tls_libraries, i);
@@ -1264,7 +1270,7 @@ static unsigned int packet_is_sslv2_hello (const void *data) {
  */
 struct tls_information *process_tls (const struct timeval ts,
     const void *payload, int len, struct tls_information *r) {
-    const void *start = payload;
+    const char *start = payload;
     const struct tls_header *tls = NULL;
     unsigned int tls_len;
     unsigned int levels = 0;
@@ -1277,7 +1283,7 @@ struct tls_information *process_tls (const struct timeval ts,
         return NULL;
     }
 
-    tls = start;
+    tls = (const struct tls_header*)start;
     if (tls->ContentType == handshake && tls->Handshake.HandshakeType == server_hello) {
         //printf("%i\n",r->start_cert);
         if (r->start_cert == 0) {
@@ -1304,7 +1310,7 @@ struct tls_information *process_tls (const struct timeval ts,
     }
 
     while (len > 0) {
-        tls = start;
+        tls = (const struct tls_header*)start;
 
         tls_len = tls_header_get_length(tls);
 
@@ -1423,13 +1429,13 @@ struct tls_information *process_tls (const struct timeval ts,
     return NULL;
 }
 
-static struct tls_information * process_certificate (const void *start, 
+static struct tls_information * process_certificate (const char *start, 
     int len, struct tls_information *r) {
     const struct tls_header *tls;
     unsigned int tls_len;
 
     while (len > 200) {
-        tls = start;
+        tls = (const struct tls_header*)start;
 
         //printf("%i\n",tls->ContentType);
         //printf("%i\n",tls->Handshake.HandshakeType);
@@ -1496,7 +1502,7 @@ static void printf_raw_as_hex_tls (const void *data, unsigned int len) {
 }
 #endif
 
-static void zprintf_raw_as_hex_tls (zfile f, const void *data, unsigned int len) {
+static void zprintf_raw_as_hex_tls (zfile f, const unsigned char *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
 

@@ -53,9 +53,14 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifndef WIN32
 #include <netinet/in.h> 
 #include <sys/socket.h> 
 #include <arpa/inet.h>
+#else
+#include <WS2tcpip.h>
+#include <wincrypt.h>
+#endif
 #include <openssl/aes.h>
 #include "err.h" 
 #include "anon.h" 
@@ -100,6 +105,10 @@ enum status key_init (char *ANON_KEYFILE) {
     AES_KEY tmp;
     unsigned char c[16];
 
+#ifdef WIN32
+	HCRYPTPROV hProv = 0;
+#endif
+
     fd = open(ANON_KEYFILE, O_RDWR);
     if (fd > 0) {
     
@@ -114,6 +123,17 @@ enum status key_init (char *ANON_KEYFILE) {
             AES_decrypt(c, buf, &tmp);
         }
     } else {
+#ifdef WIN32
+		if (!CryptAcquireContextW(&hProv, 0, 0, PROV_RSA_AES, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+			return failure;
+		}
+		if(!CryptGenRandom(hProv, 16, buf)) {
+			CryptReleaseContext(hProv, 0);
+			perror("error: could not get random data");
+			return failure;
+		}
+		CryptReleaseContext(hProv, 0);
+#else
         /* key file does not exist, so generate new one */
         fd = open("/dev/random", O_RDONLY);
         if (fd < 0) {
@@ -126,10 +146,15 @@ enum status key_init (char *ANON_KEYFILE) {
             perror("error: could not read key from /dev/random");
             return failure;
         }
+#endif
         AES_set_encrypt_key(x, 128, &tmp);
         AES_encrypt(buf, c, &tmp);
 
+#ifndef WIN32
         fd = open(ANON_KEYFILE, O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
+#else
+        fd = open(ANON_KEYFILE, O_RDWR | O_CREAT, _S_IREAD | _S_IWRITE);
+#endif
         if (fd < 0) {
             perror("error: could not create joy.bin");
         } else {
@@ -218,7 +243,11 @@ static enum status anon_subnet_add_from_string (char *addr) {
             fprintf(anon_info, "error: cannot parse subnet; netmask is %d bits\n", masklen);
             return failure;
         }
+#ifndef WIN32
         inet_aton(addr, &a);
+#else
+        inet_pton(AF_INET, addr, &a);
+#endif
         a.s_addr = addr_mask(a.s_addr, masklen);
         return anon_subnet_add(a, masklen);
     }			 
@@ -387,7 +416,11 @@ int anon_unit_test () {
 
     anon_init("internal.net", stderr);
 
+#ifndef WIN32
     if (inet_aton("64.104.192.129", &inp) == 0) {
+#else
+    if (inet_pton(AF_INET, "64.104.192.129", &inp) == 0) {
+#endif 
         fprintf(anon_info, "error: could not convert address\n");
     }  
     if (ipv4_addr_needs_anonymization(&inp) != 1) {
@@ -552,7 +585,7 @@ void zprintf_anon_nbytes (zfile f, char *s, size_t len) {
 
     if (len >= 1024) {
         zprintf(f, "error: string longer than fixed buffer (length: %zu)\n", len);
-        return;
+		return;
     }
     for (i=0; i<len; i++) {
         tmp[i] = '*';
@@ -681,7 +714,8 @@ void anon_print_string (zfile f, struct matches *matches, char *text,
  * \return none
  */
 void anon_print_uri_pseudonym (zfile f, struct matches *matches, char *text) {
-    return anon_print_string(f, matches, text, is_special, anon_string);
+    anon_print_string(f, matches, text, is_special, anon_string);
+	return;
 }
 
 /**

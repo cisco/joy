@@ -153,7 +153,7 @@ void header_description_set (header_description_t *hd, const void *packet, unsig
  * \param report_hd determine whether or not to process header decriptors
  * \return none
  */
-inline void header_description_update (header_description_t *hd, 
+void header_description_update (header_description_t *hd, 
 			       const void *packet, 
 			       unsigned int report_hd) {
 

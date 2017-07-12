@@ -52,10 +52,15 @@
 #include <ctype.h>
 #include <unistd.h>  
 #include "anon.h"
-#include "radix_trie.h" 
+#include "radix_trie.h"
+
+#ifdef WIN32
+#include <Ws2tcpip.h>
+#else 
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
+#endif
 
 
 
@@ -68,7 +73,11 @@ static char *addr_string_anonymize (char *addr_string) {
         return addr_string;  /* probably already anonymized */
     }
 
-    if (inet_aton(addr_string, &addr) == 0) {
+#ifdef WIN32
+	if (inet_pton(AF_INET,addr_string, &addr) == 0) {
+#else
+	if (inet_aton(addr_string, &addr) == 0) {
+#endif
         return NULL;
     }
     return addr_get_anon_hexstring(&addr);
@@ -110,12 +119,13 @@ enum type {
     strings   = 2
 };
 
+#if 0
 /*
  * getopt() external variables
  */
 extern char *optarg;
 extern int optind, opterr, optopt;
-
+#endif
 
 /**
  \fn int main (int argc, char *argv[])

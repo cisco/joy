@@ -48,12 +48,13 @@
 #include "salt.h"     
 #include "pkt.h"      /* for tcp macros */
 
+
 /**
- * \fn inline void salt_init (struct salt *salt)
- * \param salt structure to initialize
- * \return none
- */
-inline void salt_init (struct salt *salt) {
+* \fn void salt_init (struct salt *salt)
+* \param salt structure to initialize
+* \return none
+*/
+void salt_init(struct salt *salt) {
     salt->np = 0;
     memset(salt->pkt_len, 0, sizeof(salt->pkt_len));
     memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
