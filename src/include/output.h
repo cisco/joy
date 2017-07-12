@@ -77,7 +77,13 @@ typedef FILE *zfile;
 typedef gzFile zfile;
 
 #define zopen(fname, ...)    (gzopen(fname, __VA_ARGS__))
+
+#ifdef WIN32
+#define zattach(FILEp, ...)  (gzdopen(_fileno(FILEp), __VA_ARGS__))
+#else
 #define zattach(FILEp, ...)  (gzdopen(fileno(FILEp), __VA_ARGS__))
+#endif
+
 #define zprintf(output, ...) (gzprintf(output, __VA_ARGS__))
 #define zflush(FILEp)        (gzflush(FILEp))
 #define zclose(output)       (gzclose(output))

@@ -95,10 +95,15 @@
 #ifndef FEATURE_H
 #define FEATURE_H
 
+#ifdef WIN32
+#include "win_types.h"
+#endif
+
 #include <stdio.h> 
 #include "err.h"
 #include "output.h"
 #include "map.h"
+
 
 /** The feature_list macro defines all of the features that will be
  * included in the flow_record.  To include/exclude a feature in a
@@ -109,7 +114,6 @@
 #define payload_feature_list wht, example, dns, ssh
 #define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
-
 #define define_feature_config_uint(f) unsigned int report_##f = 0;
 #define define_all_features_config_uint(flist) MAP(define_feature_config_uint, flist)
 
@@ -117,10 +121,11 @@
 #define define_all_features_config_extern_uint(flist) MAP(define_feature_config_extern_uint, flist)
 
 #define declare_feature_config_uint(f) unsigned int report_##f;
-#define declare_all_features_config_uint(flist) MAP(declare_feature_config_uint, flist)
+#define declare_all_features_config_uint(flist)  MAP(declare_feature_config_uint, flist)
 
 #define set_config_feature(F) report_##F = config.report_##F;
 #define set_config_all_features(flist) MAP(set_config_feature, flist)
+
 
 /** The function feature_init(ptr) is invoked on a pointer to a data
  * feature, it initializes an instance of the feature, possibly 

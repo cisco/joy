@@ -40,9 +40,11 @@
  * \brief unit test for multiple string matching functions
  */
 #include <stdarg.h>
-#ifndef DARWIN
-   #include <malloc.h>
+
+#if !defined(DARWIN) && !defined(WIN32)
+#include <malloc.h>
 #endif
+
 #include "str_match.h"
 #include "anon.h"
 
@@ -131,7 +133,7 @@ static char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400
 int main (int argc, char* argv[]) {
     str_match_ctx ctx;
 
-#ifndef DARWIN
+#if !defined(DARWIN) && !defined(WIN32)
     struct mallinfo info;
 
     info = mallinfo();
@@ -148,8 +150,8 @@ int main (int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
   
-#ifndef DARWIN
-    info = mallinfo();
+#if !defined(DARWIN) && !defined(WIN32)
+	info = mallinfo();
     printf ("allocated space after loading context:  %d bytes\n", info.uordblks);
 #endif
 

@@ -44,10 +44,16 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else 
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
+
 #include <time.h>
 #include "nfv9.h"
 #include "pkt.h"
@@ -193,7 +199,7 @@ void nfv9_template_key_init (struct nfv9_template_key *k,
 
 
 static void nfv9_process_times (struct flow_record *nf_record,
-         const void *time_data, struct timeval *old_val_time, 
+         const char *time_data, struct timeval *old_val_time, 
          int max_length_array, int pkt_time_index) {
     short tmp_packet_time;
     int repeated_times;
@@ -252,7 +258,7 @@ static void nfv9_process_times (struct flow_record *nf_record,
 }
 
 static void nfv9_process_lengths (struct flow_record *nf_record, 
-        const void *length_data, int max_length_array, int pkt_len_index) {
+        const char *length_data, int max_length_array, int pkt_len_index) {
     int old_val = 0;
     short tmp_packet_length;
     int repeated_length;
@@ -304,7 +310,7 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
  * \return none
  */
 void nfv9_flow_key_init (struct flow_key *key, 
-      const struct nfv9_template *cur_template, const void *flow_data) {
+      const struct nfv9_template *cur_template, const char *flow_data) {
     int i;
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
         switch (htons(cur_template->fields[i].FieldType)) {
@@ -368,7 +374,7 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
         return;
     }
 
-    proto = nf_record->key.prot;
+    proto = (unsigned char)nf_record->key.prot;
 
     if (proto == IPPROTO_TCP) {
         unsigned int tcp_hdr_len;
@@ -410,7 +416,7 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
 */
 void nfv9_process_flow_record (struct flow_record *nf_record, 
         const struct nfv9_template *cur_template, 
-        const void *flow_data, int record_num) {
+        const char *flow_data, int record_num) {
 
     struct timeval old_val_time;
     unsigned int total_ms = 0;
@@ -429,7 +435,7 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	            if (htons(cur_template->fields[i].FieldLength) == 4) {
 	                nf_record->np += htonl(*(const int *)(flow_data));
 	            } else {
-	                nf_record->np += __builtin_bswap64(*(const uint64_t *)(flow_data));
+	                nf_record->np += hton64(*(const uint64_t *)(flow_data));
 	            }
                 }
       

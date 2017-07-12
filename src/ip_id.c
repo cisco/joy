@@ -45,17 +45,21 @@
 
 #include <stdio.h>  
 #include <string.h>     /* for memset()      */
+
+#ifndef WIN32
 #include <arpa/inet.h>  /* for htons()       */
+#endif
+
 #include "pkt.h"        /* for struct ip_hdr */
 #include "ip_id.h"     
 
 
 /**
- * \fn inline void ip_id_init (struct ip_id *ip_id)
+ * \fn void ip_id_init (struct ip_id *ip_id)
  * \param ip_id structure to initialize
  * \return none
  */
-inline void ip_id_init (struct ip_id *ip_id) {
+void ip_id_init (struct ip_id *ip_id) {
     memset(ip_id->id, 0, sizeof(ip_id->id));
     ip_id->num_ip_id = 0;
 }

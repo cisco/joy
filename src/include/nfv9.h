@@ -44,10 +44,16 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#endif
+
 #include <time.h>
 #include "p2f.h"
 
@@ -269,10 +275,12 @@ struct nfv9_field_type {
     u_short Length;
 };
 
+#ifndef WIN32
 #define min(a,b) \
     ({ __typeof__ (a) _a = (a); \
     __typeof__ (b) _b = (b); \
     _a < _b ? _a : _b; })
+#endif
 
 #define MAX_TYPES 105
 
@@ -405,9 +413,9 @@ void nfv9_template_key_init(struct nfv9_template_key *k,
 /** netflow v9 key initialization */
 void nfv9_flow_key_init(struct flow_key *key, 
            const struct nfv9_template *cur_template, 
-           const void *flow_data);
+           const char *flow_data);
 
 /** main function for parsing nfv9 packets */
 void nfv9_process_flow_record(struct flow_record *nf_record,
            const struct nfv9_template *cur_template,
-           const void *flow_data, int record_num);
+           const char *flow_data, int record_num);

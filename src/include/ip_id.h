@@ -44,6 +44,7 @@
 #define IP_ID_H
 
 #include <stdio.h> 
+#include <string.h> 
 #include "output.h"
 #include "feature.h"
 
@@ -67,6 +68,18 @@ typedef struct ip_id {
 
 
 declare_feature(ip_id);
+
+#if 0
+/**
+* \fn __inline void ip_id_init (struct ip_id *ip_id)
+* \param ip_id structure to initialize
+* \return none
+*/
+__inline void ip_id_init(struct ip_id *ip_id) {
+    memset(ip_id->id, 0, sizeof(ip_id->id));
+    ip_id->num_ip_id = 0;
+}
+#endif
 
 /** initialization function */
 void ip_id_init(struct ip_id *ip_id);
