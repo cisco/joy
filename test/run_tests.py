@@ -41,29 +41,30 @@ from pytests_joy.ipfix import main_ipfix
 from pytests_joy.tls import main_tls
 
 
-def modify_test_suite(suite, module_flag, module_func, single_module):
+def modify_test_suite(suite, module_flag, module_func, wiped_flag):
     """
     Change the list of test modules that will be run.
     :param suite: List of test modules
     :param module_flag: A flag corresponding to a single module, given through CLI
     :param module_func: The entry point function of the selected test module
-    :param single_module: If it exists, the current selection for SINGLE (1 only) module to run.
+    :param wiped_flag: Flag indicating whether the suite list has been previously wiped.
     :return:
     """
     if module_flag == 'no':
         # Exclude the specified module
         suite.remove(module_func)
-        return None
     elif module_flag == 'yes':
         # Only test the specified module
-        if single_module:
-            logger.error(str(single_module) + ' has been selected to run by itself. ' +
-                         'only 1 module can be run individually.')
-            exit(1)
-        for test in suite:
-            if test is not module_func:
-                suite.remove(test)
-        return module_func
+        if wiped_flag is True:
+            # The list is already a subset, append to it
+            suite.append(module_func)
+        else:
+            # Create new subset list from scratch
+            del suite[:]
+            suite.append(module_func)
+            wiped_flag = True
+
+    return wiped_flag
 
 
 if __name__ == "__main__":
@@ -139,11 +140,11 @@ if __name__ == "__main__":
     """
     test_suite = [main_ipfix, main_tls, ]
 
-    single_mod = None
+    wiped_flag = False
     if args.flag_ipfix:
-        single_mod = modify_test_suite(test_suite, args.flag_ipfix, main_ipfix, single_mod)
+        wiped_flag = modify_test_suite(test_suite, args.flag_ipfix, main_ipfix, wiped_flag)
     if args.flag_tls:
-        single_mod = modify_test_suite(test_suite, args.flag_tls, main_tls, single_mod)
+        wiped_flag = modify_test_suite(test_suite, args.flag_tls, main_tls, wiped_flag)
 
     logger.warning('runtests start...')
     logger.warning('~~~~~~~~~~~~~~~~~')

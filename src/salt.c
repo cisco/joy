@@ -64,16 +64,20 @@ void salt_init(struct salt *salt) {
 
 /**
  * \fn void salt_update (struct salt *salt,
-        const void *data,
-        unsigned int len,
-        unsigned int report_salt)
+ *                       const struct pcap_pkthdr *header,
+                         const void *data,
+                         unsigned int len,
+                         unsigned int report_salt)
  * \param salt structure to initialize
+ * \param header pointer to the pcap packet header
  * \param data data to use for update
  * \param len length of the data
  * \param report_salt flag to determine if we filter salt
+ * 
  * \return none
  */
 void salt_update (struct salt *salt, 
+		  const struct pcap_pkthdr *header,
 		  const void *tcp_start, 
 		  unsigned int len, 
 		  unsigned int report_salt) {

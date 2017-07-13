@@ -334,7 +334,8 @@ struct ipfix_collector {
  */
 enum ipfix_template_type {
   IPFIX_RESERVED_TEMPLATE =                          0,
-  IPFIX_SIMPLE_TEMPLATE =                            1
+  IPFIX_SIMPLE_TEMPLATE =                            1,
+  IPFIX_IDP_TEMPLATE =                               2
 };
 
 
@@ -360,6 +361,17 @@ struct ipfix_exporter_template {
   struct ipfix_exporter_template *prev;
 };
 
+/*
+ * The minimum size of a variable length field is 3 because we
+ * MUST send the flag and length encoded in each data record.
+ */
+#define MIN_SIZE_VAR_FIELD 3
+
+struct ipfix_variable_field {
+    uint8_t flag;
+    uint16_t length;
+    unsigned char *info;
+};
 
 #define SIZE_IPFIX_DATA_SIMPLE 29
 
@@ -373,6 +385,24 @@ struct ipfix_exporter_data_simple {
   uint64_t flow_end_microseconds;
 };
 
+/*
+ * The minimum size because we have added an ipfix_variable_field.
+ *
+ * SIZE_IPFIX_DATA_IDP = 32
+ */
+#define SIZE_IPFIX_DATA_IDP SIZE_IPFIX_DATA_SIMPLE + MIN_SIZE_VAR_FIELD
+
+struct ipfix_exporter_data_idp {
+  uint32_t source_ipv4_address;
+  uint32_t destination_ipv4_address;
+  uint16_t source_transport_port;
+  uint16_t destination_transport_port;
+  uint8_t protocol_identifier;
+  uint64_t flow_start_microseconds;
+  uint64_t flow_end_microseconds;
+  struct ipfix_variable_field idp_field;
+};
+
 
 /*
  * @brief Structure representing an IPFIX Exporter Data record.
@@ -380,6 +410,7 @@ struct ipfix_exporter_data_simple {
 struct ipfix_exporter_data {
   union {
     struct ipfix_exporter_data_simple simple;
+    struct ipfix_exporter_data_idp idp_record;
   } record;
   enum ipfix_template_type type;
   uint16_t length; /**< total length the data record */
@@ -565,22 +596,22 @@ enum ipfix_entities {
   IPFIX_FLOW_START_MICROSECONDS =                   154,
   IPFIX_FLOW_END_MICROSECONDS =                     155,
   IPFIX_BASIC_LIST =                                291,
-  IPFIX_IDP =                                       16386,
-  IPFIX_BYTE_DISTRIBUTION =                         16390,
-  IPFIX_BYTE_DISTRIBUTION_FORMAT =                  16398,
-  IPFIX_SEQUENCE_PACKET_LENGTHS =                   16399,
-  IPFIX_SEQUENCE_PACKET_TIMES =                     16400,
-  IPFIX_TLS_RECORD_LENGTHS =                        16403,
-  IPFIX_TLS_RECORD_TIMES =                          16404,
-  IPFIX_TLS_CONTENT_TYPES =                         16405,
-  IPFIX_TLS_HANDSHAKE_TYPES =                       16406,
-  IPFIX_TLS_CIPHER_SUITES =                         16392,
-  IPFIX_TLS_EXTENSION_LENGTHS =                     16407,
-  IPFIX_TLS_EXTENSION_TYPES =                       16408,
-  IPFIX_TLS_VERSION =                               16394,
-  IPFIX_TLS_KEY_LENGTH =                            16395,
-  IPFIX_TLS_SESSION_ID =                            16396,
-  IPFIX_TLS_RANDOM =                                16397,
+  IPFIX_IDP =                                       44940,
+  IPFIX_BYTE_DISTRIBUTION_FORMAT =                  44943,
+  IPFIX_BYTE_DISTRIBUTION =                         44944,
+  IPFIX_TLS_CIPHER_SUITES =                         44946,
+  IPFIX_TLS_VERSION =                               44948,
+  IPFIX_TLS_KEY_LENGTH =                            44949,
+  IPFIX_TLS_SESSION_ID =                            44950,
+  IPFIX_TLS_RANDOM =                                44951,
+  IPFIX_SEQUENCE_PACKET_LENGTHS =                   44952,
+  IPFIX_SEQUENCE_PACKET_TIMES =                     44953,
+  IPFIX_TLS_RECORD_LENGTHS =                        44956,
+  IPFIX_TLS_RECORD_TIMES =                          44957,
+  IPFIX_TLS_CONTENT_TYPES =                         44958,
+  IPFIX_TLS_HANDSHAKE_TYPES =                       44959,
+  IPFIX_TLS_EXTENSION_LENGTHS =                     44960,
+  IPFIX_TLS_EXTENSION_TYPES =                       44961
 };
 
 

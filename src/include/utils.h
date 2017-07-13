@@ -42,6 +42,10 @@
 #ifndef P2FUTILS
 #define P2FUTILS
 
+#include <stdio.h>
+#include <pcap.h>
+#include "parson.h"
+
 #define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
 
 #if CPU_IS_BIG_ENDIAN
@@ -56,6 +60,12 @@
 #   define hton64(x) __builtin_bswap64(x)
 # endif
 #endif
+
+FILE* joy_utils_open_resource_file(const char *filename);
+
+pcap_t* joy_utils_open_resource_pcap(const char *filename);
+
+JSON_Value* joy_utils_open_resource_parson(const char *filename);
 
 enum role {
   role_unknown = 0,

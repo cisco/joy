@@ -64,6 +64,7 @@
 #include "output.h"     /* compressed output             */
 #include "salt.h"  // Because Windows!
 #include "ip_id.h" // Because Windows!
+#include "ipfix.h"
 
 
 /* local prototypes */
@@ -256,8 +257,6 @@ unsigned int report_hd = 0;
 
 // unsigned int report_dns = 0;
 
-unsigned int include_tls = 0;
-
 unsigned int include_classifier = 0;
 
 unsigned int nfv9_capture_port = 0;
@@ -272,7 +271,9 @@ unsigned int ipfix_export_remote_port = 0;
 
 char *ipfix_export_remote_host = NULL;
 
-char *tls_fingerprint_file = NULL;
+char *ipfix_export_template = NULL;
+
+char *aux_resource_path = NULL;
 
 zfile output = NULL;
 
@@ -524,10 +525,6 @@ static void flow_record_init (/* @out@ */ struct flow_record *record,
     record->time_prev = NULL;
     record->time_next = NULL;
     record->twin = NULL;
-
-    /* initialize TLS data */
-    //tls_record_init(&record->tls_info);
-    record->tls_info = NULL;
 
     http_init(&record->http_data);
     init_all_features(feature_list);
@@ -874,13 +871,6 @@ static void flow_record_delete (struct flow_record *r) {
     // dns_delete(&r->dns);
     if (r->idp) {
         free(r->idp);
-    }
-
-    /* cleanup TLS info structure */
-    if (r->tls_info != NULL) {
-        tls_record_delete(r->tls_info);
-        free(r->tls_info);
-        r->tls_info = NULL;
     }
 
     http_delete(&r->http_data);
@@ -1656,14 +1646,6 @@ static void flow_record_print_json (const struct flow_record *record) {
         }
     }
 
-    if (include_tls) { 
-        if (rec->twin) {
-            tls_printf(rec->tls_info, rec->twin->tls_info, output);
-        } else {
-            tls_printf(rec->tls_info, NULL, output);
-        }
-    }
-
     if (report_idp) {
         if (rec->idp != NULL) {
             zprintf(output, ",\"oidp\":");
@@ -1803,6 +1785,14 @@ static unsigned int flow_record_is_expired (struct flow_record *record,
 static void flow_record_print_and_delete (struct flow_record *record) {
   
     flow_record_print_json(record);
+
+    /*
+     * Export this record before deletion if running in
+     * IPFIX exporter mode.
+     */
+    if (ipfix_export_port) {
+        ipfix_export_main(record);
+    }
   
     /* delete twin, if there is one */
     if (record->twin != NULL) {

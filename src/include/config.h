@@ -66,7 +66,6 @@ struct configuration {
     //unsigned int report_wht;
     unsigned int report_hd;
     unsigned int report_exe;
-    unsigned int include_tls;
     unsigned int include_classifier;
     unsigned int idp;
     // unsigned int dns;
@@ -101,7 +100,8 @@ struct configuration {
     char *bpf_filter_exp;
     char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
     char *ipfix_export_remote_host;
-    char *tls_fingerprint_file;
+    char *ipfix_export_template;
+    char *aux_resource_path;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
 };
 

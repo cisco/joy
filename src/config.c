@@ -207,9 +207,6 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "hd")) {
         parse_check(parse_int(&config->report_hd, arg, num, 0, HDR_DSC_LEN));
 
-    } else if (match(command, "tls")) {
-        parse_check(parse_bool(&config->include_tls, arg, num));
-
     } else if (match(command, "classify")) {
         parse_check(parse_bool(&config->include_classifier, arg, num));
 
@@ -249,6 +246,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "ipfix_export_remote_host")) {
         parse_check(parse_string(&config->ipfix_export_remote_host, arg, num));
 
+    } else if (match(command, "ipfix_export_template")) {
+        parse_check(parse_string(&config->ipfix_export_template, arg, num));
+
     } else if (match(command, "nat")) {
         parse_check(parse_bool(&config->flow_key_match_method, arg, num));
 
@@ -261,8 +261,8 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "useranon")) {
         parse_check(parse_string(&config->anon_http_file, arg, num));
 
-    } else if (match(command, "fingerprint_file_tls")) {
-        parse_check(parse_string(&config->tls_fingerprint_file, arg, num));
+    } else if (match(command, "aux_resource_path")) {
+        parse_check(parse_string(&config->aux_resource_path, arg, num));
 
     } else if (match(command, "exe")) {
         parse_check(parse_bool(&config->report_exe, arg, num));
@@ -448,7 +448,6 @@ void config_print (FILE *f, const struct configuration *c) {
     fprintf(f, "cdist = %s\n", val(c->compact_byte_distribution));
     fprintf(f, "entropy = %u\n", c->report_entropy);
     fprintf(f, "hd = %u\n", c->report_hd);
-    fprintf(f, "tls = %u\n", c->include_tls);
     fprintf(f, "classify = %u\n", c->include_classifier);
     fprintf(f, "idp = %u\n", c->idp);
     fprintf(f, "exe = %u\n", c->report_exe);
@@ -493,7 +492,6 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"cdist\":\"%s\",", val(c->compact_byte_distribution));
     zprintf(f, "\"entropy\":%u,", c->report_entropy);
     zprintf(f, "\"hd\":%u,", c->report_hd);
-    zprintf(f, "\"tls\":%u,", c->include_tls);
     zprintf(f, "\"classify\":%u,", c->include_classifier);
     zprintf(f, "\"idp\":%u,", c->idp);
     zprintf(f, "\"exe\":%u,", c->report_exe);
