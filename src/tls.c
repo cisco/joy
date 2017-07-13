@@ -2580,7 +2580,9 @@ static void zprintf_raw_as_hex_tls (zfile f, const void *data, unsigned int len)
     const unsigned char *end = data + len;
 
     if (len > 1024) {
-      return;
+        zprintf(f, "\"");   /* quotes needed for JSON */
+        zprintf(f, "\"");
+        return;
     }
 
     if (data == NULL) { /* special case for nfv9 TLS export */
