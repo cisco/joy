@@ -44,7 +44,13 @@
 #include <stdio.h>      /* for fprintf()           */
 #include <ctype.h>      /* for isprint()           */
 #include <stdint.h>     /* for uint32_t            */
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
 #include <arpa/inet.h>  /* for ntohl()             */
+#endif
+
 #include <string.h>     /* for memset()            */
 #include "ssh.h"     
 #include "p2f.h"        /* for zprintf_ ...        */
@@ -111,11 +117,29 @@ enum ssh_msg_type {
  *    byte[m]   mac (Message Authentication Code - MAC); m = mac_length
  *
  */
+#ifdef WIN32
+
+#define PACKED
+#pragma pack(push,1)
+
+struct ssh_packet {
+	uint32_t      packet_length;
+	unsigned char padding_length;
+	unsigned char payload;
+} PACKED;
+
+#pragma pack(pop)
+#undef PACKED
+
+#else
+
 struct ssh_packet { 
     uint32_t      packet_length;
     unsigned char padding_length;
     unsigned char payload;
 } __attribute__((__packed__));    
+
+#endif
 
 unsigned int ssh_packet_parse(const void *pkt, unsigned int datalen, unsigned char *msg_code) {
     const struct ssh_packet *ssh_packet = pkt;
@@ -146,8 +170,8 @@ unsigned int decode_uint32(const void *data) {
     return ntohl(*x);
 }
 
-enum status decode_ssh_string(const void **dataptr, unsigned int *datalen, void *dst, unsigned dstlen) { 
-    const void *data = *dataptr;
+enum status decode_ssh_string(const char **dataptr, unsigned int *datalen, char *dst, unsigned dstlen) { 
+    const char *data = *dataptr;
     unsigned int length;
 
     if (*datalen < 4) { 
@@ -196,7 +220,7 @@ enum status decode_ssh_string(const void **dataptr, unsigned int *datalen, void 
  *    uint32       0 (reserved for future extension)
  *
  */
-void ssh_parse_kexinit(struct ssh *ssh, const void *data, unsigned int datalen) {
+void ssh_parse_kexinit(struct ssh *ssh, const char *data, unsigned int datalen) {
 
     /* copy the cookie  */
     if (datalen < 16) {
@@ -294,7 +318,7 @@ void ssh_update(struct ssh *ssh,
 	      return ;
 	    }
 
-	    ssh_parse_kexinit(ssh, data + sizeof(struct ssh_packet), length);
+	    ssh_parse_kexinit(ssh, (const char*)data + sizeof(struct ssh_packet), length);
 	    break;
 	default:
 	    ; /* noop */

@@ -51,6 +51,12 @@
 #include "hdr_dsc.h" 
 #include "p2f.h" 
 
+#ifdef WIN32
+#include "unistd.h"
+
+size_t getline(char **lineptr, size_t *n, FILE *stream);
+#endif
+
 /** returns if two string are the same */
 #define match(c, x) (!strncmp(c, x, strlen(x)))
 
@@ -148,7 +154,7 @@ static int config_parse_command (struct configuration *config,
      */
 
     if (match(command, "interface")) {
-        parse_check(parse_string(&config->interface, arg, num));
+        parse_check(parse_string(&config->intface, arg, num));
 
     } else if (match(command, "promisc")) {
         parse_check(parse_bool(&config->promisc, arg, num));
@@ -356,7 +362,8 @@ int config_set_from_file (struct configuration *config, const char *fname) {
 int config_set_from_argv (struct configuration *config, char *argv[], int argc) {
     const char *line = NULL;
     ssize_t len;
-    unsigned int i, linecount = 0;
+	int i;
+    unsigned int linecount = 0;
     const char *c;
 
     config_set_defaults(config);
@@ -422,7 +429,7 @@ void config_print (FILE *f, const struct configuration *c) {
     unsigned int i;
 
     fprintf(f, "joy version = %s\n", VERSION);
-    fprintf(f, "interface = %s\n", val(c->interface));
+    fprintf(f, "interface = %s\n", val(c->intface));
     fprintf(f, "promisc = %u\n", c->promisc);
     fprintf(f, "output = %s\n", val(c->filename));
     fprintf(f, "outputdir = %s\n", val(c->outputdir));
@@ -465,7 +472,7 @@ void config_print_json (zfile f, const struct configuration *c) {
     unsigned int i;
 
     zprintf(f, "{\"version\":\"%s\",", VERSION);
-    zprintf(f, "\"interface\":\"%s\",", val(c->interface));
+    zprintf(f, "\"interface\":\"%s\",", val(c->intface));
     zprintf(f, "\"promisc\":%u,", c->promisc);
     zprintf(f, "\"output\":\"%s\",", val(c->filename));
     zprintf(f, "\"outputdir\":\"%s\",", val(c->outputdir));

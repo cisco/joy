@@ -96,16 +96,16 @@ int data_sanity_check () {
     return ok;
 }
 
-static void print_payload(const unsigned char *payload, int len);
+static void print_payload(const char *payload, int len);
 
-static void print_hex_ascii_line(const unsigned char *payload, int len, int offset);
+static void print_hex_ascii_line(const char *payload, int len, int offset);
 
 /*
  * print_hex_ascii_line prints data in rows of 16 bytes, with a format
  * of offset, hex bytes, then ASCII characters.
  */
-void print_hex_ascii_line (const unsigned char *data, int len, int offset) {
-    const unsigned char *d;
+void print_hex_ascii_line (const char *data, int len, int offset) {
+    const char *d;
     int i, j;
 
     fprintf(info, "%05d   ", offset);	
@@ -143,12 +143,12 @@ void print_hex_ascii_line (const unsigned char *data, int len, int offset) {
 /*
  * print packet payload data (avoid printing binary data)
  */
-static void print_payload (const unsigned char *payload, int len) {
+static void print_payload (const char *payload, int len) {
     int len_rem = len;
     int line_width = 16;			/* number of bytes per line */
     int line_len;
     int offset = 0;		        /* zero-based offset counter */
-    const unsigned char *ch = payload;
+    const char *ch = payload;
 
     if (len <= 0)
         return;
@@ -269,11 +269,11 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
  * @param len Total length of the data.
  * @param r Flow record tracking the inbound network packet.
  */
-enum status process_ipfix(const void *start,
+enum status process_ipfix(const char *start,
                           int len,
                           struct flow_record *r) {
 
-  const struct ipfix_hdr *ipfix = start;
+  const struct ipfix_hdr *ipfix = (const struct ipfix_hdr*)start;
   const struct ipfix_set_hdr *ipfix_sh;
   struct flow_key prev_key;
   uint16_t message_len = ntohs(ipfix->length);
@@ -317,7 +317,7 @@ enum status process_ipfix(const void *start,
    * Parse IPFIX message for template, options, or data sets.
    */
   while (message_len > sizeof(struct ipfix_set_hdr)) {
-    ipfix_sh = start;
+    ipfix_sh = (const struct ipfix_set_hdr*)start;
     uint16_t set_id = ntohs(ipfix_sh->set_id);
 
     if (output_level > none) {
@@ -372,8 +372,7 @@ enum status process_ipfix(const void *start,
 }
 
 
-static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *start, int len, struct flow_record *r) {
-
+static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *start, int len, struct flow_record *r) {
     /* debugging output */
     if (output_level > none) {
         fprintf(info, "processing nfv9 packet\n");
@@ -391,7 +390,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
     /* 
      * if the nfv9 packet contains a template, then store it in the flow_record 
      */
-    const struct nfv9_hdr *nfv9 = start;
+    const struct nfv9_hdr *nfv9 = (const struct nfv9_hdr*)start;
     struct flow_key prev_key;
     int flowset_num = 0;
 
@@ -407,7 +406,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
     const struct nfv9_flowset_hdr *nfv9_fh;
     while (len > sizeof(struct nfv9_flowset_hdr)) {
         flowset_num += 1;
-        nfv9_fh = start;
+        nfv9_fh = (const struct nfv9_flowset_hdr*)start;
 
         u_short flowset_id = htons(nfv9_fh->FlowSetID);
         if (output_level > none) {
@@ -420,13 +419,13 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
             // process multiple templates within the same flowset
             int flowset_length = htons(nfv9_fh->Length);
             // added -4 for the potentially non-existent corner case of padding after multiple templates
-            const void *template_ptr = start + 4;
+            const char *template_ptr = start + 4;
             flowset_length -= 4;
 
             while (flowset_length-4 > 0) {
 
 	              // define data template key {source IP + source ID + template ID}
-	              const struct nfv9_template_hdr *template_hdr = template_ptr;
+	              const struct nfv9_template_hdr *template_hdr = (const struct nfv9_template_hdr*)template_ptr;
 	              flowset_length -= 4;
 	              template_ptr += 4;
 	              u_short template_id = htons(template_hdr->TemplateID);
@@ -455,7 +454,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
 	                  v9_template.hdr.TemplateID = template_id;
 	                  v9_template.hdr.FieldCount = field_count;
 	                  for (i = 0; i < field_count; i++) {
-	                      const struct nfv9_template_field *tmp_field = template_ptr;
+	                      const struct nfv9_template_field *tmp_field = (const struct nfv9_template_field*)template_ptr;
 	                      template_ptr += 4;
 	                      flowset_length -= 4;
 	    
@@ -550,9 +549,9 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
 }
 
 static struct flow_record *
-process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_len, struct flow_key *key) {
+process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, struct flow_key *key) {
     unsigned int tcp_hdr_len;
-    const unsigned char *payload;
+    const char *payload;
     unsigned int size_payload;
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
     struct flow_record *record = NULL;
@@ -570,7 +569,7 @@ process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_le
     }
     
     /* define/compute tcp payload (segment) offset */
-    payload = (unsigned char *)(tcp_start + tcp_hdr_len);
+    payload = (char *)(tcp_start + tcp_hdr_len);
   
     /* compute tcp payload (segment) size */
     size_payload = tcp_len - tcp_hdr_len;
@@ -632,7 +631,7 @@ process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_le
     }
 
     // if initial SYN/ACK packet, parse TCP options
-    unsigned int offset = 20;
+    int offset = 20;
     if (tcp->tcp_flags == 2 || tcp->tcp_flags == 18) { // SYN==2, SYN/ACK==18
         // get initial window size
         if (!record->tcp_initial_window_size) {
@@ -708,9 +707,9 @@ process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_le
 
 
 static struct flow_record *
-process_udp (const struct pcap_pkthdr *header, const void *udp_start, int udp_len, struct flow_key *key) {
+process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_len, struct flow_key *key) {
     unsigned int udp_hdr_len;
-    const unsigned char *payload;
+    const char *payload;
     unsigned int size_payload;
     const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
     struct flow_record *record = NULL;
@@ -725,7 +724,7 @@ process_udp (const struct pcap_pkthdr *header, const void *udp_start, int udp_le
         return NULL;
     }
   
-    payload = (unsigned char *)(udp_start + udp_hdr_len);  
+    payload = (char *)(udp_start + udp_hdr_len);  
     size_payload = udp_len - udp_hdr_len;
     if (output_level > none) {
         fprintf(info, "   src port: %d\n", ntohs(udp->src_port));
@@ -778,9 +777,9 @@ process_udp (const struct pcap_pkthdr *header, const void *udp_start, int udp_le
 
 
 static struct flow_record *
-process_icmp (const struct pcap_pkthdr *header, const void *start, int len, struct flow_key *key) {
+process_icmp (const struct pcap_pkthdr *header, const char *start, int len, struct flow_key *key) {
     int size_icmp_hdr;
-    const unsigned char *payload;
+    const char *payload;
     int size_payload;
     const struct icmp_hdr *icmp = (const struct icmp_hdr *)start;
     struct flow_record *record = NULL;
@@ -799,7 +798,7 @@ process_icmp (const struct pcap_pkthdr *header, const void *start, int len, stru
         fprintf(info, "   type: %d\n", icmp->type);
         fprintf(info, "   code: %d\n", icmp->code);
     }
-    payload = (unsigned char *)(start + size_icmp_hdr);  
+    payload = (char *)(start + size_icmp_hdr);  
     size_payload = len - size_icmp_hdr;
   
     /*
@@ -845,7 +844,7 @@ process_icmp (const struct pcap_pkthdr *header, const void *start, int len, stru
 
 static struct flow_record *
 process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, struct flow_key *key) {
-    const unsigned char *payload;
+    const char *payload;
     int size_payload;
     //  const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
     struct flow_record *record = NULL;
@@ -854,7 +853,7 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
         fprintf(info, "   protocol: IP\n");
     }
 
-    payload = (unsigned char *)(ip_start);  
+    payload = (char *)(ip_start);  
     size_payload = ip_len;
   
     /*
@@ -913,6 +912,8 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     const void *transport_start;
     struct flow_key key;
     
+	memset(&key, 0x00, sizeof(struct flow_key));
+
     flocap_stats_incr_num_packets();
     if (output_level > none) {
         fprintf(info, "\npacket number %lu:\n", flocap_stats_get_num_packets());
@@ -954,7 +955,8 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         /* fill out IP-specific fields of flow key, plus proto selector */
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
-        proto = key.prot = ip->ip_prot;  
+        key.prot = ip->ip_prot;  
+        proto = (unsigned char)key.prot;  
 
     }  else {
         // fprintf(info, "found IP fragment (offset: %02x)\n", ip_fragment_offset(ip));
@@ -964,12 +966,13 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
          */
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
-        proto = key.prot = IPPROTO_IP;
+        key.prot = IPPROTO_IP;
+        proto = (unsigned char)key.prot;
     }  
     
     /* determine transport protocol and handle appropriately */
 
-    transport_start = (void *)ip + ip_hdr_len;
+    transport_start = (char *)ip + ip_hdr_len;
     switch(proto) {
         case IPPROTO_TCP:
             record = process_tcp(header, transport_start, transport_len, &key);

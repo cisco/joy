@@ -42,7 +42,12 @@
 #ifndef PKT_H
 #define PKT_H
 
-#include <netinet/in.h> 
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
+#include <netinet/in.h>
+#endif
+
 #include "utils.h"
 
 #ifdef LINUX

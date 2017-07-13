@@ -45,9 +45,13 @@
 #define IPFIX_H
 
 #include <time.h>
+
+#ifndef WIN32
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#endif
+
 #include <pthread.h>
 #include "p2f.h"
 #include "utils.h"
@@ -255,6 +259,23 @@ struct ipfix_template {
 /*
  * @brief Structure representing an IPFIX "basicList" data type.
  */
+#ifdef WIN32
+
+#define PACKED
+#pragma pack(push,1)
+
+struct ipfix_basic_list_hdr {
+	uint8_t semantic;
+	uint16_t field_id;
+	uint16_t element_length;
+	uint32_t enterprise_num;
+} PACKED;
+
+#pragma pack(pop)
+#undef PACKED
+
+#else
+
 struct __attribute__((__packed__)) ipfix_basic_list_hdr {
   uint8_t semantic;
   uint16_t field_id;
@@ -262,6 +283,7 @@ struct __attribute__((__packed__)) ipfix_basic_list_hdr {
   uint32_t enterprise_num;
 };
 
+#endif
 
 /*
  * @brief Structure representing an IPFIX Collector.
@@ -480,10 +502,12 @@ struct ipfix_exporter {
 
 #define ipfix_field_enterprise_bit(a) (a & 0x8000)
 
+#ifndef WIN32
 #define min(a,b) \
     ({ __typeof__ (a) _a = (a); \
     __typeof__ (b) _b = (b); \
     _a < _b ? _a : _b; })
+#endif
 
 #if CPU_IS_BIG_ENDIAN
 # define bytes_to_u32(bytes) (bytes[0] << 24) + (bytes[1] << 16) + (bytes[2] << 8) + bytes[3] 
@@ -505,7 +529,7 @@ void ipfix_xts_cleanup(void);
 
 
 int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
-                         const void *template_start,
+                         const char *template_start,
                          uint16_t set_len,
                          const struct flow_key rec_key);
 

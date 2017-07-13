@@ -44,6 +44,10 @@
 #ifndef WHT_H
 #define WHT_H
 
+#ifdef WIN32
+#include "win_types.h"
+#endif
+
 #include <stdio.h> 
 #include "output.h"
 #include <pcap.h>
