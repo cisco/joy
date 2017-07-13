@@ -35,40 +35,66 @@
  */
 
 /**
- * \file fingerprint.h
+ * \file ppi.h
  *
- * \brief header file for data fingerprinting
+ * \brief per-packet information (ppi) module using the generic
+ * programming interface defined in feature.h.
+ *
  */
+#ifndef PPI_H
+#define PPI_H
 
-#ifndef FINGERPRINT_H
-#define FINGERPRINT_H
+#include <stdio.h> 
+#include "output.h"
+#include "feature.h"
 
-#include <stdint.h>
+#define MAX_NUM_PKT 200
 
-#define MAX_FINGERPRINT_LEN 1024
-#define MAX_FINGERPRINT_LABELS 64
-#define MAX_FINGERPRINT_LABEL_LEN 64
-#define MAX_FINGERPRINT_DESCRIPTION 64
-#define MAX_FINGERPRINT_DB 100
+/** usage string */
+#define ppi_usage "  ppi=1                      include per-packet info (ppi)\n"
 
-typedef struct fingerprint {
-    char description[MAX_FINGERPRINT_DESCRIPTION]; /**< Description */
-    char labels[MAX_FINGERPRINT_LABELS][MAX_FINGERPRINT_LABEL_LEN]; /**< Labels */
-    uint8_t label_count; /**< Number of labels */
-    unsigned char fingerprint[MAX_FINGERPRINT_LEN]; /* Fingerprint data */
-    uint16_t fingerprint_len; /**< Length of the fingerprint in bytes */
-} fingerprint_t;
+/** ppi filter key */
+#define ppi_filter(key) 1
 
-typedef struct fingerprint_db {
-    fingerprint_t fingerprints[MAX_FINGERPRINT_DB]; /**< Fingerprints */
-    uint16_t fingerprint_count; /**< Number of fingerprints */
-} fingerprint_db_t;
+#define TCP_OPT_LEN 24
+  
+struct pkt_info {
+    struct timeval time; 
+    unsigned int ack;
+    unsigned int seq;
+    unsigned short len;  
+    unsigned char flags;
+    unsigned short opt_len;  
+    unsigned char opts[TCP_OPT_LEN];
+};
 
-int fingerprint_copy(fingerprint_t *dest_fp,
-                     fingerprint_t *src_fp);
+/** ppi structure */
+typedef struct ppi {
+    unsigned int np;
+    struct pkt_info pkt_info[MAX_NUM_PKT];
+} ppi_t;
 
-fingerprint_t *fingerprint_db_match_exact(fingerprint_db_t *db,
-                                          fingerprint_t *in_fingerprint);
+declare_feature(ppi);
 
-#endif /* FINGERPRINT_H */
+/** initialization function */
+void ppi_init(struct ppi *ppi);
 
+/** update ppi */
+void ppi_update(struct ppi *ppi, 
+		const struct pcap_pkthdr *header,
+		const void *data, 
+		unsigned int len, 
+		unsigned int report_ppi);
+
+/** JSON print ppi */
+void ppi_print_json(const struct ppi *w1, 
+		     const struct ppi *w2,
+		     zfile f);
+
+/** delete ppi */
+void ppi_delete(struct ppi *ppi);
+
+/** ppi unit test entry point */
+void ppi_unit_test();
+
+#endif /* PPI_H */

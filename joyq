@@ -1,0 +1,348 @@
+#!/usr/bin/python
+
+"""
+joyq performs query operations on JSON-formatted flow objects; see joyq --help for more details
+
+ *
+ * Copyright (c) 2017 Cisco Systems, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ *   Redistributions in binary form must reproduce the above
+ *   copyright notice, this list of conditions and the following
+ *   disclaimer in the documentation and/or other materials provided
+ *   with the distribution.
+ *
+ *   Neither the name of the Cisco Systems, Inc. nor the names of its
+ *   contributors may be used to endorse or promote products derived
+ *   from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+"""
+
+import sys
+import gzip
+import copy
+import collections
+import os
+import subprocess
+from optparse import OptionParser
+from sleuth import DictStreamIterator
+from sleuth import DictStreamIteratorFromFile
+from sleuth import DictStreamFilterIterator
+from sleuth import DictStreamEnrichIterator
+from sleuth import DictStreamProcessor
+from sleuth import DictStreamSumProcessor
+from sleuth import DictStreamDistributionProcessor
+from sleuth import DictStreamSplitProcessor
+from sleuth import DictStreamElementSelectProcessor
+from sleuth import SleuthPredicate
+from sleuth import enrich_tls
+
+"""
+Flow Iterator Classes
+"""
+
+
+class FlowIteratorFromFile(DictStreamIteratorFromFile):
+    """
+    Create a new DictIterator instance from the given input file.
+    This allows iteration over all JSON objects within the file.
+    """
+    def __init__(self, file_name):
+        self.pcap_loader = PcapLoader(file=file_name)
+        super(FlowIteratorFromFile, self).__init__(file_name=file_name,
+                                                   skip_lines=['version'])
+
+    def _cleanup(self):
+        """
+        Overrides parent.
+        Close any resources that are still open.
+        :return:
+        """
+        try:
+            self.f.close()
+        except IOError:
+            pass
+
+        self.pcap_loader.cleanup()
+
+    def _load_file(self):
+        """
+        Overrides parent.
+        If the file given is a PCAP, it will first be run through Joy
+        in order to generate the necessary JSON output for use here.
+        :return:
+        """
+        if self.file_name is '-':
+            self.f = sys.stdin
+        else:
+            if self.file_name.endswith('.gz'):
+                self.f = gzip.open(self.file_name, 'r')
+            elif self.pcap_loader.is_pcap():
+                # Run Joy to generate some JSON for use in this script.
+                self.pcap_loader.run()
+                # Open the json file that was just made.
+                self.f = gzip.open(self.pcap_loader.temp_json['file'], 'r')
+            else:
+                self.f = open(self.file_name, 'r')
+
+
+class FlowStitchIterator(DictStreamIterator):
+    def __init__(self, source):
+        self.source = source
+        self.active_flows = collections.OrderedDict()
+
+        for f in source:
+            key = (f['sa'], f['da'], f['sp'], f['dp'], f['pr'])
+            revkey = (f['da'], f['sa'], f['dp'], f['sp'], f['pr'])
+            if key in self.active_flows:
+                self.active_flows[key] = self.merge(self.active_flows[key], f)
+                pass
+            elif revkey in self.active_flows:
+                self.active_flows[revkey] = self.merge_reverse(self.active_flows[revkey], f)
+                pass
+            else:
+                self.active_flows[key] = f
+
+        self.flows = iter(self.active_flows.values())
+
+    def next(self):
+        return self.flows.next()
+
+    # merge f2 into f1, where both flows are in the same direction, and
+    # f1 precedes f2 (f1.ts < f2.ts)
+    #
+    def merge(self, f1, f2):
+        for k, v in f2.items():
+            if k not in f1:
+                f1[k] = f2[k]
+            else:
+                if k == 'te':
+                    f1[k] = max(f1[k], f2[k])
+                elif k == 'ip' or k == 'ib':
+                    f1[k] += f2[k]
+                elif k == 'op' or k == 'ob':
+                    f1[k] += f2[k]
+                elif k == 'bd':
+                    for i, e in enumerate(f2[k]):
+                        f1[k][i] += e
+                else:
+                    pass
+            return f1
+
+    # merge f2 into f1, where f2 is in the reverse direction to f1, and
+    # f1 precedes f2 (f1.ts < f2.ts)
+    #
+    def merge_reverse(self, f1, f2):
+        for k, v in f2.items():
+            if k not in f1:
+                if k == 'op':
+                    f1['ip'] += f2[k]
+                elif k == 'ob':
+                    f1['ib'] += f2[k]
+                else:
+                    f1[k] = f2[k]
+            else:
+                if k == 'te':
+                    f1[k] = max(f1[k], f2[k])
+                elif k == 'ip':
+                    f1[k] += f2['ob']
+                elif k == 'op':
+                    f1[k] += f2['ib']
+                elif k == 'bd':
+                    for i, e in enumerate(f2[k]):
+                        f1[k][i] += e
+                else:
+                    pass
+            return f1
+
+
+class PcapLoader:
+    """
+    Helper to operate on PCAP files directly
+    """
+    def __init__(self, file):
+        self.file = file
+        self.temp_json = {'file': None, 'created': False}
+
+    def cleanup(self):
+        """
+        Delete the temporary JSON file that was created.
+        :return:
+        """
+        if self.temp_json['created'] is True:
+            try:
+                os.remove(self.temp_json['file'])
+            except OSError:
+                pass
+
+    def is_pcap(self):
+        """
+        Determine whether a file is pcap.
+        :return: True if pcap file, False otherwise
+        """
+        if self.file.endswith('.pcap'):
+            return True
+        else:
+            # Look inside the file and check for pcap magic number
+            if sys.byteorder == 'little':
+                magic_number = bytearray.fromhex('d4 c3 b2 a1')
+            else:
+                magic_number = bytearray.fromhex('a1 b2 c3 d4')
+
+            with open(self.file, 'rb') as f:
+                ba = bytearray(f.readline())
+
+                if ba[:4] == magic_number:
+                    return True
+                else:
+                    return False
+
+    def run(self):
+        """
+        Run Joy with the pcap file as input.
+        The json output will then be operated upon in this program (joyq).
+        A temporary json file (temp-joyq.json.gz) will be written to the user's "home" directory.
+        Use the function cleanup() within this class to delete the file before program exit.
+        :return:
+        """
+        cur_dir = os.path.dirname(__file__)
+        temp_json_dir = os.path.expanduser('~')
+        temp_json_filename = 'temp-joyq.json.gz'
+        self.temp_json['file'] = os.path.join(temp_json_dir, temp_json_filename)
+
+        enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
+                            'ssh=1', 'ppi=1', 'entropy=1']
+
+        # Construct the commands
+        command = ['joy', 'outdir=' + temp_json_dir, 'output=' + temp_json_filename]
+        command += enabled_features
+        command.append(os.path.join(cur_dir, self.file))
+
+        command_local = copy.deepcopy(command)
+        command_local[0] = './joy'
+
+        command_source = copy.deepcopy(command)
+        command_source[0] = './bin/joy'
+
+        try:
+            subprocess.call(command)
+        except OSError as e:
+            if e.errno == os.errno.ENOENT:
+                # Look within the same directory where joyq lives.
+                try:
+                    subprocess.call(command_local)
+                except OSError as ee:
+                    if ee.errno == os.errno.ENOENT:
+                        # Look in typical source location
+                        try:
+                            subprocess.call(command_source)
+                        except OSError as eee:
+                            if eee.errno == os.errno.ENOENT:
+                                print('\033[91m' + 'error: could not locate "joy" executable. exiting.' + '\033[0m')
+                                sys.exit(1)
+                    else:
+                        raise
+            else:
+                raise
+
+        # Set flag indicating the temporary JSON file was made.
+        self.temp_json['created'] = True
+
+
+# main processing pipeline
+#
+def pipeline():
+    parser = OptionParser()
+    parser.set_description("filter JSON flow data and print out matching flows, selected fields, or stats")
+    parser.add_option("--where", dest="filter", help="filter flows")
+    parser.add_option("--select", dest="selection", help="select field to output")
+    parser.add_option("--split", dest="splitfield", help="split processing by field")
+    parser.add_option("--dist", action="store_true", help="compute distribution over selected element(s)")
+    parser.add_option("--stitch", action="store_true",
+                      help="stitch together successive flows separated by active timeouts")
+    parser.add_option("--pretty", action="store_true", help="pretty-print JSON output")
+    parser.add_option("--sum", dest="sumvars", help="compute sum over selected element(s)")
+    parser.add_option("--seclevel", action="store_true", help="report security level of TLS sessions")
+
+    # Parse command line, and check arguments
+    (opts, args) = parser.parse_args()
+    if not args:
+        # No input files, so assume stdin
+        args.append('-')
+
+    if opts.pretty:
+        json_indent = 3
+    else:
+        json_indent = None
+
+    # Set flow processor
+    #
+    if opts.selection is not None:
+        fp = DictStreamElementSelectProcessor(opts.selection)
+    else:
+        fp = DictStreamProcessor(indent=json_indent)
+
+    if opts.splitfield:
+        fp = DictStreamSplitProcessor(fp, opts.splitfield)
+
+    # Set post-processor
+    #
+    if opts.dist:
+        postproc = DictStreamDistributionProcessor()
+    elif opts.sumvars:
+        postproc = DictStreamSumProcessor(opts.sumvars, indent=json_indent)
+    else:
+        postproc = DictStreamProcessor(indent=json_indent)
+
+    # Process all files, with pre- and post-processing
+    #
+    fp.pre_process()
+
+    for x in args:
+        # Load the source data from input
+        flow_source = FlowIteratorFromFile(x)
+
+        if opts.stitch:
+            flow_source = FlowStitchIterator(flow_source)
+        if opts.filter:
+            flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(opts.filter))
+        if opts.seclevel:
+            flow_source = DictStreamEnrichIterator(flow_source, "seclevel", enrich_tls)
+
+        # process all flows from source
+        try:
+            for flow in flow_source:
+                fp.main_process(flow)
+        except KeyboardInterrupt:
+            sys.exit()
+        except:
+            raise
+
+    fp.post_process(postproc)
+
+
+"""
+Script entry point
+"""
+if __name__ == '__main__':
+    pipeline()
