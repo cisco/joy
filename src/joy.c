@@ -182,8 +182,6 @@ struct intrface {
 #include <net/if_dl.h>
 #include <ifaddrs.h>
 
-#define IFF_UP  0x00000001 // Interface is up
-
 static unsigned int interface_list_get (struct intrface ifl[IFL_MAX]) {
     struct ifaddrs *ifaddr_p, *ifaddr_iter;
     void *mac_addr;
