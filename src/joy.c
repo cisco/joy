@@ -163,6 +163,7 @@ extern struct configuration config;
 #define IFNAMSIZ 16
 #else
 #include <sys/ioctl.h>
+#include <net/if.h>
 #endif
 
 #define MAC_ADDR_LEN 6
@@ -291,6 +292,7 @@ static unsigned int interface_list_get (struct intrface ifl[IFL_MAX]) {
     char buffer[1024];
     struct ifreq *it, *end;
     unsigned int i = 0;
+    unsigned int num_ifs = 0;
 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     if (sock == -1) { 
@@ -486,7 +488,6 @@ int main (int argc, char **argv) {
     char *cli_filename = NULL; 
     char *config_file = NULL;
     struct intrface ifl[IFL_MAX];
-    int num_interfaces;
     char *capture_if;
     unsigned int file_base_len = 0;
     unsigned int num_cmds = 0;
@@ -686,7 +687,7 @@ int main (int argc, char **argv) {
         fprintf(info, "--- %s initialization ---\n", argv[0]);
         flocap_stats_output(info);
 
-        num_interfaces = interface_list_get(ifl);
+        interface_list_get(ifl);
     } else {
         info = stderr;
     }
