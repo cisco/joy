@@ -39,6 +39,16 @@
  * \brief string matching function implementations 
  *
  */
+#ifdef WIN32
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include "win_types.h"
+
+size_t getline(char **lineptr, size_t *n, FILE *stream);
+
+#endif
+
 #include "str_match.h"
 #include "anon.h"
 
@@ -173,7 +183,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
             char *string = line;
 
             if (transform != NULL) {
-	              err = transform(line, acsm_strlen(line), hexout, sizeof(hexout));
+	              err = transform(line, (unsigned int)acsm_strlen(line), hexout, sizeof(hexout));
 	              if (err != ok) {
 	                  return err;
 	              }

@@ -85,6 +85,13 @@
 #include "output.h"
 #include "updater.h"
 
+#ifdef WIN32
+#include "Ws2tcpip.h"
+
+size_t getline(char **lineptr, size_t *n, FILE *stream);
+
+#endif
+
 /** maximum label string length */
 #define MAX_LABEL_LEN 256
 
@@ -129,7 +136,7 @@ static struct in_addr hex2addr (unsigned int x) {
  * returns pointer to memory allocated
  * returns NULL on failure
  */
-static inline void *rt_malloc (size_t s) {
+static __inline void *rt_malloc (size_t s) {
     void *p = NULL;
     p = malloc(s);
     if (p != NULL) {
@@ -142,7 +149,7 @@ static inline void *rt_malloc (size_t s) {
  * radix trie memory free function
  *     sets pointer p to NULL after free
  */
-static inline void rt_free (void *p) {
+static __inline void rt_free (void *p) {
     if (p != NULL) {
         debug_printf("rt_free[0x%x]\n", (unsigned int)p);
         free(p);
@@ -611,8 +618,12 @@ static enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, cha
         masklen = 32;   /* no netmask, so match entire address */
     }
   
+#ifdef WIN32
+	inet_pton(AF_INET,addr, &a);
+#else
     inet_aton(addr, &a);
-    a.s_addr = addr_mask(a.s_addr, masklen);
+#endif
+	a.s_addr = addr_mask(a.s_addr, masklen);
     return radix_trie_add_subnet(rt, a, masklen, attr);
 }
 
@@ -695,13 +706,34 @@ static void radix_trie_node_print (const struct radix_trie *r,
         return;
     }
 
-    strcpy(tmp, string);
+#if 0
+	// Wow this code is totally unsafe
+	strcpy(tmp, string);
     ptr = index(tmp, 0);
     *ptr++ = ' ';
     *ptr++ = ' ';
     *ptr++ = ' ';
     *ptr = 0;
-  
+#endif
+	//safe copy of string into tmp buffer
+	strncpy(tmp, string, 255);
+	tmp[255] = 0; // make sure string is terminated
+	//replacement for index function
+	for (i = 0; i < 255; ++i) {
+		//find first occurance of 0 in tmp
+		if (tmp[i] == 0) {
+			ptr = &tmp[i];
+			break;
+		}
+	}
+	//let's make sure we don't write past the end of the tmp buffer;
+	if (i <= 252) {
+		*ptr++ = ' ';
+		*ptr++ = ' ';
+		*ptr++ = ' ';
+		*ptr = 0;
+	}
+
     switch(rt->type) {
         case leaf:
             //printf("%s flags: %x\n", string, ((struct radix_trie_leaf *)rt)->value);
@@ -790,15 +822,15 @@ static int radix_trie_high_level_unit_test () {
     if ((flag & flag_internal) == 0) {
         zprintf(output, "error: attribute lookup failed (expected %x, got %x)\n",
 	       flag_internal, flag);
-        test_failed = 1;
+		test_failed = 1;
     }
     attr_flags_json_print_labels(&rt, flag, "addr", output);
   
     addr.s_addr = htonl(0x08080808);   /* not internal */
     flag = radix_trie_lookup_addr(&rt, addr); 
     if ((flag & flag_internal) == 1) {
-        zprintf(output, "error: attribute lookup failed (did not expect %x, but got %x)\n",
-	       flag_internal, flag);
+		zprintf(output, "error: attribute lookup failed (did not expect %x, but got %x)\n",
+			flag_internal, flag);
         test_failed = 1;
     }
     attr_flags_json_print_labels(&rt, flag, "addr", output);
@@ -861,7 +893,7 @@ int radix_trie_unit_test () {
     flag = 1;
     for (i=0; i<3; i++) {
         if (radix_trie_add_subnet(&rt, a[i], 32, af[i]) != ok) {
-            zprintf(output, "error: could not add subnet %s\n", inet_ntoa(a[i]));
+			zprintf(output, "error: could not add subnet %s\n", inet_ntoa(a[i]));
             test_failed = 1;
         }
     }

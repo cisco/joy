@@ -45,7 +45,13 @@
 #include <ctype.h>   
 #include <string.h> 
 #include <stdlib.h>
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
 #include <netinet/in.h>
+#endif
+
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/asn1.h>
@@ -104,7 +110,7 @@ static fingerprint_db_t tls_fingerprint_db;
 static int tls_fingerprint_db_loaded = 0;
 
 /* Local prototypes */
-static int tls_certificate_process(const void *data, int data_len, struct tls_information *tls_info);
+static int tls_certificate_process(const char *data, int data_len, struct tls_information *tls_info);
 static int tls_header_version_capture(struct tls_information *tls_info, const struct tls_header *tls_hdr);
 static void tls_certificate_printf(const struct tls_certificate *data, zfile f);
 
@@ -1697,9 +1703,9 @@ static void tls_san_parse (const void *x, int len, struct tls_certificate *r) {
         }
 
         r->san[num_san] = malloc(tmp_len+1);
-        memset(r->san[num_san], '\0', tmp_len+1);
+        memset((void*)r->san[num_san], '\0', tmp_len+1);
         //((char *)r->san[num_san])[tmp_len] = '\0';
-        memcpy(r->san[num_san], y+2, tmp_len);
+        memcpy((void*)r->san[num_san], y+2, tmp_len);
 
         //printf("%s\n",r->san[num_san]);
         //printf("%i\n",tmp_len);
@@ -1933,8 +1939,8 @@ int tls_load_fingerprints(void) {
         fingerprint_t *fp_match = NULL;
         unsigned short int cs_val = 0;
         unsigned short int ext_val = 0;
-        uint16_t cs_count = 0;
-        uint16_t ext_count = 0;
+        size_t cs_count = 0;
+        size_t ext_count = 0;
         size_t k = 0;
 
         library_obj = json_array_get_object(tls_libraries, i);
@@ -2238,7 +2244,7 @@ void tls_update (struct tls_information *r,
                  const void *payload,
                  unsigned int len,
                  unsigned int report_tls) {
-    const void *start = payload;
+    const char *start = payload;
     const struct tls_header *tls = NULL;
     uint16_t tls_len;
 
@@ -2492,15 +2498,14 @@ void tls_update (struct tls_information *r,
  *
  * \return 0 for success, 1 for failure
  */
-static int tls_certificate_process (const void *data,
+static int tls_certificate_process (const char *data,
                                     int data_len,
                                     struct tls_information *tls_info) {
     const struct tls_header *tls_hdr;
     unsigned int tls_len;
 
     while (data_len > 200) {
-        tls_hdr = data;
-
+        tls_hdr = (const struct tls_header*)data;
         if (tls_hdr->content_type != TLS_CONTENT_HANDSHAKE) {
             break;
         }
@@ -2575,7 +2580,7 @@ static void printf_raw_as_hex_tls (const void *data, unsigned int len) {
 }
 #endif
 
-static void zprintf_raw_as_hex_tls (zfile f, const void *data, unsigned int len) {
+static void zprintf_raw_as_hex_tls (zfile f, const unsigned char *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
 
@@ -3120,8 +3125,10 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (cert_record->num_subject_items == known_items_count) {
-                    struct tls_item_entry kat_subject[known_items_count];
-                    int j = 0;
+					/* windows compiler needs the constant and not the variable here */
+					//struct tls_item_entry kat_subject[known_items_count];
+					struct tls_item_entry kat_subject[7];
+					int j = 0;
 
                     /* Known values */
                     strncpy(kat_subject[0].id, "countryName", MAX_OPENSSL_STRING);
@@ -3210,8 +3217,10 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (cert_record->num_issuer_items == known_items_count) {
-                    struct tls_item_entry kat_issuer[known_items_count];
-                    int j = 0;
+					/* windows compiler needs the constant and not the variable here */
+					//struct tls_item_entry kat_issuer[known_items_count];
+					struct tls_item_entry kat_issuer[7];
+					int j = 0;
 
                     /* Known values */
                     strncpy(kat_issuer[0].id, "countryName", MAX_OPENSSL_STRING);
@@ -3385,8 +3394,10 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (cert_record->num_extension_items == known_items_count) {
-                    struct tls_item_entry kat_extensions[known_items_count];
-                    int j = 0;
+					/* windows compiler needs the constant and not the variable here */
+					//struct tls_item_entry kat_extensions[known_items_count];
+					struct tls_item_entry kat_extensions[3];
+					int j = 0;
 
                     unsigned char known_subject_key_identifier[] = {
                         0x04, 0x14, 0xce, 0xbf, 0xd3, 0x46, 0xc6, 0x75,
@@ -3670,8 +3681,10 @@ static int tls_test_extract_client_hello(const unsigned char *data,
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         unsigned short known_ciphersuites_count = 15;
         unsigned short known_extensions_count = 11;
-        struct tls_extension known_extensions[known_extensions_count];
-        int failed = 0;
+		/* windows compiler needs the constant and not the variable here */
+		//struct tls_extension known_extensions[known_extensions_count];
+		struct tls_extension known_extensions[11];
+		int failed = 0;
         int i = 0;
 
         unsigned short known_ciphersuites[] = {49195, 49199, 52393, 52392, 49196, 49200, 49162, 49161,
@@ -3823,8 +3836,10 @@ static int tls_test_extract_server_hello(const unsigned char *data,
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         unsigned short known_extensions_count = 5;
         unsigned short known_ciphersuite = 0xc02b;
-        struct tls_extension known_extensions[known_extensions_count];
-        int failed = 0;
+		/* windows compiler needs the constant and not the variable here */
+		//struct tls_extension known_extensions[known_extensions_count];
+		struct tls_extension known_extensions[5];
+		int failed = 0;
         int i = 0;
 
         unsigned char kat_data_2[] = {0x03, 0x00, 0x01, 0x02};

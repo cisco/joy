@@ -47,9 +47,15 @@
 #include <dirent.h>
 #include <stdio.h>
 #include <errno.h>
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
+
 #include <ctype.h> 
 #include <string.h> 
 #include <stdlib.h> 
@@ -548,6 +554,24 @@ int main (int argc, char *argv[]) {
  */
 int get_host_flow_data () {
   return 0;
+}
+
+#endif
+
+#ifdef WIN32
+
+/*
+* this feature is not yet supported on Windows, so for now we have a
+* stub function here
+*/
+
+/**
+* \fn int get_host_flow_data ()
+* \param none
+* \return 0
+*/
+int get_host_flow_data() {
+    return 0;
 }
 
 #endif

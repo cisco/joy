@@ -44,6 +44,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#ifdef WIN32
+#include "win_types.h"
+#endif
+
 #include "output.h"
 #include "radix_trie.h"
 #include "feature.h"
@@ -79,10 +83,10 @@ struct configuration {
     unsigned int ipfix_export_remote_port;
     unsigned int flow_key_match_method;
   
-    declare_all_features_config_uint(feature_list);
+    declare_all_features_config_uint(feature_list) 
   
     char *compact_byte_distribution;
-    char *interface;
+    char *intface;
     char *filename;              /*!< output file, if not NULL */
     char *outputdir;             /*!< directory to write output files */
     char *logfile; 

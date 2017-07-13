@@ -43,8 +43,12 @@
 #ifndef ADDR_H
 #define ADDR_H
 
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
 #include <sys/socket.h>    
 #include <netinet/in.h>
+#endif
 
 /** returns the ipv4 mask */
 unsigned int ipv4_mask(unsigned int masklen);

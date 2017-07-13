@@ -59,8 +59,17 @@
 #define MAX_EXTENSIONS 256
 #define MAX_SID_LEN 256
 #define MAX_NUM_RCD_LEN 200
+
+#ifdef OUT
+#undef OUT
+#endif
 #define OUT "<"
+
+#ifdef IN
+#undef IN
+#endif
 #define IN  ">"
+
 #define NUM_PKT_LEN_TLS 50
 #define MAX_CERTIFICATES 4
 #define MAX_RDN 12
@@ -197,7 +206,7 @@ typedef struct tls_information {
     unsigned char start_cert;
     void *sni; /**< SNI a.k.a Server name indication */
     unsigned short int sni_length; /**< Length of SNI */
-    void *certificate_buffer; /**< Certificate(s) data */
+    char *certificate_buffer; /**< Certificate(s) data */
     unsigned short certificate_offset;
     fingerprint_t *tls_fingerprint;
 } tls_t;
