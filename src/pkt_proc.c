@@ -898,12 +898,17 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
   
     // ethernet = (struct ethernet_hdr*)(packet);
     ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
+    /* Support for both normal ethernet and 802.1q . Distinguish between 
+     * the two accepted types
+    */
     switch(ether_type) {
        case ETH_TYPE_IP:
+	   joy_log_info("Ethernet type - normal");
            ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = ip_hdr_length(ip);
-       break;
+           break;
        case ETH_TYPE_DOT1Q:
+	   joy_log_info("Ethernet type - 802.1Q VLAN");
            //Offset to get VLAN_TYPE
            vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
@@ -911,10 +916,10 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
                    ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = ip_hdr_length(ip);
                    break;
-           default :
-               return;
+               default :
+                   return;
            }
-       break;
+           break;
        default:
            return;
     }  
