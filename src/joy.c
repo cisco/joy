@@ -81,6 +81,7 @@
 #include "output.h"     /* compressed output             */
 #include "updater.h"    /* updater thread for classifer and label subnets */
 #include "ipfix.h"    /* IPFIX cleanup */
+#include "pcap.h"
 
 enum operating_mode {
     mode_none = 0,
@@ -157,84 +158,39 @@ extern struct configuration config;
 
 
 /* BEGIN utility functions */
-
-#ifdef WIN32
-#include "winioctl.h"
-#define IFNAMSIZ 16
-#else
-#include <sys/ioctl.h>
-#include <net/if.h>
-#endif
-
-#define MAC_ADDR_LEN 6
+#define IFL_MAX 16
 #define INTFACENAMESIZE 64
 
-struct intrface { 
-    char name [INTFACENAMESIZE];
-    unsigned char mac_addr[MAC_ADDR_LEN];
-    unsigned char active;
-};
-
-#define IFL_MAX 16
-
 #ifdef DARWIN
-
+#include <sys/ioctl.h>
 #include <net/if_dl.h>
+#include <net/if.h>
 #include <ifaddrs.h>
-
-static unsigned int interface_list_get (struct intrface ifl[IFL_MAX]) {
-    struct ifaddrs *ifaddr_p, *ifaddr_iter;
-    void *mac_addr;
-    unsigned char zero_addr[MAC_ADDR_LEN] = { 0, 0, 0, 0, 0, 0};
-    unsigned int num_ifs = 0;
-
-    /*
-     * get list of interface address structures
-     */
-    if (getifaddrs(&ifaddr_p) == 0) {
-
-        /*
-         * for each list entry with non-zero MAC, copy MAC address and
-         * interface name
-         */
-        for(ifaddr_iter = ifaddr_p; ifaddr_iter != NULL; ifaddr_iter = (ifaddr_iter)->ifa_next) {
-            if (((ifaddr_iter)->ifa_addr)->sa_family == AF_LINK) {
-	               mac_addr = LLADDR((struct sockaddr_dl *)(ifaddr_iter)->ifa_addr);
-	               if (memcmp(mac_addr, zero_addr, MAC_ADDR_LEN) != 0) {
-	                   strncpy(ifl[num_ifs].name, (ifaddr_iter)->ifa_name, INTFACENAMESIZE);
-	                   memcpy(ifl[num_ifs].mac_addr, mac_addr, MAC_ADDR_LEN); 
-	                   ifl[num_ifs].active = ifaddr_iter->ifa_flags & IFF_UP;
-	                       num_ifs++;
-	               }
-            }
-        }
-        freeifaddrs(ifaddr_p);
-    } 
-
-	if (num_ifs == 0) {
-		fprintf(info, "warning: could not obtain inferface information\n");
-	}
-	else {
-		int i;
-		for (i = 0; i<num_ifs; i++) {
-			unsigned char *a = ifl[i].mac_addr;
-			fprintf(info, "interface: %8s\tstatus: %s\t%02x%02x%02x%02x%02x%02x\n",
-				ifl[i].name, (ifl[i].active ? "up" : "down"),
-				a[0], a[1], a[2], a[3], a[4], a[5]);
-		}
-	}
-	return num_ifs;
-}
+#include "pcap.h"
+#define STRNCASECMP strncasecmp
 
 #elif WIN32 // WINDOWS
 #include "winsock2.h"
 #include "winioctl.h"
 #include "iphlpapi.h"
 #include "ws2tcpip.h"
-#include "pcap.h"
+#include "winioctl.h"
+#define IFNAMSIZ 16
+#define STRNCASECMP strnicmp
 
-// indicator that we want to open a network interface
-#define PCAP_SRC_IF_STRING "rpcap://" 
+#else
+#include <sys/ioctl.h>
+#include <net/if.h>
+#define STRNCASECMP strncasecmp
+#endif
+
+
+struct intrface { 
+    unsigned char name [INTFACENAMESIZE];
+    unsigned char friendly_name[IFNAMSIZ];
+    unsigned char ip_addr[IFNAMSIZ];
+    unsigned char active;
+};
 
 static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 	pcap_if_t *alldevs;
@@ -243,8 +199,9 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 	char errbuf[PCAP_ERRBUF_SIZE];
 
 	/* Retrieve the device list on the local machine */
-	if (pcap_findalldevs_ex(PCAP_SRC_IF_STRING, NULL, &alldevs, errbuf) == -1) {
-		fprintf(stderr, "Error in pcap_findalldevs: %s\n", errbuf);
+	//if (pcap_findalldevs_ex(PCAP_SRC_IF_STRING, NULL, &alldevs, errbuf) == -1) {
+	if (pcap_findalldevs(&alldevs, errbuf) == -1) {
+			fprintf(stderr, "Error in pcap_findalldevs: %s\n", errbuf);
 		return num_ifs;
 	}
 
@@ -259,16 +216,14 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 		for (dev_addr = d->addresses; dev_addr != NULL; dev_addr = dev_addr->next) {
 			if (dev_addr->addr->sa_family == AF_INET && dev_addr->addr && dev_addr->netmask) {
 				inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
-				fprintf(info, "Interface: %s\n", d->name);
-				if (d->description)
-					fprintf(info, "  (%s)\n", d->description);
-				else
-					fprintf(info, "  (No description available)\n");
-				fprintf(info,"  IP Address: %s\n", ip_string);
-				fprintf(info, "  Status: UP\n\n");
 				memset(&ifl[num_ifs], 0x00, sizeof(struct intrface));
-				snprintf(ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
+				snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
+				snprintf((char*)ifl[num_ifs].friendly_name, IFNAMSIZ, "intf%d", num_ifs);
+				snprintf((char*)ifl[num_ifs].ip_addr, IFNAMSIZ, "%s", (unsigned char*)ip_string);
 				ifl[num_ifs].active = IFF_UP;
+				fprintf(info, "Interface: %s\n", ifl[num_ifs].friendly_name);
+				fprintf(info, "  IP Address: %s\n", ifl[num_ifs].ip_addr);
+				fprintf(info, "  Status: UP\n\n");
 				++num_ifs;
 			}
 		}
@@ -281,67 +236,6 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 	pcap_freealldevs(alldevs);
 	return num_ifs;
 }
-
-#else // LINUX
-
-static unsigned int interface_list_get (struct intrface ifl[IFL_MAX]) {
-    struct ifreq ifr;
-    struct ifconf ifc;
-    char buffer[1024];
-    struct ifreq *it, *end;
-    unsigned int i = 0;
-    unsigned int num_ifs = 0;
-
-    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-    if (sock == -1) { 
-        return 0;
-    }
-  
-    ifc.ifc_len = sizeof(buffer);
-    ifc.ifc_buf = buffer;
-    if (ioctl(sock, SIOCGIFCONF, &ifc) == -1) {
-        return 0;
-    }
-  
-    it = ifc.ifc_req;
-    end = it + (ifc.ifc_len / sizeof(struct ifreq));
-
-    for ( ; it != end; ++it) {
-        strcpy(ifr.ifr_name, it->ifr_name);
-        if (ioctl(sock, SIOCGIFFLAGS, &ifr) == 0) {      
-
-            /* obtain all interfaces */
-            if ((ifr.ifr_flags & IFF_UP) && !(ifr.ifr_flags & IFF_LOOPBACK)) { 
-
-	               if (ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
-	                   memcpy(ifl[i].mac_addr, ifr.ifr_hwaddr.sa_data, 6);
-	                   strncpy(ifl[i].name, it->ifr_name, INTFACENAMESIZE);
-	                   i++;
-	                   break;
-	               }
-            }
-        } else { 
-            return 0;
-        }
-    }
-
-	if (i == 0) {
-		fprintf(info, "warning: could not obtain inferface information\n");
-	}
-	else {
-		int j;
-		for (j = 0; j<num_ifs; j++) {
-			unsigned char *a = ifl[j].mac_addr;
-			fprintf(info, "interface: %8s\tstatus: %s\t%02x%02x%02x%02x%02x%02x\n",
-				ifl[j].name, (ifl[j].active ? "up" : "down"),
-				a[0], a[1], a[2], a[3], a[4], a[5]);
-		}
-	}
-	return i;  /* return number of interfaces found */
-}
-
-#endif /* SYSNAME=LINUX */
-
 
 #if 0
 static char *raw_to_string (const void *raw, unsigned int len, char *outstr) {
@@ -486,7 +380,8 @@ int main (int argc, char **argv) {
     char *cli_filename = NULL; 
     char *config_file = NULL;
     struct intrface ifl[IFL_MAX];
-    char *capture_if;
+    char *capture_if = NULL;
+	unsigned int num_interfaces = 0;
     unsigned int file_base_len = 0;
     unsigned int num_cmds = 0;
     unsigned int done_with_options = 0;
@@ -685,7 +580,7 @@ int main (int argc, char **argv) {
         fprintf(info, "--- %s initialization ---\n", argv[0]);
         flocap_stats_output(info);
 
-        interface_list_get(ifl);
+        num_interfaces = interface_list_get(ifl);
     } else {
         info = stderr;
     }
@@ -818,19 +713,11 @@ int main (int argc, char **argv) {
         if (strncmp(config.filename, "auto", strlen("auto")) == 0) {
 
             if (mode == mode_online || mode == mode_ipfix_collect_online) {
-	               unsigned char *addr = ifl[0].mac_addr;
 	               time_t now = time(0);   
 	               struct tm *t = localtime(&now);
 	
-#ifndef WIN32
-	               snprintf(filename,  MAX_FILENAME_LEN, "%s/flocap-%02x%02x%02x%02x%02x%02x-h%d-m%d-s%d-D%d-M%d-Y%d-%s-", 
-		                      outputdir, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], 
-		                      t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900, t->tm_zone);
-#else
-                   snprintf(filename, MAX_FILENAME_LEN, "%s/flocap-%02x%02x%02x%02x%02x%02x-h%d-m%d-s%d-D%d-M%d-Y%d",
-                       outputdir, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
-                       t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
-#endif
+                       snprintf(filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
+                           t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
            } else {
 	               fprintf(info, "error: cannot use \"output = auto\" with no interface specified; use -o or -l options\n");
 	               return usage(argv[0]);
@@ -903,11 +790,23 @@ int main (int argc, char **argv) {
          * set capture interface as needed
          */
         if (strncmp(config.intface, "auto", strlen("auto")) == 0) {
-            capture_if = ifl[0].name;
-            fprintf(info, "starting capture on interface %s\n", ifl[0].name);
-        } else {
-            capture_if = config.intface;
+            capture_if = (char*)ifl[0].name;
+            fprintf(info, "starting capture on interface %s\n", ifl[0].friendly_name);
+		}
+		else {
+			int i;
+			for (i = 0; i < num_interfaces; ++i) {
+				if (STRNCASECMP((char*)ifl[i].friendly_name, config.intface, strlen((char*)ifl[i].friendly_name)) == 0) {
+					capture_if = (char*)ifl[i].name;
+					break;
+				}
+			}
         }
+
+		if (capture_if == NULL) {
+			fprintf(info, "could not find specified capture device: %s\n", config.intface);
+			return -1;
+		}
 
         errbuf[0] = 0;
         handle = pcap_open_live(capture_if, 65535, config.promisc, 10000, errbuf);
