@@ -81,8 +81,8 @@ class DictStreamIteratorFromFile(DictStreamIterator):
             pass
 
     def _load_file(self):
-        if self.file_name is '-':
-            self.f = sys.stdin
+        if self.file_name is sys.stdin:
+            self.f = self.file_name
         else:
             if '.gz' in self.file_name:
                 self.f = gzip.open(self.file_name,'r')

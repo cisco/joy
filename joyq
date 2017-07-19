@@ -44,7 +44,7 @@ import copy
 import collections
 import os
 import subprocess
-from optparse import OptionParser
+import argparse
 from sleuth import DictStreamIterator
 from sleuth import DictStreamIteratorFromFile
 from sleuth import DictStreamFilterIterator
@@ -92,8 +92,8 @@ class FlowIteratorFromFile(DictStreamIteratorFromFile):
         in order to generate the necessary JSON output for use here.
         :return:
         """
-        if self.file_name is '-':
-            self.f = sys.stdin
+        if self.file_name is sys.stdin:
+            self.f = self.file_name
         else:
             if self.file_name.endswith('.gz'):
                 self.f = gzip.open(self.file_name, 'r')
@@ -272,45 +272,53 @@ class PcapLoader:
 # main processing pipeline
 #
 def pipeline():
-    parser = OptionParser()
-    parser.set_description("filter JSON flow data and print out matching flows, selected fields, or stats")
-    parser.add_option("--where", dest="filter", help="filter flows")
-    parser.add_option("--select", dest="selection", help="select field to output")
-    parser.add_option("--split", dest="splitfield", help="split processing by field")
-    parser.add_option("--dist", action="store_true", help="compute distribution over selected element(s)")
-    parser.add_option("--stitch", action="store_true",
-                      help="stitch together successive flows separated by active timeouts")
-    parser.add_option("--pretty", action="store_true", help="pretty-print JSON output")
-    parser.add_option("--sum", dest="sumvars", help="compute sum over selected element(s)")
-    parser.add_option("--seclevel", action="store_true", help="report security level of TLS sessions")
+    parser = argparse.ArgumentParser(
+        description='Interrogate JSON flow data and print out matching flows, selected fields, or stats.'
+    )
+    parser.add_argument("input", nargs='*', default=sys.stdin,
+                        help="Input (json or pcap) file(s).")
+    parser.add_argument("--select", dest="selection",
+                      help="Select key(s) to output.")
+    parser.add_argument("--where", dest="filter",
+                      help="Filter flows according to the provided key/value.")
+    parser.add_argument("--stitch", dest='stitch', action="store_true",
+                      help="Stitch together successive flows separated by active timeouts.")
+    parser.add_argument("--split", dest="splitfield",
+                        help='Split processing into separate pipeline according to each' +
+                             'unique value for the provided keys(s).')
+    parser.add_argument("--dist", dest='dist', action="store_true",
+                        help="Compute distribution over selected keys(s).")
+    parser.add_argument("--pretty", dest='pretty', action="store_true",
+                        help="Pretty-print JSON output.")
+    parser.add_argument("--sum", dest="sumvars",
+                        help="Compute sum over selected element(s).")
+    parser.add_argument("--seclevel", dest='seclevel', action="store_true",
+                        help="Report security level of TLS sessions.")
 
     # Parse command line, and check arguments
-    (opts, args) = parser.parse_args()
-    if not args:
-        # No input files, so assume stdin
-        args.append('-')
+    args = parser.parse_args()
 
-    if opts.pretty:
+    if args.pretty:
         json_indent = 3
     else:
         json_indent = None
 
     # Set flow processor
     #
-    if opts.selection is not None:
-        fp = DictStreamElementSelectProcessor(opts.selection)
+    if args.selection is not None:
+        fp = DictStreamElementSelectProcessor(args.selection)
     else:
         fp = DictStreamProcessor(indent=json_indent)
 
-    if opts.splitfield:
-        fp = DictStreamSplitProcessor(fp, opts.splitfield)
+    if args.splitfield:
+        fp = DictStreamSplitProcessor(fp, args.splitfield)
 
     # Set post-processor
     #
-    if opts.dist:
+    if args.dist:
         postproc = DictStreamDistributionProcessor()
-    elif opts.sumvars:
-        postproc = DictStreamSumProcessor(opts.sumvars, indent=json_indent)
+    elif args.sumvars:
+        postproc = DictStreamSumProcessor(args.sumvars, indent=json_indent)
     else:
         postproc = DictStreamProcessor(indent=json_indent)
 
@@ -318,15 +326,15 @@ def pipeline():
     #
     fp.pre_process()
 
-    for x in args:
+    for x in args.input:
         # Load the source data from input
         flow_source = FlowIteratorFromFile(x)
 
-        if opts.stitch:
+        if args.stitch:
             flow_source = FlowStitchIterator(flow_source)
-        if opts.filter:
-            flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(opts.filter))
-        if opts.seclevel:
+        if args.filter:
+            flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
+        if args.seclevel:
             flow_source = DictStreamEnrichIterator(flow_source, "seclevel", enrich_tls)
 
         # process all flows from source
