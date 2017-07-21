@@ -94,8 +94,6 @@ enum operating_mode {
 
 extern enum SALT_algorithm salt_algo;
 
-extern enum print_level output_level;
-
 extern radix_trie_t rt;
 
 extern struct flocap_stats stats;
@@ -147,6 +145,8 @@ extern zfile output;
 extern FILE *info;
 
 extern unsigned int records_in_file;
+
+extern unsigned int verbosity;
 
 define_all_features_config_extern_uint(feature_list)
 
@@ -319,7 +319,9 @@ static int usage (char *s) {
            "                             Available types: \"simple\", \"idp\"\n"
            "  aux_resource_path=\"path\"\n"
            "                             The path to directory where auxillary resources are stored\n"
-           "  verbosity=L                verbosity level: 0=quiet, 1=packet metadata, 2=packet payloads\n" 
+           "  verbosity=L                Specify the lowest log level\n"
+           "                             0=off, 1=debug, 2=info, 3=warning, 4=error, 5=critical\n"
+           "                             Default=4\n"
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
@@ -481,7 +483,6 @@ int main (int argc, char **argv) {
         report_entropy = config.report_entropy;
         report_hd = config.report_hd;
         include_classifier = config.include_classifier;
-        output_level = config.output_level;
         report_idp = config.idp;
         salt_algo = config.type;
         nfv9_capture_port = config.nfv9_capture_port;
@@ -492,6 +493,7 @@ int main (int argc, char **argv) {
         ipfix_export_remote_host = config.ipfix_export_remote_host;
         ipfix_export_template = config.ipfix_export_template;
         aux_resource_path = config.aux_resource_path;
+        verbosity = config.verbosity;
 
         set_config_all_features(feature_list)
 
@@ -499,7 +501,7 @@ int main (int argc, char **argv) {
             filter_exp = config.bpf_filter_exp;
         }
     }
-  
+
     /*
      * allow some command line variables to override the config file
      */
@@ -882,9 +884,7 @@ int main (int argc, char **argv) {
             /* loop over packets captured from interface */
             pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
       
-            if (output_level > none) { 
-	                zprintf(output, "# pcap processing loop done\n");
-            }
+            joy_log_info("PCAP processing loop done");
 
             if (config.report_exe) {
 	              /*
@@ -892,7 +892,7 @@ int main (int argc, char **argv) {
                    * PP: Not implemented for WIN32. Need to handle
 	               */ 
 	              if (get_host_flow_data() != 0) {
-	                  fprintf(info, "warning: could not obtain host/process flow data\n");
+	                  joy_log_warn("Could not obtain host/process flow data\n");
 	              }
            }
 
@@ -1061,9 +1061,7 @@ int main (int argc, char **argv) {
 int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
 
-    if (output_level > none) { 
-        printf("reading pcap file %s \n", file_name);
-    }
+    joy_log_info("reading pcap file %s", file_name);
 
     handle = pcap_open_offline(file_name, errbuf);    
     if (handle == NULL) { 
@@ -1093,9 +1091,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
 
     /* cleanup */
   
-    if (output_level > none) { 
-        printf("all flows processed\n");
-    }
+    joy_log_info("all flows processed");
   
     if (filter_exp) {
         pcap_freecode(fp);

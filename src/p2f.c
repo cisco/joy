@@ -64,7 +64,8 @@
 #include "output.h"     /* compressed output             */
 #include "salt.h"  // Because Windows!
 #include "ip_id.h" // Because Windows!
-#include "ipfix.h"
+#include "ipfix.h" /* ipfix protocol */
+#include "err.h" /* errors and logging */
 
 
 /* local prototypes */
@@ -134,8 +135,6 @@ static inline void timer_clear (struct timeval *a) {
 radix_trie_t rt = NULL;
 
 enum SALT_algorithm salt_algo = raw;
-
-enum print_level output_level = none;
 
 struct flocap_stats stats = {  0, 0, 0, 0 };
 struct flocap_stats last_stats = { 0, 0, 0, 0 };
@@ -255,8 +254,6 @@ unsigned int report_idp = 0;
 
 unsigned int report_hd = 0;
 
-// unsigned int report_dns = 0;
-
 unsigned int include_classifier = 0;
 
 unsigned int nfv9_capture_port = 0;
@@ -280,6 +277,8 @@ zfile output = NULL;
 FILE *info = NULL;
 
 unsigned int records_in_file = 0;
+
+unsigned int verbosity = 0;
 
 unsigned short compact_bd_mapping[16];
 
