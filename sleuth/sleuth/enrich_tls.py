@@ -86,8 +86,6 @@ def check_compliance(compliance_policy, scs):
             scs_desc = check_data["tls_params"][scs]["desc"]
             compliance = "yes" if scs_desc in compliance_data[compliance_policy] else "no"
 
-    print compliance
-
     return compliance
 
 
