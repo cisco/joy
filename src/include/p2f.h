@@ -62,13 +62,6 @@
 #include "modules.h"      
 #include "feature.h"
 
-enum print_level { 
-    none = 0, 
-    packet_summary = 1, 
-    all_data =2 
-};
-
-
 struct flow_key {
     struct in_addr sa;
     struct in_addr da;

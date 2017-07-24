@@ -50,14 +50,63 @@ enum status {
     failure = 1
 };
 
+enum joy_log_level {
+    JOY_LOG_OFF = 0,
+    JOY_LOG_DEBUG = 1,
+    JOY_LOG_INFO = 2,
+    JOY_LOG_WARN = 3,
+    JOY_LOG_ERR = 4,
+    JOY_LOG_CRIT = 5
+};
 
-/* START debug */
+extern FILE *info;
+extern unsigned int verbosity;
 
-/** output file pointer */
-extern FILE *info; 
+#define JOY_LOG_DEBUG_STR "DEBUG"
+#define JOY_LOG_INFO_STR "INFO"
+#define JOY_LOG_WARN_STR "WARN"
+#define JOY_LOG_ERR_STR "ERR"
+#define JOY_LOG_CRIT_STR "CRIT"
 
-/** convert to hex data */
-#define hexdata(d) (d[0], d[1], d[2], d[3])
+#define joy_log_debug(...) { \
+        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_DEBUG) { \
+            fprintf(info, "%s: %s: %d: ", JOY_LOG_DEBUG_STR, __FUNCTION__, __LINE__); \
+            fprintf(info, __VA_ARGS__); \
+            fprintf(info, "\n"); \
+        } \
+}
+
+#define joy_log_info(...) { \
+        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_INFO) { \
+            fprintf(info, "%s: %s: %d: ", JOY_LOG_INFO_STR, __FUNCTION__, __LINE__); \
+            fprintf(info, __VA_ARGS__); \
+            fprintf(info, "\n"); \
+        } \
+}
+
+#define joy_log_warn(...) { \
+        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_WARN) { \
+            fprintf(info, "%s: %s: %d: ", JOY_LOG_WARN_STR, __FUNCTION__, __LINE__); \
+            fprintf(info, __VA_ARGS__); \
+            fprintf(info, "\n"); \
+        } \
+}
+
+#define joy_log_err(...) { \
+        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_ERR) { \
+            fprintf(info, "%s: %s: %d: ", JOY_LOG_ERR_STR, __FUNCTION__, __LINE__); \
+            fprintf(info, __VA_ARGS__); \
+            fprintf(info, "\n"); \
+        } \
+}
+
+#define joy_log_crit(...) { \
+        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_CRIT) { \
+            fprintf(info, "%s: %s: %d: ", JOY_LOG_CRIT_STR, __FUNCTION__, __LINE__); \
+            fprintf(info, __VA_ARGS__); \
+            fprintf(info, "\n"); \
+        } \
+}
 
 /** printf debug macro */
 #define zprintf_debug(...) zprintf(output, ",\"DEBUG\": \""  __VA_ARGS__);
@@ -71,6 +120,5 @@ extern FILE *info;
 #define debug_printf(...) 
 #endif
 
-/* END debug */
 #endif /* ERR_H */
 
