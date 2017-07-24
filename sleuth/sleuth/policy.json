@@ -1,0 +1,198 @@
+{
+    "classification": {
+        "avoid": 1,
+        "legacy": 2,
+        "acceptable": 3,
+        "recommended": 4
+    },
+    "rules": {
+        "hash": {
+            "SHA": 2,
+            "NULL": 1,
+            "SHA256": 4,
+            "SHA384": 4,
+            "MD5": 1
+        },
+        "enc": {
+            "ARIA_128_GCM": 3,
+            "DES_CBC": 1,
+            "ARIA_128_CBC": 3,
+            "CAMELLIA_256_GCM": 3,
+            "AES_128_CCM": 4,
+            "CAMELLIA_128_GCM": 3,
+            "3DES_EDE_CBC": 2,
+            "DES40_CBC": 1,
+            "ARIA_256_GCM": 3,
+            "SEED_CBC": 2,
+            "RC4_128": 1,
+            "NULL": 1,
+            "CAMELLIA_256_CBC": 3,
+            "ARIA_256_CBC": 3,
+            "RC4_40": 1,
+            "RC2_CBC_40": 1,
+            "AES_256_GCM": 4,
+            "IDEA_CBC": 1,
+            "AES_128_CCM_8": 3,
+            "AES_128_CBC": 3,
+            "AES_256_CCM": 3,
+            "CHACHA20_POLY1305": 3,
+            "AES_256_CBC": 3,
+            "AES_128_GCM": 3,
+            "CAMELLIA_128_CBC": 3,
+            "AES_256_CCM_8": 3
+        },
+        "sig": {
+            "KRB5": 3,
+            "PSK": 2,
+            "SRP_SHA": 2,
+            "RSA-KT": 3,
+            "DSS": 2,
+            "SRP_SHA_RSA": 2,
+            "RSA": 3,
+            "anon": 1,
+            "NULL": 1,
+            "ECDSA": 4
+        },
+        "auth": {
+            "AES_256_GCM": 4,
+            "NULL": 1,
+            "AES_256_CCM": 3,
+            "CHACHA20_POLY1305": 3,
+            "AES_128_CCM_8": 3,
+            "ARIA_128_GCM": 3,
+            "AES_256_CCM_8": 3,
+            "CAMELLIA_256_GCM": 3,
+            "AES_128_CCM": 3,
+            "CAMELLIA_128_GCM": 3,
+            "AES_128_GCM": 4,
+            "ARIA_256_GCM": 3,
+            "HMAC": 3
+        },
+        "kex": {
+            "KRB5": {
+              "seclevel": 3
+            },
+            "PSK": {
+              "seclevel": 2
+            },
+            "DH": {
+              "seclevel": 2,
+              "client_key_length": {
+                "3072": 4,
+                "2048": 3,
+                "1024": 2
+              }
+            },
+            "SRP_SHA": {
+              "seclevel": 2,
+              "client_key_length": {
+                "3072": 4,
+                "2048": 3,
+                "1024": 2
+              }
+            },
+            "ECDH_anon": {
+              "seclevel": 1,
+              "client_key_length": {
+                "512": 4,
+                "256": 3,
+                "224": 2
+              }
+            },
+            "DHE": {
+              "seclevel": 3
+            },
+            "ECDH": {
+              "seclevel": 3,
+              "client_key_length": {
+                "512": 4,
+                "256": 3,
+                "224": 2
+              }
+            },
+            "RSA": {
+              "seclevel": 3,
+              "client_key_length": {
+                "3072": 4,
+                "2048": 3,
+                "1024": 2
+              }
+            },
+            "SRP_SHA_RSA": {
+              "seclevel": 2,
+              "client_key_length": {
+                "3072": 4,
+                "2048": 3,
+                "1024": 2
+              }
+            },
+            "ECDHE": {
+              "seclevel": 4,
+              "client_key_length": {
+                "512": 4,
+                "256": 3,
+                "224": 2
+              }
+            },
+            "DHE_PSK": {
+              "seclevel": 3,
+              "client_key_length": {
+                "3072": 4,
+                "2048": 3,
+                "1024": 2
+              }
+            },
+            "NULL": {
+              "seclevel": 1
+            },
+            "DH_anon": {
+              "seclevel": 1,
+              "client_key_length": {
+                "3072": 4,
+                "2048": 3,
+                "1024": 2
+              }
+            }
+        },
+        "sig_alg": {
+           "sha1WithRSAEncryption": {
+             "seclevel": 1,
+             "sig_key_size": {
+               "1024": 2
+             }
+           },
+           "sha256WithRSAEncryption": {
+             "seclevel": 3,
+             "sig_key_size": {
+               "2048": 3,
+               "1024": 2
+             }
+           },
+           "sha384WithRSAEncryption": {
+             "seclevel": 3,
+             "sig_key_size": {
+               "3072": 4,
+               "2048": 3,
+               "1024": 2
+             }
+           },
+           "sha512WithRSAEncryption": {
+             "seclevel": 4,
+             "sig_key_size": {
+               "3072": 4,
+               "2048": 3,
+               "1024": 2
+             }
+           },
+           "ecdsa-with-SHA256": {
+             "seclevel": 3,
+             "sig_key_size": {
+               "832": 2
+             }
+           },
+           "id-dsa-with-sha256": {
+             "seclevel": 3
+           }
+        }
+    }
+}

@@ -1,0 +1,72 @@
+{
+    "classification": {
+        "deprecated": 1,
+        "move_away": 2,
+        "stable": 3
+    },
+    "rules": {
+        "hash": {
+            "SHA": 2,
+            "SHA256": 3,
+            "MD5": 1
+        },
+        "enc": {
+            "DES_CBC": 1,
+            "RC4_128": 1,
+            "NULL": 1,
+            "AES_256_GCM": 3,
+            "AES_128_GCM": 2,
+            "AES_256_CBC": 2
+        },
+        "sig": {
+            "RSA": 2,
+            "NULL": 1,
+            "ECDSA": 3
+        },
+        "auth": {
+            "AES_256_GCM": 3,
+            "NULL": 1,
+            "ARIA_128_GCM": 2,
+            "AES_128_GCM": 3,
+            "HMAC": 3
+        },
+        "kex": {
+            "ECDHE": {
+              "seclevel": 3,
+              "client_key_length": {
+                "512": 3,
+                "224": 2
+              }
+            },
+            "RSA": {
+              "seclevel": 3,
+              "client_key_length": {
+                "2048": 3,
+                "1024": 2
+              }
+            },
+            "NULL": {
+              "seclevel": 1
+            }
+        },
+        "sig_alg": {
+           "sha1WithRSAEncryption": {
+             "seclevel": 1
+           },
+           "sha256WithRSAEncryption": {
+             "seclevel": 3,
+             "sig_key_size": {
+               "2048": 3,
+               "1024": 2
+             }
+           },
+           "sha384WithRSAEncryption": {
+             "seclevel": 3,
+             "sig_key_size": {
+               "2048": 3,
+               "1024": 2
+             }
+           }
+        }
+    }
+}

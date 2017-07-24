@@ -44,120 +44,54 @@ INVALID = 1
 VALID = 2
 
 
-security_categories = {
-    "unknown": 0,
-    "avoid": 1,
-    "legacy": 2,
-    "acceptable": 3,
-    "recommended": 4,
-}
+class Policy:
+    'Class to import seclevel policy'
+
+    def __init__(self, filename):
+        cur_dir = os.path.dirname(__file__)
+        policy_path = os.path.join(cur_dir, filename)
+        with open(policy_path) as f:
+            policy_data = json.load(f)
+            self.classifications = policy_data["classification"]
+            self.rules = policy_data["rules"]
+
+    def seclevel(self, x):
+        seclevel_names = {v: k for k, v in self.classifications.iteritems()}
+        seclevel_names[UNKNOWN] = "unknown"
+        if x in seclevel_names:
+            return seclevel_names[x]
+        return 0
 
 
-seclevel_names = {v: k for k, v in security_categories.iteritems()}
+def check_compliance(compliance_policy, scs):
+    if not scs:
+        return 'unknown'
+
+    if not compliance_policy:
+        return 'unknown'
+
+    cur_dir = os.path.dirname(__file__)
+    check_data_file = "data_tls_with_desc.json"
+    check_data_path = os.path.join(cur_dir, check_data_file)
+
+    compliance_data_file = "compliance.json"
+    compliance_data_path = os.path.join(cur_dir, compliance_data_file)
+    compliance = "test"
+
+    with open(check_data_path) as check_f:
+        with open(compliance_data_path) as compliance_f:
+            check_data = json.load(check_f)
+            compliance_data = json.load(compliance_f)
+
+            scs_desc = check_data["tls_params"][scs]["desc"]
+            compliance = "yes" if scs_desc in compliance_data[compliance_policy] else "no"
+
+    print compliance
+
+    return compliance
 
 
-def seclevel(x):
-    if x in seclevel_names:
-        return seclevel_names[x]
-    if x in security_categories:
-        return security_categories[x]
-    return 0
-
-# A hash/enc/kex/sig/auth *_policy object maps a crypto mechanism to a
-# security_category
-#
-hash_policy = {
-    "SHA": 2,
-    "NULL": 1,
-    "SHA256": 4,
-    "SHA384": 4,
-    "MD5": 1
-}
-
-enc_policy = {
-    "ARIA_128_GCM": 3,
-    "DES_CBC": 1,
-    "ARIA_128_CBC": 3,
-    "CAMELLIA_256_GCM": 3,
-    "AES_128_CCM": 4,
-    "CAMELLIA_128_GCM": 3,
-    "3DES_EDE_CBC": 2,
-    "DES40_CBC": 1,
-    "ARIA_256_GCM": 3,
-    "SEED_CBC": 2,
-    "RC4_128": 1,
-    "NULL": 1,
-    "CAMELLIA_256_CBC": 3,
-    "ARIA_256_CBC": 3,
-    "RC4_40": 1,
-    "RC2_CBC_40": 1,
-    "AES_256_GCM": 4,
-    "IDEA_CBC": 1,
-    "AES_128_CCM_8": 3,
-    "AES_128_CBC": 3,
-    "AES_256_CCM": 3,
-    "CHACHA20_POLY1305": 3,
-    "AES_256_CBC": 3,
-    "AES_128_GCM": 3,
-    "CAMELLIA_128_CBC": 3,
-    "AES_256_CCM_8": 3
-}
-
-sig_policy = {
-    "KRB5": 3,
-    "PSK": 2,
-    "SRP_SHA": 2,
-    "RSA-KT": 3,
-    "DSS": 2,
-    "SRP_SHA_RSA": 2,
-    "RSA": 3,
-    "anon": 1,
-    "NULL": 1,
-    "ECDSA": 4
-}
-
-auth_policy = {
-    "AES_256_GCM": 4,
-    "NULL": 1,
-    "AES_256_CCM": 3,
-    "CHACHA20_POLY1305": 3,
-    "AES_128_CCM_8": 3,
-    "ARIA_128_GCM": 3,
-    "AES_256_CCM_8": 3,
-    "CAMELLIA_256_GCM": 3,
-    "AES_128_CCM": 3,
-    "CAMELLIA_128_GCM": 3,
-    "AES_128_GCM": 4,
-    "ARIA_256_GCM": 3,
-    "HMAC": 3
-}
-
-kex_policy = {
-    "KRB5": 3,
-    "PSK": 2,
-    "DH": 2,
-    "SRP_SHA": 2,
-    "ECDH_anon": 1,
-    "DHE": 3,
-    "ECDH": 3,
-    "RSA": 3,
-    "SRP_SHA_RSA": 2,
-    "ECDHE": 4,
-    "DHE_PSK": 3,
-    "NULL": 1,
-    "DH_anon": 1
-}
-
-sig_alg_policy = {
-   "sha1WithRSAEncryption": 1,
-   "sha256WithRSAEncryption": 3,
-   "sha384WithRSAEncryption": 3,
-   "sha512WithRSAEncryption": 4,
-   "ecdsa-with-SHA256": 3
-}
-
-
-def tls_seclevel(scs, client_key_length, certs):
+def tls_seclevel(policy, ignore_unknown, scs, client_key_length, certs):
     if not scs:
         return 'unknown'
 
@@ -169,76 +103,74 @@ def tls_seclevel(scs, client_key_length, certs):
         data = json.load(f)
         params = data["tls_params"][scs]
 
-        kex = params['kex']
-        if kex == "RSA" or kex == "DH" or kex == "DHE_anon" or kex == "DHE_PSK" or kex == "SRP_SHA" or kex == "SRP_SHA_RSA":
-            if client_key_length < 1024:
-                kex_seclevel = 1 # avoid
-            elif client_key_length < 2048:
-                kex_seclevel = 2 # legacy
-            elif client_key_length < 3072:
-                kex_seclevel = 3 # acceptable
-            else:
-                kex_seclevel = 4 # recommended
+        policy_rules = policy.rules
+        min_seclevel = min(policy.classifications.values())
+        max_seclevel = max(policy.classifications.values())
 
-        elif kex == "ECDHE" or kex == "ECDH" or kex == "ECDH_anon":
-            if client_key_length < 224:
-                kex_seclevel = 1 # avoid
-            elif client_key_length < 256:
-                kex_seclevel = 2 # legacy
-            elif client_key_length < 512:
-                kex_seclevel = 3 # acceptable
-            else:
-                kex_seclevel = 4 # recommended
-        else:
-            kex_seclevel = kex_policy[kex]
+        kex = params['kex']
+        kex_policy = policy_rules["kex"]
+
+        kex_seclevel = UNKNOWN
+        if kex in kex_policy:
+            if client_key_length and "client_key_length" in kex_policy[kex]:
+                kex_seclevel = min_seclevel
+                for each in kex_policy[kex]["client_key_length"]:
+                    if client_key_length > int(each):
+                        kex_seclevel = kex_policy[kex]["client_key_length"][each]
+                        break
+            elif "seclevel" in kex_policy[kex]:
+                kex_seclevel = kex_policy[kex]["seclevel"]
+
 
         if certs:
-            certs_seclevel = 4
+            certs_seclevel = max_seclevel
+            sig_policy = policy_rules["sig_alg"]
+
             for x in certs:
                 sig_alg = x['signature_algorithm']
                 sig_key_size = x['signature_key_size']
-                if sig_alg == "sha1WithRSAEncryption":
-                    if sig_key_size < 1024:
-                        tmp_seclevel = 1
-                    else:
-                        tmp_seclevel = 2
-                elif sig_alg == "sha256WithRSAEncryption":
-                    if sig_key_size < 1024:
-                        tmp_seclevel = 1
-                    elif sig_key_size < 2048:
-                        tmp_seclevel = 2
-                    else:
-                        tmp_seclevel = 3
-                elif sig_alg == "ecdsa-with-SHA256":
-                    if sig_key_size < 832:
-                        tmp_seclevel = 1
-                    else:
-                        tmp_seclevel = 3
-                elif sig_alg == "sha384WithRSAEncryption" or sig_alg == "sha512WithRSAEncryption":
-                    if sig_key_size < 1024:
-                        tmp_seclevel = 1
-                    elif sig_key_size < 2048:
-                        tmp_seclevel = 2
-                    elif sig_key_size < 3072:
-                        tmp_seclevel = 3
-                    else:
-                        tmp_seclevel = 4
+                tmp_seclevel = certs_seclevel
+
+                if sig_alg and sig_alg in sig_policy:
+                    if sig_key_size and "sig_key_size" in sig_policy[sig_alg]:
+                        for each in sig_policy[sig_alg]["sig_key_size"]:
+                            if sig_key_size > int(each):
+                                tmp_seclevel = sig_policy[sig_alg]["sig_key_size"][each]
+                                break
+                    elif "seclevel" in sig_policy[sig_alg]:
+                        tmp_seclevel = sig_policy[sig_alg]["seclevel"]
                 else:
-                    tmp_seclevel = 0
-                if tmp_seclevel < certs_seclevel:
+                    tmp_seclevel = UNKNOWN
+
+                if tmp_seclevel and tmp_seclevel < certs_seclevel:
                     certs_seclevel = tmp_seclevel
         else:
-            certs_seclevel = 0
-
-        return seclevel(min(kex_seclevel,
-                            certs_seclevel,
-                            sig_policy[params['sig']],
-                            enc_policy[params['enc']],
-                            auth_policy[params['auth']],
-                            hash_policy[params['hash']]))
+            certs_seclevel = UNKNOWN
 
 
-def enrich_tls(flow):
+        seclevel_inventory = {
+            "kex": kex_seclevel,
+            "certs": certs_seclevel,
+            "sig": policy_rules["sig"][params['sig']] if params['sig'] in policy_rules["sig"] else UNKNOWN,
+            "enc": policy_rules["enc"][params['enc']] if params['enc'] in policy_rules["enc"] else UNKNOWN,
+            "auth": policy_rules["auth"][params['auth']] if params['auth'] in policy_rules["auth"] else UNKNOWN,
+            "hash": policy_rules["hash"][params['hash']] if params['hash'] in policy_rules["hash"] else UNKNOWN
+        }
+
+        # should have an ignore unknowns option to assess security level of only
+        # recognized elemnts of the policy
+        if ignore_unknown:
+            seclevel_classification = policy.seclevel(min({ k: v for k, v in seclevel_inventory.items() if v }.values()))
+        else:
+            seclevel_classification = policy.seclevel(min(seclevel_inventory.values()))
+
+        reason = min(seclevel_inventory, key=seclevel_inventory.get)
+
+        return {"seclevel": seclevel_classification, "reason": reason}
+
+
+
+def enrich_tls(flow, kwargs):
     if 'tls' not in flow:
         return None
     else:
@@ -271,5 +203,9 @@ def enrich_tls(flow):
         else:
             certs = None
 
-        # Evaluate seclevel based on parameters
-        return tls_seclevel(scs, client_key_length, certs)
+        if "comp" in kwargs:
+            return check_compliance(kwargs["comp"], scs)
+        else:
+            seclevel_policy = Policy(kwargs["policy_file"]) if kwargs["policy_file"] else Policy("policy.json")
+            # Evaluate seclevel based on parameters
+            return tls_seclevel(seclevel_policy, kwargs["ignore_unknown"], scs, client_key_length, certs)

@@ -294,6 +294,12 @@ def pipeline():
                         help="Compute sum over selected element(s).")
     parser.add_argument("--seclevel", dest='seclevel', action="store_true",
                         help="Report security level of TLS sessions.")
+    parser.add_argument("--policy_file", dest='policy_file',
+                        default="policy.json", help="File containing seclevel policy")
+    parser.add_argument("--ignore_unknown", dest='ignore_unknown',
+                        default="False", help="Flag to assess security level while ignoring ciphers that are unknown")
+    parser.add_argument("--compliance", dest='compliance',
+                        default=None, help="Policy to do a soft check for compliance against, i.e. fips_140")
 
     # Parse command line, and check arguments
     args = parser.parse_args()
@@ -335,7 +341,9 @@ def pipeline():
         if args.filter:
             flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
         if args.seclevel:
-            flow_source = DictStreamEnrichIterator(flow_source, "seclevel", enrich_tls)
+            flow_source = DictStreamEnrichIterator(flow_source, "seclevel", enrich_tls, policy_file=args.policy_file, ignore_unknown=args.ignore_unknown)
+        if args.compliance:
+            flow_source = DictStreamEnrichIterator(flow_source, "compliance", enrich_tls, comp=args.compliance)
 
         # process all flows from source
         try:
