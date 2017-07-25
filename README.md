@@ -89,9 +89,9 @@ Advanced Security Research Group (ASRG) and Security and Trust Organization (STO
 #### Building
 
 Joy has been successfully run and tested on Linux (Debian, Ubuntu,
-CentOS, and Raspbian) and Mac OSX. The system has been built with
+CentOS, and Raspbian), Mac OS X and Windows. The system has been built with
 gcc and GNU make, but it should work with other development
-environments as well.
+environments as well. For Windows builds, see the Windows section below.
 
 First, obtain the package from github, and change to the joy
 directory.
@@ -141,6 +141,20 @@ src/ subdirectory. It is copied into the main joy directory after
 a successful build. It can be run from that directory, or
 installed so that it will automatically run as a daemon on Linux or
 Mac OSX.
+
+WINDOWS BUILDS
+We have tried to make building on Windows as easy as possible. In the
+joy/win-joy directory there is a visual studio project file. Open the project
+file with Visual Studio 2015 (we have tested on VS 2013 as well) and it should
+load up all the defaults and source files required. Currently, the project is
+only setup to build 64-bit binaries. Once the project file loads, you can execute
+a "clean" and "build" of the code. All of the dependent libraries and headers files
+are in the joy/windows directory. Once you have the binary built, the required DLL
+files that are necessary are located in the joy/windows/64/DLL directory. You can
+combine these DLL files with your binary to produce a package that can be dropped
+onto a windows based machine and execute correctly.
+
+Execution of win-joy.exe has been tested on Windows 7, Windows 10 and Windows Server 2012.
 
 #### Running and Configuration
 
