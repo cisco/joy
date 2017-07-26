@@ -48,6 +48,7 @@
 
 #ifdef WIN32
 #include "Ws2tcpip.h"
+#include <openssl/applink.c>
 #else
 #include <netinet/in.h>
 #endif
