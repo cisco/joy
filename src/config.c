@@ -513,10 +513,10 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"anon\":\"%s\",", val(c->anon_addrs_file));
     zprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
     zprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
-    zprintf(f, "\"verbosity\":%u", c->verbosity);
+    zprintf(f, "\"verbosity\":%u,", c->verbosity);
 
     config_print_json_all_features_bool(feature_list);
 
-    zprintf(f, "}\n");  
+    zprintf(f, "\"end-config\":1}\n");  
 }
 
