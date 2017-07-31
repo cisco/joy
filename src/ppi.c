@@ -57,11 +57,11 @@ static void pkt_info_print_interleaved(zfile f,
 				       unsigned int np2);
 
 /**
- * \fn inline void ppi_init (struct ppi *ppi)
+ * \fn void ppi_init (struct ppi *ppi)
  * \param ppi structure to initialize
  * \return none
  */
-inline void ppi_init (struct ppi *ppi) {
+void ppi_init (struct ppi *ppi) {
     ppi->np = 0;
     memset(ppi->pkt_info, 0, sizeof(ppi->pkt_info));
 }
@@ -82,7 +82,7 @@ void ppi_update (struct ppi *ppi,
 		 const void *tcp_start, 
 		 unsigned int tcp_len, 
 		 unsigned int report_ppi) {
-    const struct tcp_hdr *tcp = tcp_start;  
+    const struct tcp_hdr *tcp = (const struct tcp_hdr*)tcp_start;  
     unsigned int tcp_hdr_len;
     //    const unsigned char *payload;
     unsigned int size_payload;
@@ -111,7 +111,7 @@ void ppi_update (struct ppi *ppi,
         }
 	    if (opt_len) {
 	        memcpy(ppi->pkt_info[ppi->np].opts, 
-		       tcp_start + 20, 
+		       (char*)tcp_start + 20, 
 		       opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len);
 	    } 
 	    ppi->np++;

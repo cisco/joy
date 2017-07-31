@@ -72,9 +72,9 @@ str_match_test:
 ##
 # testing
 ##
-test: joy joy_test.sh
+test: joy joy_test.py
 	$(BINDIR)/unit_test
-	./joy_test.sh
+	./joy_test.py
 
 ##
 # cscope

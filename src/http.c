@@ -596,7 +596,7 @@ static void http_header_print_as_object (zfile f, char *header, char *string, un
             zprintf(f, ",");
         } 
         zprintf(f, "\"body\":");
-        zprintf_raw_as_hex(f, saveptr, length); 
+        zprintf_raw_as_hex(f, (unsigned char*)saveptr, length); 
     }
 
     bail:  zprintf(f, "}");

@@ -44,9 +44,14 @@
 #ifndef P2F_H
 #define P2F_H
 
+#ifdef WIN32
+#include "ws2tcpip.h"
+#else
 #include <sys/socket.h>  
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
+
 #include <sys/stat.h>
 #include <dirent.h>
 #include <time.h>
@@ -56,13 +61,6 @@
 #include "http.h"         /* http header data              */
 #include "modules.h"      
 #include "feature.h"
-
-enum print_level { 
-    none = 0, 
-    packet_summary = 1, 
-    all_data =2 
-};
-
 
 struct flow_key {
     struct in_addr sa;
@@ -125,7 +123,7 @@ struct flow_record {
     unsigned char exp_type;
     unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
   
-    define_all_features(feature_list);    /*!< define all features listed in feature.h */
+    define_all_features(feature_list)     /*!< define all features listed in feature.h */
   
     struct flow_record *twin;             /*!< other half of bidirectional flow    */
     struct flow_record *next;             /*!< next record in flow_record_list     */
@@ -312,6 +310,6 @@ void *convert_string_to_printable(char *s, unsigned int len);
 
 
 /** print a buffer as hexadecimal */
-void zprintf_raw_as_hex(zfile f, const void *data, unsigned int len);
+void zprintf_raw_as_hex(zfile f, const unsigned char *data, unsigned int len);
 
 #endif /* P2F_H */

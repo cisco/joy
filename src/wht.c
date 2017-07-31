@@ -46,11 +46,11 @@
 #include "wht.h"     
 
 /**
- * \fn inline void wht_init (struct wht *wht)
+ * \fn __inline void wht_init (struct wht *wht)
  * \param wht pointer to the structure to initialize
  * \return none
  */
-inline void wht_init (struct wht *wht) {
+__inline void wht_init (struct wht *wht) {
     if (wht != NULL) {
         wht->b = 0;
         wht->spectrum[0] = 0;
@@ -62,9 +62,9 @@ inline void wht_init (struct wht *wht) {
 
 /*
  * process 4 bytes into transform
- *    pointers are sanity checked before calling this inline function
+ *    pointers are sanity checked before calling this __inline function
  */
-static inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) {
+static __inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) {
     int16_t x[4];
   
     x[0] = d[0] + d[2];
@@ -148,7 +148,8 @@ void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f) {
 
     /* if w2 is NULL, just print w1 scaled */
     if (w2 == NULL) {
-        return wht_printf_scaled(w1, f);
+        wht_printf_scaled(w1, f);
+		return;
     }
   
     n = w1->b + w2->b;

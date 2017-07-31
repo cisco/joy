@@ -1,0 +1,226 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="test|Win32">
+      <Configuration>test</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="test|x64">
+      <Configuration>test</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{095107C6-8CE5-4206-8B53-B917D6EE1FCD}</ProjectGuid>
+    <RootNamespace>winjoy</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='test|Win32'">
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='test|x64'">
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\include;$(ProjectDir)\..\..\windows\include\pcap;$(ProjectDir)..\..\windows\include;$(ProjectDir)..\..\windows\include\zlib;$(ProjectDir)..\..\windows\include\pthread;</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>VERSION="1.6";_MBCS;%(PreprocessorDefinitions);WIN32;STATIC_GETOPT ;_CRT_SECURE_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;__STDC_WANT_SECURE_LIB__=0;</PreprocessorDefinitions>
+      <PreprocessToFile>false</PreprocessToFile>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\windows\32;</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level2</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\include;$(ProjectDir)\..\..\windows\include\pcap;$(ProjectDir)..\..\windows\include;$(ProjectDir)..\..\windows\include\zlib;$(ProjectDir)..\..\windows\include\pthread;</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);WIN32;_CRT_SECURE_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;__STDC_WANT_SECURE_LIB__=0;</PreprocessorDefinitions>
+      <PreprocessToFile>false</PreprocessToFile>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\windows\64;</AdditionalLibraryDirectories>
+      <AdditionalDependencies>getopt.lib;iphlpapi.lib;ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ShowProgress>NotSet</ShowProgress>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <AdditionalOptions>/NODEFAULTLIB:MSVCRT %(AdditionalOptions)</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level2</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\include;$(ProjectDir)\..\..\windows\include\pcap;$(ProjectDir)..\..\windows\include;$(ProjectDir)..\..\windows\include\zlib;$(ProjectDir)..\..\windows\include\pthread;</AdditionalIncludeDirectories>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);WIN32;_CRT_SECURE_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;__STDC_WANT_SECURE_LIB__=0;</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\windows\64;</AdditionalLibraryDirectories>
+      <AdditionalDependencies>getopt.lib;iphlpapi.lib;ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\acsm.c" />
+    <ClCompile Include="..\..\src\addr.c" />
+    <ClCompile Include="..\..\src\addr_attr.c" />
+    <ClCompile Include="..\..\src\anon.c" />
+    <ClCompile Include="..\..\src\classify.c" />
+    <ClCompile Include="..\..\src\config.c" />
+    <ClCompile Include="..\..\src\dns.c" />
+    <ClCompile Include="..\..\src\example.c" />
+    <ClCompile Include="..\..\src\fingerprint.c" />
+    <ClCompile Include="..\..\src\getline.c" />
+    <ClCompile Include="..\..\src\hdr_dsc.c" />
+    <ClCompile Include="..\..\src\http.c" />
+    <ClCompile Include="..\..\src\ipfix.c" />
+    <ClCompile Include="..\..\src\ip_id.c" />
+    <ClCompile Include="..\..\src\joy.c" />
+    <ClCompile Include="..\..\src\nfv9.c" />
+    <ClCompile Include="..\..\src\osdetect.c" />
+    <ClCompile Include="..\..\src\p2f.c" />
+    <ClCompile Include="..\..\src\parson.c" />
+    <ClCompile Include="..\..\src\pkt_proc.c" />
+    <ClCompile Include="..\..\src\ppi.c" />
+    <ClCompile Include="..\..\src\procwatch.c" />
+    <ClCompile Include="..\..\src\radix_trie.c" />
+    <ClCompile Include="..\..\src\salt.c" />
+    <ClCompile Include="..\..\src\ssh.c" />
+    <ClCompile Include="..\..\src\str_match.c" />
+    <ClCompile Include="..\..\src\tls.c" />
+    <ClCompile Include="..\..\src\updater.c" />
+    <ClCompile Include="..\..\src\utils.c" />
+    <ClCompile Include="..\..\src\wht.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\include\acsm.h" />
+    <ClInclude Include="..\..\src\include\addr.h" />
+    <ClInclude Include="..\..\src\include\addr_attr.h" />
+    <ClInclude Include="..\..\src\include\anon.h" />
+    <ClInclude Include="..\..\src\include\classify.h" />
+    <ClInclude Include="..\..\src\include\config.h" />
+    <ClInclude Include="..\..\src\include\dns.h" />
+    <ClInclude Include="..\..\src\include\err.h" />
+    <ClInclude Include="..\..\src\include\example.h" />
+    <ClInclude Include="..\..\src\include\feature.h" />
+    <ClInclude Include="..\..\src\include\fingerprint.h" />
+    <ClInclude Include="..\..\src\include\hdr_dsc.h" />
+    <ClInclude Include="..\..\src\include\http.h" />
+    <ClInclude Include="..\..\src\include\ipfix.h" />
+    <ClInclude Include="..\..\src\include\ip_id.h" />
+    <ClInclude Include="..\..\src\include\map.h" />
+    <ClInclude Include="..\..\src\include\modules.h" />
+    <ClInclude Include="..\..\src\include\nfv9.h" />
+    <ClInclude Include="..\..\src\include\osdetect.h" />
+    <ClInclude Include="..\..\src\include\output.h" />
+    <ClInclude Include="..\..\src\include\p2f.h" />
+    <ClInclude Include="..\..\src\include\parson.h" />
+    <ClInclude Include="..\..\src\include\pkt.h" />
+    <ClInclude Include="..\..\src\include\pkt_proc.h" />
+    <ClInclude Include="..\..\src\include\ppi.h" />
+    <ClInclude Include="..\..\src\include\procwatch.h" />
+    <ClInclude Include="..\..\src\include\radix_trie.h" />
+    <ClInclude Include="..\..\src\include\salt.h" />
+    <ClInclude Include="..\..\src\include\ssh.h" />
+    <ClInclude Include="..\..\src\include\str_match.h" />
+    <ClInclude Include="..\..\src\include\tls.h" />
+    <ClInclude Include="..\..\src\include\updater.h" />
+    <ClInclude Include="..\..\src\include\utils.h" />
+    <ClInclude Include="..\..\src\include\wht.h" />
+    <ClInclude Include="..\..\windows\include\getopt.h" />
+    <ClInclude Include="..\..\windows\include\win_types.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

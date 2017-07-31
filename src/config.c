@@ -51,6 +51,12 @@
 #include "hdr_dsc.h" 
 #include "p2f.h" 
 
+#ifdef WIN32
+#include "unistd.h"
+
+size_t getline(char **lineptr, size_t *n, FILE *stream);
+#endif
+
 /** returns if two string are the same */
 #define match(c, x) (!strncmp(c, x, strlen(x)))
 
@@ -148,7 +154,7 @@ static int config_parse_command (struct configuration *config,
      */
 
     if (match(command, "interface")) {
-        parse_check(parse_string(&config->interface, arg, num));
+        parse_check(parse_string(&config->intface, arg, num));
 
     } else if (match(command, "promisc")) {
         parse_check(parse_bool(&config->promisc, arg, num));
@@ -208,7 +214,7 @@ static int config_parse_command (struct configuration *config,
         parse_check(parse_string(&config->bpf_filter_exp, arg, num));
 
     } else if (match(command, "verbosity")) {
-        parse_check(parse_int(&config->output_level, arg, num, 0, 3));
+        parse_check(parse_int(&config->verbosity, arg, num, 0, 5));
 
     } else if (match(command, "num_pkts")) {
         parse_check(parse_int(&config->num_pkts, arg, num, 0, MAX_NUM_PKT_LEN));
@@ -270,15 +276,23 @@ static int config_parse_command (struct configuration *config,
 
 /**
  * \fn void config_set_defaults (struct configuration *config)
+ *
+ * \brief Using the global \p config struct, assign the default
+ *        values for options contained within.
+ *
  * \param config pointer to configuration structure
  * \return none
  */
 void config_set_defaults (struct configuration *config) {
     config->type = 1;
+    config->verbosity = 4;
 }
 
 /**
  * \fn void config_set_from_file (struct configuration *config, const char *fname)
+ *
+ * \brief Read in a .cfg file and parse the contents for option values.
+ *
  * \param config pointer to configuration structure
  * \param fname file with configuration items in it
  * \return ok
@@ -298,6 +312,9 @@ int config_set_from_file (struct configuration *config, const char *fname) {
         return failure;
     } 
 
+    /*
+     * Setting the default configuration values!
+     */
     config_set_defaults(config);
 
     while ((len = getline(&line, &ignore, f)) != -1) {
@@ -347,6 +364,9 @@ int config_set_from_file (struct configuration *config, const char *fname) {
 
 /**
  * \fn int config_set_from_argv (struct configuration *config, char *argv[], int argc)
+ *
+ * \brief Read in from the command line and parse the args for option values.
+ *
  * \param config pointer to configuration structure
  * \param argv arguments passed in
  * \param argc number of arguments
@@ -356,7 +376,8 @@ int config_set_from_file (struct configuration *config, const char *fname) {
 int config_set_from_argv (struct configuration *config, char *argv[], int argc) {
     const char *line = NULL;
     ssize_t len;
-    unsigned int i, linecount = 0;
+	int i;
+    unsigned int linecount = 0;
     const char *c;
 
     config_set_defaults(config);
@@ -422,7 +443,7 @@ void config_print (FILE *f, const struct configuration *c) {
     unsigned int i;
 
     fprintf(f, "joy version = %s\n", VERSION);
-    fprintf(f, "interface = %s\n", val(c->interface));
+    fprintf(f, "interface = %s\n", val(c->intface));
     fprintf(f, "promisc = %u\n", c->promisc);
     fprintf(f, "output = %s\n", val(c->filename));
     fprintf(f, "outputdir = %s\n", val(c->outputdir));
@@ -447,9 +468,10 @@ void config_print (FILE *f, const struct configuration *c) {
     fprintf(f, "anon = %s\n", val(c->anon_addrs_file));
     fprintf(f, "useranon = %s\n", val(c->anon_http_file));
     fprintf(f, "bpf = %s\n", val(c->bpf_filter_exp));
-    fprintf(f, "verbosity = %u\n", c->output_level);
 
     config_print_all_features_bool(feature_list);
+
+    fprintf(f, "verbosity = %u\n", c->verbosity);
   
     /* note: anon_print_subnets is silent when no subnets are configured */
     anon_print_subnets(f);
@@ -465,7 +487,7 @@ void config_print_json (zfile f, const struct configuration *c) {
     unsigned int i;
 
     zprintf(f, "{\"version\":\"%s\",", VERSION);
-    zprintf(f, "\"interface\":\"%s\",", val(c->interface));
+    zprintf(f, "\"interface\":\"%s\",", val(c->intface));
     zprintf(f, "\"promisc\":%u,", c->promisc);
     zprintf(f, "\"output\":\"%s\",", val(c->filename));
     zprintf(f, "\"outputdir\":\"%s\",", val(c->outputdir));
@@ -491,10 +513,10 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"anon\":\"%s\",", val(c->anon_addrs_file));
     zprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
     zprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
+    zprintf(f, "\"verbosity\":%u,", c->verbosity);
 
     config_print_json_all_features_bool(feature_list);
 
-    zprintf(f, "\"verbosity\":%u", c->output_level);
-
-    zprintf(f, "}\n");  
+    zprintf(f, "\"end-config\":1}\n");  
 }
+

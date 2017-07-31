@@ -51,7 +51,13 @@
 #define ANON_H 
 
 #include <stdio.h> 
-#include <netinet/in.h> 
+
+#ifdef WIN32
+#include "Ws2tcpip.h"
+#else
+#include <netinet/in.h>
+#endif
+
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <openssl/aes.h>

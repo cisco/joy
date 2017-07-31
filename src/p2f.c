@@ -44,6 +44,10 @@
  * flow_keys, and the management of the flow cache
  */
 
+#ifdef WIN32
+#include "time.h"
+#endif
+
 #include <stdlib.h>   
 #include <pthread.h>   
 #include "pkt_proc.h" /* packet processing               */
@@ -58,7 +62,10 @@
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "config.h"     /* configuration                 */
 #include "output.h"     /* compressed output             */
-#include "ipfix.h"
+#include "salt.h"  // Because Windows!
+#include "ip_id.h" // Because Windows!
+#include "ipfix.h" /* ipfix protocol */
+#include "err.h" /* errors and logging */
 
 
 /* local prototypes */
@@ -129,8 +136,6 @@ radix_trie_t rt = NULL;
 
 enum SALT_algorithm salt_algo = raw;
 
-enum print_level output_level = none;
-
 struct flocap_stats stats = {  0, 0, 0, 0 };
 struct flocap_stats last_stats = { 0, 0, 0, 0 };
 struct timeval last_stats_output_time;
@@ -148,6 +153,29 @@ static unsigned int timeval_to_milliseconds (struct timeval ts) {
     return result;
 }
 
+#ifdef WIN32
+int gettimeofday(struct timeval * tp, struct timezone * tzp)
+{
+	// Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
+	// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
+	// until 00:00:00 January 1, 1970 
+	static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
+
+	SYSTEMTIME  system_time;
+	FILETIME    file_time;
+	uint64_t    time;
+
+	GetSystemTime(&system_time);
+	SystemTimeToFileTime(&system_time, &file_time);
+	time = ((uint64_t)file_time.dwLowDateTime);
+	time += ((uint64_t)file_time.dwHighDateTime) << 32;
+
+	tp->tv_sec = (long)((time - EPOCH) / 10000000L);
+	tp->tv_usec = (long)(system_time.wMilliseconds * 1000);
+	return 0;
+}
+#endif
+
 /**
  * \fn void flocap_stats_output (FILE *f)
  * \brief output the stats to the specified file
@@ -156,18 +184,29 @@ static unsigned int timeval_to_milliseconds (struct timeval ts) {
  */
 void flocap_stats_output (FILE *f) {
     char time_str[128];
-    // time_t now = time(NULL);
     struct timeval now, tmp;
     float bps, pps, rps, seconds;
 
-    gettimeofday(&now, NULL);
-    timer_sub(&now, &last_stats_output_time, &tmp);
+#ifdef WIN32
+	time_t win_now;
+	win_now = time(NULL);
+#endif
+
+	gettimeofday(&now, NULL);
+	memset(time_str, 0x00, sizeof(time_str));
+
+	timer_sub(&now, &last_stats_output_time, &tmp);
     seconds = (float) timeval_to_milliseconds(tmp) / 1000.0;
+
     bps = (float) (stats.num_bytes - last_stats.num_bytes) / seconds;
     pps = (float) (stats.num_packets - last_stats.num_packets) / seconds;
     rps = (float) (stats.num_records_output - last_stats.num_records_output) / seconds;
 
-    strftime(time_str, sizeof(time_str)-1, "%a %b %2d %H:%M:%S %Z %Y", localtime(&now.tv_sec));
+#ifdef WIN32
+	strftime(time_str, sizeof(time_str) - 1, "%a %b %d %H:%M:%S %Z %Y", localtime(&win_now));
+#else
+	strftime(time_str, sizeof(time_str) - 1, "%a %b %d %H:%M:%S %Z %Y", localtime(&now.tv_sec));
+#endif
     fprintf(f, "%s info: %lu packets, %lu active records, %lu records output, %lu alloc fails, %.4e bytes/sec, %.4e packets/sec, %.4e records/sec\n", 
 	      time_str, stats.num_packets, stats.num_records_in_table, stats.num_records_output, stats.malloc_fail, bps, pps, rps);
     fflush(f);
@@ -185,7 +224,14 @@ void flocap_stats_output (FILE *f) {
 void flocap_stats_timer_init () {
     struct timeval now;
 
-    gettimeofday(&now, NULL);
+#ifdef WIN32
+	DWORD t;
+	t = timeGetTime();
+	now.tv_sec = t / 1000;
+	now.tv_usec = t % 1000;
+#else
+	gettimeofday(&now, NULL);
+#endif
     last_stats_output_time = now;
 }
 
@@ -207,8 +253,6 @@ unsigned int report_entropy = 0;
 unsigned int report_idp = 0;
 
 unsigned int report_hd = 0;
-
-// unsigned int report_dns = 0;
 
 unsigned int include_classifier = 0;
 
@@ -233,6 +277,8 @@ zfile output = NULL;
 FILE *info = NULL;
 
 unsigned int records_in_file = 0;
+
+unsigned int verbosity = 0;
 
 unsigned short compact_bd_mapping[16];
 
@@ -270,7 +316,7 @@ int include_os = 1;
 
 flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN] = { 0, };
 
-enum twins_match { exact = 0, near = 1 };
+enum twins_match { exact = 0, near_match = 1 };
 
 // enum twins_match flow_key_match_method = exact;
 
@@ -283,7 +329,7 @@ static unsigned int flow_key_hash (const struct flow_key *f) {
 	    ^ ((unsigned int)f->dp * 0xdda37) 
 	    ^ ((unsigned int)f->prot * 0xbc06)) & flow_key_hash_mask;
 
-    } else {  /* flow_key_match_method == near */
+    } else {  /* flow_key_match_method == near_match */
         /*
          * To make it possible to identify NAT'ed twins, the hash of the
          * flows (sa, da, sp, dp, pr) and (*, *, dp, sp, pr) are identical.
@@ -381,7 +427,7 @@ static int flow_key_is_twin (const struct flow_key *a, const struct flow_key *b)
     // more robust way of checking keys are equal
     //   0: flow keys are equal
     //   1: flow keys are not equal
-    if (config.flow_key_match_method == near) {
+    if (config.flow_key_match_method == near_match) {
         /* 
          * Require that only one address match, so that we can find twins
          * even in the presence of NAT; that is, (sa, da) equals either
@@ -1167,7 +1213,7 @@ static void len_time_print_interleaved (unsigned int op, const unsigned short *l
  * \param len length of the data to print
  * \return none
  */
-void zprintf_raw_as_hex (zfile f, const void *data, unsigned int len) {
+void zprintf_raw_as_hex (zfile f, const unsigned char *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
   
@@ -1276,9 +1322,14 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, "\"ib\":%u,", rec->twin->ob);
         zprintf(output, "\"ip\":%u,", rec->twin->np);
     }
+#ifdef WIN32
+	zprintf(output, "\"ts\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
+	zprintf(output, "\"te\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
+#else
     zprintf(output, "\"ts\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
     zprintf(output, "\"te\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
-    zprintf(output, "\"ottl\":%u,", rec->ttl);
+#endif
+	zprintf(output, "\"ottl\":%u,", rec->ttl);
     if (rec->twin != NULL) {
         zprintf(output, "\"ittl\":%u,", rec->twin->ttl);
     }
@@ -1659,7 +1710,6 @@ static void flow_record_print_json (const struct flow_record *record) {
     }
 
     zprintf(output, "}\n");
-
 }
 
 #if 0

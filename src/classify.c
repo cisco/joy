@@ -42,8 +42,12 @@
  */
 #include <stdio.h>   
 #include <ctype.h>   
-#include <string.h> 
+#include <string.h>
+
+#ifndef WIN32
 #include <sys/time.h>
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
@@ -51,10 +55,12 @@
 #include "p2f.h"
 
 /** finds the minimum value between to inputs */
+#ifndef WIN32
 #define min(a,b) \
     ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
        _a < _b ? _a : _b; })
+#endif
 
 /* convert time value to millseconds */
 static unsigned int timeval_to_milliseconds_c(struct timeval ts) {
@@ -466,12 +472,15 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
 
     uint32_t op_n = min(np_o, max_num_pkt_len);
     uint32_t ip_n = min(np_i, max_num_pkt_len);
-    uint16_t merged_lens[op_n+ip_n];
-    uint16_t merged_times[op_n+ip_n];
+    uint16_t *merged_lens = NULL;
+    uint16_t *merged_times = NULL;
 
     for (i = 1; i < NUM_PARAMETERS_BD_LOGREG; i++) {
         features[i] = 0.0;
     }
+
+	merged_lens = malloc(sizeof(uint16_t)*(op_n + ip_n));
+	merged_times = malloc(sizeof(uint16_t)*(op_n + ip_n));
 
     // fill out meta data
     features[1] = (float)dp; // destination port
@@ -529,6 +538,9 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
 
     score = min(-score,500.0); // check b/c overflow
   
+	free(merged_lens);
+	free(merged_times);
+
     return 1.0/(1.0+exp(score));
 }
 

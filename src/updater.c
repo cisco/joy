@@ -44,12 +44,17 @@
  *  and the classifiers for joy.
  */
 #include "updater.h"
+#include "string.h"
 #include "classify.h"
 #include "config.h"
 #include "radix_trie.h"
 #include "curl/curl.h"
 #include "curl/easy.h"
 #include "openssl/md5.h"
+
+#ifdef WIN32
+#include "windows.h"
+#endif
 
 /** select destination for printing out information
  *
@@ -196,8 +201,13 @@ static upd_return_codes_t dnload_blacklist_file (char* full_url) {
 
     /* setup the curl URL, output file, callback function and error buffer */
     memset(errbuf, 0x00, CURL_ERROR_SIZE);
+#ifdef WIN32
+	if (strnicmp(full_url, "default", 7) == 0) {
+
+#else
     if (strncasecmp(full_url, "default", 7) == 0) {
-        /* use default Talos feed black list file */
+#endif
+		/* use default Talos feed black list file */
         curl_easy_setopt(handle, CURLOPT_URL, BLACKLIST_URL);
     } else {
         /* use the url that the user set in the config */
@@ -462,7 +472,11 @@ void *updater_main (void *ptr)
         }
 
         pthread_mutex_unlock(&work_in_process);
+#ifdef WIN32
+		Sleep(UPDATER_WORK_INTERVAL);
+#else
         sleep (UPDATER_WORK_INTERVAL);
+#endif
     }
 
     return NULL;

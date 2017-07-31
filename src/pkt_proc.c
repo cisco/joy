@@ -59,7 +59,6 @@
  */
 extern FILE *info;
 extern unsigned int num_pkt_len;
-extern unsigned int output_level;
 extern unsigned int include_zeroes;
 extern unsigned int report_idp;
 extern unsigned int report_hd;
@@ -67,7 +66,6 @@ extern unsigned int nfv9_capture_port;
 extern unsigned int ipfix_collect_port;
 extern unsigned int ipfix_export_port;
 extern enum SALT_algorithm salt_algo;
-extern enum print_level output_level;
 extern struct flocap_stats stats;
 extern struct configuration config;
 
@@ -96,16 +94,19 @@ int data_sanity_check () {
     return ok;
 }
 
-static void print_payload(const unsigned char *payload, int len);
+#if 0
+static void print_payload(const char *payload, int len);
 
-static void print_hex_ascii_line(const unsigned char *payload, int len, int offset);
+static void print_hex_ascii_line(const char *payload, int len, int offset);
+#endif
 
+#if 0
 /*
  * print_hex_ascii_line prints data in rows of 16 bytes, with a format
  * of offset, hex bytes, then ASCII characters.
  */
-void print_hex_ascii_line (const unsigned char *data, int len, int offset) {
-    const unsigned char *d;
+void print_hex_ascii_line (const char *data, int len, int offset) {
+    const char *d;
     int i, j;
 
     fprintf(info, "%05d   ", offset);	
@@ -139,16 +140,18 @@ void print_hex_ascii_line (const unsigned char *data, int len, int offset) {
 
     return;
 }
+#endif
 
+#if 0
 /*
  * print packet payload data (avoid printing binary data)
  */
-static void print_payload (const unsigned char *payload, int len) {
+static void print_payload (const char *payload, int len) {
     int len_rem = len;
     int line_width = 16;			/* number of bytes per line */
     int line_len;
     int offset = 0;		        /* zero-based offset counter */
-    const unsigned char *ch = payload;
+    const char *ch = payload;
 
     if (len <= 0)
         return;
@@ -181,6 +184,7 @@ static void print_payload (const unsigned char *payload, int len) {
 
     return;
 }
+#endif
 
 static void flow_record_process_packet_length_and_time_ack (struct flow_record *record,
 		    unsigned int length, const struct timeval *time,
@@ -269,11 +273,11 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
  * @param len Total length of the data.
  * @param r Flow record tracking the inbound network packet.
  */
-enum status process_ipfix(const void *start,
+enum status process_ipfix(const char *start,
                           int len,
                           struct flow_record *r) {
 
-  const struct ipfix_hdr *ipfix = start;
+  const struct ipfix_hdr *ipfix = (const struct ipfix_hdr*)start;
   const struct ipfix_set_hdr *ipfix_sh;
   struct flow_key prev_key;
   uint16_t message_len = ntohs(ipfix->length);
@@ -283,31 +287,26 @@ enum status process_ipfix(const void *start,
   memset(&prev_key, 0, sizeof(struct flow_key));
 
   if (ntohs(ipfix->version_number) != 10) {
-    if (output_level > none) {
-      fprintf(info, "ERROR: ipfix version number is invalid\n");
-    }
+      joy_log_warn("ipfix version number is invalid");
   }
 
   if (message_len > len) {
-    fprintf(info, "ERROR: ipfix message claims to be longer than actual packet length\n");
+      joy_log_warn("ipfix message claims to be longer than packet length");
   }
 
-  /* debugging output */
-  if (output_level > none) {
-    fprintf(info, "processing ipfix packet\n");
-    fprintf(info, "   protocol: ipfix");
-    fprintf(info, " packet len: %u\n", len);
+    joy_log_info("Processing ipfix packet");
+    joy_log_debug(" Source IP: %s\n", inet_ntoa(r->key.sa));
+    joy_log_debug(" Observation Domain ID: %i", htonl(ipfix->observe_dom_id));
+    joy_log_debug(" Packet len: %u", len);
 
-    if (output_level > packet_summary) {
-      if (len > 0) {
-        fprintf(info, "    payload:\n");
-        print_payload(start, len);
-      }
+#if 0
+    if (len > 0) {
+        joy_log_debug("Payload:");
+        if (verbosity == JOY_LOG_DEBUG) {
+            print_payload(start, len);
+        }
     }
-
-    fprintf(info,"Source IP: %s\n",inet_ntoa(r->key.sa));
-    fprintf(info,"Observation Domain ID: %i\n", htonl(ipfix->observe_dom_id));
-  }
+#endif
 
   /* Move past ipfix_hdr, i.e. IPFIX message header */
   start += 16;
@@ -317,19 +316,15 @@ enum status process_ipfix(const void *start,
    * Parse IPFIX message for template, options, or data sets.
    */
   while (message_len > sizeof(struct ipfix_set_hdr)) {
-    ipfix_sh = start;
+    ipfix_sh = (const struct ipfix_set_hdr*)start;
     uint16_t set_id = ntohs(ipfix_sh->set_id);
 
-    if (output_level > none) {
-      fprintf(info,"Set ID: %i\n", set_id);
-      fprintf(info,"Set Length: %i\n", ntohs(ipfix_sh->length));
-    }
+    joy_log_debug("Set ID: %i\n", set_id);
+    joy_log_debug("Set Length: %i\n", ntohs(ipfix_sh->length));
 
     if ((set_id <= 1) || ((4 <= set_id) && (set_id <= 255))) {
       /* The set_id is invalid, either Netflow or reserved */
-      if (output_level > none) {
-        fprintf(info, "ERROR: Set ID is invalid\n");
-      }
+      joy_log_warn("Set ID is invalid\n");
     }
     /*
      * Set ID is a Template Set
@@ -348,9 +343,7 @@ enum status process_ipfix(const void *start,
      */
     else if (set_id == 3) {
       /* Ignore Options Template for now, what is this used for? */
-      if (output_level > none) {
-	      fprintf(info,"Options Template NYI\n");
-      }
+	  joy_log_warn("Options Template NYI\n");
     }
     /*
      * Set ID is a Data Set
@@ -372,61 +365,53 @@ enum status process_ipfix(const void *start,
 }
 
 
-static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *start, int len, struct flow_record *r) {
-
-    /* debugging output */
-    if (output_level > none) {
-        fprintf(info, "processing nfv9 packet\n");
-        fprintf(info, "   protocol: nfv9");
-        fprintf(info, " packet len: %u\n", len);
-
-        if (output_level > packet_summary) {
-            if (len > 0) {
-	              fprintf(info, "    payload:\n");
-	              print_payload(start, len);
-            }
-        }
-    }
-
-    /* 
-     * if the nfv9 packet contains a template, then store it in the flow_record 
-     */
-    const struct nfv9_hdr *nfv9 = start;
+static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *start, int len, struct flow_record *r) {
+    const struct nfv9_hdr *nfv9 = (const struct nfv9_hdr*)start;
     struct flow_key prev_key;
     int flowset_num = 0;
 
-    memset(&prev_key, 0x0, sizeof(struct flow_key));
+    joy_log_info("Processing NFV9");
+    joy_log_info("Source ID: %i", htonl(nfv9->SourceID));
+    joy_log_info("Source IP: %s", inet_ntoa(r->key.sa));
+    joy_log_debug("Packet len: %u", len);
 
-    if (output_level > none) {
-        fprintf(info,"Source IP: %s\n",inet_ntoa(r->key.sa));
-        fprintf(info,"Source ID: %i\n",htonl(nfv9->SourceID));
+#if 0
+    /* Print payload */
+    if (len > 0) {
+        joy_log_debug("Payload:");
+        if (verbosity == JOY_LOG_DEBUG) {
+            print_payload(start, len);
+        }
     }
+#endif
+
+    memset(&prev_key, 0x0, sizeof(struct flow_key));
 
     start += 20;
     len -= 20;
     const struct nfv9_flowset_hdr *nfv9_fh;
+
     while (len > sizeof(struct nfv9_flowset_hdr)) {
         flowset_num += 1;
-        nfv9_fh = start;
+        nfv9_fh = (const struct nfv9_flowset_hdr*)start;
 
         u_short flowset_id = htons(nfv9_fh->FlowSetID);
-        if (output_level > none) {
-            fprintf(info,"Flowset ID: %i\n",flowset_id);
-            fprintf(info,"Flowset Length: %i\n",htons(nfv9_fh->Length));
-        }
+        joy_log_debug("Flowset ID: %i",flowset_id);
+        joy_log_debug("Flowset Length: %i",htons(nfv9_fh->Length));
+
         // check if FlowsetID is a data template, and if so, add to templates
         if (flowset_id == 0) {
 
             // process multiple templates within the same flowset
             int flowset_length = htons(nfv9_fh->Length);
             // added -4 for the potentially non-existent corner case of padding after multiple templates
-            const void *template_ptr = start + 4;
+            const char *template_ptr = start + 4;
             flowset_length -= 4;
 
             while (flowset_length-4 > 0) {
 
 	              // define data template key {source IP + source ID + template ID}
-	              const struct nfv9_template_hdr *template_hdr = template_ptr;
+	              const struct nfv9_template_hdr *template_hdr = (const struct nfv9_template_hdr*)template_ptr;
 	              flowset_length -= 4;
 	              template_ptr += 4;
 	              u_short template_id = htons(template_hdr->TemplateID);
@@ -455,7 +440,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
 	                  v9_template.hdr.TemplateID = template_id;
 	                  v9_template.hdr.FieldCount = field_count;
 	                  for (i = 0; i < field_count; i++) {
-	                      const struct nfv9_template_field *tmp_field = template_ptr;
+	                      const struct nfv9_template_field *tmp_field = (const struct nfv9_template_field*)template_ptr;
 	                      template_ptr += 4;
 	                      flowset_length -= 4;
 	    
@@ -470,11 +455,11 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
 	                  num_templates %= MAX_TEMPLATES;
 	              }
             }
-        // ignore options template for now, what is this used for?
         } else if (flowset_id == 1) {
-            if (output_level > none) {
-	              fprintf(info,"Options Template NYI\n");
-            }
+            /*
+             * Options templaye not yet implemented
+             */
+            joy_log_warn("Options Template NYI\n");
         } else { // process flow data if we know the template
             // define data template key {source IP + source ID + template ID}
             u_short template_id = flowset_id;
@@ -538,7 +523,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
 
 	              }
             } else {
-                printf("cur template is null\n");
+                joy_log_warn("Current template is null");
             }
         }
 
@@ -550,55 +535,51 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const void *s
 }
 
 static struct flow_record *
-process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_len, struct flow_key *key) {
+process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, struct flow_key *key) {
     unsigned int tcp_hdr_len;
-    const unsigned char *payload;
+    const char *payload;
     unsigned int size_payload;
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
     struct flow_record *record = NULL;
     unsigned int cur_itr = 0;
     
-    if (output_level > none) {
-        fprintf(info, "   protocol: TCP\n");
-    }
+    joy_log_info("Protocol: TCP");
 
-    //  tcp_hdr_len = TCP_OFF(tcp)*4;
     tcp_hdr_len = tcp_hdr_length(tcp);
     if (tcp_hdr_len < 20 || tcp_hdr_len > tcp_len) {
-        // fprintf(info, "   * Invalid TCP header length: %u bytes\n", tcp_hdr_len);
+        joy_log_err("Invalid TCP header length: %u bytes", tcp_hdr_len);
         return NULL;
     }
     
     /* define/compute tcp payload (segment) offset */
-    payload = (unsigned char *)(tcp_start + tcp_hdr_len);
+    payload = (char *)(tcp_start + tcp_hdr_len);
   
     /* compute tcp payload (segment) size */
     size_payload = tcp_len - tcp_hdr_len;
 
-    if (output_level > none) {
-        fprintf(info, "   src port: %d\n", ntohs(tcp->src_port));
-        fprintf(info, "   dst port: %d\n", ntohs(tcp->dst_port));
-        fprintf(info, "payload len: %u\n", size_payload);
-        fprintf(info, "    tcp len: %u\n", tcp_len);
-        fprintf(info, "tcp hdr len: %u\n", tcp_hdr_len);
-        fprintf(info, "      flags:");
-        if (tcp->tcp_flags & TCP_FIN) { fprintf(info, "FIN "); }
-        if (tcp->tcp_flags & TCP_SYN) { fprintf(info, "SYN "); }
-        if (tcp->tcp_flags & TCP_RST) { fprintf(info, "RST "); }
-        if (tcp->tcp_flags & TCP_PSH) { fprintf(info, "PSH "); }
-        if (tcp->tcp_flags & TCP_ACK) { fprintf(info, "ACK "); }
-        if (tcp->tcp_flags & TCP_URG) { fprintf(info, "URG "); }
-        if (tcp->tcp_flags & TCP_ECE) { fprintf(info, "ECE "); }
-        if (tcp->tcp_flags & TCP_CWR) { fprintf(info, "CWR "); }
-        fprintf(info, "\n");
+    joy_log_info("Src port: %d", ntohs(tcp->src_port));
+    joy_log_info("Dst port: %d", ntohs(tcp->dst_port));
+    joy_log_info("Payload len: %u", size_payload);
+    joy_log_debug("TCP len: %u", tcp_len);
+    joy_log_debug("TCP hdr len: %u", tcp_hdr_len);
+    joy_log_debug("flags:");
+    if (tcp->tcp_flags & TCP_FIN) { joy_log_debug("* FIN"); }
+    if (tcp->tcp_flags & TCP_SYN) { joy_log_debug("* SYN"); }
+    if (tcp->tcp_flags & TCP_RST) { joy_log_debug("* RST"); }
+    if (tcp->tcp_flags & TCP_PSH) { joy_log_debug("* PSH"); }
+    if (tcp->tcp_flags & TCP_ACK) { joy_log_debug("* ACK"); }
+    if (tcp->tcp_flags & TCP_URG) { joy_log_debug("* URG"); }
+    if (tcp->tcp_flags & TCP_ECE) { joy_log_debug("* ECE"); }
+    if (tcp->tcp_flags & TCP_CWR) { joy_log_debug("* CWR"); }
 
-        if (output_level > packet_summary) {
-            if (size_payload > 0) {
-	              fprintf(info, "    payload:\n");
-	              print_payload(payload, size_payload);
-            }
+#if 0
+    if (size_payload > 0) {
+        joy_log_debug("Payload:");
+        if (verbosity == JOY_LOG_DEBUG) {
+            print_payload(payload, size_payload);
         }
     }
+#endif
 
     key->sp = ntohs(tcp->src_port);
     key->dp = ntohs(tcp->dst_port);
@@ -607,16 +588,13 @@ process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_le
     if (record == NULL) {
         return NULL;
     }
-    if (output_level > none) {
-        fprintf(info, "   SEQ:      %d\trelative SEQ: %d\n", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->seq);
-        fprintf(info, "   ACK:      %d\trelative ACK: %d\n", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->ack);
-        // fprintf(info, "   SEQ:      %d\n", ntohl(tcp->tcp_seq) - record->seq);
-        // fprintf(info, "   ACK:      %d\n", ntohl(tcp->tcp_ack) - record->ack);
-    }
+
+    joy_log_debug("SEQ: %d -- relative SEQ: %d", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->seq);
+    joy_log_debug("ACK: %d -- relative ACK: %d", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->ack);
 
     if (size_payload > 0) {
         if (ntohl(tcp->tcp_seq) < record->seq) {
-            // fprintf(info, "retransmission detected\n");
+            joy_log_debug("retransmission detected");
             record->retrans++;
         } 
     }
@@ -632,7 +610,7 @@ process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_le
     }
 
     // if initial SYN/ACK packet, parse TCP options
-    unsigned int offset = 20;
+    int offset = 20;
     if (tcp->tcp_flags == 2 || tcp->tcp_flags == 18) { // SYN==2, SYN/ACK==18
         // get initial window size
         if (!record->tcp_initial_window_size) {
@@ -708,41 +686,40 @@ process_tcp (const struct pcap_pkthdr *header, const void *tcp_start, int tcp_le
 
 
 static struct flow_record *
-process_udp (const struct pcap_pkthdr *header, const void *udp_start, int udp_len, struct flow_key *key) {
+process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_len, struct flow_key *key) {
     unsigned int udp_hdr_len;
-    const unsigned char *payload;
+    const char *payload;
     unsigned int size_payload;
     const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
     struct flow_record *record = NULL;
     
-    if (output_level > none) {
-        fprintf(info, "   protocol: UDP\n");
-    }
+    joy_log_info("Protocol: UDP");
 
     udp_hdr_len = 8;
     if (udp_len < 8) {
-        // fprintf(info, "   * Invalid UDP packet length: %u bytes\n", udp_len);
+        joy_log_err("Invalid UDP packet length: %u bytes", udp_len);
         return NULL;
     }
   
-    payload = (unsigned char *)(udp_start + udp_hdr_len);  
+    payload = (char *)(udp_start + udp_hdr_len);  
     size_payload = udp_len - udp_hdr_len;
-    if (output_level > none) {
-        fprintf(info, "   src port: %d\n", ntohs(udp->src_port));
-        fprintf(info, "   dst port: %d\n", ntohs(udp->dst_port));
-        fprintf(info, "payload len: %d\n", size_payload);
-    }
+
+    joy_log_info("Src port: %d", ntohs(udp->src_port));
+    joy_log_info("Dst port: %d", ntohs(udp->dst_port));
+    joy_log_info("Payload len: %d", size_payload);
   
     /*
      * Print payload data; it might be binary, so don't just
      * treat it as a string.
      */
+#if 0
     if (size_payload > 0) {
-        if (output_level > packet_summary) {
-            fprintf(info, "   payload (%d bytes):\n", size_payload);
+        joy_log_debug("payload (%d bytes):", size_payload);
+        if (verbosity == JOY_LOG_DEBUG) {
             print_payload(payload, size_payload);
         }
     }
+#endif
   
     key->sp = ntohs(udp->src_port);
     key->dp = ntohs(udp->dst_port);
@@ -778,40 +755,39 @@ process_udp (const struct pcap_pkthdr *header, const void *udp_start, int udp_le
 
 
 static struct flow_record *
-process_icmp (const struct pcap_pkthdr *header, const void *start, int len, struct flow_key *key) {
+process_icmp (const struct pcap_pkthdr *header, const char *start, int len, struct flow_key *key) {
     int size_icmp_hdr;
-    const unsigned char *payload;
+    const char *payload;
     int size_payload;
     const struct icmp_hdr *icmp = (const struct icmp_hdr *)start;
     struct flow_record *record = NULL;
     
-    if (output_level > none) {
-        fprintf(info, "   protocol: ICMP\n");
-    }
+    joy_log_info("Protocol: ICMP");
 
     size_icmp_hdr = 8;
     if (len < size_icmp_hdr) {
-        // fprintf(info, "   * Invalid ICMP packet length: %u bytes\n", len);
+        joy_log_err("Invalid ICMP packet length: %u bytes", len);
         return NULL;
     }
   
-    if (output_level > none) {
-        fprintf(info, "   type: %d\n", icmp->type);
-        fprintf(info, "   code: %d\n", icmp->code);
-    }
-    payload = (unsigned char *)(start + size_icmp_hdr);  
+    joy_log_info("Type: %d", icmp->type);
+    joy_log_info("Code: %d", icmp->code);
+
+    payload = (char *)(start + size_icmp_hdr);  
     size_payload = len - size_icmp_hdr;
   
     /*
      * Print payload data; it might be binary, so don't just
      * treat it as a string.
      */
+#if 0
     if (size_payload > 0) {
-        if (output_level > packet_summary) {
-            fprintf(info, "   payload (%d bytes):\n", size_payload);
+        joy_log_debug("Payload (%d bytes):", size_payload);
+        if (verbosity == JOY_LOG_DEBUG) {
             print_payload(payload, size_payload);
         }
     }
+#endif
 
     /* 
      * signify ICMP by using sp = dp = 0 (which is an IANA-reserved
@@ -845,28 +821,27 @@ process_icmp (const struct pcap_pkthdr *header, const void *start, int len, stru
 
 static struct flow_record *
 process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, struct flow_key *key) {
-    const unsigned char *payload;
+    const char *payload;
     int size_payload;
-    //  const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
     struct flow_record *record = NULL;
     
-    if (output_level > none) {
-        fprintf(info, "   protocol: IP\n");
-    }
+    joy_log_info("Protocol: IP");
 
-    payload = (unsigned char *)(ip_start);  
+    payload = (char *)(ip_start);  
     size_payload = ip_len;
   
     /*
      * Print payload data; it might be binary, so don't just
      * treat it as a string.
      */
+#if 0
     if (size_payload > 0) {
-        if (output_level > packet_summary) {
-            fprintf(info, "   payload (%d bytes):\n", size_payload);
+        joy_log_debug("Payload (%d bytes):\n", size_payload);
+        if (verbosity == JOY_LOG_DEBUG) {
             print_payload(payload, size_payload);
         }
     }
+#endif
   
     /* signify IP by using zero (reserved) port values */
     key->sp = key->dp = 0;
@@ -913,10 +888,11 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     const void *transport_start;
     struct flow_key key;
     
+	memset(&key, 0x00, sizeof(struct flow_key));
+
     flocap_stats_incr_num_packets();
-    if (output_level > none) {
-        fprintf(info, "\npacket number %lu:\n", flocap_stats_get_num_packets());
-    }
+    fprintf(info, "\n");
+    joy_log_info("++++++++++ Packet %lu ++++++++++", flocap_stats_get_num_packets());
     //  packet_count++;
   
     // ethernet = (struct ethernet_hdr*)(packet);
@@ -925,9 +901,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
-        if (output_level > none) { 
-            fprintf(info, "   * Invalid IP header length: %u bytes\n", ip_hdr_len);
-        }
+        joy_log_err(" Invalid IP header length: %u bytes", ip_hdr_len);
         return;
     }
     if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > header->caplen) {
@@ -942,19 +916,18 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
 
     /* print source and destination IP addresses */
-    if (output_level > none) {
-        fprintf(info, "       from: %s\n", inet_ntoa(ip->ip_src));
-        fprintf(info, "         to: %s\n", inet_ntoa(ip->ip_dst));
-        fprintf(info, "     ip len: %u\n", ntohs(ip->ip_len));
-        fprintf(info, " ip hdr len: %u\n", ip_hdr_len);
-    }
+    joy_log_info("Source IP: %s", inet_ntoa(ip->ip_src));
+    joy_log_info("Dest IP: %s", inet_ntoa(ip->ip_dst));
+    joy_log_info("Len: %u", ntohs(ip->ip_len));
+    joy_log_debug("IP header len: %u", ip_hdr_len);
 
     if (ip_fragment_offset(ip) == 0) {
 
         /* fill out IP-specific fields of flow key, plus proto selector */
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
-        proto = key.prot = ip->ip_prot;  
+        key.prot = ip->ip_prot;  
+        proto = (unsigned char)key.prot;  
 
     }  else {
         // fprintf(info, "found IP fragment (offset: %02x)\n", ip_fragment_offset(ip));
@@ -964,12 +937,13 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
          */
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
-        proto = key.prot = IPPROTO_IP;
+        key.prot = IPPROTO_IP;
+        proto = (unsigned char)key.prot;
     }  
     
     /* determine transport protocol and handle appropriately */
 
-    transport_start = (void *)ip + ip_hdr_len;
+    transport_start = (char *)ip + ip_hdr_len;
     switch(proto) {
         case IPPROTO_TCP:
             record = process_tcp(header, transport_start, transport_len, &key);
@@ -1003,7 +977,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
 #if 1
         record = process_ip(header, transport_start, transport_len, &key);
         if (record == NULL) {
-            fprintf(info, "warning: unable to process ip packet (improper length or otherwise malformed)\n");
+            joy_log_err("Unable to process ip packet (improper length or otherwise malformed)");
             return;
         }
         record->invalid++;
@@ -1044,9 +1018,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         record->idp_len = (ntohs(ip->ip_len) < report_idp ? ntohs(ip->ip_len) : report_idp);
         record->idp = malloc(record->idp_len);
         memcpy(record->idp, ip, record->idp_len);
-        if (output_level > none) {
-            fprintf(info, "stashed %u bytes of IDP\n", record->idp_len);
-        }
+        joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
     }
 
     /* increment overall byte count */
