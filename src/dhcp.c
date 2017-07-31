@@ -47,35 +47,7 @@
 #include "p2f.h"
 #include "anon.h"
 #include "utils.h"
-
-
-/********************************************
- *********
- * LOGGING
- *********
- ********************************************/
-/** select destination for printing out information
- *
- ** TO_SCREEN = 0 for 'info' file
- *
- **  TO_SCREEN = 1 for 'stderr'
- */
-#define TO_SCREEN 1
-
-/** used to print out information during tls execution
- *
- ** print_dest will either be assigned to 'stderr' or 'info' file
- *  depending on the TO_SCREEN setting.
- */
-static FILE *print_dest = NULL;
-extern FILE *info;
-
-/** sends information to the destination output device */
-#define loginfo(...) { \
-        if (TO_SCREEN) print_dest = stderr; else print_dest = info; \
-        fprintf(print_dest,"%s: ", __FUNCTION__); \
-        fprintf(print_dest, __VA_ARGS__); \
-        fprintf(print_dest, "\n"); }
+#include "err.h"
 
 /**
  * \brief Table storing IANA DHCP option name strings
@@ -197,7 +169,7 @@ static const char *dhcp_option_msg_types[] = {
 void dhcp_init(struct dhcp *dhcp)
 {
     if (dhcp == NULL) {
-        loginfo("api-error: dhcp is null");
+        joy_log_err("dhcp is null");
         return;
     }
 
@@ -216,7 +188,7 @@ void dhcp_delete(struct dhcp *dhcp)
     int i = 0;
 
     if (dhcp == NULL) {
-        loginfo("api-error: dhcp is null");
+        joy_log_err("dhcp is null");
         return;
     }
 
@@ -310,7 +282,7 @@ void dhcp_update(struct dhcp *dhcp,
 
     /* Make sure there's space to record another message */
     if (dhcp->message_count >= MAX_DHCP_LEN) {
-        loginfo("error: dhcp struct cannot hold any more messages");
+        joy_log_warn("dhcp struct cannot hold any more messages");
         return;
     }
 
@@ -373,7 +345,7 @@ void dhcp_update(struct dhcp *dhcp,
 
     /* Verify magic cookie */
     if (memcmp(ptr, &magic_cookie, sizeof(magic_cookie)) != 0) {
-        //loginfo("error: bad magic cookie");
+        joy_log_err("bad magic cookie");
         return;
     }
     ptr += 4;
