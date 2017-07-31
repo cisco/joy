@@ -63,6 +63,7 @@
 #include "fingerprint.h"
 #include "pkt.h"
 #include "utils.h"
+#include "err.h"
 
 /********************************************
  *********
@@ -3386,7 +3387,7 @@ static int tls_test_certificate_parsing() {
          * Test extensions
          ************************************/
         if (tls_x509_get_extensions(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_extensions - %s", filename);
+            joy_log_err("failure: tls_x509_get_extensions - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3400,35 +3401,27 @@ static int tls_test_certificate_parsing() {
 					struct tls_item_entry kat_extensions[3];
 					int j = 0;
 
-                    unsigned char known_subject_key_identifier[] = {
-                        0x04, 0x14, 0xce, 0xbf, 0xd3, 0x46, 0xc6, 0x75,
-                        0xab, 0x8c, 0xb2, 0xe8, 0xcf, 0xb8, 0x2e, 0x2f,
-                        0x43, 0x6e, 0xc9, 0x17, 0xad, 0xba
-                    };
+                    char *known_subject_key_identifier = "CE:BF:D3:46:C6:75:AB:8C:B2:E8:"
+                                                         "CF:B8:2E:2F:43:6E:C9:17:AD:BA";
 
-                    unsigned char known_authority_key_identifier[] = {
-                        0x30, 0x16, 0x80, 0x14, 0xce, 0xbf, 0xd3, 0x46,
-                        0xc6, 0x75, 0xab, 0x8c, 0xb2, 0xe8, 0xcf, 0xb8,
-                        0x2e, 0x2f, 0x43, 0x6e, 0xc9, 0x17, 0xad, 0xba
-                    };
+                    char *known_authority_key_identifier = "keyid:CE:BF:D3:46:C6:75:AB:8C:B2:"
+                                                           "E8:CF:B8:2E:2F:43:6E:C9:17:AD:BA.";
 
-                    unsigned char known_basic_constraints[] = {
-                        0x30, 0x03, 0x01, 0x01, 0xff
-                    };
+                    char *known_basic_constraints = "CA:TRUE";
 
                     /* Known values */
                     strncpy(kat_extensions[0].id, "X509v3 Subject Key Identifier", MAX_OPENSSL_STRING);
-                    kat_extensions[0].data_length = 22;
+                    kat_extensions[0].data_length = 59;
                     kat_extensions[0].data = calloc(kat_extensions[0].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[0].data, known_subject_key_identifier, kat_extensions[0].data_length);
 
                     strncpy(kat_extensions[1].id, "X509v3 Authority Key Identifier", MAX_OPENSSL_STRING);
-                    kat_extensions[1].data_length = 24;
+                    kat_extensions[1].data_length = 66;
                     kat_extensions[1].data = calloc(kat_extensions[1].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[1].data, known_authority_key_identifier, kat_extensions[1].data_length);
 
                     strncpy(kat_extensions[2].id, "X509v3 Basic Constraints", MAX_OPENSSL_STRING);
-                    kat_extensions[2].data_length = 5;
+                    kat_extensions[2].data_length = 7;
                     kat_extensions[2].data = calloc(kat_extensions[2].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[2].data, known_basic_constraints, kat_extensions[2].data_length);
 
@@ -3437,15 +3430,15 @@ static int tls_test_certificate_parsing() {
                      */
                     for (j = 0; j < known_items_count; j++) {
                         if (strncmp(cert_record->extensions[j].id, kat_extensions[j].id, MAX_OPENSSL_STRING)) {
-                            loginfo("error: extensions[%d].id does not match", j);
+                            joy_log_err("extensions[%d].id does not match", j);
                             failed = 1;
                         }
                         if (cert_record->extensions[j].data_length != kat_extensions[j].data_length) {
-                            loginfo("error: extensions[%d].data_length does not match", j);
+                            joy_log_err("extensions[%d].data_length does not match", j);
                             failed = 1;
                         }
                         if (memcmp(cert_record->extensions[j].data, kat_extensions[j].data, kat_extensions[j].data_length)) {
-                            loginfo("error: extensions[%d].data does not match", j);
+                            joy_log_err("extensions[%d].data does not match", j);
                             failed = 1;
                         }
                     }
@@ -3457,14 +3450,14 @@ static int tls_test_certificate_parsing() {
                         }
                     }
                 } else {
-                    loginfo("error: expected %d extension items, got %d",
-                            known_items_count, cert_record->num_extension_items);
+                    joy_log_err("expected %d extension items, got %d",
+                                known_items_count, cert_record->num_extension_items);
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_extensions - %s", filename);
+                    joy_log_err("failure: tls_x509_get_extensions - %s", filename);
                     num_fails++;
                 }
             }
@@ -4057,8 +4050,8 @@ void tls_unit_test() {
         tls_load_fingerprints();
     }
 
-    loginfo("******************************");
-    loginfo("Starting...\n");
+    fprintf(info, "******************************\n");
+    fprintf(info, "TLS Unit Test starting...\n");
 
     num_fails += tls_test_handshake_hello_get_version();
 
@@ -4071,10 +4064,10 @@ void tls_unit_test() {
     num_fails += tls_test_certificate_parsing();
 
     if (num_fails) {
-        loginfo("Finished - # of failures: %d", num_fails);
+        fprintf(info, "Finished - # of failures: %d\n", num_fails);
     } else {
-        loginfo("Finished - success");
+        fprintf(info, "Finished - success\n");
     }
-    loginfo("******************************\n");
+    fprintf(info, "******************************\n");
 }
 
