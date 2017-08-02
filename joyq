@@ -341,9 +341,7 @@ def pipeline():
         if args.filter:
             flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
         if args.seclevel:
-            flow_source = DictStreamEnrichIterator(flow_source, "seclevel", enrich_tls, policy_file=args.policy_file, ignore_unknown=args.ignore_unknown)
-        if args.compliance:
-            flow_source = DictStreamEnrichIterator(flow_source, "compliance", enrich_tls, comp=args.compliance)
+            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls, policy_file=args.policy_file, ignore_unknown=args.ignore_unknown, comp=args.compliance)
 
         # process all flows from source
         try:

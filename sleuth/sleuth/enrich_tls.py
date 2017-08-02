@@ -201,9 +201,6 @@ def enrich_tls(flow, kwargs):
         else:
             certs = None
 
-        if "comp" in kwargs:
-            return check_compliance(kwargs["comp"], scs)
-        else:
-            seclevel_policy = Policy(kwargs["policy_file"]) if kwargs["policy_file"] else Policy("policy.json")
-            # Evaluate seclevel based on parameters
-            return tls_seclevel(seclevel_policy, kwargs["ignore_unknown"], scs, client_key_length, certs)
+        seclevel_policy = Policy(kwargs["policy_file"]) if kwargs["policy_file"] else Policy("policy.json")
+        # Evaluate seclevel based on parameters
+        return { "seclevel": tls_seclevel(seclevel_policy, kwargs["ignore_unknown"], scs, client_key_length, certs), kwargs["comp"] + "_compliant": check_compliance(kwargs["comp"], scs) }
