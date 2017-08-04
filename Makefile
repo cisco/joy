@@ -2,10 +2,10 @@
 #
 # Top Level Makefile for the joy open source binaries
 #
-# Copyright (c) 2016 Cisco Systems 
+# Copyright (c) 2016 Cisco Systems
 
 ##
-# variables 
+# variables
 ##
 
 ##
@@ -49,7 +49,7 @@ export DOCDIR = $(ROOT_PATH)/doc
 ##
 # main executable and unit test program
 ##
-all: 
+all:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
