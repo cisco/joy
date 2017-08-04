@@ -73,6 +73,7 @@ str_match_test:
 # testing
 ##
 test: joy joy_test.py
+	./download_test_pcaps.sh test_pcaps/pcapr
 	$(BINDIR)/unit_test
 	./joy_test.py
 
@@ -87,19 +88,25 @@ cscope:
 # DOCUMENTATION
 ##
 man: $(DOCDIR)/joy.1
-	man $(DOCDIR)/joy.1 > $(DOCDIR)/joy.txt 
-#	man -Tdvi $(DOCDIR)/joy.1 > $(DOCDIR)/joy.dvi 
+	man $(DOCDIR)/joy.1 > $(DOCDIR)/joy.txt
+#	man -Tdvi $(DOCDIR)/joy.1 > $(DOCDIR)/joy.dvi
 #	dvipdf $(DOCDIR)/joy.dvi
 #	rm -f $(DOCDIR)/joy.dvi
 
 ##
 # housekeeping
 ##
-clean: 
+clean:
 	rm -f cscope.out cscope.files
 	rm -f "$(DOCDIR)/joy.txt"
 	@cd src; $(MAKE) clean
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
+
+##
+# remove everything not under version control
+##
+clobber: clean
+	rm -rf bin/ joy.bin config.vars test_pcaps/pcapr
 
 ##
 # installation via shell script

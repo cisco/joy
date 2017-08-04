@@ -16,12 +16,18 @@ import subprocess
 PLATFORM_OS = platform.system()
 BINDIR = "bin"
 DATA = "sample.pcap"
+if os.path.isdir("test_pcaps"):
+    DATA += " test_pcaps/*.pcap"
+if os.path.isdir("test_pcaps/pcapr/ssh"):
+    DATA += " test_pcaps/pcapr/ssh/*.pcap"
+if os.path.isdir("test_pcaps/pcapr/tls"):
+    DATA += " test_pcaps/pcapr/tls/*.pcap"
 OUTPUT = ("joyTest-%s" % (time.time()))
 
 #
 # Setup test scenarios
 #
-test_parms = ['', 
+test_parms = ['',
               'bidir=1',
               'bidir=1 zeros=1',
               'bidir=1 dist=1',
@@ -34,13 +40,14 @@ test_parms = ['',
               'bidir=1 label=intenral:internal.net',
               'bidir=1 classify=1',
               'bidir=1 wht=1',
+              'bidir=1 ssh=1',
               'bidir=1 dns=1',
               'bidir=1 bpf=tcp',
               'bidir=1 hd=1',
               'bidir=1 type=1']
 
 #
-# main function 
+# main function
 #
 if __name__=='__main__':
 
@@ -63,8 +70,7 @@ if __name__=='__main__':
      else:
          print("failed: joy internal failure (see file %s)" % (OUTPUT))
          exit()
-     
+
    print("Platform: %s - All Tests Passed!" % (PLATFORM_OS))
    clean_up_cmd = ("rm %s %s-2" % (OUTPUT,OUTPUT))
    subprocess.call(clean_up_cmd, shell=True)
-
