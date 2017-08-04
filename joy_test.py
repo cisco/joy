@@ -30,6 +30,7 @@ OUTPUT = ("joyTest-%s" % (time.time()))
 test_parms = ['',
               'bidir=1',
               'bidir=1 zeros=1',
+              'bidir=1 retrans=1',
               'bidir=1 dist=1',
               'bidir=1 entropy=1',
               'bidir=1 tls=1',

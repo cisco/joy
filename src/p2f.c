@@ -238,6 +238,8 @@ unsigned int bidir = 0;
 
 unsigned int include_zeroes = 0;
 
+unsigned int include_retrans = 0;
+
 unsigned int byte_distribution = 0;
 
 char *compact_byte_distribution = NULL;

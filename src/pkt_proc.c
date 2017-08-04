@@ -60,6 +60,7 @@
 extern FILE *info;
 extern unsigned int num_pkt_len;
 extern unsigned int include_zeroes;
+extern unsigned int include_retrans;
 extern unsigned int report_idp;
 extern unsigned int report_hd;
 extern unsigned int nfv9_capture_port;
@@ -594,7 +595,11 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
         if (ntohl(tcp->tcp_seq) < record->seq) {
             joy_log_debug("retransmission detected");
             record->retrans++;
-        } 
+            if (!include_retrans) {
+                // do not process TCP retransmissions
+                return NULL;
+            }
+        }
     }
     if (include_zeroes || size_payload > 0) {
           flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);

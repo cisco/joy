@@ -112,6 +112,8 @@ extern unsigned int bidir;
 
 extern unsigned int include_zeroes;
 
+extern unsigned int include_retrans;
+
 extern unsigned int byte_distribution;
 
 extern char *compact_byte_distribution;
@@ -325,6 +327,7 @@ static int usage (char *s) {
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
+           "  retrans=1                  include TCP retransmissions in packet list\n"
            "  bidir=1                    merge unidirectional flows into bidirectional ones\n" 
            "  dist=1                     include byte distribution array\n" 
            "  cdist=F                    include compact byte distribution array using the mapping file, F\n" 
@@ -478,6 +481,7 @@ int main (int argc, char **argv) {
          */
         bidir = config.bidir;
         include_zeroes = config.include_zeroes;
+        include_retrans = config.include_retrans;
         byte_distribution = config.byte_distribution;
         compact_byte_distribution = config.compact_byte_distribution;
         report_entropy = config.report_entropy;
