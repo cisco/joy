@@ -64,6 +64,9 @@ class Policy:
         return 0
 
 
+# It should be noted that this is a soft check on whether or not the selected
+# cipher suite would be acceptable to the specified compliance policy
+#
 def check_compliance(compliance_policy, scs):
     if not scs:
         return 'unknown'
@@ -108,6 +111,9 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
         min_seclevel = min(policy.classifications.values())
         max_seclevel = max(policy.classifications.values())
 
+        # Analyze key exchange seclevel based on key length seclevel information
+        # provided in the policy json
+        #
         kex = params['kex']
         kex_policy = policy_rules["kex"]
 
@@ -123,6 +129,9 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                 kex_seclevel = kex_policy[kex]["seclevel"]
 
 
+        # Analyze seclevel of certificates based on algorithm and key size seclevel
+        # information given in the policy json
+        #
         if certs:
             certs_seclevel = max_seclevel
             sig_policy = policy_rules["sig_alg"]
@@ -148,7 +157,9 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
         else:
             certs_seclevel = UNKNOWN
 
-
+        # Other seclevel items can be assessed in one step due to the lack of nested
+        # seclevel elements; we create an inventory for the flow here
+        #
         seclevel_inventory = {
             "kex": kex_seclevel,
             "certs": certs_seclevel,
@@ -158,7 +169,9 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
             "hash": policy_rules["hash"][params['hash']] if params['hash'] in policy_rules["hash"] else UNKNOWN
         }
 
-        # fetch min seclevel element based on whether or not 'unknown' elements should be reported
+        # fetch min seclevel element based on whether or not 'unknown' elements should be reported.
+        # default here is 'report'
+        #
         if unknowns == "ignore":
             seclevel_floor = min({ k: v for k, v in seclevel_inventory.items() if v }.values())
         else:
@@ -212,10 +225,12 @@ def enrich_tls(flow, kwargs):
         tls_sec_info = {}
         tls_sec_info["seclevel"] = tls_seclevel(seclevel_policy, kwargs["unknowns"], scs, client_key_length, certs)
 
-        # if compliance argument was passed, add to tls_sec object
+        # if compliance argument was passed, assess and add to tls_sec_info object.
+        # It should be noted that this is a soft check on whether or not the selected
+        # cipher suite would be acceptable to the specified compliance policy
+        #
         if kwargs["compliance"]:
             for policy in kwargs["compliance"]:
                 tls_sec_info[policy + "_compliant"] = check_compliance(policy, scs)
 
-        # Evaluate seclevel based on parameters
         return tls_sec_info
