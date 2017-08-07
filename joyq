@@ -292,14 +292,14 @@ def pipeline():
                         help="Pretty-print JSON output.")
     parser.add_argument("--sum", dest="sumvars",
                         help="Compute sum over selected element(s).")
-    parser.add_argument("--seclevel", dest='seclevel', action="store_true",
+    parser.add_argument("--tls_sec", dest='tls_sec', action="store_true",
                         help="Report security level of TLS sessions.")
     parser.add_argument("--policy_file", dest='policy_file',
                         default="policy.json", help="File containing seclevel policy")
-    parser.add_argument("--ignore_unknown", dest='ignore_unknown',
-                        default="False", help="Flag to assess security level while ignoring ciphers that are unknown")
-    parser.add_argument("--compliance", dest='compliance',
-                        default=None, help="Policy to do a soft check for compliance against, i.e. fips_140")
+    parser.add_argument("--unknowns", dest='unknowns',
+                        default="report", help="Flag to determine handling of unknowns - ignore or report")
+    parser.add_argument("--compliance", nargs="*", dest='compliance',
+                        help="List of policies to do a soft check for compliance against, i.e. fips_140")
 
     # Parse command line, and check arguments
     args = parser.parse_args()
@@ -340,8 +340,8 @@ def pipeline():
             flow_source = FlowStitchIterator(flow_source)
         if args.filter:
             flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
-        if args.seclevel:
-            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls, policy_file=args.policy_file, ignore_unknown=args.ignore_unknown, comp=args.compliance)
+        if args.tls_sec:
+            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls, policy_file=args.policy_file, unknowns=args.unknowns, compliance=args.compliance)
 
         # process all flows from source
         try:

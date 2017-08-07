@@ -76,20 +76,22 @@ def check_compliance(compliance_policy, scs):
 
     compliance_data_file = "compliance.json"
     compliance_data_path = os.path.join(cur_dir, compliance_data_file)
-    compliance = "test"
 
     with open(check_data_path) as check_f:
         with open(compliance_data_path) as compliance_f:
             check_data = json.load(check_f)
             compliance_data = json.load(compliance_f)
 
-            scs_desc = check_data["tls_params"][scs]["desc"]
-            compliance = "yes" if scs_desc in compliance_data[compliance_policy] else "no"
+            if compliance_policy not in compliance_data:
+                return "unknown - undefined policy"
+            else:
+                scs_desc = check_data["tls_params"][scs]["desc"]
+                return "yes" if scs_desc in compliance_data[compliance_policy] else "no"
 
-    return compliance
+    return "error loading file"
 
 
-def tls_seclevel(policy, ignore_unknown, scs, client_key_length, certs):
+def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
     if not scs:
         return 'unknown'
 
@@ -155,16 +157,16 @@ def tls_seclevel(policy, ignore_unknown, scs, client_key_length, certs):
             "hash": policy_rules["hash"][params['hash']] if params['hash'] in policy_rules["hash"] else UNKNOWN
         }
 
-        # should have an ignore unknowns option to assess security level of only
-        # recognized elemnts of the policy
-        if ignore_unknown:
-            seclevel_classification = policy.seclevel(min({ k: v for k, v in seclevel_inventory.items() if v }.values()))
+        # fetch min seclevel element based on whether or not 'unknown' elements should be reported
+        if unknowns == "ignore":
+            min_seclevel = min({ k: v for k, v in seclevel_inventory.items() if v }.values())
         else:
-            seclevel_classification = policy.seclevel(min(seclevel_inventory.values()))
+            min_seclevel = min(seclevel_inventory.values())
 
+        seclevel_classification = policy.seclevel(min_seclevel)
         reason = min(seclevel_inventory, key=seclevel_inventory.get)
 
-        return {"seclevel": seclevel_classification, "reason": reason}
+        return { "seclevel": seclevel_classification, "reason": reason }
 
 
 
@@ -202,5 +204,14 @@ def enrich_tls(flow, kwargs):
             certs = None
 
         seclevel_policy = Policy(kwargs["policy_file"]) if kwargs["policy_file"] else Policy("policy.json")
+
+        tls_sec_info = {}
+        tls_sec_info["seclevel"] = tls_seclevel(seclevel_policy, kwargs["unknowns"], scs, client_key_length, certs)
+
+        # if compliance argument was passed, add to tls_sec object
+        if kwargs["compliance"]:
+            for policy in kwargs["compliance"]:
+                tls_sec_info[policy + "_compliant"] = check_compliance(policy, scs)
+
         # Evaluate seclevel based on parameters
-        return { "seclevel": tls_seclevel(seclevel_policy, kwargs["ignore_unknown"], scs, client_key_length, certs), kwargs["comp"] + "_compliant": check_compliance(kwargs["comp"], scs) }
+        return tls_sec_info
