@@ -296,6 +296,8 @@ def pipeline():
                         help="Report security level of TLS sessions.")
     parser.add_argument("--policy_file", dest='policy_file',
                         default="policy.json", help="File containing seclevel policy")
+    parser.add_argument("--failure_threshold", dest='failure_threshold',
+                        default=None, help="Integer defining a custom failure threshold for reporting")
     parser.add_argument("--unknowns", dest='unknowns',
                         default="report", help="Flag to determine handling of unknowns - ignore or report")
     parser.add_argument("--compliance", nargs="*", dest='compliance',
@@ -341,7 +343,7 @@ def pipeline():
         if args.filter:
             flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
         if args.tls_sec:
-            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls, policy_file=args.policy_file, unknowns=args.unknowns, compliance=args.compliance)
+            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls, policy_file=args.policy_file, unknowns=args.unknowns, compliance=args.compliance, failure_threshold=args.failure_threshold)
 
         # process all flows from source
         try:

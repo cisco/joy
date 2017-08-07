@@ -47,13 +47,14 @@ VALID = 2
 class Policy:
     'Class to import seclevel policy'
 
-    def __init__(self, filename):
+    def __init__(self, filename, failure_threshold):
         cur_dir = os.path.dirname(__file__)
         policy_path = os.path.join(cur_dir, filename)
         with open(policy_path) as f:
             policy_data = json.load(f)
             self.classifications = policy_data["classification"]
             self.rules = policy_data["rules"]
+            self.failure_threshold = int(failure_threshold) if failure_threshold else policy_data["default_failure_threshold"]
 
     def seclevel(self, x):
         seclevel_names = {v: k for k, v in self.classifications.iteritems()}
@@ -159,15 +160,18 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
 
         # fetch min seclevel element based on whether or not 'unknown' elements should be reported
         if unknowns == "ignore":
-            min_seclevel = min({ k: v for k, v in seclevel_inventory.items() if v }.values())
+            seclevel_floor = min({ k: v for k, v in seclevel_inventory.items() if v }.values())
         else:
-            min_seclevel = min(seclevel_inventory.values())
+            seclevel_floor = min(seclevel_inventory.values())
 
-        seclevel_classification = policy.seclevel(min_seclevel)
-        reason = [item[0] for item in seclevel_inventory.items() if item[1] == min_seclevel]
+        classification = policy.seclevel(seclevel_floor)
 
-        return { "seclevel": seclevel_classification, "reason": reason }
+        if seclevel_floor <= policy.failure_threshold:
+            reasons = [item[0] for item in seclevel_inventory.items() if item[1] == seclevel_floor]
+            return { "classification": classification,
+                     "reason": reasons }
 
+        return classification
 
 
 def enrich_tls(flow, kwargs):
@@ -203,7 +207,7 @@ def enrich_tls(flow, kwargs):
         else:
             certs = None
 
-        seclevel_policy = Policy(kwargs["policy_file"]) if kwargs["policy_file"] else Policy("policy.json")
+        seclevel_policy = Policy(kwargs["policy_file"], kwargs["failure_threshold"])
 
         tls_sec_info = {}
         tls_sec_info["seclevel"] = tls_seclevel(seclevel_policy, kwargs["unknowns"], scs, client_key_length, certs)

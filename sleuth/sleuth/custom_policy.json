@@ -4,6 +4,7 @@
         "move_away": 2,
         "stable": 3
     },
+    "default_failure_threshold": 1,
     "rules": {
         "hash": {
             "SHA": 2,

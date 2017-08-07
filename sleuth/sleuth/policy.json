@@ -5,6 +5,7 @@
         "acceptable": 3,
         "recommended": 4
     },
+    "default_failure_threshold": 2,
     "rules": {
         "hash": {
             "SHA": 2,
