@@ -164,7 +164,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
             min_seclevel = min(seclevel_inventory.values())
 
         seclevel_classification = policy.seclevel(min_seclevel)
-        reason = min(seclevel_inventory, key=seclevel_inventory.get)
+        reason = [item[0] for item in seclevel_inventory.items() if item[1] == min_seclevel]
 
         return { "seclevel": seclevel_classification, "reason": reason }
 
