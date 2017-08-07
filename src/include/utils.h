@@ -74,16 +74,4 @@ enum role {
   role_server  = 2
 };
 
-struct vector {
-    unsigned int len;
-    void *bytes;
-};
-
-void copy_printable_string(char *buf, unsigned buflen, const void *data, unsigned datalen);
-void vector_init(struct vector *vector);
-void vector_set(struct vector *vector, const void *data, unsigned len);
-void vector_append(struct vector *vector, const void *data, unsigned len);
-char *vector_string(struct vector *vector);
-void vector_free(struct vector *vector);
-
 #endif /* P2FUTILS */

@@ -5,10 +5,10 @@
 #
 # see the "usage" function for instructions
 #
-import os
 import platform
 import time
 import subprocess
+import glob
 
 #
 # Setup variables
@@ -16,11 +16,11 @@ import subprocess
 PLATFORM_OS = platform.system()
 BINDIR = "bin"
 DATA = "sample.pcap"
-if os.path.isdir("test_pcaps"):
-    DATA += " test_pcaps/*.pcap"
-if os.path.isdir("test_pcaps/pcapr/ssh"):
+if any(glob.iglob('resources/*.pcap')):
+    DATA += " resources/*.pcap"
+if any(glob.iglob("test_pcaps/pcapr/ssh/*.pcap")):
     DATA += " test_pcaps/pcapr/ssh/*.pcap"
-if os.path.isdir("test_pcaps/pcapr/tls"):
+if any(glob.iglob("test_pcaps/pcapr/tls/*.pcap")):
     DATA += " test_pcaps/pcapr/tls/*.pcap"
 OUTPUT = ("joyTest-%s" % (time.time()))
 

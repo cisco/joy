@@ -44,11 +44,11 @@
 #ifndef SSH_H
 #define SSH_H
 
-#include <stdio.h>   /* for FILE* */
+#include <stdio.h>      /* for FILE* */
 #include <pcap.h>
 #include "output.h"
 #include "feature.h"
-#include "utils.h"
+#include "utils.h"      /* for enum role */
 
 #define ssh_usage "  ssh=1                      report ssh information\n"
 
@@ -58,6 +58,18 @@
 #define MAX_SSH_KEX_MESSAGES 2 /* large enough for DH, RSA, and GEX key exchanges */
 #define MAX_SSH_PACKET_LEN 35000 /* RFC 4253, Section 6.1. */
 #define MAX_SSH_PAYLOAD_LEN 32768 /* RFC 4253, Section 6.1. */
+
+struct vector {
+    unsigned int len;
+    void *bytes;
+};
+
+void copy_printable_string(char *buf, unsigned buflen, const void *data, unsigned datalen);
+void vector_init(struct vector *vector);
+void vector_set(struct vector *vector, const void *data, unsigned len);
+void vector_append(struct vector *vector, const void *data, unsigned len);
+char *vector_string(struct vector *vector);
+void vector_free(struct vector *vector);
 
 struct ssh_msg {
     unsigned char msg_code;
