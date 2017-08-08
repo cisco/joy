@@ -118,7 +118,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
             if client_key_length and "client_key_length" in kex_policy[kex]:
                 kex_seclevel = min_seclevel
                 for each in kex_policy[kex]["client_key_length"]:
-                    if client_key_length > int(each):
+                    if client_key_length >= int(each):
                         kex_seclevel = kex_policy[kex]["client_key_length"][each]
             elif "default" in kex_policy[kex]:
                 kex_seclevel = kex_policy[kex]["default"]
@@ -138,7 +138,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                 if sig_alg and sig_alg in sig_policy:
                     if sig_key_size and "sig_key_size" in sig_policy[sig_alg]:
                         for each in sig_policy[sig_alg]["sig_key_size"]:
-                            if sig_key_size > int(each):
+                            if sig_key_size >= int(each):
                                 tmp_seclevel = sig_policy[sig_alg]["sig_key_size"][each]
                     elif "seclevel" in sig_policy[sig_alg]:
                         tmp_seclevel = sig_policy[sig_alg]["seclevel"]
