@@ -71,13 +71,13 @@
         },
         "kex": {
             "KRB5": {
-              "seclevel": 3
+              "default": 3
             },
             "PSK": {
-              "seclevel": 2
+              "default": 2
             },
             "DH": {
-              "seclevel": 2,
+              "default": 2,
               "client_key_length": {
                 "3072": 4,
                 "2048": 3,
@@ -85,7 +85,7 @@
               }
             },
             "SRP_SHA": {
-              "seclevel": 2,
+              "default": 2,
               "client_key_length": {
                 "3072": 4,
                 "2048": 3,
@@ -93,7 +93,7 @@
               }
             },
             "ECDH_anon": {
-              "seclevel": 1,
+              "default": 1,
               "client_key_length": {
                 "512": 4,
                 "256": 3,
@@ -101,10 +101,10 @@
               }
             },
             "DHE": {
-              "seclevel": 3
+              "default": 3
             },
             "ECDH": {
-              "seclevel": 3,
+              "default": 3,
               "client_key_length": {
                 "512": 4,
                 "256": 3,
@@ -112,7 +112,7 @@
               }
             },
             "RSA": {
-              "seclevel": 3,
+              "default": 3,
               "client_key_length": {
                 "3072": 4,
                 "2048": 3,
@@ -120,7 +120,7 @@
               }
             },
             "SRP_SHA_RSA": {
-              "seclevel": 2,
+              "default": 2,
               "client_key_length": {
                 "3072": 4,
                 "2048": 3,
@@ -128,7 +128,7 @@
               }
             },
             "ECDHE": {
-              "seclevel": 4,
+              "default": 4,
               "client_key_length": {
                 "512": 4,
                 "256": 3,
@@ -136,7 +136,7 @@
               }
             },
             "DHE_PSK": {
-              "seclevel": 3,
+              "default": 3,
               "client_key_length": {
                 "3072": 4,
                 "2048": 3,
@@ -144,10 +144,10 @@
               }
             },
             "NULL": {
-              "seclevel": 1
+              "default": 1
             },
             "DH_anon": {
-              "seclevel": 1,
+              "default": 1,
               "client_key_length": {
                 "3072": 4,
                 "2048": 3,
@@ -157,20 +157,20 @@
         },
         "sig_alg": {
            "sha1WithRSAEncryption": {
-             "seclevel": 1,
+             "default": 1,
              "sig_key_size": {
                "1024": 2
              }
            },
            "sha256WithRSAEncryption": {
-             "seclevel": 3,
+             "default": 3,
              "sig_key_size": {
                "2048": 3,
                "1024": 2
              }
            },
            "sha384WithRSAEncryption": {
-             "seclevel": 3,
+             "default": 3,
              "sig_key_size": {
                "3072": 4,
                "2048": 3,
@@ -178,7 +178,7 @@
              }
            },
            "sha512WithRSAEncryption": {
-             "seclevel": 4,
+             "default": 4,
              "sig_key_size": {
                "3072": 4,
                "2048": 3,
@@ -186,13 +186,13 @@
              }
            },
            "ecdsa-with-SHA256": {
-             "seclevel": 3,
+             "default": 3,
              "sig_key_size": {
                "832": 2
              }
            },
            "id-dsa-with-sha256": {
-             "seclevel": 3
+             "default": 3
            }
         }
     }

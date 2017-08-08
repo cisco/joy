@@ -36,16 +36,13 @@
 import os
 import json
 
-# A security_category object is one of { recommended, acceptable, legacy, avoid }
-#
-
 UNKNOWN = 0
 INVALID = 1
 VALID = 2
 
 
 class Policy:
-    'Class to import seclevel policy'
+    "Class to import seclevel policy"
 
     def __init__(self, filename, failure_threshold):
         cur_dir = os.path.dirname(__file__)
@@ -57,11 +54,10 @@ class Policy:
             self.failure_threshold = int(failure_threshold) if failure_threshold else policy_data["default_failure_threshold"]
 
     def seclevel(self, x):
-        seclevel_names = {v: k for k, v in self.classifications.iteritems()}
-        seclevel_names[UNKNOWN] = "unknown"
-        if x in seclevel_names:
-            return seclevel_names[x]
-        return 0
+        for classification, value in self.classifications.iteritems():
+            if x == value:
+                return classification
+        return "unknown"
 
 
 # It should be noted that this is a soft check on whether or not the selected
@@ -75,7 +71,7 @@ def check_compliance(compliance_policy, scs):
         return 'unknown'
 
     cur_dir = os.path.dirname(__file__)
-    check_data_file = "data_tls_with_desc.json"
+    check_data_file = "data_tls_params.json"
     check_data_path = os.path.join(cur_dir, check_data_file)
 
     compliance_data_file = "compliance.json"
@@ -124,9 +120,8 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                 for each in kex_policy[kex]["client_key_length"]:
                     if client_key_length > int(each):
                         kex_seclevel = kex_policy[kex]["client_key_length"][each]
-                        break
-            elif "seclevel" in kex_policy[kex]:
-                kex_seclevel = kex_policy[kex]["seclevel"]
+            elif "default" in kex_policy[kex]:
+                kex_seclevel = kex_policy[kex]["default"]
 
 
         # Analyze seclevel of certificates based on algorithm and key size seclevel
@@ -139,14 +134,12 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
             for x in certs:
                 sig_alg = x['signature_algorithm']
                 sig_key_size = x['signature_key_size']
-                tmp_seclevel = certs_seclevel
 
                 if sig_alg and sig_alg in sig_policy:
                     if sig_key_size and "sig_key_size" in sig_policy[sig_alg]:
                         for each in sig_policy[sig_alg]["sig_key_size"]:
                             if sig_key_size > int(each):
                                 tmp_seclevel = sig_policy[sig_alg]["sig_key_size"][each]
-                                break
                     elif "seclevel" in sig_policy[sig_alg]:
                         tmp_seclevel = sig_policy[sig_alg]["seclevel"]
                 else:
@@ -173,7 +166,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
         # default here is 'report'
         #
         if unknowns == "ignore":
-            seclevel_floor = min({ k: v for k, v in seclevel_inventory.items() if v }.values())
+            seclevel_floor = min([ v for k, v in seclevel_inventory.iteritems() if v != UNKNOWN])
         else:
             seclevel_floor = min(seclevel_inventory.values())
 

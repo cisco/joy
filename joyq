@@ -294,13 +294,13 @@ def pipeline():
                         help="Compute sum over selected element(s).")
     parser.add_argument("--tls_sec", dest='tls_sec', action="store_true",
                         help="Report security level of TLS sessions.")
-    parser.add_argument("--policy_file", dest='policy_file',
+    parser.add_argument("--sec_policy_file", dest='policy_file',
                         default="policy.json", help="File containing seclevel policy; defaults to policy.json")
-    parser.add_argument("--failure_threshold", dest='failure_threshold',
+    parser.add_argument("--sec_failure_threshold", dest='failure_threshold',
                         default=None, help="Integer defining a custom failure threshold for reporting; defaults to specified value in the policy json")
-    parser.add_argument("--unknowns", dest='unknowns',
+    parser.add_argument("--sec_unknowns", dest='unknowns',
                         default="report", help="Flag to determine handling of unknowns - ignore or report; defaults to report")
-    parser.add_argument("--compliance", nargs="*", dest='compliance',
+    parser.add_argument("--sec_compliance", nargs="*", dest='compliance',
                         help="List of policies to do a soft check for selected cipher suite compliance against, i.e. fips_140; as defined in compliance.json")
 
     # Parse command line, and check arguments
