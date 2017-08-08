@@ -68,7 +68,7 @@
  * \param datalen Length of the source buffer.
  *
  */
-void copy_printable_string(char *buf,
+static void copy_printable_string(char *buf,
 			   unsigned int buflen,
 			   const void *data,
 			   unsigned int datalen) {
@@ -85,16 +85,41 @@ void copy_printable_string(char *buf,
 }
 
 /*
+ * A vector is contains a pointer to a string of bytes of a specified length.
+ */
+struct vector {
+    unsigned int len;
+    void *bytes;
+};
+
+/*
  *
  * \brief Initialize vector struct.
  *
  * \param vector Pointer to the vector to be initialized.
  *
  */
-void vector_init(struct vector *vector) {
+static void vector_init(struct vector *vector) {
 
     vector->len = 0;
     vector->bytes = NULL;
+
+    return;
+}
+
+/*
+ *
+ * \brief Free a vector, setting it to the state just after a call to vector_init.
+ *
+ * \param vector Pointer to the vector to free.
+ *
+ */
+static void vector_free(struct vector *vector) {
+
+    if (vector->bytes != NULL) {
+        free(vector->bytes);
+    }
+    vector_init(vector);
 
     return;
 }
@@ -111,7 +136,7 @@ void vector_init(struct vector *vector) {
  * \param len Length of the byte array to be copied.
  *
  */
-void vector_set(struct vector *vector, const void *data, unsigned len) {
+static void vector_set(struct vector *vector, const void *data, unsigned len) {
     void *tmpptr = NULL;
 
     tmpptr = malloc(len);
@@ -136,7 +161,7 @@ void vector_set(struct vector *vector, const void *data, unsigned len) {
  * \param len Length of the byte array to be appended.
  *
  */
-void vector_append(struct vector *vector, const void *data, unsigned len) {
+static void vector_append(struct vector *vector, const void *data, unsigned len) {
 
     vector->bytes = realloc(vector->bytes, vector->len + len);
     if (vector->bytes == NULL) {
@@ -157,7 +182,7 @@ void vector_append(struct vector *vector, const void *data, unsigned len) {
  *
  * \return A pointer to a string representation of the vector.
  */
-char *vector_string(struct vector *vector) {
+static char *vector_string(struct vector *vector) {
     char *s;
 
     s = malloc(vector->len+1);
@@ -171,24 +196,6 @@ char *vector_string(struct vector *vector) {
     }
 
     return s;
-}
-
-/*
- *
- * \brief Free a vector, setting it to the state just after a call to vector_init.
- *
- * \param vector Pointer to the vector to free.
- *
- */
-void vector_free(struct vector *vector) {
-
-    if (vector->bytes != NULL) {
-        free(vector->bytes);
-        vector->bytes = NULL;
-    }
-    vector->len = 0;
-
-    return;
 }
 
 /*

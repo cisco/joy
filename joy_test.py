@@ -18,10 +18,6 @@ BINDIR = "bin"
 DATA = "sample.pcap"
 if any(glob.iglob('resources/*.pcap')):
     DATA += " resources/*.pcap"
-if any(glob.iglob("test_pcaps/pcapr/ssh/*.pcap")):
-    DATA += " test_pcaps/pcapr/ssh/*.pcap"
-if any(glob.iglob("test_pcaps/pcapr/tls/*.pcap")):
-    DATA += " test_pcaps/pcapr/tls/*.pcap"
 OUTPUT = ("joyTest-%s" % (time.time()))
 
 #

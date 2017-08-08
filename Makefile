@@ -73,7 +73,6 @@ str_match_test:
 # testing
 ##
 test: joy joy_test.py
-	./download_test_pcaps.sh test_pcaps/pcapr
 	$(BINDIR)/unit_test
 	./joy_test.py
 
@@ -106,7 +105,7 @@ clean:
 # remove everything not under version control
 ##
 clobber: clean
-	rm -rf bin/ joy.bin config.vars test_pcaps/pcapr
+	rm -rf bin/ joy.bin config.vars
 
 ##
 # installation via shell script
