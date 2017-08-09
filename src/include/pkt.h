@@ -56,9 +56,14 @@
 // no special include needed
 #endif
 
+#define DOT1Q_HDR_LEN 4
+
 /** ethernet header */
 #define ETHERNET_HDR_LEN 14
 #define ETHERNET_ADR_LEN  6
+
+#define ETH_TYPE_IP    0X0800
+#define ETH_TYPE_DOT1Q 0X08100
 
 /** ethernet header structure */
 struct ethernet_hdr {

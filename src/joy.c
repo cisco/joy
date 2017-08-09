@@ -368,7 +368,7 @@ static int usage (char *s) {
 int main (int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;		
-    char *filter_exp = "ip";	
+    char *filter_exp = "ip or vlan";	
     struct bpf_program fp;	
     int i;
     int c;
