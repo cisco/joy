@@ -188,7 +188,7 @@ extern struct configuration config;
 struct intrface { 
     unsigned char name [INTFACENAMESIZE];
     unsigned char friendly_name[IFNAMSIZ];
-    unsigned char ip_addr[IFNAMSIZ];
+    unsigned char ip_addr[INET6_ADDRSTRLEN];
     unsigned char active;
 };
 
@@ -209,21 +209,25 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 	fprintf(info, "\nInterfaces\n");
 	fprintf(info, "==========\n");
 	for (d = alldevs; d; d = d->next) {
-		char ip_string[INET_ADDRSTRLEN];
+		char ip_string[INET6_ADDRSTRLEN];
 		pcap_addr_t *dev_addr = NULL; //interface address that used by pcap_findalldevs()
 
 		/* check if the device is suitable for live capture */
 		for (dev_addr = d->addresses; dev_addr != NULL; dev_addr = dev_addr->next) {
-			if (dev_addr->addr->sa_family == AF_INET && dev_addr->addr && dev_addr->netmask) {
-				inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
+                       if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
+                                memset(ip_string, 0x00, INET6_ADDRSTRLEN);
+                                if (dev_addr->addr->sa_family == AF_INET6) {
+                                        inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
+                                } else {
+                                        inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
+                                }
 				memset(&ifl[num_ifs], 0x00, sizeof(struct intrface));
 				snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
 				snprintf((char*)ifl[num_ifs].friendly_name, IFNAMSIZ, "intf%d", num_ifs);
-				snprintf((char*)ifl[num_ifs].ip_addr, IFNAMSIZ, "%s", (unsigned char*)ip_string);
+				snprintf((char*)ifl[num_ifs].ip_addr, INET6_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
 				ifl[num_ifs].active = IFF_UP;
 				fprintf(info, "Interface: %s\n", ifl[num_ifs].friendly_name);
 				fprintf(info, "  IP Address: %s\n", ifl[num_ifs].ip_addr);
-				fprintf(info, "  Status: UP\n\n");
 				++num_ifs;
 			}
 		}
