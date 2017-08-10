@@ -892,7 +892,6 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     memset(&key, 0x00, sizeof(struct flow_key));
 
     flocap_stats_incr_num_packets();
-    fprintf(info, "\n");
     joy_log_info("++++++++++ Packet %lu ++++++++++", flocap_stats_get_num_packets());
     //  packet_count++;
   
