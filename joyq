@@ -292,8 +292,16 @@ def pipeline():
                         help="Pretty-print JSON output.")
     parser.add_argument("--sum", dest="sumvars",
                         help="Compute sum over selected element(s).")
-    parser.add_argument("--seclevel", dest='seclevel', action="store_true",
+    parser.add_argument("--tls_sec", dest='tls_sec', action="store_true",
                         help="Report security level of TLS sessions.")
+    parser.add_argument("--sec_policy_file", dest='policy_file',
+                        default="policy.json", help="File containing seclevel policy; defaults to policy.json")
+    parser.add_argument("--sec_failure_threshold", dest='failure_threshold',
+                        default=None, help="Integer defining a custom failure threshold for reporting; defaults to specified value in the policy json")
+    parser.add_argument("--sec_unknowns", dest='unknowns',
+                        default="report", help="Flag to determine handling of unknowns - ignore or report; defaults to report")
+    parser.add_argument("--sec_compliance", nargs="*", dest='compliance',
+                        help="List of policies to do a soft check for selected cipher suite compliance against, i.e. fips_140; as defined in compliance.json")
 
     # Parse command line, and check arguments
     args = parser.parse_args()
@@ -334,8 +342,8 @@ def pipeline():
             flow_source = FlowStitchIterator(flow_source)
         if args.filter:
             flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
-        if args.seclevel:
-            flow_source = DictStreamEnrichIterator(flow_source, "seclevel", enrich_tls)
+        if args.tls_sec:
+            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls, policy_file=args.policy_file, unknowns=args.unknowns, compliance=args.compliance, failure_threshold=args.failure_threshold)
 
         # process all flows from source
         try:
