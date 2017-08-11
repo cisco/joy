@@ -63,36 +63,7 @@
 #include "fingerprint.h"
 #include "pkt.h"
 #include "utils.h"
-
-/********************************************
- *********
- * LOGGING
- *********
- ********************************************/
-/** select destination for printing out information
- *
- ** TO_SCREEN = 0 for 'info' file
- *
- **  TO_SCREEN = 1 for 'stderr'
- */
-#define TO_SCREEN 1
-
-/** used to print out information during tls execution
- *
- ** print_dest will either be assigned to 'stderr' or 'info' file
- *  depending on the TO_SCREEN setting.
- */
-static FILE *print_dest = NULL;
-extern FILE *info;
-
-/** sends information to the destination output device */
-#define loginfo(...) { \
-        if (TO_SCREEN) print_dest = stderr; else print_dest = info; \
-        fprintf(print_dest,"%s: ", __FUNCTION__); \
-        fprintf(print_dest, __VA_ARGS__); \
-        fprintf(print_dest, "\n"); }
-
-#define JOY_TLS_DEBUG 0
+#include "err.h"
 
 /*
  * The maxiumum allowed length of a serial number is 20 octets
@@ -583,14 +554,10 @@ static int tls_x509_get_validity_period(X509 *cert,
             /* Success */
             rc_not_before = 0;
         } else {
-           if (JOY_TLS_DEBUG) {
-               loginfo("warning: no data exists for notBefore");
-           }
+            joy_log_err("no data exists for notBefore");
         }
     } else {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: could not extract notBefore");
-        }
+        joy_log_err("could not extract notBefore");
     }
 
     if (not_after != NULL) {
@@ -610,14 +577,10 @@ static int tls_x509_get_validity_period(X509 *cert,
             /* Success */
             rc_not_after = 0;
         } else {
-           if (JOY_TLS_DEBUG) {
-               loginfo("warning: no data exists for notAfter");
-           }
+            joy_log_err("no data exists for notAfter");
         }
     } else {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: could not extract notAfter");
-        }
+        joy_log_err("could not extract notAfter");
     }
 
     if (rc_not_before || rc_not_after) {
@@ -653,9 +616,7 @@ static int tls_x509_get_subject(X509 *cert,
 
     subject = X509_get_subject_name(cert);
     if (subject == NULL) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: could not extract subject");
-        }
+        joy_log_err("could not extract subject");
         return 1;
     }
     num_of_entries = X509_NAME_entry_count(subject);
@@ -674,10 +635,7 @@ static int tls_x509_get_subject(X509 *cert,
 
         if (i == MAX_RDN) {
             /* Best effort, got as many as we could */
-            if (JOY_TLS_DEBUG) {
-                loginfo("warning: hit max entry threshold of %d",
-                        MAX_RDN);
-            }
+            joy_log_warn("hit max entry threshold of %d", MAX_RDN);
             break;
         }
 
@@ -754,9 +712,7 @@ static int tls_x509_get_issuer(X509 *cert,
 
     issuer = X509_get_issuer_name(cert);
     if (issuer == NULL) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: could not extract issuer");
-        }
+        joy_log_err("could not extract issuer");
         return 1;
     }
     num_of_entries = X509_NAME_entry_count(issuer);
@@ -778,10 +734,7 @@ static int tls_x509_get_issuer(X509 *cert,
 
         if (i == MAX_RDN) {
             /* Best effort, got as many as we could */
-            if (JOY_TLS_DEBUG) {
-                loginfo("warning: hit max entry threshold of %d",
-                        MAX_RDN);
-            }
+            joy_log_warn("hit max entry threshold of %d", MAX_RDN);
             break;
         }
 
@@ -852,9 +805,7 @@ static int tls_x509_get_serial(X509 *cert,
 
     serial = X509_get_serialNumber(cert);
     if (serial == NULL) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: could not extract serial");
-        }
+        joy_log_err("could not extract serial");
         return 1;
     }
 
@@ -863,9 +814,7 @@ static int tls_x509_get_serial(X509 *cert,
 
     if (serial_data_length > MAX_CERT_SERIAL_LENGTH) {
         /* This serial number is abnormally large */
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: serial number is too large");
-        }
+        joy_log_warn("serial number is too large");
         return 1;
     }
 
@@ -904,17 +853,13 @@ static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
      */
     pubkey = X509_get_X509_PUBKEY(cert);
     if (pubkey == NULL) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: could not extract public key");
-        }
+        joy_log_err("could not extract public key");
         return 1;
     }
 
     algorithm_asn1_obj = pubkey->algor->algorithm;
     if (algorithm_asn1_obj == NULL) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: problem getting public key algorithm");
-        }
+        joy_log_err("problem getting public key algorithm");
         return 1;
     }
 
@@ -973,9 +918,7 @@ static int tls_x509_get_signature_algorithm(X509 *cert,
      */
     sig_alg_asn1_obj = cert->sig_alg->algorithm;
     if (sig_alg_asn1_obj == NULL) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: problem getting signature algorithm");
-        }
+        joy_log_err("problem getting signature algorithm");
         return 1;
     }
 
@@ -1022,9 +965,7 @@ static int tls_x509_get_signature(X509 *cert,
 
     sig = cert->signature;
     if (sig == NULL) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: problem getting signature");
-        }
+        joy_log_err("problem getting signature");
         return 1;
     }
 
@@ -1036,9 +977,7 @@ static int tls_x509_get_signature(X509 *cert,
          * We shouldn't be seeing any signatures larger than this.
          * Using 4096 bits (512 bytes) as the standard for upper threshold.
          */
-        if (JOY_TLS_DEBUG) {
-            loginfo("warning: signature is too large");
-        }
+        joy_log_warn("signature is too large");
         return 1;
     } else {
         /* Multiply by 8 to get the number of bits */
@@ -1095,10 +1034,8 @@ static int tls_x509_get_extensions(X509 *cert,
 
         if (i == MAX_CERT_EXTENSIONS) {
             /* Best effort, got as many as we could */
-            if (JOY_TLS_DEBUG) {
-                loginfo("warning: hit max extension threshold of %d",
-                        MAX_CERT_EXTENSIONS);
-            }
+            joy_log_warn("hit max extension threshold of %d",
+                         MAX_CERT_EXTENSIONS);
             break;
         }
 
@@ -1198,9 +1135,7 @@ static void tls_server_certificate_parse (const unsigned char *data,
     total_certs_len = raw_to_unsigned_short(data + 1);
     data += 3;
 
-    if (JOY_TLS_DEBUG) {
-        loginfo("all certificates length: %d", total_certs_len);
-    }
+    joy_log_debug("all certificates length: %d", total_certs_len);
 
     if (total_certs_len > data_len) {
         /*
@@ -1248,16 +1183,14 @@ static void tls_server_certificate_parse (const unsigned char *data,
         data += 3;
         remaining_certs_len -= 3;
 
-        if (JOY_TLS_DEBUG) {
-            loginfo("current certificate length: %d", cert_len);
-        }
+        joy_log_debug("current certificate length: %d", cert_len);
 
         ptr_openssl = data;
         /* Convert to OpenSSL X509 object */
         x509_cert = d2i_X509(NULL, &ptr_openssl, (size_t)cert_len);
 
         if (x509_cert == NULL) {
-            loginfo("Failed cert conversion");
+            joy_log_warn("Failed cert conversion");
         } else {
             /* Get subject */
             tls_x509_get_subject(x509_cert, certificate);
@@ -2077,9 +2010,7 @@ static int tls_client_fingerprint_match(struct tls_information *tls_info,
     fp.fingerprint_len = (cs_count + ext_count) * sizeof(unsigned short);
 
     if (fp.fingerprint_len > MAX_FINGERPRINT_LEN) {
-        if (JOY_TLS_DEBUG) {
-            loginfo("error: fingerprint too large, aborting");
-        }
+        joy_log_err("fingerprint too large, aborting");
         return 1;
     }
 
@@ -2121,7 +2052,7 @@ static int tls_client_fingerprint_match(struct tls_information *tls_info,
         /* Find an exact database fingerprint match */
         db_fingerprint = fingerprint_db_match_exact(&tls_fingerprint_db, &fp);
     } else {
-        loginfo("api-error: partial matching not supported yet");
+        joy_log_err("partial matching not supported yet");
         return 1;
     }
 
@@ -3066,7 +2997,7 @@ static int tls_test_client_fingerprint_match() {
 
     tls_client_fingerprint_match(&record, 100);
     if (record.tls_fingerprint == NULL) {
-        loginfo("failure: could not match known fingerprint");
+        joy_log_err("could not match known fingerprint");
         num_fails++;
     }
 
@@ -3101,14 +3032,14 @@ static int tls_test_certificate_parsing() {
 
         fp = joy_utils_open_resource_file(filename);
         if (!fp) {
-            loginfo("failure: unable to open %s", filename);
+            joy_log_err("unable to open %s", filename);
             num_fails++;
             goto end_loop;
         }
 
         cert = PEM_read_X509(fp, NULL, NULL, NULL);
         if (!cert) {
-            loginfo("failure: could not convert %s PEM into X509", filename);
+            joy_log_err("could not convert %s PEM into X509", filename);
             num_fails++;
             goto end_loop;
         }
@@ -3117,7 +3048,7 @@ static int tls_test_certificate_parsing() {
          * Test subject
          ************************************/
         if (tls_x509_get_subject(cert, cert_record)){
-            loginfo("failure: tls_x509_get_subject - %s", filename);
+            joy_log_err("fail, tls_x509_get_subject - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3172,15 +3103,15 @@ static int tls_test_certificate_parsing() {
                      */
                     for (j = 0; j < known_items_count; j++) {
                         if (strncmp(cert_record->subject[j].id, kat_subject[j].id, MAX_OPENSSL_STRING)) {
-                            loginfo("error: subject[%d].id does not match", j);
+                            joy_log_err("subject[%d].id does not match", j);
                             failed = 1;
                         }
                         if (cert_record->subject[j].data_length != kat_subject[j].data_length) {
-                            loginfo("error: subject[%d].data_length does not match", j);
+                            joy_log_err("subject[%d].data_length does not match", j);
                             failed = 1;
                         }
                         if (memcmp(cert_record->subject[j].data, kat_subject[j].data, kat_subject[j].data_length)) {
-                            loginfo("error: subject[%d].data does not match", j);
+                            joy_log_err("subject[%d].data does not match", j);
                             failed = 1;
                         }
                     }
@@ -3192,14 +3123,14 @@ static int tls_test_certificate_parsing() {
                         }
                     }
                 } else {
-                    loginfo("error: expected %d subject items, got %d",
-                            known_items_count, cert_record->num_subject_items);
+                    joy_log_err("expected %d subject items, got %d",
+                                known_items_count, cert_record->num_subject_items);
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_subject - %s", filename);
+                    joy_log_err("fail, tls_x509_get_subject - %s", filename);
                     num_fails++;
                 }
             }
@@ -3209,7 +3140,7 @@ static int tls_test_certificate_parsing() {
          * Test issuer
          ************************************/
         if (tls_x509_get_issuer(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_issuer - %s", filename);
+            joy_log_err("fail, tls_x509_get_issuer - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3264,15 +3195,15 @@ static int tls_test_certificate_parsing() {
                      */
                     for (j = 0; j < known_items_count; j++) {
                         if (strncmp(cert_record->issuer[j].id, kat_issuer[j].id, MAX_OPENSSL_STRING)) {
-                            loginfo("error: issuer[%d].id does not match", j);
+                            joy_log_err("issuer[%d].id does not match", j);
                             failed = 1;
                         }
                         if (cert_record->issuer[j].data_length != kat_issuer[j].data_length) {
-                            loginfo("error: issuer[%d].data_length does not match", j);
+                            joy_log_err("issuer[%d].data_length does not match", j);
                             failed = 1;
                         }
                         if (memcmp(cert_record->issuer[j].data, kat_issuer[j].data, kat_issuer[j].data_length)) {
-                            loginfo("error: issuer[%d].data does not match", j);
+                            joy_log_err("issuer[%d].data does not match", j);
                             failed = 1;
                         }
                     }
@@ -3284,14 +3215,14 @@ static int tls_test_certificate_parsing() {
                         }
                     }
                 } else {
-                    loginfo("error: expected %d issuer items, got %d",
+                    joy_log_err("expected %d issuer items, got %d",
                             known_items_count, cert_record->num_issuer_items);
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_issuer - %s", filename);
+                    joy_log_err("fail, tls_x509_get_issuer - %s", filename);
                     num_fails++;
                 }
             }
@@ -3301,7 +3232,7 @@ static int tls_test_certificate_parsing() {
          * Test validity
          ************************************/
         if (tls_x509_get_validity_period(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_validity_period - %s", filename);
+            joy_log_err("fail, tls_x509_get_validity_period - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3321,28 +3252,28 @@ static int tls_test_certificate_parsing() {
                 };
 
                 if (cert_record->validity_not_before_length != known_not_before_length) {
-                    loginfo("error: not_before length does not match");
+                    joy_log_err("not_before length does not match");
                     failed = 1;
                 }
 
                 if (memcmp(cert_record->validity_not_before, known_not_before, known_not_before_length)) {
-                    loginfo("error: not_before data does not match");
+                    joy_log_err("not_before data does not match");
                     failed = 1;
                 }
 
                 if (cert_record->validity_not_before_length != known_not_before_length) {
-                    loginfo("error: not_after length does not match");
+                    joy_log_err("not_after length does not match");
                     failed = 1;
                 }
 
                 if (memcmp(cert_record->validity_not_after, known_not_after, known_not_after_length)) {
-                    loginfo("error: not_after data does not match");
+                    joy_log_err("not_after data does not match");
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_validity_period - %s", filename);
+                    joy_log_err("fail, tls_x509_get_validity_period - %s", filename);
                     num_fails++;
                 }
             }
@@ -3352,7 +3283,7 @@ static int tls_test_certificate_parsing() {
          * Test serial
          ************************************/
         if (tls_x509_get_serial(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_serial - %s", filename);
+            joy_log_err("fail, tls_x509_get_serial - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3365,18 +3296,18 @@ static int tls_test_certificate_parsing() {
                 };
 
                 if (cert_record->serial_number_length != known_serial_length) {
-                    loginfo("error: serial length does not match");
+                    joy_log_err("serial length does not match");
                     failed = 1;
                 }
 
                 if (memcmp(cert_record->serial_number, known_serial, known_serial_length)) {
-                    loginfo("error: serial data does not match");
+                    joy_log_err("serial data does not match");
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_serial - %s", filename);
+                    joy_log_err("fail, tls_x509_get_serial - %s", filename);
                     num_fails++;
                 }
             }
@@ -3386,7 +3317,7 @@ static int tls_test_certificate_parsing() {
          * Test extensions
          ************************************/
         if (tls_x509_get_extensions(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_extensions - %s", filename);
+            joy_log_err("fail, tls_x509_get_extensions - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3400,35 +3331,27 @@ static int tls_test_certificate_parsing() {
 					struct tls_item_entry kat_extensions[3];
 					int j = 0;
 
-                    unsigned char known_subject_key_identifier[] = {
-                        0x04, 0x14, 0xce, 0xbf, 0xd3, 0x46, 0xc6, 0x75,
-                        0xab, 0x8c, 0xb2, 0xe8, 0xcf, 0xb8, 0x2e, 0x2f,
-                        0x43, 0x6e, 0xc9, 0x17, 0xad, 0xba
-                    };
+                    char *known_subject_key_identifier = "CE:BF:D3:46:C6:75:AB:8C:B2:E8:"
+                                                         "CF:B8:2E:2F:43:6E:C9:17:AD:BA";
 
-                    unsigned char known_authority_key_identifier[] = {
-                        0x30, 0x16, 0x80, 0x14, 0xce, 0xbf, 0xd3, 0x46,
-                        0xc6, 0x75, 0xab, 0x8c, 0xb2, 0xe8, 0xcf, 0xb8,
-                        0x2e, 0x2f, 0x43, 0x6e, 0xc9, 0x17, 0xad, 0xba
-                    };
+                    char *known_authority_key_identifier = "keyid:CE:BF:D3:46:C6:75:AB:8C:B2:"
+                                                           "E8:CF:B8:2E:2F:43:6E:C9:17:AD:BA.";
 
-                    unsigned char known_basic_constraints[] = {
-                        0x30, 0x03, 0x01, 0x01, 0xff
-                    };
+                    char *known_basic_constraints = "CA:TRUE";
 
                     /* Known values */
                     strncpy(kat_extensions[0].id, "X509v3 Subject Key Identifier", MAX_OPENSSL_STRING);
-                    kat_extensions[0].data_length = 22;
+                    kat_extensions[0].data_length = 59;
                     kat_extensions[0].data = calloc(kat_extensions[0].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[0].data, known_subject_key_identifier, kat_extensions[0].data_length);
 
                     strncpy(kat_extensions[1].id, "X509v3 Authority Key Identifier", MAX_OPENSSL_STRING);
-                    kat_extensions[1].data_length = 24;
+                    kat_extensions[1].data_length = 66;
                     kat_extensions[1].data = calloc(kat_extensions[1].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[1].data, known_authority_key_identifier, kat_extensions[1].data_length);
 
                     strncpy(kat_extensions[2].id, "X509v3 Basic Constraints", MAX_OPENSSL_STRING);
-                    kat_extensions[2].data_length = 5;
+                    kat_extensions[2].data_length = 7;
                     kat_extensions[2].data = calloc(kat_extensions[2].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[2].data, known_basic_constraints, kat_extensions[2].data_length);
 
@@ -3437,15 +3360,15 @@ static int tls_test_certificate_parsing() {
                      */
                     for (j = 0; j < known_items_count; j++) {
                         if (strncmp(cert_record->extensions[j].id, kat_extensions[j].id, MAX_OPENSSL_STRING)) {
-                            loginfo("error: extensions[%d].id does not match", j);
+                            joy_log_err("extensions[%d].id does not match", j);
                             failed = 1;
                         }
                         if (cert_record->extensions[j].data_length != kat_extensions[j].data_length) {
-                            loginfo("error: extensions[%d].data_length does not match", j);
+                            joy_log_err("extensions[%d].data_length does not match", j);
                             failed = 1;
                         }
                         if (memcmp(cert_record->extensions[j].data, kat_extensions[j].data, kat_extensions[j].data_length)) {
-                            loginfo("error: extensions[%d].data does not match", j);
+                            joy_log_err("extensions[%d].data does not match", j);
                             failed = 1;
                         }
                     }
@@ -3457,14 +3380,14 @@ static int tls_test_certificate_parsing() {
                         }
                     }
                 } else {
-                    loginfo("error: expected %d extension items, got %d",
-                            known_items_count, cert_record->num_extension_items);
+                    joy_log_err("expected %d extension items, got %d",
+                                known_items_count, cert_record->num_extension_items);
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_extensions - %s", filename);
+                    joy_log_err("fail, tls_x509_get_extensions - %s", filename);
                     num_fails++;
                 }
             }
@@ -3474,7 +3397,7 @@ static int tls_test_certificate_parsing() {
          * Test signature algorithm
          ************************************/
         if (tls_x509_get_signature_algorithm(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_signature_algorithm - %s", filename);
+            joy_log_err("fail, tls_x509_get_signature_algorithm - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3483,13 +3406,13 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (strncmp(cert_record->signature_algorithm, known_signature_algorithm, MAX_OPENSSL_STRING)) {
-                    loginfo("error: signature algorithm does not match");
+                    joy_log_err("signature algorithm does not match");
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_signature_algorithm - %s", filename);
+                    joy_log_err("fail, tls_x509_get_signature_algorithm - %s", filename);
                     num_fails++;
                 }
             }
@@ -3499,7 +3422,7 @@ static int tls_test_certificate_parsing() {
          * Test signature
          ************************************/
         if (tls_x509_get_signature(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_signature - %s", filename);
+            joy_log_err("fail, tls_x509_get_signature - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3544,23 +3467,23 @@ static int tls_test_certificate_parsing() {
                 };
 
                 if (cert_record->signature_key_size != known_signature_key_size) {
-                    loginfo("error: signature key size does not match");
+                    joy_log_err("signature key size does not match");
                     failed = 1;
                 }
 
                 if (cert_record->signature_length != known_signature_length) {
-                    loginfo("error: signature length does not match");
+                    joy_log_err("signature length does not match");
                     failed = 1;
                 }
 
                 if (memcmp(cert_record->signature, known_signature, known_signature_length)) {
-                    loginfo("error: signature data does not match");
+                    joy_log_err("signature data does not match");
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_signature - %s", filename);
+                    joy_log_err("fail, tls_x509_get_signature - %s", filename);
                     num_fails++;
                 }
             }
@@ -3570,7 +3493,7 @@ static int tls_test_certificate_parsing() {
          * Test public key info
          ************************************/
         if (tls_x509_get_subject_pubkey_algorithm(cert, cert_record)) {
-            loginfo("failure: tls_x509_get_subject_pubkey_algorithm - %s", filename);
+            joy_log_err("fail, tls_x509_get_subject_pubkey_algorithm - %s", filename);
             num_fails++;
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
@@ -3580,18 +3503,18 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (cert_record->subject_public_key_size != known_public_key_size) {
-                    loginfo("error: public key size does not match");
+                    joy_log_err("public key size does not match");
                     failed = 1;
                 }
 
                 if (strncmp(cert_record->subject_public_key_algorithm, known_public_key_algorithm, MAX_OPENSSL_STRING)) {
-                    loginfo("error: public key algorithm does not match");
+                    joy_log_err("public key algorithm does not match");
                     failed = 1;
                 }
 
                 if (failed){
                     /* There was at least one case that threw error */
-                    loginfo("failure: tls_x509_get_subject_pubkey_algorithm - %s", filename);
+                    joy_log_err("fail, tls_x509_get_subject_pubkey_algorithm - %s", filename);
                     num_fails++;
                 }
             }
@@ -3627,13 +3550,13 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
     ip = (struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
-        loginfo("error: invalid ip header of len %d", ip_hdr_len);
+        joy_log_err("invalid ip header of len %d", ip_hdr_len);
         return NULL;
     }
 
     if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
         /* IP packet is malformed (shorter than a complete IP header) */
-        loginfo("error: ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
+        joy_log_err("ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
         return NULL;
     }
 
@@ -3641,7 +3564,7 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
     tcp_hdr_len = tcp_hdr_length(tcp);
 
     if (tcp_hdr_len < 20 || tcp_hdr_len > (packet_len - ip_hdr_len)) {
-      loginfo("error: invalid tcp hdr length");
+      joy_log_err("invalid tcp hdr length");
       return NULL;
     }
 
@@ -3670,7 +3593,7 @@ static int tls_test_extract_client_hello(const unsigned char *data,
     body = &tls_hdr->handshake.body;
 
     if (body_len > data_len) {
-        loginfo("error: handshake body length (%d) too long", body_len);
+        joy_log_err("handshake body length (%d) too long", body_len);
         num_fails++;
         goto end;
     }
@@ -3754,19 +3677,19 @@ static int tls_test_extract_client_hello(const unsigned char *data,
         memcpy(known_extensions[10].data, kat_data_10, known_extensions[10].length);
 
         if (record.num_ciphersuites != known_ciphersuites_count) {
-            loginfo("error: ciphersuites count does not match")
+            joy_log_err("ciphersuites count does not match")
             failed = 1;
         } else {
             for (i = 0; i < known_ciphersuites_count; i++) {
                 if (record.ciphersuites[i] != known_ciphersuites[i]) {
-                    loginfo("error: ciphersuite[%d] does not match", i)
+                    joy_log_err("ciphersuite[%d] does not match", i)
                     failed = 1;
                 }
             }
         }
 
         if (record.num_tls_extensions != known_extensions_count) {
-            loginfo("error: extensions count does not match")
+            joy_log_err("extensions count does not match")
             failed = 1;
         } else {
             for (i = 0; i < known_extensions_count; i++) {
@@ -3774,19 +3697,19 @@ static int tls_test_extract_client_hello(const unsigned char *data,
                  * KAT
                  */
                 if (known_extensions[i].type != record.tls_extensions[i].type) {
-                    loginfo("error: extension[%d] type does not match", i)
+                    joy_log_err("extension[%d] type does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].length != record.tls_extensions[i].length) {
-                    loginfo("error: extension[%d] length does not match", i)
+                    joy_log_err("extension[%d] length does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].data) {
                     if (memcmp(known_extensions[i].data, record.tls_extensions[i].data,
                                known_extensions[i].length)) {
-                        loginfo("error: extension[%d] data does not match", i)
+                        joy_log_err("extension[%d] data does not match", i)
                         failed = 1;
                     }
 
@@ -3797,7 +3720,7 @@ static int tls_test_extract_client_hello(const unsigned char *data,
         }
 
         if (failed) {
-            loginfo("failure: tls_test_extract_client_hello - %s", filename);
+            joy_log_err("fail, tls_test_extract_client_hello - %s", filename);
             num_fails++;
         }
     }
@@ -3825,7 +3748,7 @@ static int tls_test_extract_server_hello(const unsigned char *data,
     body = &tls_hdr->handshake.body;
 
     if (body_len > data_len) {
-        loginfo("error: handshake body length (%d) too long", body_len);
+        joy_log_err("handshake body length (%d) too long", body_len);
         num_fails++;
         goto end;
     }
@@ -3870,12 +3793,12 @@ static int tls_test_extract_server_hello(const unsigned char *data,
         memcpy(known_extensions[4].data, kat_data_4, known_extensions[4].length);
 
         if (record.ciphersuites[0] != known_ciphersuite) {
-            loginfo("error: ciphersuite does not match")
+            joy_log_err("ciphersuite does not match")
             failed = 1;
         }
 
         if (record.num_server_tls_extensions != known_extensions_count) {
-            loginfo("error: extensions count does not match")
+            joy_log_err("extensions count does not match")
             failed = 1;
         } else {
             for (i = 0; i < known_extensions_count; i++) {
@@ -3883,19 +3806,19 @@ static int tls_test_extract_server_hello(const unsigned char *data,
                  * KAT
                  */
                 if (known_extensions[i].type != record.server_tls_extensions[i].type) {
-                    loginfo("error: extension[%d] type does not match", i)
+                    joy_log_err("extension[%d] type does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].length != record.server_tls_extensions[i].length) {
-                    loginfo("error: extension[%d] length does not match", i)
+                    joy_log_err("extension[%d] length does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].data) {
                     if (memcmp(known_extensions[i].data, record.server_tls_extensions[i].data,
                                known_extensions[i].length)) {
-                        loginfo("error: extension[%d] data does not match", i)
+                        joy_log_err("extension[%d] data does not match", i)
                         failed = 1;
                     }
 
@@ -3906,7 +3829,7 @@ static int tls_test_extract_server_hello(const unsigned char *data,
         }
 
         if (failed) {
-            loginfo("failure: tls_test_extract_server_hello - %s", filename);
+            joy_log_err("fail, tls_test_extract_server_hello - %s", filename);
             num_fails++;
         }
     }
@@ -3929,7 +3852,7 @@ static int tls_test_initial_handshake() {
 
     pcap_handle = joy_utils_open_resource_pcap(filename);
     if (!pcap_handle) {
-        loginfo("failure: unable to open %s", filename);
+        joy_log_err("fail, unable to open %s", filename);
         num_fails++;
         goto end;
     }
@@ -3974,31 +3897,31 @@ static int tls_test_handshake_hello_get_version() {
 
     tls_handshake_hello_get_version(&record, ssl_v3);
     if (record.tls_v != TLS_VERSION_SSLV3) {
-        loginfo("failure: sslv3 version capture");
+        joy_log_err("fail, sslv3 version capture");
         num_fails++;
     }
 
     tls_handshake_hello_get_version(&record, tls_1_0);
     if (record.tls_v != TLS_VERSION_1_0) {
-        loginfo("failure: tls 1.0 version capture");
+        joy_log_err("fail, tls 1.0 version capture");
         num_fails++;
     }
 
     tls_handshake_hello_get_version(&record, tls_1_1);
     if (record.tls_v != TLS_VERSION_1_1) {
-        loginfo("failure: tls 1.1 version capture");
+        joy_log_err("fail, tls 1.1 version capture");
         num_fails++;
     }
 
     tls_handshake_hello_get_version(&record, tls_1_2);
     if (record.tls_v != TLS_VERSION_1_2) {
-        loginfo("failure: tls 1.2 version capture");
+        joy_log_err("fail, tls 1.2 version capture");
         num_fails++;
     }
 
     tls_handshake_hello_get_version(&record, tls_1_3);
     if (record.tls_v != TLS_VERSION_1_3) {
-        loginfo("failure: tls 1.3 version capture");
+        joy_log_err("fail, tls 1.3 version capture");
         num_fails++;
     }
 
@@ -4015,7 +3938,7 @@ static int tls_test_calculate_handshake_length() {
     hand.lengthLo = 0x01;
     result = tls_handshake_get_length(&hand);
     if (result != 1) {
-        loginfo("failure: expected (%d), got (%d)", 1, result);
+        joy_log_err("fail, expected (%d), got (%d)", 1, result);
         num_fails++;
     }
 
@@ -4024,7 +3947,7 @@ static int tls_test_calculate_handshake_length() {
     hand.lengthLo = 0xff;
     result = tls_handshake_get_length(&hand);
     if (result != 65535) {
-        loginfo("failure: expected (%d), got (%d)", 65535, result);
+        joy_log_err("fail, expected (%d), got (%d)", 65535, result);
         num_fails++;
     }
 
@@ -4033,7 +3956,7 @@ static int tls_test_calculate_handshake_length() {
     hand.lengthLo = 0xff;
     result = tls_handshake_get_length(&hand);
     if (result != 16777215) {
-        loginfo("failure: expected (%d), got (%d)", 16777215, result);
+        joy_log_err("fail, expected (%d), got (%d)", 16777215, result);
         num_fails++;
     }
 
@@ -4042,7 +3965,7 @@ static int tls_test_calculate_handshake_length() {
     hand.lengthLo = 0x00;
     result = tls_handshake_get_length(&hand);
     if (result != 0) {
-        loginfo("failure: expected (%d), got (%d)", 0, result);
+        joy_log_err("fail, expected (%d), got (%d)", 0, result);
         num_fails++;
     }
 
@@ -4057,8 +3980,8 @@ void tls_unit_test() {
         tls_load_fingerprints();
     }
 
-    loginfo("******************************");
-    loginfo("Starting...\n");
+    fprintf(info, "\n******************************\n");
+    fprintf(info, "TLS Unit Test starting...\n");
 
     num_fails += tls_test_handshake_hello_get_version();
 
@@ -4071,10 +3994,10 @@ void tls_unit_test() {
     num_fails += tls_test_certificate_parsing();
 
     if (num_fails) {
-        loginfo("Finished - # of failures: %d", num_fails);
+        fprintf(info, "Finished - # of failures: %d\n", num_fails);
     } else {
-        loginfo("Finished - success");
+        fprintf(info, "Finished - success\n");
     }
-    loginfo("******************************\n");
+    fprintf(info, "******************************\n\n");
 }
 

@@ -214,13 +214,13 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 
 		/* check if the device is suitable for live capture */
 		for (dev_addr = d->addresses; dev_addr != NULL; dev_addr = dev_addr->next) {
-			if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
-				memset(ip_string, 0x00, INET6_ADDRSTRLEN);
-				if (dev_addr->addr->sa_family == AF_INET6) {
-					inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
-				} else {
-					inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
-				}
+                       if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
+                                memset(ip_string, 0x00, INET6_ADDRSTRLEN);
+                                if (dev_addr->addr->sa_family == AF_INET6) {
+                                        inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
+                                } else {
+                                        inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
+                                }
 				memset(&ifl[num_ifs], 0x00, sizeof(struct intrface));
 				snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
 				snprintf((char*)ifl[num_ifs].friendly_name, IFNAMSIZ, "intf%d", num_ifs);
@@ -228,7 +228,6 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 				ifl[num_ifs].active = IFF_UP;
 				fprintf(info, "Interface: %s\n", ifl[num_ifs].friendly_name);
 				fprintf(info, "  IP Address: %s\n", ifl[num_ifs].ip_addr);
-				fprintf(info, "  Status: UP\n\n");
 				++num_ifs;
 			}
 		}
@@ -373,7 +372,7 @@ static int usage (char *s) {
 int main (int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;		
-    char *filter_exp = "ip";	
+    char *filter_exp = "ip or vlan";	
     struct bpf_program fp;	
     int i;
     int c;
@@ -909,14 +908,8 @@ int main (int argc, char **argv) {
            }
 
            /* print out inactive flows */
-#ifdef WIN32
-		   DWORD t;
-		   t = timeGetTime();
-		   time_of_day.tv_sec = t / 1000;
-		   time_of_day.tv_usec = t % 1000;
-#else
-		   gettimeofday(&time_of_day, NULL);
-#endif
+	   gettimeofday(&time_of_day, NULL);
+
            timer_sub(&time_of_day, &time_window, &inactive_flow_cutoff);
 
            flow_record_list_print_json(&inactive_flow_cutoff);
