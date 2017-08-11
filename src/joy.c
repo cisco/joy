@@ -908,14 +908,8 @@ int main (int argc, char **argv) {
            }
 
            /* print out inactive flows */
-#ifdef WIN32
-		   DWORD t;
-		   t = timeGetTime();
-		   time_of_day.tv_sec = t / 1000;
-		   time_of_day.tv_usec = t % 1000;
-#else
-		   gettimeofday(&time_of_day, NULL);
-#endif
+	   gettimeofday(&time_of_day, NULL);
+
            timer_sub(&time_of_day, &time_window, &inactive_flow_cutoff);
 
            flow_record_list_print_json(&inactive_flow_cutoff);
