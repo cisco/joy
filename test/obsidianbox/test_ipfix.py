@@ -42,7 +42,7 @@ import time
 import logging
 import json
 import gzip
-from pytests_joy.utilities import end_process
+from .utils import end_process
 
 
 class ValidateExporter(object):
@@ -226,8 +226,8 @@ def test_unix_os():
     cur_dir = os.path.dirname(__file__)
 
     cli_paths = dict()
-    cli_paths['exec_path'] = os.path.join(cur_dir, '../../../bin/joy')
-    cli_paths['pcap_path'] = os.path.join(cur_dir, '../../../sample.pcap')
+    cli_paths['exec_path'] = os.path.join(cur_dir, '../../bin/joy')
+    cli_paths['pcap_path'] = os.path.join(cur_dir, '../../sample.pcap')
 
     validate_exporter = ValidateExporter(cli_paths=cli_paths)
 

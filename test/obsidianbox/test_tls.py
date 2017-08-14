@@ -43,13 +43,13 @@ import gzip
 import json
 import uuid
 import glob
-from ..utilities import end_process
-from ..utilities import ensure_path_exists
+from .utils import end_process
+from .utils import ensure_path_exists
 
 
 # Default globals
-baseline_path = 'baseline'
-pcap_path = '../../pcaps'
+baseline_path = 'baseline_tls'
+pcap_path = '../pcaps'
 flag_generate_base = False
 flag_base_generic = False
 
@@ -239,7 +239,7 @@ def test_unix_os():
     cur_dir = os.path.dirname(__file__)
 
     paths = dict()
-    paths['exec'] = os.path.join(cur_dir, '../../../bin/joy')
+    paths['exec'] = os.path.join(cur_dir, '../../bin/joy')
     paths['pcap'] = os.path.join(cur_dir, pcap_path)
     paths['baseline'] = os.path.join(cur_dir, baseline_path)
     logger.debug("paths... " + str(paths))

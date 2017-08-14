@@ -37,8 +37,8 @@
 
 import logging
 import argparse
-from pytests_joy.ipfix import main_ipfix
-from pytests_joy.tls import main_tls
+from obsidianbox import main_ipfix
+from obsidianbox import main_tls
 
 
 def modify_test_suite(suite, module_flag, module_func, wiped_flag):
