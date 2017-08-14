@@ -55,8 +55,6 @@ flag_base_generic = False
 
 
 def generate_baseline(paths):
-    rc_overall = 0
-
     ensure_path_exists(paths['baseline'])
 
     # Get the absolute paths to the tls pcap files
@@ -97,17 +95,17 @@ def generate_baseline(paths):
 
     # End running subprocesses
     for proc in processes:
-        rc_proc = end_process(proc)
-        if rc_proc != 0:
-            rc_overall = rc_proc
-
-    return rc_overall
+        rc = end_process(proc)
+        if rc != 0:
+            logger.error("Subprocess Joy failure")
+            raise RuntimeError("Subprocess Joy failure")
 
 
 class ValidateTLS(object):
     def __init__(self, paths):
         self.paths = paths
         self.compare_keys = ['sa','da','sp','dp','pr']
+        self.corruption = False
         self.new_flows = {'tls10': list(), 'tls11': list(), 'tls12': list(),
                           # 'tls13': list()
                           }
@@ -128,7 +126,6 @@ class ValidateTLS(object):
         Delete any existing temporary files.
         :return:
         """
-        # Delete temporary files
         for key, f in self.tmp_outputs.iteritems():
             if os.path.isfile(f):
                 os.remove(f)
@@ -141,7 +138,7 @@ class ValidateTLS(object):
             if not base_files:
                 logger.error('Could not find baseline files. ' +
                              'Please use --tls-base-dir option to specify a location where valid files exist.')
-                return 1
+                raise IOError("No suitable baseline files exist")
 
             latest_file = max(base_files, key=os.path.getmtime)
             logger.debug('latest ' + str(version) + ' base file selected ' + str(latest_file))
@@ -154,8 +151,6 @@ class ValidateTLS(object):
                     except:
                         continue
 
-        return 0
-
     def _run_tls(self):
         for version, flows in self.new_flows.iteritems():
             pcap = os.path.abspath(os.path.join(self.paths['pcap'], version + '.pcap'))
@@ -164,9 +159,11 @@ class ValidateTLS(object):
 
             time.sleep(0.5)
 
-            rc_proc = end_process(proc)
-            if rc_proc != 0:
-                return rc_proc
+            rc = end_process(proc)
+            if rc != 0:
+                self._cleanup_tmp_files()
+                logger.error("Subprocess Joy failure")
+                raise RuntimeError("Subprocess Joy failure")
 
             with gzip.open(self.tmp_outputs[version], 'r') as f:
                 for line in f:
@@ -176,23 +173,12 @@ class ValidateTLS(object):
                     except:
                         continue
 
-        return 0
-
     def compare_new_against_base(self):
-        rc_overall = 0
-
         # Load the baseline json into memory
-        rc = self._load_baseline()
-        if rc:
-            logger.warning(str(self._load_baseline) + ' failed with return code ' + str(rc))
-            return rc
+        self._load_baseline()
 
         # Run joy with tls, and load the json into memory
-        rc = self._run_tls()
-        if rc:
-            logger.warning(str(self._run_tls) + ' failed with return code ' + str(rc))
-            self._cleanup_tmp_files()
-            return rc
+        self._run_tls()
 
         # Compare the 2 datasets
         for version, tls_flows in self.new_flows.iteritems():
@@ -214,28 +200,29 @@ class ValidateTLS(object):
                         break
 
                 if corrupt is True:
+                    self.corruption = True
                     self.corrupt_new_flows[version].append(flow)
-                    rc_overall = 1
 
             if self.corrupt_new_flows[version]:
                 # Log the corrupt flows
                 for flow in self.corrupt_new_flows[version]:
-                    logger.warning('New corrupt flow ' + str(version) + ' --> ' + str(flow))
+                    logger.warning('Corrupt flow ' + str(version) + ' --> ' + str(flow))
                 logger.warning('Please manually compare these corrupt flows against corresponding baseline file!')
 
         # Cleanup
         self._cleanup_tmp_files()
 
-        return rc_overall
+        if self.corruption:
+            logger.error("Failure, corruption detected")
+            raise AssertionError
 
 
 def test_unix_os():
     """
     Prepare the module for testing within a UNIX-like enviroment,
     and then run the appropriate test functions.
-    :return: 0 for success
+    :return:
     """
-    rc_unix_overall = 0
     cur_dir = os.path.dirname(__file__)
 
     paths = dict()
@@ -246,22 +233,11 @@ def test_unix_os():
 
     if flag_generate_base is True:
         # The user wants to make a set of baseline files
-        rc_unix_test = generate_baseline(paths)
-        # Check the value of function exit code
-        if rc_unix_test:
-            logger.warning(str(generate_baseline) + ' failed with return code ' + str(rc_unix_test))
-            return rc_unix_test
+        generate_baseline(paths)
     else:
         # Default to comparing new against baseline
         validate_tls = ValidateTLS(paths)
-        rc_unix_test = validate_tls.compare_new_against_base()
-        # Check the value of function exit code
-        if rc_unix_test:
-            logger.warning(str(validate_tls.compare_new_against_base) +
-                           ' failed with return code ' + str(rc_unix_test))
-            return rc_unix_test
-
-    return 0
+        validate_tls.compare_new_against_base()
 
 
 def main_tls(baseline_dir=None,
@@ -269,8 +245,8 @@ def main_tls(baseline_dir=None,
              create_base=False,
              base_generic=False):
     """
-    Main function.
-    :return: 0 for success
+    Main TLS testing entry point.
+    :return:
     """
     global logger
     logger = logging.getLogger(__name__)
@@ -292,10 +268,6 @@ def main_tls(baseline_dir=None,
     unix_platforms = ['linux', 'linux2', 'darwin']
 
     if os_platform in unix_platforms:
-        status = test_unix_os()
-        if status is not 0:
-            logger.warning('FAILED')
-            return status
+        test_unix_os()
 
     logger.warning('SUCCESS')
-    return 0
