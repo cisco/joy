@@ -2283,6 +2283,11 @@ void tls_update (struct tls_information *r,
             r->start_cert = 2;
         }
 
+        /*
+         *********************************
+         * CONTENT SWITCH
+         *********************************
+         */
         if (tls->content_type == TLS_CONTENT_APPLICATION_DATA) {
             if (!r->tls_v) {
                 /* Write the TLS version to record if empty */
@@ -2291,18 +2296,31 @@ void tls_update (struct tls_information *r,
                     return;
                 }
             }
+        } else if (tls->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC) {
+            /*
+             * The next message is encrypted, so ignore to avoid potential errors.
+             */
+            if (!r->tls_v) {
+                /* Write the TLS version to record if empty */
+                if (tls_header_version_capture(r, tls)) {
+                    /* TLS version sanity check failed */
+                    return;
+                }
+            }
+            return;
         } else if (tls->content_type == TLS_CONTENT_HANDSHAKE) {
             /*
              * Check if handshake type is valid.
              */
-            if (((tls->handshake.msg_type > 2) && (tls->handshake.msg_type < 11)) ||
+            if (((tls->handshake.msg_type > 4) && (tls->handshake.msg_type < 11)) ||
                 ((tls->handshake.msg_type > 16) && (tls->handshake.msg_type < 20)) ||
-                (tls->handshake.msg_type > 20)) {
-	              /*
-	               * We encountered an unknown HandshakeType, so this packet is
-	               * not actually a TLS handshake, so we bail on decoding it.
-	               */
-	              return;
+                (tls->handshake.msg_type > 23)) {
+                /*
+                 * We encountered an unknown HandshakeType, so this packet is
+                 * not actually a TLS handshake, so we bail on decoding it.
+                 */
+                joy_log_err("unknown handshake type %u", tls->handshake.msg_type);
+                return;
             }
 
             /*
@@ -2373,18 +2391,16 @@ void tls_update (struct tls_information *r,
              */      
             return;
         } else if (tls->content_type == TLS_CONTENT_ALERT) {
-	    /* 
-	     * In the case of a Server sending an alert in response
-	     * to a ClientHello
-	     */
+            /*
+             * In the case of a Server sending an alert in response to a ClientHello
+             */
             if (!r->tls_v) {
-	      /* Write the TLS version to record if empty */
-	      if (tls_handshake_hello_get_version(r, &tls->handshake.body)) {
-		/* TLS version sanity check failed */
-		return;
-	      }
-	    }
-      
+                /* Write the TLS version to record if empty */
+                if (tls_handshake_hello_get_version(r, &tls->handshake.body)) {
+                    /* TLS version sanity check failed */
+                    return;
+                }
+            }
         }
 
         /*
@@ -2405,11 +2421,14 @@ void tls_update (struct tls_information *r,
         /* Increment TLS record count in tls_information */
         r->tls_op++;
 
-        tls_len += 5; /* Advance over header */
+        /* Advance over header */
+        tls_len += 5;
         start += tls_len;
-	if ((tls_len == 0) || (tls_len > len)) {
-	  return;
-	}
+
+        if ((tls_len == 0) || (tls_len > len)) {
+            return;
+        }
+
         len -= tls_len;
     }
 

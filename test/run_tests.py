@@ -37,8 +37,8 @@
 
 import logging
 import argparse
-from pytests_joy.ipfix import main_ipfix
-from pytests_joy.tls import main_tls
+from obsidianbox import main_ipfix
+from obsidianbox import main_tls
 
 
 def modify_test_suite(suite, module_flag, module_func, wiped_flag):
@@ -50,10 +50,10 @@ def modify_test_suite(suite, module_flag, module_func, wiped_flag):
     :param wiped_flag: Flag indicating whether the suite list has been previously wiped.
     :return:
     """
-    if module_flag == 'no':
+    if module_flag == 'off':
         # Exclude the specified module
         suite.remove(module_func)
-    elif module_flag == 'yes':
+    elif module_flag == 'on':
         # Only test the specified module
         if wiped_flag is True:
             # The list is already a subset, append to it
@@ -82,12 +82,12 @@ if __name__ == "__main__":
                         help='Log messages to a file instead of the console (terminal).')
     parser.add_argument('--ipfix',
                         dest='flag_ipfix',
-                        choices=['yes', 'no'],
-                        help='yes to run ONLY ipfix module; no to exclude from test suite')
+                        choices=['on', 'off'],
+                        help='on to run ONLY ipfix module (includes others turned "on"); off to exclude')
     parser.add_argument('--tls',
                         dest='flag_tls',
-                        choices=['yes', 'no'],
-                        help='yes to run ONLY tls module; no to exclude from test suite')
+                        choices=['on', 'off'],
+                        help='on to run only tls module (includes others turned "on"); off to exclude')
     parser.add_argument('--tls-base-dir',
                         dest='tls_base_dir',
                         help='Specify the absolute path to directory where tls baseline files will reside.')
