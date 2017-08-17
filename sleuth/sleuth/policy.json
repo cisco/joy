@@ -5,6 +5,9 @@
         "acceptable": 3,
         "recommended": 4
     },
+    "trusted_ca_list": [
+      "Google Inc", "GeoTrust Inc."
+    ],
     "default_failure_threshold": 2,
     "rules": {
         "hash": {
@@ -79,6 +82,7 @@
             "DH": {
               "default": 2,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -87,6 +91,7 @@
             "SRP_SHA": {
               "default": 2,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -95,6 +100,7 @@
             "ECDH_anon": {
               "default": 1,
               "client_key_length": {
+                "operator": "<=",
                 "512": 4,
                 "256": 3,
                 "224": 2
@@ -106,6 +112,7 @@
             "ECDH": {
               "default": 3,
               "client_key_length": {
+                "operator": "<=",
                 "512": 4,
                 "256": 3,
                 "224": 2
@@ -114,6 +121,7 @@
             "RSA": {
               "default": 3,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -122,6 +130,7 @@
             "SRP_SHA_RSA": {
               "default": 2,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -130,6 +139,7 @@
             "ECDHE": {
               "default": 4,
               "client_key_length": {
+                "operator": "<=",
                 "512": 4,
                 "256": 3,
                 "224": 2
@@ -138,6 +148,7 @@
             "DHE_PSK": {
               "default": 3,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -149,6 +160,7 @@
             "DH_anon": {
               "default": 1,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
