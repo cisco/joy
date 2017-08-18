@@ -67,7 +67,7 @@
 #include <limits.h>  
 #include <getopt.h>
 #include <unistd.h>   
-#include <pthread.h>    
+#include <pthread.h>
 
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* joy data structures       */
@@ -382,8 +382,6 @@ int main (int argc, char **argv) {
     unsigned int file_count = 0;
     char filename[MAX_FILENAME_LEN];   /* output file */
     char pcap_filename[MAX_FILENAME_LEN*2];   /* output file */
-    char *cli_interface = NULL; 
-    char *cli_filename = NULL; 
     char *config_file = NULL;
     struct intrface ifl[IFL_MAX];
     char *capture_if = NULL;
@@ -506,24 +504,6 @@ int main (int argc, char **argv) {
         }
     }
 
-    /*
-     * allow some command line variables to override the config file
-     */
-    if (cli_filename) {
-        /*
-         * output filename provided on command line supersedes that
-         * provided in the config file
-         */
-        config.filename = cli_filename;
-    } 
-    if (cli_interface) {
-        /*
-         * interface provided on command line supersedes that provided
-         * in the config file
-         */
-        config.intface = cli_interface;
-    }
-
     if (config.ipfix_collect_port && config.ipfix_export_port) {
         /*
          * Simultaneous IPFIX collection and exporting is not allowed
@@ -539,10 +519,6 @@ int main (int argc, char **argv) {
         fprintf(info, "error: must enable IPFIX collection via ipfix_collect_port "
                       "to use ipfix_collect_online\n");
         return -1;
-    }
-
-    if (config.filename) {
-        strncpy(filename, config.filename, MAX_FILENAME_LEN);
     }
 
     /*
@@ -732,14 +708,11 @@ int main (int argc, char **argv) {
       
         } else {    
             /* set output file based on command line or config file */
-      
-            if (cli_filename) {
-	               strncpy(filename, config.filename, MAX_FILENAME_LEN);
+
+            if (config.filename[0] == '/') {
+                strncpy(filename, config.filename, MAX_FILENAME_LEN);
             } else {
-	               char tmp_filename[MAX_FILENAME_LEN];
-	
-	               strncpy(tmp_filename, filename, MAX_FILENAME_LEN);
-	               snprintf(filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, tmp_filename);
+                snprintf(filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
             }
         }
         file_base_len = strlen(filename);
