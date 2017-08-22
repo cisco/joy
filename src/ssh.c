@@ -47,6 +47,7 @@
 
 #ifdef WIN32
 #include "Ws2tcpip.h"
+#define strtok_r strtok_s
 #else
 #include <arpa/inet.h>  /* for ntohl()             */
 #endif
@@ -70,15 +71,14 @@
  */
 static void copy_printable_string(char *buf,
 			   unsigned int buflen,
-			   const void *data,
+			   const char *data,
 			   unsigned int datalen) {
-    const char *d = data;
-
     while (buflen-- && datalen--) {
-	if (!isprint(*d) || *d == '\"' || *d == '\\' || *d <= 0x1f) { /* json constraints */
-	    break;
-	}
-	*buf++ = *d++;
+        /* json constraints */
+	    if (!isprint(*data) || *data == '\"' || *data == '\\' || *data <= 0x1f) {
+	        break;
+	    }
+	    *buf++ = *data++;
     }
 
     *buf = 0; /* null terminate buffer */
@@ -89,7 +89,7 @@ static void copy_printable_string(char *buf,
  */
 struct vector {
     unsigned int len;
-    void *bytes;
+    char *bytes;
 };
 
 /*
@@ -136,8 +136,8 @@ static void vector_free(struct vector *vector) {
  * \param len Length of the byte array to be copied.
  *
  */
-static void vector_set(struct vector *vector, const void *data, unsigned len) {
-    void *tmpptr = NULL;
+static void vector_set(struct vector *vector, const char *data, unsigned int len) {
+    char *tmpptr = NULL;
 
     tmpptr = malloc(len);
     if (tmpptr == NULL) {
@@ -161,7 +161,7 @@ static void vector_set(struct vector *vector, const void *data, unsigned len) {
  * \param len Length of the byte array to be appended.
  *
  */
-static void vector_append(struct vector *vector, const void *data, unsigned len) {
+static void vector_append(struct vector *vector, const char *data, unsigned int len) {
 
     vector->bytes = realloc(vector->bytes, vector->len + len);
     if (vector->bytes == NULL) {
@@ -267,8 +267,8 @@ struct ssh_packet {
 
 #endif
 
-unsigned int ssh_packet_parse(const void *pkt, unsigned int datalen, unsigned char *msg_code, unsigned int *total_length) {
-    const struct ssh_packet *ssh_packet = pkt;
+static unsigned int ssh_packet_parse(const char *pkt, unsigned int datalen, unsigned char *msg_code, unsigned int *total_length) {
+    const struct ssh_packet *ssh_packet = (const struct ssh_packet *)pkt;
     uint32_t length;
 
     if (datalen < sizeof(struct ssh_packet)) {
@@ -291,13 +291,13 @@ unsigned int ssh_packet_parse(const void *pkt, unsigned int datalen, unsigned ch
     return length;
 }
 
-unsigned int decode_uint32(const void *data) {
-    const uint32_t *x = data;
+static unsigned int decode_uint32(const char *data) {
+    const uint32_t *x = (const uint32_t *)data;
 
     return ntohl(*x);
 }
 
-enum status decode_ssh_vector(const char **dataptr, unsigned int *datalen, struct vector *vector, unsigned maxlen) {
+static enum status decode_ssh_vector(const char **dataptr, unsigned int *datalen, struct vector *vector, unsigned int maxlen) {
     const char *data = *dataptr;
     unsigned int length;
 
@@ -347,7 +347,7 @@ enum status decode_ssh_vector(const char **dataptr, unsigned int *datalen, struc
  *    uint32       0 (reserved for future extension)
  *
  */
-void ssh_parse_kexinit(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexinit(struct ssh *ssh, const char *data, unsigned int datalen) {
 
     /* robustness check */
     if (ssh->kex_algos->len != 0) {
@@ -397,7 +397,7 @@ void ssh_parse_kexinit(struct ssh *ssh, const char *data, unsigned int datalen) 
     return;
 }
 
-void ssh_get_kex_algo(struct ssh *cli, struct ssh *srv) {
+static void ssh_get_kex_algo(struct ssh *cli, struct ssh *srv) {
     char *cli_copy, *srv_copy;
     char *cli_algo, *srv_algo;
     char *cli_ptr, *srv_ptr;
@@ -436,7 +436,7 @@ void ssh_get_kex_algo(struct ssh *cli, struct ssh *srv) {
  * from RFC 4253, Section 8
  * decode e
  */
-void ssh_parse_kexdh_init(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexdh_init(struct ssh *ssh, const char *data, unsigned int datalen) {
 
     /* copy client key exchange value */
     if (decode_ssh_vector(&data, &datalen, ssh->c_kex, MAX_SSH_PAYLOAD_LEN) == failure) {
@@ -447,7 +447,7 @@ void ssh_parse_kexdh_init(struct ssh *ssh, const char *data, unsigned int datale
     return;
 }
 
-void ssh_parse_kexdh_reply(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexdh_reply(struct ssh *ssh, const char *data, unsigned int datalen) {
     const char *tmpptr;
     unsigned int tmplen;
 
@@ -480,7 +480,7 @@ void ssh_parse_kexdh_reply(struct ssh *ssh, const char *data, unsigned int datal
     return;
 }
 
-void ssh_parse_kex_dh_gex_request(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kex_dh_gex_request(struct ssh *ssh, const char *data, unsigned int datalen) {
 
     if (datalen < 4) {
         return;
@@ -497,7 +497,7 @@ void ssh_parse_kex_dh_gex_request(struct ssh *ssh, const char *data, unsigned in
     return;
 }
 
-void ssh_parse_kex_dh_gex_group(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kex_dh_gex_group(struct ssh *ssh, const char *data, unsigned int datalen) {
 
     /* copy safe prime p */
     if (decode_ssh_vector(&data, &datalen, ssh->s_gex_p, MAX_SSH_PAYLOAD_LEN) == failure) {
@@ -515,7 +515,7 @@ void ssh_parse_kex_dh_gex_group(struct ssh *ssh, const char *data, unsigned int 
 /*
  * from RFC 4432, Section 4
  */
-void ssh_parse_kexrsa_pubkey(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexrsa_pubkey(struct ssh *ssh, const char *data, unsigned int datalen) {
     const char *tmpptr;
     unsigned int tmplen;
 
@@ -538,7 +538,7 @@ void ssh_parse_kexrsa_pubkey(struct ssh *ssh, const char *data, unsigned int dat
     return;
 }
 
-void ssh_parse_kexrsa_secret(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexrsa_secret(struct ssh *ssh, const char *data, unsigned int datalen) {
 
     /* copy RSA-encrypted secret */
     if (decode_ssh_vector(&data, &datalen, ssh->c_kex, MAX_SSH_PAYLOAD_LEN) == failure) {
@@ -549,7 +549,7 @@ void ssh_parse_kexrsa_secret(struct ssh *ssh, const char *data, unsigned int dat
     return;
 }
 
-void ssh_parse_kexrsa_done(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexrsa_done(struct ssh *ssh, const char *data, unsigned int datalen) {
     const char *tmpptr;
     unsigned int tmplen;
 
@@ -578,7 +578,7 @@ void ssh_parse_kexrsa_done(struct ssh *ssh, const char *data, unsigned int datal
 #define SSH_MSG_KEX_DH_GEX_REPLY        33
 #define ssh_parse_kex_dh_gex_init ssh_parse_kexdh_init
 #define ssh_parse_kex_dh_gex_reply ssh_parse_kexdh_reply
-void ssh_gex_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_gex_kex(struct ssh *cli, struct ssh *srv) {
 
     if (cli->kex_msgs_len > 0 && (cli->kex_msgs[0].msg_code == SSH_MSG_KEX_DH_GEX_REQUEST_OLD
                 || cli->kex_msgs[0].msg_code == SSH_MSG_KEX_DH_GEX_REQUEST)) {
@@ -601,7 +601,7 @@ void ssh_gex_kex(struct ssh *cli, struct ssh *srv) {
  */
 #define SSH_MSG_KEXDH_INIT  30
 #define SSH_MSG_KEXDH_REPLY 31
-void ssh_dh_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_dh_kex(struct ssh *cli, struct ssh *srv) {
 
     if (cli->kex_msgs_len > 0 && cli->kex_msgs[0].msg_code == SSH_MSG_KEXDH_INIT) {
         ssh_parse_kexdh_init(cli, cli->kex_msgs[0].data->bytes, cli->kex_msgs[0].data->len);
@@ -622,12 +622,12 @@ void ssh_dh_kex(struct ssh *cli, struct ssh *srv) {
 #define SSH_MSG_KEXGSS_ERROR                      34
 #define SSH_MSG_KEXGSS_GROUPREQ                   40
 #define SSH_MSG_KEXGSS_GROUP                      41
-void ssh_gss_dh_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_gss_dh_kex(struct ssh *cli, struct ssh *srv) {
     /* TODO */
     return;
 }
 
-void ssh_gss_gex_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_gss_gex_kex(struct ssh *cli, struct ssh *srv) {
     /* TODO */
     return;
 }
@@ -638,7 +638,7 @@ void ssh_gss_gex_kex(struct ssh *cli, struct ssh *srv) {
 #define SSH_MSG_KEXRSA_PUBKEY  30
 #define SSH_MSG_KEXRSA_SECRET  31
 #define SSH_MSG_KEXRSA_DONE    32
-void ssh_rsa_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_rsa_kex(struct ssh *cli, struct ssh *srv) {
 
     if (srv->kex_msgs_len > 0 && srv->kex_msgs[0].msg_code == SSH_MSG_KEXRSA_PUBKEY) {
         ssh_parse_kexrsa_pubkey(srv, srv->kex_msgs[0].data->bytes, srv->kex_msgs[0].data->len);
@@ -655,7 +655,7 @@ void ssh_rsa_kex(struct ssh *cli, struct ssh *srv) {
 /*
  * from https://www.iana.org/assignments/ssh-parameters/ssh-parameters.xhtml
  */
-void ssh_process(struct ssh *cli, struct ssh *srv) {
+static void ssh_process(struct ssh *cli, struct ssh *srv) {
 
     if (cli == NULL || srv == NULL) {
         return;
@@ -736,7 +736,8 @@ void ssh_update(struct ssh *ssh,
     unsigned int length;
     unsigned int total_length;
     unsigned char msg_code;
-    void *tmpptr;
+    const char *data_ptr = (const char *)data;
+    char *tmpptr;
 
     if (len == 0) {
     return;        /* skip zero-length messages */
@@ -751,8 +752,8 @@ void ssh_update(struct ssh *ssh,
     }
 
     /* append application-layer data to buffer */
-    vector_append(ssh->buffer, data, len);
-    data = ssh->buffer->bytes;
+    vector_append(ssh->buffer, data_ptr, len);
+    data_ptr = ssh->buffer->bytes;
     len = ssh->buffer->len;
 
     if (ssh->role == role_unknown) {
@@ -764,19 +765,19 @@ void ssh_update(struct ssh *ssh,
          */
 
         /* skip to version message */
-        if ((tmpptr = strstr(data, "SSH-")) && len >= (tmpptr-data)+4) {
-            len -= (tmpptr-data);
-            data = tmpptr;
-            copy_printable_string(ssh->protocol, sizeof(ssh->protocol), data, len);
+        if ((tmpptr = strstr(data_ptr, "SSH-")) && len >= (tmpptr-data_ptr)+4) {
+            len -= (tmpptr-data_ptr);
+            data_ptr = tmpptr;
+            copy_printable_string(ssh->protocol, sizeof(ssh->protocol), data_ptr, len);
         } else {
             return;
         }
 
         /* skip past version message */
-        if ((tmpptr = strstr(data, "\n")) && len >= (tmpptr-data)+1) {
+        if ((tmpptr = strstr(data_ptr, "\n")) && len >= (tmpptr-data_ptr)+1) {
             tmpptr += 1; /* skip past the "\n" */
-            len -= (tmpptr-data);
-            data = tmpptr;
+            len -= (tmpptr-data_ptr);
+            data_ptr = tmpptr;
         } else {
             return;
         }
@@ -784,7 +785,7 @@ void ssh_update(struct ssh *ssh,
     }
 
     while(len > 0) { /* parse all SSH packets in buffer */
-        length = ssh_packet_parse(data, len, &msg_code, &total_length);
+        length = ssh_packet_parse(data_ptr, len, &msg_code, &total_length);
         if (length == 0 || total_length > len) {
             /* unable to parse SSH packet */
             break;
@@ -792,7 +793,7 @@ void ssh_update(struct ssh *ssh,
         switch (msg_code) {
         case SSH_MSG_KEXINIT:
 
-            ssh_parse_kexinit(ssh, (const char*)data + sizeof(struct ssh_packet), length);
+            ssh_parse_kexinit(ssh, data_ptr + sizeof(struct ssh_packet), length);
             break;
         case SSH_MSG_NEWKEYS:
 
@@ -804,7 +805,7 @@ void ssh_update(struct ssh *ssh,
             if (msg_code >= 30 && msg_code <= 49) {
                 if (ssh->kex_msgs_len < MAX_SSH_KEX_MESSAGES) {
                     ssh->kex_msgs[ssh->kex_msgs_len].msg_code = msg_code;
-                    vector_set(ssh->kex_msgs[ssh->kex_msgs_len].data, data + sizeof(struct ssh_packet), length);
+                    vector_set(ssh->kex_msgs[ssh->kex_msgs_len].data, data_ptr + sizeof(struct ssh_packet), length);
                     ssh->kex_msgs_len++;
                 }
             }
@@ -813,12 +814,12 @@ void ssh_update(struct ssh *ssh,
 
         /* skip to the next message in buffer */
         len -= total_length;
-        data += total_length;
+        data_ptr += total_length;
     }
 
     /* update or free buffer */
     if (len > 0) {
-        vector_set(ssh->buffer, data, len);
+        vector_set(ssh->buffer, data_ptr, len);
     } else {
         vector_free(ssh->buffer);
     }
@@ -835,11 +836,10 @@ void ssh_print_json(const struct ssh *x1, const struct ssh *x2, zfile f) {
         return;
     }
     if (x1->role == role_client) {
-#pragma GCC diagnostic ignored "-Wincompatible-pointer-types-discards-qualifiers"
-        cli = x1, srv = x2;
+        cli = (struct ssh*)x1;
+        srv = (struct ssh*)x2;
     } else { // x1->role == role_server
-#pragma GCC diagnostic ignored "-Wincompatible-pointer-types-discards-qualifiers"
-        srv = x1;
+        srv = (struct ssh*)x1;
     }
     ssh_process(cli, srv);
     zprintf(f, ",\"ssh\":{");
@@ -865,7 +865,7 @@ void ssh_print_json(const struct ssh *x1, const struct ssh *x2, zfile f) {
         }
         if (cli->c_kex->len > 0) {
         zprintf(f, ",\"c_kex\":");
-        zprintf_raw_as_hex(f, cli->c_kex->bytes, cli->c_kex->len);
+        zprintf_raw_as_hex(f, (unsigned char*)cli->c_kex->bytes, cli->c_kex->len);
         }
         zprintf(f, ",\"newkeys\":\"%s\"", cli->newkeys? "true": "false");
         zprintf(f, ",\"unencrypted\":%d", cli->unencrypted);
@@ -894,25 +894,25 @@ void ssh_print_json(const struct ssh *x1, const struct ssh *x2, zfile f) {
         if (srv->s_hostkey->len > 0) {
         ptr = vector_string(srv->s_hostkey_type); zprintf(f, ",\"s_hostkey_type\":\"%s\"", ptr); free(ptr);
         zprintf(f, ",\"s_hostkey\":");
-        zprintf_raw_as_hex(f, srv->s_hostkey->bytes, srv->s_hostkey->len);
+        zprintf_raw_as_hex(f, (unsigned char*)srv->s_hostkey->bytes, srv->s_hostkey->len);
         }
         if (srv->s_signature->len > 0) {
         ptr = vector_string(srv->s_signature_type); zprintf(f, ",\"s_signature_type\":\"%s\"", ptr); free(ptr);
         zprintf(f, ",\"s_signature\":");
-        zprintf_raw_as_hex(f, srv->s_signature->bytes, srv->s_signature->len);
+        zprintf_raw_as_hex(f, (unsigned char*)srv->s_signature->bytes, srv->s_signature->len);
         }
         if (srv->kex_algo != NULL) {
         zprintf(f, ",\"kex_algo\":\"%s\"", srv->kex_algo);
         }
         if (srv->s_kex->len > 0) {
         zprintf(f, ",\"s_kex\":");
-        zprintf_raw_as_hex(f, srv->s_kex->bytes, srv->s_kex->len);
+        zprintf_raw_as_hex(f, (unsigned char*)srv->s_kex->bytes, srv->s_kex->len);
         }
         if (srv->s_gex_p->len > 0 && srv->s_gex_g->len > 0) {
         zprintf(f, ",\"s_gex_p\":");
-        zprintf_raw_as_hex(f, srv->s_gex_p->bytes, srv->s_gex_p->len);
+        zprintf_raw_as_hex(f, (unsigned char*)srv->s_gex_p->bytes, srv->s_gex_p->len);
         zprintf(f, ",\"s_gex_g\":");
-        zprintf_raw_as_hex(f, srv->s_gex_g->bytes, srv->s_gex_g->len);
+        zprintf_raw_as_hex(f, (unsigned char*)srv->s_gex_g->bytes, srv->s_gex_g->len);
         }
         zprintf(f, ",\"newkeys\":\"%s\"", srv->newkeys? "true": "false");
         zprintf(f, ",\"unencrypted\":%d", srv->unencrypted);
@@ -1462,3 +1462,4 @@ void ssh_unit_test() {
     }
     fprintf(info, "******************************\n\n");
 }
+
