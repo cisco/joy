@@ -135,14 +135,15 @@ class DictStreamFilterIterator(DictStreamIterator):
 
 
 class DictStreamEnrichIterator(DictStreamIterator):
-    def __init__(self, source, name, function):
+    def __init__(self, source, name, function, **kwargs):
         self.source = source
         self.name = name
         self.function = function
+        self.kwargs = kwargs
 
     def next(self):
         nextval = self.source.next()
-        tmp = self.function(nextval)
+        tmp = self.function(nextval, self.kwargs)
         if tmp:
             nextval[self.name] = tmp
         return nextval

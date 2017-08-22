@@ -37,34 +37,34 @@
 
 import logging
 import argparse
-from pytests_joy.ipfix import main_ipfix
-from pytests_joy.tls import main_tls
+from obsidianbox import main_ipfix
+from obsidianbox import main_tls
 
 
-def modify_test_suite(suite, module_flag, module_func, wiped_flag):
+def modify_test_suite(suite, module_flag, module_func, wiped):
     """
     Change the list of test modules that will be run.
     :param suite: List of test modules
     :param module_flag: A flag corresponding to a single module, given through CLI
     :param module_func: The entry point function of the selected test module
-    :param wiped_flag: Flag indicating whether the suite list has been previously wiped.
+    :param wiped: Flag indicating whether the suite list has been previously wiped.
     :return:
     """
-    if module_flag == 'no':
+    if module_flag == 'off':
         # Exclude the specified module
         suite.remove(module_func)
-    elif module_flag == 'yes':
+    elif module_flag == 'on':
         # Only test the specified module
-        if wiped_flag is True:
+        if wiped is True:
             # The list is already a subset, append to it
             suite.append(module_func)
         else:
             # Create new subset list from scratch
             del suite[:]
             suite.append(module_func)
-            wiped_flag = True
+            wiped = True
 
-    return wiped_flag
+    return wiped
 
 
 if __name__ == "__main__":
@@ -82,12 +82,12 @@ if __name__ == "__main__":
                         help='Log messages to a file instead of the console (terminal).')
     parser.add_argument('--ipfix',
                         dest='flag_ipfix',
-                        choices=['yes', 'no'],
-                        help='yes to run ONLY ipfix module; no to exclude from test suite')
+                        choices=['on', 'off'],
+                        help='on to run ONLY ipfix module (includes others turned "on"); off to exclude')
     parser.add_argument('--tls',
                         dest='flag_tls',
-                        choices=['yes', 'no'],
-                        help='yes to run ONLY tls module; no to exclude from test suite')
+                        choices=['on', 'off'],
+                        help='on to run only tls module (includes others turned "on"); off to exclude')
     parser.add_argument('--tls-base-dir',
                         dest='tls_base_dir',
                         help='Specify the absolute path to directory where tls baseline files will reside.')
@@ -121,14 +121,14 @@ if __name__ == "__main__":
     log_file = None
     if args.log_file:
         logging.basicConfig(
-            filename='pytest-joy.log',
+            filename='obsidianbox.log',
             level=log_level,
-            format='%(asctime)s - {%(filename)s:%(lineno)d} - %(levelname)s - %(message)s',
+            format='%(levelname)s - %(asctime)s - {%(name)s:%(lineno)d} - %(message)s',
         )
     else:
         logging.basicConfig(
             level=log_level,
-            format='%(name)s: %(levelname)s %(message)s',
+            format='%(levelname)s - {%(name)s:%(lineno)d} - %(message)s',
         )
 
     logger = logging.getLogger(__name__)
@@ -146,19 +146,16 @@ if __name__ == "__main__":
     if args.flag_tls:
         wiped_flag = modify_test_suite(test_suite, args.flag_tls, main_tls, wiped_flag)
 
-    logger.warning('runtests start...')
-    logger.warning('~~~~~~~~~~~~~~~~~')
+    logger.warning('Joy Obsidianbox tests start...')
+    logger.warning('------------------------------')
 
     for test in test_suite:
         if test is main_tls:
             # Invoke with proper parameter values for TLS
-            rc_main = main_tls(args.tls_base_dir, args.tls_pcap_dir,
-                               args.tls_make_base, args.tls_base_generic)
+            main_tls(args.tls_base_dir, args.tls_pcap_dir,
+                     args.tls_make_base, args.tls_base_generic)
         else:
-            rc_main = test()
-        if rc_main != 0:
-            logger.warning('FAILED')
-            exit(rc_main)
+            test()
 
     logger.warning('SUCCESS')
     exit(0)

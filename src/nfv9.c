@@ -60,19 +60,13 @@
 #include "http.h"
 #include "tls.h"
 #include "config.h"
+#include "err.h"
 
 /*
  * External objects, defined in joy
  */
 extern struct configuration config;
 define_all_features_config_extern_uint(feature_list);
-
-/*
- * Local nfv9.c prototypes
- */
-static void nfv9_skip_idp_header(struct flow_record *nf_record,
-                                 const unsigned char **payload,
-                                 unsigned int *size_payload);
 
 struct nfv9_field_type nfv9_fields[] = {                                 
     { "RESERVED",                      0,   0  },                       
@@ -349,7 +343,7 @@ void nfv9_flow_key_init (struct flow_key *key,
  * size_payload - Handle for external unsigned integer
  *        that will store length of the payload data.
  */
-static void nfv9_skip_idp_header(struct flow_record *nf_record,
+static int nfv9_skip_idp_header(struct flow_record *nf_record,
                           const unsigned char **payload,
                           unsigned int *size_payload) {
     unsigned char proto = 0;
@@ -358,49 +352,66 @@ static void nfv9_skip_idp_header(struct flow_record *nf_record,
     const unsigned char *flow_data = nf_record->idp;
     unsigned int flow_len = nf_record->idp_len;
 
-    /* define/compute ip header offset */
+    /* Compute ip header offset */
     ip = (struct ip_hdr*)(flow_data);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         /*
          * FIXME Does not handle packets with all 0s.
          */
-        return;
+        joy_log_warn("invalid ip header of len %d", ip_hdr_len);
+        return 1;
     }
 
     if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
         /* IP packet is malformed (shorter than a complete IP header) */
-        return;
+        joy_log_warn("ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
+        return 1;
     }
 
     proto = (unsigned char)nf_record->key.prot;
 
-    if (proto == IPPROTO_TCP) {
+    if (proto == IPPROTO_ICMP) {
+        unsigned int icmp_hdr_len = 8;
+
+        if (icmp_hdr_len > (flow_len - ip_hdr_len)) {
+             joy_log_warn("not enough space in payload for icmp hdr");
+             return 1;
+        }
+        /* Compute icmp payload (segment) offset */
+        *payload = (unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
+
+        /* Compute icmp payload (segment) size */
+        *size_payload = flow_len - ip_hdr_len - icmp_hdr_len;
+    } else if (proto == IPPROTO_TCP) {
         unsigned int tcp_hdr_len;
         const struct tcp_hdr *tcp = (const struct tcp_hdr *)(flow_data + ip_hdr_len);
         tcp_hdr_len = tcp_hdr_length(tcp);
 
         if (tcp_hdr_len < 20 || tcp_hdr_len > (flow_len - ip_hdr_len)) {
-            /*
-             * TODO error log here
-             */
-            return;
+            joy_log_warn("invalid tcp hdr length"); 
+            return 1;
         }
 
-        /* define/compute tcp payload (segment) offset */
+        /* Compute tcp payload (segment) offset */
         *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
 
-        /* compute tcp payload (segment) size */
+        /* Compute tcp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - tcp_hdr_len;
     } else if (proto == IPPROTO_UDP) {
         unsigned int udp_hdr_len = 8;
 
-        /* define/compute udp payload (segment) offset */
+        /* Compute udp payload (segment) offset */
         *payload = (unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
 
-        /* compute udp payload (segment) size */
+        /* Compute udp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - udp_hdr_len;
+    } else {
+        joy_log_warn("transport protocol not supported");
+        return 1;
     }
+
+    return 0;
 }
 
 /**
@@ -531,7 +542,11 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
                 /* Get the start of IDP packet payload */
                 payload = NULL;
                 size_payload = 0;
-                nfv9_skip_idp_header(nf_record, &payload, &size_payload);
+                if (nfv9_skip_idp_header(nf_record, &payload, &size_payload)) {
+                    /* Error skipping idp header */
+                    flow_data += htons(cur_template->fields[i].FieldLength);
+                    break;
+                }
 
                 /* if packet has port 80 and nonzero data length, process it as HTTP */
                 if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {

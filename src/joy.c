@@ -67,7 +67,7 @@
 #include <limits.h>  
 #include <getopt.h>
 #include <unistd.h>   
-#include <pthread.h>    
+#include <pthread.h>
 
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* joy data structures       */
@@ -190,7 +190,7 @@ extern struct configuration config;
 struct intrface { 
     unsigned char name [INTFACENAMESIZE];
     unsigned char friendly_name[IFNAMSIZ];
-    unsigned char ip_addr[IFNAMSIZ];
+    unsigned char ip_addr[INET6_ADDRSTRLEN];
     unsigned char active;
 };
 
@@ -211,21 +211,25 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 	fprintf(info, "\nInterfaces\n");
 	fprintf(info, "==========\n");
 	for (d = alldevs; d; d = d->next) {
-		char ip_string[INET_ADDRSTRLEN];
+		char ip_string[INET6_ADDRSTRLEN];
 		pcap_addr_t *dev_addr = NULL; //interface address that used by pcap_findalldevs()
 
 		/* check if the device is suitable for live capture */
 		for (dev_addr = d->addresses; dev_addr != NULL; dev_addr = dev_addr->next) {
-			if (dev_addr->addr->sa_family == AF_INET && dev_addr->addr && dev_addr->netmask) {
-				inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
+                       if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
+                                memset(ip_string, 0x00, INET6_ADDRSTRLEN);
+                                if (dev_addr->addr->sa_family == AF_INET6) {
+                                        inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
+                                } else {
+                                        inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
+                                }
 				memset(&ifl[num_ifs], 0x00, sizeof(struct intrface));
 				snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
 				snprintf((char*)ifl[num_ifs].friendly_name, IFNAMSIZ, "intf%d", num_ifs);
-				snprintf((char*)ifl[num_ifs].ip_addr, IFNAMSIZ, "%s", (unsigned char*)ip_string);
+				snprintf((char*)ifl[num_ifs].ip_addr, INET6_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
 				ifl[num_ifs].active = IFF_UP;
 				fprintf(info, "Interface: %s\n", ifl[num_ifs].friendly_name);
 				fprintf(info, "  IP Address: %s\n", ifl[num_ifs].ip_addr);
-				fprintf(info, "  Status: UP\n\n");
 				++num_ifs;
 			}
 		}
@@ -371,7 +375,7 @@ static int usage (char *s) {
 int main (int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;		
-    char *filter_exp = "ip";	
+    char *filter_exp = "ip or vlan";	
     struct bpf_program fp;	
     int i;
     int c;
@@ -381,8 +385,6 @@ int main (int argc, char **argv) {
     unsigned int file_count = 0;
     char filename[MAX_FILENAME_LEN];   /* output file */
     char pcap_filename[MAX_FILENAME_LEN*2];   /* output file */
-    char *cli_interface = NULL; 
-    char *cli_filename = NULL; 
     char *config_file = NULL;
     struct intrface ifl[IFL_MAX];
     char *capture_if = NULL;
@@ -506,24 +508,6 @@ int main (int argc, char **argv) {
         }
     }
 
-    /*
-     * allow some command line variables to override the config file
-     */
-    if (cli_filename) {
-        /*
-         * output filename provided on command line supersedes that
-         * provided in the config file
-         */
-        config.filename = cli_filename;
-    } 
-    if (cli_interface) {
-        /*
-         * interface provided on command line supersedes that provided
-         * in the config file
-         */
-        config.intface = cli_interface;
-    }
-
     if (config.ipfix_collect_port && config.ipfix_export_port) {
         /*
          * Simultaneous IPFIX collection and exporting is not allowed
@@ -539,10 +523,6 @@ int main (int argc, char **argv) {
         fprintf(info, "error: must enable IPFIX collection via ipfix_collect_port "
                       "to use ipfix_collect_online\n");
         return -1;
-    }
-
-    if (config.filename) {
-        strncpy(filename, config.filename, MAX_FILENAME_LEN);
     }
 
     /*
@@ -732,14 +712,11 @@ int main (int argc, char **argv) {
       
         } else {    
             /* set output file based on command line or config file */
-      
-            if (cli_filename) {
-	               strncpy(filename, config.filename, MAX_FILENAME_LEN);
+
+            if (config.filename[0] == '/') {
+                strncpy(filename, config.filename, MAX_FILENAME_LEN);
             } else {
-	               char tmp_filename[MAX_FILENAME_LEN];
-	
-	               strncpy(tmp_filename, filename, MAX_FILENAME_LEN);
-	               snprintf(filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, tmp_filename);
+                snprintf(filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
             }
         }
         file_base_len = strlen(filename);
@@ -908,14 +885,8 @@ int main (int argc, char **argv) {
            }
 
            /* print out inactive flows */
-#ifdef WIN32
-		   DWORD t;
-		   t = timeGetTime();
-		   time_of_day.tv_sec = t / 1000;
-		   time_of_day.tv_usec = t % 1000;
-#else
-		   gettimeofday(&time_of_day, NULL);
-#endif
+	   gettimeofday(&time_of_day, NULL);
+
            timer_sub(&time_of_day, &time_window, &inactive_flow_cutoff);
 
            flow_record_list_print_json(&inactive_flow_cutoff);

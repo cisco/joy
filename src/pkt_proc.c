@@ -880,6 +880,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     //  static int packet_count = 1;
     struct flow_record *record;
     unsigned char proto = 0;
+    uint16_t ether_type = 0,vlan_ether_type = 0;
 
     /* declare pointers to packet headers */
     const struct ip_hdr *ip;
@@ -887,18 +888,41 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     unsigned int ip_hdr_len;
     const void *transport_start;
     struct flow_key key;
-
-	memset(&key, 0x00, sizeof(struct flow_key));
+    
+    memset(&key, 0x00, sizeof(struct flow_key));
 
     flocap_stats_incr_num_packets();
-    joy_log_info("\n++++++++++ Packet %lu ++++++++++", flocap_stats_get_num_packets());
+    joy_log_info("++++++++++ Packet %lu ++++++++++", flocap_stats_get_num_packets());
     //  packet_count++;
 
     // ethernet = (struct ethernet_hdr*)(packet);
-
-    /* define/compute ip header offset */
-    ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
-    ip_hdr_len = ip_hdr_length(ip);
+    ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
+    /* Support for both normal ethernet and 802.1q . Distinguish between 
+     * the two accepted types
+    */
+    switch(ether_type) {
+       case ETH_TYPE_IP:
+	   joy_log_info("Ethernet type - normal");
+           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
+           ip_hdr_len = ip_hdr_length(ip);
+           break;
+       case ETH_TYPE_DOT1Q:
+	   joy_log_info("Ethernet type - 802.1Q VLAN");
+           //Offset to get VLAN_TYPE
+           vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
+           switch(vlan_ether_type) {
+               case ETH_TYPE_IP:
+                   ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
+                   ip_hdr_len = ip_hdr_length(ip);
+                   break;
+               default :
+                   return;
+           }
+           break;
+       default:
+           return;
+    }  
+    
     if (ip_hdr_len < 20) {
         joy_log_err(" Invalid IP header length: %u bytes", ip_hdr_len);
         return;
