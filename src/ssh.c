@@ -46,10 +46,10 @@
 #include <stdint.h>     /* for uint32_t            */
 
 #ifdef WIN32
-#include "Ws2tcpip.h"
-#define strtok_r strtok_s
+# include "Ws2tcpip.h"
+# define strtok_r strtok_s
 #else
-#include <arpa/inet.h>  /* for ntohl()             */
+# include <arpa/inet.h>  /* for ntohl()             */
 #endif
 
 #include <string.h>     /* for memset()            */
@@ -70,9 +70,9 @@
  *
  */
 static void copy_printable_string(char *buf,
-			   unsigned int buflen,
-			   const char *data,
-			   unsigned int datalen) {
+                                  unsigned int buflen,
+                                  const char *data,
+                                  unsigned int datalen) {
     while (buflen-- && datalen--) {
         /* json constraints */
 	    if (!isprint(*data) || *data == '\"' || *data == '\\' || *data <= 0x1f) {
@@ -100,11 +100,8 @@ struct vector {
  *
  */
 static void vector_init(struct vector *vector) {
-
     vector->len = 0;
     vector->bytes = NULL;
-
-    return;
 }
 
 /*
@@ -115,13 +112,10 @@ static void vector_init(struct vector *vector) {
  *
  */
 static void vector_free(struct vector *vector) {
-
     if (vector->bytes != NULL) {
         free(vector->bytes);
     }
     vector_init(vector);
-
-    return;
 }
 
 /*
@@ -136,7 +130,9 @@ static void vector_free(struct vector *vector) {
  * \param len Length of the byte array to be copied.
  *
  */
-static void vector_set(struct vector *vector, const char *data, unsigned int len) {
+static void vector_set(struct vector *vector,
+                       const char *data,
+                       unsigned int len) {
     char *tmpptr = NULL;
 
     tmpptr = malloc(len);
@@ -147,8 +143,6 @@ static void vector_set(struct vector *vector, const char *data, unsigned int len
     vector_free(vector); /* does nothing if already empty */
     vector->bytes = tmpptr;
     vector->len = len;
-
-    return;
 }
 
 /*
@@ -161,7 +155,9 @@ static void vector_set(struct vector *vector, const char *data, unsigned int len
  * \param len Length of the byte array to be appended.
  *
  */
-static void vector_append(struct vector *vector, const char *data, unsigned int len) {
+static void vector_append(struct vector *vector,
+                          const char *data,
+                          unsigned int len) {
 
     vector->bytes = realloc(vector->bytes, vector->len + len);
     if (vector->bytes == NULL) {
@@ -169,8 +165,6 @@ static void vector_append(struct vector *vector, const char *data, unsigned int 
     }
     memcpy(vector->bytes + vector->len, data, len);
     vector->len += len;
-
-    return;
 }
 
 /*
@@ -267,7 +261,10 @@ struct ssh_packet {
 
 #endif
 
-static unsigned int ssh_packet_parse(const char *pkt, unsigned int datalen, unsigned char *msg_code, unsigned int *total_length) {
+static unsigned int ssh_packet_parse(const char *pkt,
+                                     unsigned int datalen,
+                                     unsigned char *msg_code,
+                                     unsigned int *total_length) {
     const struct ssh_packet *ssh_packet = (const struct ssh_packet *)pkt;
     uint32_t length;
 
@@ -297,25 +294,31 @@ static unsigned int decode_uint32(const char *data) {
     return ntohl(*x);
 }
 
-static enum status decode_ssh_vector(const char **dataptr, unsigned int *datalen, struct vector *vector, unsigned int maxlen) {
+static enum status decode_ssh_vector(const char **dataptr,
+                                     unsigned int *datalen,
+                                     struct vector *vector,
+                                     unsigned int maxlen) {
     const char *data = *dataptr;
     unsigned int length;
 
     if (*datalen < 4) {
-    fprintf(stderr, "ERROR: wanted %u, only have %u\n", 4, *datalen);
-    return failure;
+        fprintf(stderr, "ERROR: wanted %u, only have %u\n", 4, *datalen);
+        return failure;
     }
+
     length = decode_uint32(data);
     *datalen -= 4;
+
     if (length > *datalen) {
-    fprintf(stderr, "ERROR: wanted %u, only have %u\n", length, *datalen);
-    return failure;
+        fprintf(stderr, "ERROR: wanted %u, only have %u\n", length, *datalen);
+        return failure;
     }
+
     data += 4;
 
     /* robustness check */
     if (length > maxlen) {
-      return failure;
+        return failure;
     }
 
     vector_set(vector, data, length);
@@ -347,8 +350,9 @@ static enum status decode_ssh_vector(const char **dataptr, unsigned int *datalen
  *    uint32       0 (reserved for future extension)
  *
  */
-static void ssh_parse_kexinit(struct ssh *ssh, const char *data, unsigned int datalen) {
-
+static void ssh_parse_kexinit(struct ssh *ssh,
+                              const char *data,
+                              unsigned int datalen) {
     /* robustness check */
     if (ssh->kex_algos->len != 0) {
         return;
@@ -356,7 +360,7 @@ static void ssh_parse_kexinit(struct ssh *ssh, const char *data, unsigned int da
 
     /* copy the cookie  */
     if (datalen < 16) {
-    return;
+        return;
     }
     memcpy(ssh->cookie, data, 16);
     data += 16;
@@ -364,40 +368,39 @@ static void ssh_parse_kexinit(struct ssh *ssh, const char *data, unsigned int da
 
     /* copy all name-list strings */
     if (decode_ssh_vector(&data, &datalen, ssh->kex_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->s_host_key_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->c_encryption_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->s_encryption_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->c_mac_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->s_mac_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->c_comp_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->s_comp_algos, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->c_languages, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     if (decode_ssh_vector(&data, &datalen, ssh->s_languages, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
-
-    return;
 }
 
-static void ssh_get_kex_algo(struct ssh *cli, struct ssh *srv) {
+static void ssh_get_kex_algo(struct ssh *cli,
+                             struct ssh *srv) {
     char *cli_copy, *srv_copy;
     char *cli_algo, *srv_algo;
     char *cli_ptr, *srv_ptr;
@@ -418,9 +421,11 @@ static void ssh_get_kex_algo(struct ssh *cli, struct ssh *srv) {
         /* prevent increment in outer loop */
         if (found) break;
     }
+
     if (!found) {
         cli_algo = "";
     }
+
     len = strlen(cli_algo);
     cli->kex_algo = malloc(len+1);
     strncpy(cli->kex_algo, cli_algo, len+1); /* strncpy will null-terminate the string */
@@ -429,59 +434,62 @@ static void ssh_get_kex_algo(struct ssh *cli, struct ssh *srv) {
 
     free(cli_copy);
     free(srv_copy);
-    return;
 }
 
 /*
  * from RFC 4253, Section 8
  * decode e
  */
-static void ssh_parse_kexdh_init(struct ssh *ssh, const char *data, unsigned int datalen) {
-
+static void ssh_parse_kexdh_init(struct ssh *ssh,
+                                 const char *data,
+                                 unsigned int datalen) {
     /* copy client key exchange value */
     if (decode_ssh_vector(&data, &datalen, ssh->c_kex, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
 
     ssh->role = role_client;
-    return;
 }
 
-static void ssh_parse_kexdh_reply(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexdh_reply(struct ssh *ssh,
+                                  const char *data,
+                                  unsigned int datalen) {
     const char *tmpptr;
     unsigned int tmplen;
 
     /* copy server public host key and certificates (K_S) */
     if (decode_ssh_vector(&data, &datalen, ssh->s_hostkey, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
+
     /* copy host key type */
     tmpptr = ssh->s_hostkey->bytes;
     tmplen = ssh->s_hostkey->len;
     if (decode_ssh_vector(&tmpptr, &tmplen, ssh->s_hostkey_type, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     /* copy server key exchange value */
     if (decode_ssh_vector(&data, &datalen, ssh->s_kex, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
     /* copy signature */
     if (decode_ssh_vector(&data, &datalen, ssh->s_signature, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
+
     /* copy signature type */
     tmpptr = ssh->s_signature->bytes;
     tmplen = ssh->s_signature->len;
     if (decode_ssh_vector(&tmpptr, &tmplen, ssh->s_signature_type, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
 
     ssh->role = role_server;
-    return;
 }
 
-static void ssh_parse_kex_dh_gex_request(struct ssh *ssh, const char *data, unsigned int datalen) {
-
+static void ssh_parse_kex_dh_gex_request(struct ssh *ssh,
+                                         const char *data,
+                                         unsigned int datalen) {
     if (datalen < 4) {
         return;
     }
@@ -493,79 +501,79 @@ static void ssh_parse_kex_dh_gex_request(struct ssh *ssh, const char *data, unsi
         ssh->c_gex_n = decode_uint32(data+4);
         ssh->c_gex_max = decode_uint32(data+8);
     }
-
-    return;
 }
 
-static void ssh_parse_kex_dh_gex_group(struct ssh *ssh, const char *data, unsigned int datalen) {
-
+static void ssh_parse_kex_dh_gex_group(struct ssh *ssh,
+                                       const char *data,
+                                       unsigned int datalen) {
     /* copy safe prime p */
     if (decode_ssh_vector(&data, &datalen, ssh->s_gex_p, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
 
     /* copy generator g */
     if (decode_ssh_vector(&data, &datalen, ssh->s_gex_g, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
-
-    return;
 }
 
 /*
  * from RFC 4432, Section 4
  */
-static void ssh_parse_kexrsa_pubkey(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexrsa_pubkey(struct ssh *ssh,
+                                    const char *data,
+                                    unsigned int datalen) {
     const char *tmpptr;
     unsigned int tmplen;
 
     /* copy server public host key and certificates (K_S) */
     if (decode_ssh_vector(&data, &datalen, ssh->s_hostkey, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
+
     /* copy host key type */
     tmpptr = ssh->s_hostkey->bytes;
     tmplen = ssh->s_hostkey->len;
     if (decode_ssh_vector(&tmpptr, &tmplen, ssh->s_hostkey_type, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
     /* copy K_T, the transient RSA public key */
     if (decode_ssh_vector(&data, &datalen, ssh->s_kex, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
 
     ssh->role = role_server;
-    return;
 }
 
-static void ssh_parse_kexrsa_secret(struct ssh *ssh, const char *data, unsigned int datalen) {
-
+static void ssh_parse_kexrsa_secret(struct ssh *ssh,
+                                    const char *data,
+                                    unsigned int datalen) {
     /* copy RSA-encrypted secret */
     if (decode_ssh_vector(&data, &datalen, ssh->c_kex, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
 
     ssh->role = role_client;
-    return;
 }
 
-static void ssh_parse_kexrsa_done(struct ssh *ssh, const char *data, unsigned int datalen) {
+static void ssh_parse_kexrsa_done(struct ssh *ssh,
+                                  const char *data,
+                                  unsigned int datalen) {
     const char *tmpptr;
     unsigned int tmplen;
 
     /* copy signature */
     if (decode_ssh_vector(&data, &datalen, ssh->s_signature, MAX_SSH_PAYLOAD_LEN) == failure) {
-    return;
+        return;
     }
     /* copy signature type */
     tmpptr = ssh->s_signature->bytes;
     tmplen = ssh->s_signature->len;
     if (decode_ssh_vector(&tmpptr, &tmplen, ssh->s_signature_type, MAX_SSH_STRING_LEN) == failure) {
-    return;
+        return;
     }
 
     ssh->role = role_server;
-    return;
 }
 
 /*
@@ -578,7 +586,8 @@ static void ssh_parse_kexrsa_done(struct ssh *ssh, const char *data, unsigned in
 #define SSH_MSG_KEX_DH_GEX_REPLY        33
 #define ssh_parse_kex_dh_gex_init ssh_parse_kexdh_init
 #define ssh_parse_kex_dh_gex_reply ssh_parse_kexdh_reply
-static void ssh_gex_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_gex_kex(struct ssh *cli,
+                        struct ssh *srv) {
 
     if (cli->kex_msgs_len > 0 && (cli->kex_msgs[0].msg_code == SSH_MSG_KEX_DH_GEX_REQUEST_OLD
                 || cli->kex_msgs[0].msg_code == SSH_MSG_KEX_DH_GEX_REQUEST)) {
@@ -593,7 +602,6 @@ static void ssh_gex_kex(struct ssh *cli, struct ssh *srv) {
     if (srv->kex_msgs_len > 1 && srv->kex_msgs[1].msg_code == SSH_MSG_KEX_DH_GEX_REPLY) {
         ssh_parse_kex_dh_gex_reply(srv, srv->kex_msgs[1].data->bytes, srv->kex_msgs[1].data->len);
     }
-    return;
 }
 
 /*
@@ -601,7 +609,8 @@ static void ssh_gex_kex(struct ssh *cli, struct ssh *srv) {
  */
 #define SSH_MSG_KEXDH_INIT  30
 #define SSH_MSG_KEXDH_REPLY 31
-static void ssh_dh_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_dh_kex(struct ssh *cli,
+                       struct ssh *srv) {
 
     if (cli->kex_msgs_len > 0 && cli->kex_msgs[0].msg_code == SSH_MSG_KEXDH_INIT) {
         ssh_parse_kexdh_init(cli, cli->kex_msgs[0].data->bytes, cli->kex_msgs[0].data->len);
@@ -609,7 +618,6 @@ static void ssh_dh_kex(struct ssh *cli, struct ssh *srv) {
     if (srv->kex_msgs_len > 0 && srv->kex_msgs[0].msg_code == SSH_MSG_KEXDH_REPLY) {
         ssh_parse_kexdh_reply(srv, srv->kex_msgs[0].data->bytes, srv->kex_msgs[0].data->len);
     }
-    return;
 }
 
 /*
@@ -622,12 +630,14 @@ static void ssh_dh_kex(struct ssh *cli, struct ssh *srv) {
 #define SSH_MSG_KEXGSS_ERROR                      34
 #define SSH_MSG_KEXGSS_GROUPREQ                   40
 #define SSH_MSG_KEXGSS_GROUP                      41
-static void ssh_gss_dh_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_gss_dh_kex(struct ssh *cli,
+                           struct ssh *srv) {
     /* TODO */
     return;
 }
 
-static void ssh_gss_gex_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_gss_gex_kex(struct ssh *cli,
+                            struct ssh *srv) {
     /* TODO */
     return;
 }
@@ -638,7 +648,8 @@ static void ssh_gss_gex_kex(struct ssh *cli, struct ssh *srv) {
 #define SSH_MSG_KEXRSA_PUBKEY  30
 #define SSH_MSG_KEXRSA_SECRET  31
 #define SSH_MSG_KEXRSA_DONE    32
-static void ssh_rsa_kex(struct ssh *cli, struct ssh *srv) {
+static void ssh_rsa_kex(struct ssh *cli,
+                        struct ssh *srv) {
 
     if (srv->kex_msgs_len > 0 && srv->kex_msgs[0].msg_code == SSH_MSG_KEXRSA_PUBKEY) {
         ssh_parse_kexrsa_pubkey(srv, srv->kex_msgs[0].data->bytes, srv->kex_msgs[0].data->len);
@@ -649,13 +660,13 @@ static void ssh_rsa_kex(struct ssh *cli, struct ssh *srv) {
     if (srv->kex_msgs_len > 1 && srv->kex_msgs[1].msg_code == SSH_MSG_KEXRSA_DONE) {
         ssh_parse_kexrsa_done(srv, srv->kex_msgs[1].data->bytes, srv->kex_msgs[1].data->len);
     }
-    return;
 }
 
 /*
  * from https://www.iana.org/assignments/ssh-parameters/ssh-parameters.xhtml
  */
-static void ssh_process(struct ssh *cli, struct ssh *srv) {
+static void ssh_process(struct ssh *cli,
+                        struct ssh *srv) {
 
     if (cli == NULL || srv == NULL) {
         return;
@@ -828,10 +839,13 @@ void ssh_update(struct ssh *ssh,
 
 }
 
-void ssh_print_json(const struct ssh *x1, const struct ssh *x2, zfile f) {
+void ssh_print_json(const struct ssh *x1,
+                    const struct ssh *x2,
+                    zfile f) {
 
     struct ssh *cli = NULL, *srv = NULL;
     char *ptr;
+
     if (x1->role == role_unknown) {
         return;
     }
@@ -1408,6 +1422,7 @@ static int ssh_test_handshake() {
     ssh_update(&cli, NULL, c_kexinit, sizeof(c_kexinit), 1);
     ssh_update(&cli, NULL, c_dhkex, sizeof(c_dhkex), 1);
     ssh_update(&cli, NULL, c_newkeys, sizeof(c_newkeys), 1);
+
     ssh_init(&srv);
     ssh_update(&srv, NULL, s_protocol, sizeof(s_protocol), 1);
     ssh_update(&srv, NULL, s_kexinit, sizeof(s_kexinit), 1);
