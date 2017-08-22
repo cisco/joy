@@ -1,24 +1,24 @@
 /*
- *	
+ *
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -41,9 +41,9 @@
  *
  */
 #include <stdio.h>
-#include <pcap.h>  
-#include <ctype.h>  
-#include <string.h> 
+#include <pcap.h>
+#include <ctype.h>
+#include <string.h>
 #include <assert.h>
 #include "pkt_proc.h"
 #include "p2f.h"
@@ -60,6 +60,7 @@
 extern FILE *info;
 extern unsigned int num_pkt_len;
 extern unsigned int include_zeroes;
+extern unsigned int include_retrans;
 extern unsigned int report_idp;
 extern unsigned int report_hd;
 extern unsigned int nfv9_capture_port;
@@ -109,7 +110,7 @@ void print_hex_ascii_line (const char *data, int len, int offset) {
     const char *d;
     int i, j;
 
-    fprintf(info, "%05d   ", offset);	
+    fprintf(info, "%05d   ", offset);
     d = data;
     for(i = 0; i < len; i++) {
         fprintf(info, "%02x ", *d);
@@ -119,7 +120,7 @@ void print_hex_ascii_line (const char *data, int len, int offset) {
     }
     if (len < 8)
         fprintf(info, " ");
-	
+
     if (len < 16) {
         j = 16 - len;
         for (i = 0; i < j; i++) {
@@ -127,7 +128,7 @@ void print_hex_ascii_line (const char *data, int len, int offset) {
         }
     }
     fprintf(info, "   ");
-	
+
     d = data;
     for(i = 0; i < len; i++) {
         if (isprint(*d))
@@ -220,10 +221,10 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
             if (include_zeroes || length != 0) {
                 record->pkt_len[record->op] += length;
                 record->pkt_time[record->op] = *time;
-            } 
+            }
             if (ntohl(tcp->tcp_ack) > record->ack) {
 	              if (record->pkt_len[record->op] != 0) {
-	                  record->op++; 	  
+	                  record->op++;
 	              }
             }
             break;
@@ -255,7 +256,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
             if (include_zeroes || (length != 0)) {
                 record->pkt_len[record->op] = length;
                 record->pkt_time[record->op] = *time;
-                record->op++; 
+                record->op++;
             }
             break;
     }
@@ -264,7 +265,6 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
     record->seq = ntohl(tcp->tcp_seq);
     record->ack = ntohl(tcp->tcp_ack);
 }
-
 
 /*
  * @brief Process IPFIX message contents.
@@ -364,7 +364,6 @@ enum status process_ipfix(const char *start,
   return ok;
 }
 
-
 static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *start, int len, struct flow_record *r) {
     const struct nfv9_hdr *nfv9 = (const struct nfv9_hdr*)start;
     struct flow_key prev_key;
@@ -416,11 +415,11 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 	              template_ptr += 4;
 	              u_short template_id = htons(template_hdr->TemplateID);
 	              u_short field_count = htons(template_hdr->FieldCount);
-	
+
 	              struct nfv9_template_key nf_template_key;
                       memset(&nf_template_key, 0x0, sizeof(struct nfv9_template_key));
 	              nfv9_template_key_init(&nf_template_key, r->key.sa.s_addr, htonl(nfv9->SourceID), template_id);
-	
+
 	              // check to see if template already exists, if so, continue
 	              int i;
 	              int redundant_template = 0;
@@ -430,7 +429,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 	                      break ;
 	                  }
 	              }
-	
+
 	              if (redundant_template) {
 	                  template_ptr += 4*field_count;
 	                  flowset_length -= 4*field_count;
@@ -443,12 +442,12 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 	                      const struct nfv9_template_field *tmp_field = (const struct nfv9_template_field*)template_ptr;
 	                      template_ptr += 4;
 	                      flowset_length -= 4;
-	    
+
 	                      v9_template.fields[i].FieldType = tmp_field->FieldType;
 	                      v9_template.fields[i].FieldLength = tmp_field->FieldLength;
 	                  }
 	                  v9_template.template_key = nf_template_key;
-	  
+
 	                  // save template
 	                  v9_templates[num_templates] = v9_template;
 	                  num_templates += 1;
@@ -494,7 +493,7 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 
 	              // process multiple flow records within a single template
 	              int flow_records_in_set;
-	              for (flow_records_in_set = 0; flow_records_in_set < (htons(nfv9_fh->Length)-4)/flow_record_size; 
+	              for (flow_records_in_set = 0; flow_records_in_set < (htons(nfv9_fh->Length)-4)/flow_record_size;
                          flow_records_in_set++) {
 
 	                  // fill out key
@@ -506,8 +505,8 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 
 	                  // get a nf record
 	                  struct flow_record *nf_record = NULL;
-	                  nf_record = flow_key_get_record(&key, CREATE_RECORDS); 
-    
+	                  nf_record = flow_key_get_record(&key, CREATE_RECORDS);
+
 	                  // fill out record
 	                  if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
 	                      nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
@@ -542,7 +541,7 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
     struct flow_record *record = NULL;
     unsigned int cur_itr = 0;
-    
+
     joy_log_info("Protocol: TCP");
 
     tcp_hdr_len = tcp_hdr_length(tcp);
@@ -550,10 +549,10 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
         joy_log_err("Invalid TCP header length: %u bytes", tcp_hdr_len);
         return NULL;
     }
-    
+
     /* define/compute tcp payload (segment) offset */
     payload = (char *)(tcp_start + tcp_hdr_len);
-  
+
     /* compute tcp payload (segment) size */
     size_payload = tcp_len - tcp_hdr_len;
 
@@ -584,7 +583,7 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     key->sp = ntohs(tcp->src_port);
     key->dp = ntohs(tcp->dst_port);
 
-    record = flow_key_get_record(key, CREATE_RECORDS); 
+    record = flow_key_get_record(key, CREATE_RECORDS);
     if (record == NULL) {
         return NULL;
     }
@@ -596,7 +595,11 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
         if (ntohl(tcp->tcp_seq) < record->seq) {
             joy_log_debug("retransmission detected");
             record->retrans++;
-        } 
+            if (!include_retrans) {
+                // do not process TCP retransmissions
+                return NULL;
+            }
+        }
     }
     if (include_zeroes || size_payload > 0) {
           flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
@@ -642,19 +645,19 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
 	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
             } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 3) { // WSCALE
 	              record->tcp_option_wscale = (unsigned int)*(const unsigned char *)(tcp_start+offset+2);
-    
+
 	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
             } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 4) { // SACK
 	              record->tcp_option_sack = 1;
-    
+
 	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
             } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 8) { // TSTAMP
 	              record->tcp_option_tstamp = 1;
-    
+
 	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
             } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 34) { // TCP FAST OPEN
 	              record->tcp_option_fastopen = 1;
-    
+
 	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
             } else { // if all TCP options are being correctly parsed, this else should not be called
 	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
@@ -662,13 +665,13 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
         }
     }
 
-    record->ob += size_payload; 
+    record->ob += size_payload;
 
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
     update_all_features(payload_feature_list);
-    
+
     /* if packet has port 80 and nonzero data length, process it as HTTP */
     if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
         http_update(&record->http_data, payload, size_payload, config.http);
@@ -684,7 +687,6 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     return record;
 }
 
-
 static struct flow_record *
 process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_len, struct flow_key *key) {
     unsigned int udp_hdr_len;
@@ -692,7 +694,7 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
     unsigned int size_payload;
     const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
     struct flow_record *record = NULL;
-    
+
     joy_log_info("Protocol: UDP");
 
     udp_hdr_len = 8;
@@ -700,14 +702,14 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
         joy_log_err("Invalid UDP packet length: %u bytes", udp_len);
         return NULL;
     }
-  
-    payload = (char *)(udp_start + udp_hdr_len);  
+
+    payload = (char *)(udp_start + udp_hdr_len);
     size_payload = udp_len - udp_hdr_len;
 
     joy_log_info("Src port: %d", ntohs(udp->src_port));
     joy_log_info("Dst port: %d", ntohs(udp->dst_port));
     joy_log_info("Payload len: %d", size_payload);
-  
+
     /*
      * Print payload data; it might be binary, so don't just
      * treat it as a string.
@@ -720,11 +722,11 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
         }
     }
 #endif
-  
+
     key->sp = ntohs(udp->src_port);
     key->dp = ntohs(udp->dst_port);
-  
-    record = flow_key_get_record(key, CREATE_RECORDS); 
+
+    record = flow_key_get_record(key, CREATE_RECORDS);
     if (record == NULL) {
         return NULL;
     }
@@ -732,10 +734,10 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
-            record->op++; 
+            record->op++;
         }
     }
-    record->ob += size_payload; 
+    record->ob += size_payload;
 
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
@@ -753,7 +755,6 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
     return record;
 }
 
-
 static struct flow_record *
 process_icmp (const struct pcap_pkthdr *header, const char *start, int len, struct flow_key *key) {
     int size_icmp_hdr;
@@ -761,7 +762,7 @@ process_icmp (const struct pcap_pkthdr *header, const char *start, int len, stru
     int size_payload;
     const struct icmp_hdr *icmp = (const struct icmp_hdr *)start;
     struct flow_record *record = NULL;
-    
+
     joy_log_info("Protocol: ICMP");
 
     size_icmp_hdr = 8;
@@ -769,13 +770,13 @@ process_icmp (const struct pcap_pkthdr *header, const char *start, int len, stru
         joy_log_err("Invalid ICMP packet length: %u bytes", len);
         return NULL;
     }
-  
+
     joy_log_info("Type: %d", icmp->type);
     joy_log_info("Code: %d", icmp->code);
 
-    payload = (char *)(start + size_icmp_hdr);  
+    payload = (char *)(start + size_icmp_hdr);
     size_payload = len - size_icmp_hdr;
-  
+
     /*
      * Print payload data; it might be binary, so don't just
      * treat it as a string.
@@ -789,15 +790,15 @@ process_icmp (const struct pcap_pkthdr *header, const char *start, int len, stru
     }
 #endif
 
-    /* 
+    /*
      * signify ICMP by using sp = dp = 0 (which is an IANA-reserved
      * value); this key will be distinguished from the keys of TCP and
      * UDP flows by the key->prot value
      */
     key->sp = 0;
     key->dp = 0;
-    
-    record = flow_key_get_record(key, CREATE_RECORDS); 
+
+    record = flow_key_get_record(key, CREATE_RECORDS);
     if (record == NULL) {
         return NULL;
     }
@@ -805,31 +806,30 @@ process_icmp (const struct pcap_pkthdr *header, const char *start, int len, stru
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
-            record->op++; 
+            record->op++;
         }
     }
-    record->ob += size_payload; 
+    record->ob += size_payload;
 
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
     update_all_features(payload_feature_list);
-  
+
     return record;
 }
-
 
 static struct flow_record *
 process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, struct flow_key *key) {
     const char *payload;
     int size_payload;
     struct flow_record *record = NULL;
-    
+
     joy_log_info("Protocol: IP");
 
-    payload = (char *)(ip_start);  
+    payload = (char *)(ip_start);
     size_payload = ip_len;
-  
+
     /*
      * Print payload data; it might be binary, so don't just
      * treat it as a string.
@@ -842,11 +842,11 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
         }
     }
 #endif
-  
+
     /* signify IP by using zero (reserved) port values */
     key->sp = key->dp = 0;
-  
-    record = flow_key_get_record(key, CREATE_RECORDS); 
+
+    record = flow_key_get_record(key, CREATE_RECORDS);
     if (record == NULL) {
         return NULL;
     }
@@ -854,10 +854,10 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
         if (include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
-            record->op++; 
+            record->op++;
         }
     }
-    record->ob += size_payload; 
+    record->ob += size_payload;
 
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
@@ -868,7 +868,7 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
 }
 
 /**
- * \fn void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header, 
+ * \fn void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
                      const unsigned char *packet)
  * \param ignore currently unused
  * \param header pointer to the packer header structure
@@ -877,13 +877,13 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
  */
 void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
                      const unsigned char *packet) {
-    //  static int packet_count = 1;                   
+    //  static int packet_count = 1;
     struct flow_record *record;
     unsigned char proto = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0;
 
     /* declare pointers to packet headers */
-    const struct ip_hdr *ip;              
+    const struct ip_hdr *ip;
     unsigned int transport_len;
     unsigned int ip_hdr_len;
     const void *transport_start;
@@ -894,7 +894,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     flocap_stats_incr_num_packets();
     joy_log_info("++++++++++ Packet %lu ++++++++++", flocap_stats_get_num_packets());
     //  packet_count++;
-  
+
     // ethernet = (struct ethernet_hdr*)(packet);
     ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
     /* Support for both normal ethernet and 802.1q . Distinguish between 
@@ -928,7 +928,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         return;
     }
     if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > header->caplen) {
-        /* 
+        /*
          * IP packet is malformed (shorter than a complete IP header, or
          * claims to be longer than it is), or not entirely captured by
          * libpcap (which will depend on MTU and SNAPLEN; you can change
@@ -949,21 +949,21 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         /* fill out IP-specific fields of flow key, plus proto selector */
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
-        key.prot = ip->ip_prot;  
-        proto = (unsigned char)key.prot;  
+        key.prot = ip->ip_prot;
+        proto = (unsigned char)key.prot;
 
     }  else {
         // fprintf(info, "found IP fragment (offset: %02x)\n", ip_fragment_offset(ip));
 
         /*
-         * select IP processing, since we don't have a TCP or UDP header 
+         * select IP processing, since we don't have a TCP or UDP header
          */
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
         key.prot = IPPROTO_IP;
         proto = (unsigned char)key.prot;
-    }  
-    
+    }
+
     /* determine transport protocol and handle appropriately */
 
     transport_start = (char *)ip + ip_hdr_len;
@@ -979,7 +979,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
             break;
         case IPPROTO_ICMP:
             record = process_icmp(header, transport_start, transport_len, &key);
-            break;    
+            break;
         case IPPROTO_IP:
         default:
             record = process_ip(header, transport_start, transport_len, &key);
@@ -1007,21 +1007,21 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
 #else
         /*
          * if the processing of malformed packets causes trouble, choose
-         * this code path instead 
+         * this code path instead
          */
         return;
 #endif
     }
-  
+
     /*
      * set minimum ttl in flow record
      */
     if (record->ttl > ip->ip_ttl) {
-        record->ttl = ip->ip_ttl; 
+        record->ttl = ip->ip_ttl;
     }
 
     /* increment packet count in flow record */
-    record->np++; 
+    record->np++;
 
     /* update flow record timestamps */
     if (timerisset(&record->start)) {

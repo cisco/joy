@@ -5,10 +5,10 @@
 #
 # see the "usage" function for instructions
 #
-import os
 import platform
 import time
 import subprocess
+import glob
 
 #
 # Setup variables
@@ -16,14 +16,17 @@ import subprocess
 PLATFORM_OS = platform.system()
 BINDIR = "bin"
 DATA = "sample.pcap"
+if any(glob.iglob('resources/*.pcap')):
+    DATA += " resources/*.pcap"
 OUTPUT = ("joyTest-%s" % (time.time()))
 
 #
 # Setup test scenarios
 #
-test_parms = ['', 
+test_parms = ['',
               'bidir=1',
               'bidir=1 zeros=1',
+              'bidir=1 retrans=1',
               'bidir=1 dist=1',
               'bidir=1 entropy=1',
               'bidir=1 tls=1',
@@ -34,13 +37,14 @@ test_parms = ['',
               'bidir=1 label=intenral:internal.net',
               'bidir=1 classify=1',
               'bidir=1 wht=1',
+              'bidir=1 ssh=1',
               'bidir=1 dns=1',
               'bidir=1 bpf=tcp',
               'bidir=1 hd=1',
               'bidir=1 type=1']
 
 #
-# main function 
+# main function
 #
 if __name__=='__main__':
 
@@ -63,8 +67,7 @@ if __name__=='__main__':
      else:
          print("failed: joy internal failure (see file %s)" % (OUTPUT))
          exit()
-     
+
    print("Platform: %s - All Tests Passed!" % (PLATFORM_OS))
    clean_up_cmd = ("rm %s %s-2" % (OUTPUT,OUTPUT))
    subprocess.call(clean_up_cmd, shell=True)
-

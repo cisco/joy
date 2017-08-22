@@ -1,24 +1,24 @@
 /*
- *	
+ *
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -48,8 +48,8 @@
 #include "time.h"
 #endif
 
-#include <stdlib.h>   
-#include <pthread.h>   
+#include <stdlib.h>
+#include <pthread.h>
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* joy data structures       */
 #include "err.h"      /* error codes and error reporting */
@@ -67,7 +67,6 @@
 #include "ipfix.h" /* ipfix protocol */
 #include "err.h" /* errors and logging */
 
-
 /* local prototypes */
 static void flow_record_delete(struct flow_record *r);
 static void flow_record_print_and_delete(struct flow_record *record);
@@ -75,7 +74,6 @@ static void flow_record_print_and_delete(struct flow_record *record);
 #if 0
 static void flow_key_print(const struct flow_key *key);
 #endif
-
 
 static inline unsigned int flow_record_is_in_chrono_list (const struct flow_record *record) {
     return record->time_next || record->time_prev;
@@ -104,19 +102,18 @@ static inline unsigned int timer_lt (const struct timeval *a, const struct timev
  * \param result the result of the difference between the two time values
  * \return none
  */
-void timer_sub (const struct timeval *a, const struct timeval *b, struct timeval *result)  {  
-    result->tv_sec = a->tv_sec - b->tv_sec;        
-    result->tv_usec = a->tv_usec - b->tv_usec;     
-    if (result->tv_usec < 0) {                         
-        --result->tv_sec;                                
-        result->tv_usec += 1000000;                      
-    }                                                    
+void timer_sub (const struct timeval *a, const struct timeval *b, struct timeval *result)  {
+    result->tv_sec = a->tv_sec - b->tv_sec;
+    result->tv_usec = a->tv_usec - b->tv_usec;
+    if (result->tv_usec < 0) {
+        --result->tv_sec;
+        result->tv_usec += 1000000;
+    }
 }
 
-static inline void timer_clear (struct timeval *a) { 
-    a->tv_sec = a->tv_usec = 0; 
+static inline void timer_clear (struct timeval *a) {
+    a->tv_sec = a->tv_usec = 0;
 }
-
 
 /*
  * The VERSION variable should be set by a compiler directive, based
@@ -144,9 +141,7 @@ unsigned int num_pkt_len = NUM_PKT_LEN;
 
 #include "osdetect.h"
 
-
 /* START flow monitoring */
-
 
 static unsigned int timeval_to_milliseconds (struct timeval ts) {
     unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
@@ -158,7 +153,7 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 {
 	// Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
 	// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
-	// until 00:00:00 January 1, 1970 
+	// until 00:00:00 January 1, 1970
 	static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
 
 	SYSTEMTIME  system_time;
@@ -207,7 +202,7 @@ void flocap_stats_output (FILE *f) {
 #else
 	strftime(time_str, sizeof(time_str) - 1, "%a %b %d %H:%M:%S %Z %Y", localtime(&now.tv_sec));
 #endif
-    fprintf(f, "%s info: %lu packets, %lu active records, %lu records output, %lu alloc fails, %.4e bytes/sec, %.4e packets/sec, %.4e records/sec\n", 
+    fprintf(f, "%s info: %lu packets, %lu active records, %lu records output, %lu alloc fails, %.4e bytes/sec, %.4e packets/sec, %.4e records/sec\n",
 	      time_str, stats.num_packets, stats.num_records_in_table, stats.num_records_output, stats.malloc_fail, bps, pps, rps);
     fflush(f);
 
@@ -235,7 +230,6 @@ void flocap_stats_timer_init () {
     last_stats_output_time = now;
 }
 
-
 /* configuration state */
 
 define_all_features_config_uint(feature_list);
@@ -243,6 +237,8 @@ define_all_features_config_uint(feature_list);
 unsigned int bidir = 0;
 
 unsigned int include_zeroes = 0;
+
+unsigned int include_retrans = 0;
 
 unsigned int byte_distribution = 0;
 
@@ -283,14 +279,13 @@ unsigned int verbosity = 0;
 unsigned short compact_bd_mapping[16];
 
 /*
- * config is the global configuration 
+ * config is the global configuration
  */
 struct configuration config = { 0, };
 
-
 /*
  * by default, we use a 10-second flow inactivity timeout window
- * and a 30-second activity timeout; the active_timeout represents
+ * and a 20-second activity timeout; the active_timeout represents
  * the difference between those two times
  */
 #define T_WINDOW 10
@@ -308,7 +303,6 @@ int include_os = 1;
 #define expiration_type_active  'a'
 #define expiration_type_inactive 'i'
 
-
 #define flow_key_hash_mask 0x000fffff
 // #define flow_key_hash_mask 0xff
 
@@ -323,10 +317,10 @@ enum twins_match { exact = 0, near_match = 1 };
 static unsigned int flow_key_hash (const struct flow_key *f) {
 
     if (config.flow_key_match_method == exact) {
-          return (((unsigned int)f->sa.s_addr * 0xef6e15aa) 
-	    ^ ((unsigned int)f->da.s_addr * 0x65cd52a0) 
-	    ^ ((unsigned int)f->sp * 0x8216) 
-	    ^ ((unsigned int)f->dp * 0xdda37) 
+          return (((unsigned int)f->sa.s_addr * 0xef6e15aa)
+	    ^ ((unsigned int)f->da.s_addr * 0x65cd52a0)
+	    ^ ((unsigned int)f->sp * 0x8216)
+	    ^ ((unsigned int)f->dp * 0xdda37)
 	    ^ ((unsigned int)f->prot * 0xbc06)) & flow_key_hash_mask;
 
     } else {  /* flow_key_match_method == near_match */
@@ -336,8 +330,8 @@ static unsigned int flow_key_hash (const struct flow_key *f) {
          * This is done by omitting addresses and sorting the ports into
          * order before hashing.
          */
-        unsigned int hi, lo;  
-      
+        unsigned int hi, lo;
+
         if (f->sp > f->dp) {
             hi = f->sp;
             lo = f->dp;
@@ -345,8 +339,8 @@ static unsigned int flow_key_hash (const struct flow_key *f) {
             hi = f->dp;
             lo = f->sp;
         }
-    
-        return ((hi * 0x8216) ^ (lo * 0xdda37) 
+
+        return ((hi * 0x8216) ^ (lo * 0xdda37)
 	    ^ ((unsigned int)f->prot * 0xbc06)) & flow_key_hash_mask;
     }
 }
@@ -362,10 +356,10 @@ struct flow_record *flow_record_chrono_last = NULL;
  */
 void flow_record_list_init () {
     unsigned int i;
-  
+
     flow_record_chrono_first = flow_record_chrono_last = NULL;
     for (i=0; i<FLOW_RECORD_LIST_LEN; i++) {
-        flow_record_list_array[i] = NULL; 
+        flow_record_list_array[i] = NULL;
     }
 }
 
@@ -395,7 +389,6 @@ void flow_record_list_free () {
 
     // fprintf(output, "freed %u flow records\n", count);
 }
-
 
 static int flow_key_is_eq (const struct flow_key *a, const struct flow_key *b) {
     //return (memcmp(a, b, sizeof(struct flow_key)));
@@ -428,7 +421,7 @@ static int flow_key_is_twin (const struct flow_key *a, const struct flow_key *b)
     //   0: flow keys are equal
     //   1: flow keys are not equal
     if (config.flow_key_match_method == near_match) {
-        /* 
+        /*
          * Require that only one address match, so that we can find twins
          * even in the presence of NAT; that is, (sa, da) equals either
          * (*, sa) or (da, *).
@@ -436,7 +429,7 @@ static int flow_key_is_twin (const struct flow_key *a, const struct flow_key *b)
          * Note that this scheme works only with Network Address
          * Translation (NAT), and not Port Address Translation (PAT).  NAT
          * is commonly done with and without PAT.
-         */ 
+         */
         if (a->sa.s_addr != b->da.s_addr && a->da.s_addr != b->sa.s_addr) {
             return 1;
         }
@@ -478,12 +471,12 @@ static void flow_key_copy (struct flow_key *dst, const struct flow_key *src) {
 struct flow_record *flow_key_get_twin(const struct flow_key *key);
 
 /** flow record initialization routine */
-static void flow_record_init (/* @out@ */ struct flow_record *record, 
+static void flow_record_init (/* @out@ */ struct flow_record *record,
 		              /* @in@  */ const struct flow_key *key) {
 
     flocap_stats_incr_records_in_table();
- 
-    flow_key_copy(&record->key, key); 
+
+    flow_key_copy(&record->key, key);
     record->np = 0;
     record->op = 0;
     record->ob = 0;
@@ -536,7 +529,7 @@ static void flow_record_init (/* @out@ */ struct flow_record *record,
 #endif
 }
 
-static struct flow_record *flow_record_list_find_record_by_key (const flow_record_list *list, 
+static struct flow_record *flow_record_list_find_record_by_key (const flow_record_list *list,
     const struct flow_key *key) {
     struct flow_record *record = *list;
 
@@ -548,11 +541,11 @@ static struct flow_record *flow_record_list_find_record_by_key (const flow_recor
         }
         record = record->next;
     }
-    debug_printf("LIST (head location: %p) did not find record\n", list);  
+    debug_printf("LIST (head location: %p) did not find record\n", list);
     return NULL;
 }
 
-static struct flow_record *flow_record_list_find_twin_by_key (const flow_record_list *list, 
+static struct flow_record *flow_record_list_find_twin_by_key (const flow_record_list *list,
     const struct flow_key *key) {
     struct flow_record *record = *list;
 
@@ -564,7 +557,7 @@ static struct flow_record *flow_record_list_find_twin_by_key (const flow_record_
         }
         record = record->next;
     }
-    debug_printf("LIST (head location: %p) did not find record\n", list);  
+    debug_printf("LIST (head location: %p) did not find record\n", list);
     return NULL;
 }
 
@@ -580,19 +573,18 @@ static void flow_record_list_prepend (flow_record_list *head, struct flow_record
         record->next = tmp;
     }
     *head = record;
-    debug_printf("LIST (head location %p) head set to %p (prev: %p, next: %p)\n", 
-	         head, *head, record->prev, record->next); 
+    debug_printf("LIST (head location %p) head set to %p (prev: %p, next: %p)\n",
+	         head, *head, record->prev, record->next);
 }
 
-
 static unsigned int flow_record_list_remove (flow_record_list *head, struct flow_record *r) {
-  
+
     if (r == NULL) {
         return 1;    /* don't process NULL pointers; probably an error to get here */
     }
 
-    debug_printf("LIST (head location %p) removing record at %p (prev: %p, next: %p)\n", 
-	           head, r, r->prev, r->next); 
+    debug_printf("LIST (head location %p) removing record at %p (prev: %p, next: %p)\n",
+	           head, r, r->prev, r->next);
 
     if (r->prev == NULL) {
         /*
@@ -605,26 +597,26 @@ static unsigned int flow_record_list_remove (flow_record_list *head, struct flow
         }
         *head = r->next;
         if (*head != NULL) {
-            /* 
+            /*
              * the list is not empty, so we need to set the prev pointer in
-             * the first record to indicate that it is the head of the list 
+             * the first record to indicate that it is the head of the list
              */
-          (*head)->prev = NULL;  
+          (*head)->prev = NULL;
         }
     } else {
-        /* 
+        /*
          * r needs to be stitched out of its flow_record_list, by setting
          * its previous entry to point to its next entry
          */
         r->prev->next = r->next;
-        debug_printf("LIST (head location %p) now prev->next: %p\n", head, r->prev->next); 
+        debug_printf("LIST (head location %p) now prev->next: %p\n", head, r->prev->next);
         if (r->next != NULL) {
             /*
              * the next entry's previous pointer must be made to point to
-             * the previous entry 
+             * the previous entry
              */
             r->next->prev = r->prev;
-            debug_printf("LIST (head location %p) now next->prev: %p\n", head, r->next->prev); 
+            debug_printf("LIST (head location %p) now next->prev: %p\n", head, r->next->prev);
         }
     }
 
@@ -710,7 +702,7 @@ void flow_record_list_unit_test () {
     } else {
       printf("error: did not find a\n");
     }
-  
+
 }
 
 static void flow_record_chrono_list_append (struct flow_record *record) {
@@ -741,10 +733,10 @@ static void flow_record_chrono_list_remove (struct flow_record *record) {
 
     if (record == flow_record_chrono_first) {
         flow_record_chrono_first = record->time_next;
-    } 
+    }
     if (record == flow_record_chrono_last) {
         flow_record_chrono_last = record->time_prev;
-    } 
+    }
 
     if (record->time_prev != NULL) {
         record->time_prev->time_next = record->time_next;
@@ -763,7 +755,7 @@ static struct flow_record *flow_record_chrono_list_get_first () {
  * of the flow record is greater than active_max, and returns 0 otherwise
  */
 static unsigned int flow_record_is_past_active_expiration (const struct flow_record *record) {
-    if (record->end.tv_sec > (record->start.tv_sec + active_max)) { 
+    if (record->end.tv_sec > (record->start.tv_sec + active_max)) {
         if ((record->twin == NULL) || (record->end.tv_sec > (record->twin->start.tv_sec + active_max))) {
             return 1;
         }
@@ -772,14 +764,14 @@ static unsigned int flow_record_is_past_active_expiration (const struct flow_rec
 }
 
 /**
- * \fn struct flow_record *flow_key_get_record (const struct flow_key *key,       
+ * \fn struct flow_record *flow_key_get_record (const struct flow_key *key,
     unsigned int create_new_records)
  * \param key
  * \param create_new_records
  * \return pointer to the flow record structure
- * \return NULL if expired or could not create or retireve record
+ * \return NULL if expired or could not create or retrieve record
  */
-struct flow_record *flow_key_get_record (const struct flow_key *key, 
+struct flow_record *flow_key_get_record (const struct flow_key *key,
     unsigned int create_new_records) {
     struct flow_record *record;
     unsigned int hash_key;
@@ -789,7 +781,7 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
     record = flow_record_list_find_record_by_key(&flow_record_list_array[hash_key], key);
     if (record != NULL) {
         if (create_new_records && flow_record_is_in_chrono_list(record) && flow_record_is_past_active_expiration(record)) {
-            /* 
+            /*
              *  active-timeout exceeded for this flow_record; print and delete
              *  it, then set record = NULL to cause the creation of a new
              *  flow_record to be used in further packet processing
@@ -803,24 +795,24 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
     }
 
     /* if we get here, then record == NULL  */
-  
+
     if (create_new_records) {
 
-        /* allocate and initialize a new flow record */    
+        /* allocate and initialize a new flow record */
         record = malloc(sizeof(struct flow_record));
         debug_printf("LIST record %p allocated\n", record);
-    
+
         if (record == NULL) {
             fprintf(info, "warning: could not allocate memory for flow_record\n");
             flocap_stats_incr_malloc_fail();
             return NULL;
         }
-    
+
         flow_record_init(record, key);
-    
+
         /* enter record into flow_record_list */
         flow_record_list_prepend(&flow_record_list_array[hash_key], record);
-        
+
         /*
          * if we are tracking bidirectional flows, and if record has a
          * twin, then set both twin pointers; otherwise, enter the
@@ -829,30 +821,30 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
         if (bidir) {
             record->twin = flow_key_get_twin(key);
             debug_printf("LIST record %p is twin of %p\n", record, record->twin);
-        } 
+        }
         if (record->twin != NULL) {
             if (record->twin->twin != NULL) {
 	        fprintf(info, "warning: found twin that already has a twin; not setting twin pointer\n");
 	        debug_printf("\trecord:    (hash key %x)(addr: %p)\n", flow_key_hash(&record->key), record);
 	        debug_printf("\ttwin:      (hash key %x)(addr: %p)\n", flow_key_hash(&record->twin->key), &record->twin);
 	        debug_printf("\ttwin twin: (hash key %x)(addr: %p)\n", flow_key_hash(&record->twin->twin->key), &record->twin->key);
-	        /* 
+	        /*
 	         * experimental - consider this record an orphan, add it to chrono list, but without its twin pointer set
 	         */
 	        record->twin = NULL;
-	        flow_record_chrono_list_append(record);      
+	        flow_record_chrono_list_append(record);
             } else {
 	        record->twin->twin = record;
             }
         } else {
-      
+
             /* this flow has no twin, so add it to chronological list */
-            flow_record_chrono_list_append(record);      
+            flow_record_chrono_list_append(record);
         }
-    } 
-  
+    }
+
     return record;
-} 
+}
 
 static void flow_record_delete (struct flow_record *r) {
 
@@ -923,7 +915,7 @@ int flow_key_set_exe_name (const struct flow_key *key, const char *name) {
 void flow_record_update_byte_count (struct flow_record *f, const void *x, unsigned int len) {
     const unsigned char *data = x;
     int i;
-  
+
     if (byte_distribution || report_entropy) {
         for (i=0; i<len; i++) {
             f->byte_count[data[i]]++;
@@ -932,7 +924,7 @@ void flow_record_update_byte_count (struct flow_record *f, const void *x, unsign
 
     /*
      * implementation note: overflow might occur in the byte_count
-     * array; if the integer type for that array is small, then we 
+     * array; if the integer type for that array is small, then we
      * should check for overflow and rebalance the array as needed
      */
 
@@ -983,7 +975,7 @@ void flow_record_update_byte_dist_mean_var (struct flow_record *f, const void *x
 #include <math.h>
 #include <float.h>   /* for FLT_EPSILON */
 
-static float flow_record_get_byte_count_entropy (const unsigned int byte_count[256], 
+static float flow_record_get_byte_count_entropy (const unsigned int byte_count[256],
     unsigned int num_bytes) {
     int i;
     float tmp, sum = 0.0;
@@ -1043,7 +1035,7 @@ static void flow_record_print (const struct flow_record *record) {
     zprintf(output, "\tpr: %u\n", record->key.prot);
     zprintf(output, "\tob: %u\n", record->ob);
     zprintf(output, "\top: %u\n", record->np);  /* not just packets with data */
-    zprintf(output, "\tttl: %u\n", record->ttl);  
+    zprintf(output, "\tttl: %u\n", record->ttl);
     zprintf(output, "\tpkt_len: [ ");
     imax = record->op > num_pkt_len ? num_pkt_len : record->op;
     if (imax != 0) {
@@ -1073,7 +1065,7 @@ static void flow_record_print (const struct flow_record *record) {
     }
     if (report_entropy) {
         if (record->ob != 0) {
-            zprintf(output, "\tbe: %f\n", 
+            zprintf(output, "\tbe: %f\n",
                flow_record_get_byte_count_entropy(record->byte_count, record->ob));
         }
     }
@@ -1082,19 +1074,19 @@ static void flow_record_print (const struct flow_record *record) {
 
 static void print_bytes_dir_time (unsigned short int pkt_len, char *dir, struct timeval ts, char *term) {
     if (pkt_len < 32768) {
-        zprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u}%s", 
+        zprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
 	            pkt_len, dir, timeval_to_milliseconds(ts), term);
     } else {
-        zprintf(output, "{\"rep\":%u,\"dir\":\"%s\",\"ipt\":%u}%s", 
-	            65536-pkt_len, dir, timeval_to_milliseconds(ts), term);    
+        zprintf(output, "{\"rep\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
+	            65536-pkt_len, dir, timeval_to_milliseconds(ts), term);
     }
 }
 
 #if 0
-static void print_bytes_dir_time_type (unsigned short int pkt_len, 
+static void print_bytes_dir_time_type (unsigned short int pkt_len,
     char *dir, struct timeval ts, struct tls_type_code type, char *term) {
 
-    zprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:%u\"}%s", 
+    zprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:%u\"}%s",
 	        pkt_len, dir, timeval_to_milliseconds(ts), type.content, type.handshake, term);
 }
 #endif
@@ -1105,7 +1097,7 @@ static void print_bytes_dir_time_type (unsigned short int pkt_len,
 #if 0
 static void len_time_print_interleaved (unsigned int op, const unsigned short *len,
     const struct timeval *time, const struct tls_type_code *type,
-    unsigned int op2, const unsigned short *len2, 
+    unsigned int op2, const unsigned short *len2,
     const struct timeval *time2, const struct tls_type_code *type2) {
 
     unsigned int i, j, imax, jmax;
@@ -1117,11 +1109,11 @@ static void len_time_print_interleaved (unsigned int op, const unsigned short *l
     //  zprintf(output, ",\n\t\t\t\"tls\": [\n");
 
     if (len2 == NULL) {
-    
+
         ts_start = *time;
 
         imax = op > num_pkt_len ? num_pkt_len : op;
-        if (imax == 0) { 
+        if (imax == 0) {
             ; /* no packets had data, so we print out nothing */
         } else {
             for (i = 0; i < imax-1; i++) {
@@ -1131,19 +1123,19 @@ static void len_time_print_interleaved (unsigned int op, const unsigned short *l
 	                  timer_clear(&ts);
 	              }
 	              print_bytes_dir_time_type(len[i], OUT, ts, type[i], ",");
-	              // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u },\n", 
+	              // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u },\n",
 	              //    len[i], timeval_to_milliseconds(ts));
             }
-            if (i == 0) {        /* this code could be simplified */ 	
-	              timer_clear(&ts);  
+            if (i == 0) {        /* this code could be simplified */
+	              timer_clear(&ts);
             } else {
 	              timer_sub(&time[i], &time[i-1], &ts);
             }
             print_bytes_dir_time_type(len[i], OUT, ts, type[i], "");
-            // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u }\n", 
+            // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u }\n",
             //    len[i], timeval_to_milliseconds(ts));
         }
-        //    zprintf(output, "\t\t\t]"); 
+        //    zprintf(output, "\t\t\t]");
     } else {
 
         if (timer_lt(time, time2)) {
@@ -1156,7 +1148,7 @@ static void len_time_print_interleaved (unsigned int op, const unsigned short *l
         jmax = op2 > num_pkt_len ? num_pkt_len : op2;
         i = j = 0;
         ts_last = ts_start;
-        while ((i < imax) || (j < jmax)) {      
+        while ((i < imax) || (j < jmax)) {
 
             if (i >= imax) {  /* record list is exhausted, so use twin */
 	              dir = OUT;
@@ -1170,7 +1162,7 @@ static void len_time_print_interleaved (unsigned int op, const unsigned short *l
 	              pkt_len = len[i];
 	              typecode = type[i];
 	              i++;
-          } else { /* neither list is exhausted, so use list with lowest time */     
+          } else { /* neither list is exhausted, so use list with lowest time */
 
 	            if (timer_lt(&time[i], &time2[j])) {
 	                ts = time[i];
@@ -1192,7 +1184,7 @@ static void len_time_print_interleaved (unsigned int op, const unsigned short *l
           }
           // zprintf(output, "i: %d\tj: %d\timax: %d\t jmax: %d", i, j, imax, jmax);
           timer_sub(&ts, &ts_last, &tmp);
-          //      zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \"%s\", \"ipt\": %u }", 
+          //      zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \"%s\", \"ipt\": %u }",
           //     pkt_len, dir, timeval_to_milliseconds(tmp));
           print_bytes_dir_time_type(pkt_len, dir, tmp, typecode, "");
           ts_last = ts;
@@ -1209,14 +1201,14 @@ static void len_time_print_interleaved (unsigned int op, const unsigned short *l
  * \fn void zprintf_raw_as_hex (zfile f, const void *data, unsigned int len)
  * \brief print out raw values as hex to the output file
  * \param f output file
- * \param data the data to print out 
+ * \param data the data to print out
  * \param len length of the data to print
  * \return none
  */
 void zprintf_raw_as_hex (zfile f, const unsigned char *data, unsigned int len) {
     const unsigned char *x = data;
     const unsigned char *end = data + len;
-  
+
     zprintf(f, "\"");   /* quotes needed for JSON */
     while (x < end) {
         zprintf(f, "%02x", *x++);
@@ -1258,7 +1250,7 @@ static void flow_record_print_json (const struct flow_record *record) {
     //if (records_in_file != 0) {
     //    zprintf(output, ",\n");
     //}
- 
+
     flocap_stats_incr_records_output();
     records_in_file++;
 
@@ -1302,7 +1294,7 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, "\"dp\":%u,", rec->key.dp);
     }
 
-    /* 
+    /*
      * if src or dst address matches a subnets associated with labels,
      * then print out those labels
      */
@@ -1424,9 +1416,9 @@ static void flow_record_print_json (const struct flow_record *record) {
     zprintf(output, "\"packets\":[");
 
     if (rec->twin == NULL) {
-    
+
         imax = rec->op > num_pkt_len ? num_pkt_len : rec->op;
-        if (imax == 0) { 
+        if (imax == 0) {
             ; /* no packets had data, so we print out nothing */
         } else {
             for (i = 0; i < imax-1; i++) {
@@ -1436,26 +1428,26 @@ static void flow_record_print_json (const struct flow_record *record) {
 	                  timer_clear(&ts);
 	              }
 	              print_bytes_dir_time(rec->pkt_len[i], OUT, ts, ",");
-	              // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u },\n", 
+	              // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u },\n",
 	              //    record->pkt_len[i], timeval_to_milliseconds(ts));
             }
-            if (i == 0) {        /* this code could be simplified */ 	
-	              timer_clear(&ts);  
+            if (i == 0) {        /* this code could be simplified */
+	              timer_clear(&ts);
             } else {
 	              timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
             }
             print_bytes_dir_time(rec->pkt_len[i], OUT, ts, "");
-            // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u }\n", 
+            // zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \">\", \"ipt\": %u }\n",
             //    record->pkt_len[i], timeval_to_milliseconds(ts));
         }
-        zprintf(output, "]"); 
+        zprintf(output, "]");
     } else {
 
         imax = rec->op > num_pkt_len ? num_pkt_len : rec->op;
         jmax = rec->twin->op > num_pkt_len ? num_pkt_len : rec->twin->op;
         i = j = 0;
         ts_last = ts_start;
-        while ((i < imax) || (j < jmax)) {      
+        while ((i < imax) || (j < jmax)) {
 
             if (i >= imax) {  /* record list is exhausted, so use twin */
 	              dir = OUT;
@@ -1467,7 +1459,7 @@ static void flow_record_print_json (const struct flow_record *record) {
 	              ts = rec->pkt_time[i];
 	              pkt_len = rec->pkt_len[i];
 	              i++;
-            } else { /* neither list is exhausted, so use list with lowest time */     
+            } else { /* neither list is exhausted, so use list with lowest time */
 
 	              if (timer_lt(&rec->pkt_time[i], &rec->twin->pkt_time[j])) {
 	                    ts = rec->pkt_time[i];
@@ -1487,7 +1479,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             }
             // zprintf(output, "i: %d\tj: %d\timax: %d\t jmax: %d", i, j, imax, jmax);
             timer_sub(&ts, &ts_last, &tmp);
-            //      zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \"%s\", \"ipt\": %u }", 
+            //      zprintf(output, "\t\t\t\t{ \"b\": %u, \"dir\": \"%s\", \"ipt\": %u }",
             //     pkt_len, dir, timeval_to_milliseconds(tmp));
             print_bytes_dir_time(pkt_len, dir, tmp, "");
             ts_last = ts;
@@ -1495,7 +1487,7 @@ static void flow_record_print_json (const struct flow_record *record) {
 	              zprintf(output, ",");
             }
             /*if ((i == imax) & (j == jmax)) {
-      	        zprintf(output, ""); 
+      	        zprintf(output, "");
             } else {
 	              zprintf(output, ",");
             }*/
@@ -1512,7 +1504,7 @@ static void flow_record_print_json (const struct flow_record *record) {
         unsigned int num_bytes;
         double mean = 0.0, variance = 0.0;
 
-        /* 
+        /*
          * sum up the byte_count array for outbound and inbound flows, if
          * this flow is bidirectional
          */
@@ -1559,7 +1551,7 @@ static void flow_record_print_json (const struct flow_record *record) {
 	              }
             }
         }
-    
+
         if (byte_distribution) {
             reduce_bd_bits(tmp, 256);
             array = tmp;
@@ -1567,7 +1559,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             zprintf(output, ",\"bd\":[");
             for (i = 0; i < 255; i++) {
 	              //if ((i % 16) == 0) {
-	              //  zprintf(output, "");	    
+	              //  zprintf(output, "");
 	              //}
 	              zprintf(output, "%u,", (unsigned char)array[i]);
             }
@@ -1588,7 +1580,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             zprintf(output, ",\"compact_bd\":[");
             for (i = 0; i < 15; i++) {
 	              //if ((i % 16) == 0) {
-	              //  zprintf(output, "");	    
+	              //  zprintf(output, "");
 	              //}
 	              zprintf(output, "%u,", (unsigned char)compact_array[i]);
             }
@@ -1598,7 +1590,7 @@ static void flow_record_print_json (const struct flow_record *record) {
         if (report_entropy) {
             if (num_bytes != 0) {
 	              double entropy = flow_record_get_byte_count_entropy(array, num_bytes);
-	
+
 	              zprintf(output, ",\"be\":%f", entropy);
 	              zprintf(output, ",\"tbe\":%f", entropy * num_bytes);
             }
@@ -1608,7 +1600,7 @@ static void flow_record_print_json (const struct flow_record *record) {
     // inline classification of flows
     if (include_classifier) {
         float score = 0.0;
-    
+
         if (rec->twin) {
             score = classify(rec->pkt_len, rec->pkt_time, rec->twin->pkt_len, rec->twin->pkt_time,
 		                     rec->start, rec->twin->start,
@@ -1636,7 +1628,7 @@ static void flow_record_print_json (const struct flow_record *record) {
         header_description_printf(&rec->hd, output, report_hd);
     }
 
-    if (include_os) { 
+    if (include_os) {
 
         if (rec->twin) {
             os_printf(output, rec->ttl, rec->tcp_initial_window_size, rec->twin->ttl, rec->twin->tcp_initial_window_size);
@@ -1660,7 +1652,7 @@ static void flow_record_print_json (const struct flow_record *record) {
 
     if (config.http) {
         http_printf(&rec->http_data, "ohttp", output);
-        if (rec->twin) { 
+        if (rec->twin) {
             http_printf(&rec->twin->http_data, "ihttp", output);
         }
     }
@@ -1682,10 +1674,10 @@ static void flow_record_print_json (const struct flow_record *record) {
         dns_print_json(&rec->dns, rec->twin ? &rec->twin->dns : NULL, output);
 
     }
-  
-    { 
+
+    {
         unsigned int retrans, invalid;
-    
+
         retrans = rec->retrans;
         invalid = rec->invalid;
         if (rec->twin) {
@@ -1713,14 +1705,14 @@ static void flow_record_print_json (const struct flow_record *record) {
 }
 
 #if 0
-static void flow_record_print_time_to_expiration (const struct flow_record *r, 
+static void flow_record_print_time_to_expiration (const struct flow_record *r,
     const struct timeval *inactive_cutoff) {
     struct timeval tte_active, tte_inactive, active_expiration;
 
     timer_sub(&r->end, inactive_cutoff, &tte_inactive);
     timer_sub(inactive_cutoff, &active_timeout, &active_expiration);
-    timer_sub(&r->start, &active_expiration, &tte_active); 
-    fprintf(info, "seconds to expiration - active: %f inactive %f\n", 
+    timer_sub(&r->start, &active_expiration, &tte_active);
+    fprintf(info, "seconds to expiration - active: %f inactive %f\n",
 	        ((float) timeval_to_milliseconds(tte_active)) / 1000.0,
 	        ((float) timeval_to_milliseconds(tte_inactive) / 1000.0));
 }
@@ -1761,7 +1753,7 @@ static unsigned int flow_record_is_expired (struct flow_record *record,
 
     /*
      * check for active timeout
-     */ 
+     */
     timer_sub(inactive_cutoff, &active_timeout, &active_expiration);
 
     if (timer_lt(&record->start, &active_expiration)) {
@@ -1782,7 +1774,7 @@ static unsigned int flow_record_is_expired (struct flow_record *record,
 }
 
 static void flow_record_print_and_delete (struct flow_record *record) {
-  
+
     flow_record_print_json(record);
 
     /*
@@ -1792,18 +1784,18 @@ static void flow_record_print_and_delete (struct flow_record *record) {
     if (ipfix_export_port) {
         ipfix_export_main(record);
     }
-  
+
     /* delete twin, if there is one */
     if (record->twin != NULL) {
         debug_printf("LIST deleting twin\n");
         flow_record_delete(record->twin);
         //      fprintf(info, "DELETING TWIN: %p\n", record->twin);
     }
-  
+
     /* remove record from chrono list, then delete from flow_record_list_array */
     flow_record_chrono_list_remove(record);
-    flow_record_delete(record);    
-  
+    flow_record_delete(record);
+
 }
 
 /**
@@ -1823,20 +1815,20 @@ void flow_record_list_print_json (const struct timeval *inactive_cutoff) {
          * expiration time was passed into this function
          */
         if (inactive_cutoff && !flow_record_is_expired(record, inactive_cutoff)) {
-            // fprintf(info, "BREAK: "); 
+            // fprintf(info, "BREAK: ");
             // flow_record_print_time_to_expiration(record, inactive_cutoff);
             // flocap_stats_output(info);
             break;
-        } 
-    
+        }
+
         flow_record_print_and_delete(record);
 
-        /* advance to next record on chrono list */  
+        /* advance to next record on chrono list */
         record = flow_record_chrono_list_get_first();
     }
     // zprintf(output, "] }\n");
     // fprintf(info, "printed %u records\n", num_printed);
-  
+
     // note: we might need to call flush in the future
     // zflush(output);
 }
@@ -1879,15 +1871,14 @@ struct flow_record *flow_key_get_twin (const struct flow_key *key) {
         twin.sp = key->dp;
         twin.dp = key->sp;
         twin.prot = key->prot;
-    
+
         return flow_record_list_find_record_by_key(&flow_record_list_array[flow_key_hash(&twin)], &twin);
-  
+
     } else {
 
       return flow_record_list_find_twin_by_key(&flow_record_list_array[flow_key_hash(key)], key);
     }
 }
-
 
 #if 0
 /*
@@ -1917,7 +1908,7 @@ static void flow_record_list_find_twins (const struct timeval *expiration) {
         key.sp = record->key.dp;
         key.dp = record->key.sp;
         key.prot = record->key.prot;
-    
+
         twin = flow_key_get_record(&key, DONT_CREATE_RECORDS);
         if (twin != NULL) {
             /* sanity check */
@@ -1929,8 +1920,8 @@ static void flow_record_list_find_twins (const struct timeval *expiration) {
 	              // flow_key_print(&record->key);
 	              twin->twin = record;
 	              record->twin = twin;
-	              parent->time_next = record->time_next; /* remove record from chrono list */ 
-            } 
+	              parent->time_next = record->time_next; /* remove record from chrono list */
+            }
         }
         if (parent != record) {
             parent = parent->time_next;
@@ -1941,7 +1932,6 @@ static void flow_record_list_find_twins (const struct timeval *expiration) {
 #endif
 
 /* END flow monitoring */
-
 
 /** maxiumum lengnth of the upload URL string */
 #define MAX_UPLOAD_CMD_LENGTH 512
@@ -1961,7 +1951,7 @@ int upload_can_run = 0;
 /** filename to be uploaded */
 char upload_filename[MAX_FILENAME_LENGTH];
 
-static int uploader_send_file (char *filename, char *servername, 
+static int uploader_send_file (char *filename, char *servername,
                                char *key, unsigned int retain) {
     int rc = 0;
     char cmd[MAX_UPLOAD_CMD_LENGTH];
@@ -1970,7 +1960,7 @@ static int uploader_send_file (char *filename, char *servername,
     rc = system(cmd);
 
     /* see if the command was successful */
-    if (rc == 0) { 
+    if (rc == 0) {
        fprintf(info,"uploader: transfer of file [%s] successful!\n",filename);
        /* see if we are allowed to delete the file after upload */
        if (retain == 0) {
@@ -1984,7 +1974,7 @@ static int uploader_send_file (char *filename, char *servername,
     } else {
         fprintf(info,"uploader: transfer of file [%s] failed!\n",filename);
     }
-    
+
     return 0;
 }
 
@@ -2000,7 +1990,7 @@ static int uploader_send_file (char *filename, char *servername,
 void *uploader_main(void *ptr)
 {
     struct configuration *config = ptr;
- 
+
     /* initialize the uploader filename container */
     memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
 
@@ -2017,10 +2007,10 @@ void *uploader_main(void *ptr)
         /* upload file now */
         if (strlen(upload_filename) > 0) {
             fprintf(info,"uploader: uploading file [%s] ...\n", upload_filename);
-            uploader_send_file(upload_filename, config->upload_servername, 
+            uploader_send_file(upload_filename, config->upload_servername,
                                config->upload_key, config->retain_local);
         }
-    
+
         /* we are done uploading the file, go back to sleep */
         memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
         upload_can_run = 0;
@@ -2057,12 +2047,10 @@ int upload_file (char *filename) {
     return 0;
 }
 
-
-
 #include <ctype.h>
 /**
  * \fn void *convert_string_to_printable (char *s, unsigned int len)
- * \brief  convert_string_to_printable(s, len) convers the character string 
+ * \brief  convert_string_to_printable(s, len) convers the character string
  * into a JSON-safe, NULL-terminated printable string.
  * Non-alphanumeric characters are converted to "." (a period).  This
  * function is useful only to ensure that strings that one expects to
@@ -2072,7 +2060,7 @@ int upload_file (char *filename) {
  * \param s pointer to the string
  * \param len length of the string
  * \return none
- */ 
+ */
 void *convert_string_to_printable (char *s, unsigned int len) {
     unsigned int i;
 
