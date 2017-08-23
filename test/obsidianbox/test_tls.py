@@ -35,7 +35,7 @@
 """
 
 import os
-import sys
+import platform
 import logging
 import subprocess
 import time
@@ -264,8 +264,8 @@ def main_tls(baseline_dir=None,
         global flag_base_generic
         flag_base_generic = True
 
-    os_platform = sys.platform
-    unix_platforms = ['linux', 'linux2', 'darwin']
+    os_platform = platform.system()
+    unix_platforms = ['Linux', 'Darwin']
 
     if os_platform in unix_platforms:
         test_unix_os()
