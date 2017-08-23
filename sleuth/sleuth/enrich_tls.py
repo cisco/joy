@@ -101,8 +101,12 @@ def check_compliance(compliance_policy, scs):
                 return "yes" if scs_desc in compliance_data[compliance_policy] else "no"
 
     return "error loading file"
-    
-    
+
+
+# This function builds a list of parameters that will correspond to values
+# in the JSON policy. This consolidates the list of certs and the selected
+# cipher suite attributes into one list that can be processed in tls_seclevel
+#
 def build_iterable_params(params, client_key_length, certs):
     iterable_params = []
     for each in params:
@@ -126,7 +130,10 @@ def build_iterable_params(params, client_key_length, certs):
         
     return iterable_params
     
-
+# This function opens the policy file, consolidates the certs (if they exist)
+# with the selected cipher suite attributes, and analyzes the minimum
+# security level of the flows
+#
 def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
     if not scs:
         return 'unknown'
@@ -141,27 +148,38 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
         seclevel_inventory = {}
         concerns = []
 
+        # consolidate parameters so that they have a consistent architecture to
+        # be compared to the policy in the JSON file
         iterable_params = build_iterable_params(params, client_key_length, certs)
     
+        # loop through the items that need to be evaluated against the policy
         for attr in iterable_params:
             current_seclevel = None
             current_policy = policy.rules[attr["primary_param"]]
             if current_policy[attr["primary_value"]]:
                 policy_value = current_policy[attr["primary_value"]]
+                # if the policy value is a raw seclevel, assign the seclevel
+                # and move on
                 if isinstance(policy_value, int):
                     current_seclevel = policy_value
+                # else, we know it is an object with further attributes needed
+                # to accurately asses seclevel
                 else:
                     if "secondary_param" in attr:
                         if attr["secondary_param"] in policy_value:
                             attribute = policy_value[attr["secondary_param"]]
                             
-                            value = str(attr["secondary_value"])                            
+                            value = str(attr["secondary_value"])
+                            # the operator tells us how to compare each value with
+                            # the value in the policy
                             if 'operator' in attribute:
                                 op = OPS[attribute['operator']]
                                 del attribute['operator']
                             else:
                                 op = OPS['default']
-                                
+                            
+                            # now check each value in the policy using the operator
+                            # to ensure that the best fit seclevel is chosen
                             for each in attribute:
                                 if op(int(value), int(each)):
                                     temp_seclevel = attribute[each]
@@ -172,7 +190,9 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                         
             else:
                 current_seclevel = UNKNOWN
-                            
+            
+            # build a list of items whose seclevel falls below the failure_threshold
+            # and the value that caused the failure
             if current_seclevel <= policy.failure_threshold:
                 concerns.append(attr["primary_param"] + ": " + attr["primary_value"])
             seclevel_inventory[attr["primary_param"]] = current_seclevel
