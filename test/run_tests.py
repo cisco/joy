@@ -81,6 +81,10 @@ if __name__ == "__main__":
                         action='store_true',
                         dest='log_file',
                         help='Log messages to a file instead of the console (terminal).')
+    parser.add_argument('--general',
+                        dest='flag_general',
+                        choices=['on', 'off'],
+                        help='on to run ONLY general module (includes others turned "on"); off to exclude')
     parser.add_argument('--ipfix',
                         dest='flag_ipfix',
                         choices=['on', 'off'],
@@ -142,6 +146,8 @@ if __name__ == "__main__":
     test_suite = [main_general, main_ipfix, main_tls, ]
 
     wiped_flag = False
+    if args.flag_general:
+        wiped_flag = modify_test_suite(test_suite, args.flag_general, main_general, wiped_flag)
     if args.flag_ipfix:
         wiped_flag = modify_test_suite(test_suite, args.flag_ipfix, main_ipfix, wiped_flag)
     if args.flag_tls:
