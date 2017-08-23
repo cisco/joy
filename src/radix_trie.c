@@ -480,7 +480,7 @@ void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, ch
     }
 
     pthread_mutex_lock(&radix_trie_lock);
-    zprintf(file, "\t\t\t\"%s\": [ ", prefix);
+    zprintf(file, "\"%s\": [ ", prefix);
     for (i=0; i < rt->num_flags; i++) {
         if (index_to_flag(i) & f) {
             if (c) {
@@ -491,7 +491,7 @@ void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, ch
         }
     }
     pthread_mutex_unlock(&radix_trie_lock);
-    zprintf(file, "],\n");
+    zprintf(file, "],");
 }
 
 /**

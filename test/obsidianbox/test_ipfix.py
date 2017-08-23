@@ -36,7 +36,7 @@
 """
 
 import os
-import sys
+import platform
 import subprocess
 import time
 import logging
@@ -209,7 +209,7 @@ def test_unix_os():
 
     paths = dict()
     paths['exec'] = os.path.join(cur_dir, '../../bin/joy')
-    paths['pcap'] = os.path.join(cur_dir, '../../sample.pcap')
+    paths['pcap'] = os.path.join(cur_dir, '../pcaps/sample.pcap')
 
     validate_exporter = ValidateExporter(paths=paths)
     validate_exporter.validate_export_against_sniff()
@@ -223,8 +223,8 @@ def main_ipfix():
     global logger
     logger = logging.getLogger(__name__)
 
-    os_platform = sys.platform
-    unix_platforms = ['linux', 'linux2', 'darwin']
+    os_platform = platform.system()
+    unix_platforms = ['Linux', 'Darwin']
 
     if os_platform in unix_platforms:
         test_unix_os()

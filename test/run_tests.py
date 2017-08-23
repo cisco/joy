@@ -37,6 +37,7 @@
 
 import logging
 import argparse
+from obsidianbox import main_general
 from obsidianbox import main_ipfix
 from obsidianbox import main_tls
 
@@ -138,7 +139,7 @@ if __name__ == "__main__":
     1: Import the module that contains test
     2: Add the test function reference to the 'test_suite' list below
     """
-    test_suite = [main_ipfix, main_tls, ]
+    test_suite = [main_general, main_ipfix, main_tls, ]
 
     wiped_flag = False
     if args.flag_ipfix:
