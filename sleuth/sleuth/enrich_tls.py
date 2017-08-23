@@ -102,44 +102,30 @@ def check_compliance(compliance_policy, scs):
 
     return "error loading file"
     
-
-def analyze_certs(certs, policy):
-    # Analyze seclevel of certificates based on algorithm and key size seclevel
-    # information given in the policy json
-    #
-    concerns = []
-
-    if not certs:
-        certs_seclevel = UNKNOWN
-        concerns.append('no certs info')
-    else:
-        certs_seclevel = policy.max_seclevel
-        certs_trust = policy.max_seclevel
-        sig_policy = policy.rules["sig_alg"]
-
-        for x in certs:
-            issuing_org = [i['entry_data'] for i in x['issuer'] if i['entry_id'] == 'organizationName'][0]
-            if issuing_org not in policy.trusted_ca_list:
-                certs_trust = policy.min_seclevel
-                concerns.append('untrusted CA: ' + issuing_org)
-            
-            sig_alg = x['signature_algorithm']
-            sig_key_size = x['signature_key_size']
-            tmp_seclevel = UNKNOWN
-
-            if sig_alg and sig_alg in sig_policy:
-                if sig_key_size and "sig_key_size" in sig_policy[sig_alg]:
-                    for each in sig_policy[sig_alg]["sig_key_size"]:
-                        if sig_key_size >= int(each):
-                            tmp_seclevel = sig_policy[sig_alg]["sig_key_size"][each]
-                elif "seclevel" in sig_policy[sig_alg]:
-                    tmp_seclevel = sig_policy[sig_alg]["seclevel"]
-
-            if tmp_seclevel < certs_seclevel:
-                certs_seclevel = tmp_seclevel
-            
-    return certs_seclevel, concerns
-            
+    
+def build_iterable_params(params, client_key_length, certs):
+    iterable_params = []
+    for each in params:
+        param = {}
+        if each == "desc":
+            continue
+        elif each == "kex" and client_key_length:
+            param["secondary_param"] = "client_key_length"
+            param["secondary_value"] = client_key_length
+        param["primary_param"] = each
+        param["primary_value"] = params[each]
+        iterable_params.append(param)
+    
+    if certs:
+        for each in certs:
+            param["primary_param"] = "sig_alg"
+            param["primary_value"] = each["sig_alg"]
+            param["secondary_param"] = "sig_key_size"
+            param["secondary_value"] = each["sig_key_size"]
+            iterable_params.append(param)
+        
+    return iterable_params
+    
 
 def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
     if not scs:
@@ -148,58 +134,57 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
     cur_dir = os.path.dirname(__file__)
     data_file = "data_tls_params.json"
     data_path = os.path.join(cur_dir, data_file)
-    
-    additional_vars = { 
-        "kex": {
-            "client_key_length": client_key_length
-        }
-    }
 
     with open(data_path) as f:
         data = json.load(f)
         params = data["tls_params"][scs]
         seclevel_inventory = {}
         concerns = []
-                
-        for attr in params:
-            if attr == 'desc':
-                continue
 
-            current_policy = policy.rules[attr]
-            if current_policy[params[attr]]:
-                if isinstance(current_policy[params[attr]], int) == False:
-                    current_seclevel = policy.max_seclevel
-                    for extra_attr in additional_vars[attr]:
-                        # checks all values to find best fit, in case the attributes
-                        # are in an unexpected order
-                        if additional_vars[attr][extra_attr]:
-                            attribute = current_policy[params[attr]][extra_attr]
+        iterable_params = build_iterable_params(params, client_key_length, certs)
+    
+        for attr in iterable_params:
+            current_seclevel = None
+            current_policy = policy.rules[attr["primary_param"]]
+            if current_policy[attr["primary_value"]]:
+                policy_value = current_policy[attr["primary_value"]]
+                if isinstance(policy_value, int):
+                    current_seclevel = policy_value
+                else:
+                    if "secondary_param" in attr:
+                        print attr
+                        if attr["secondary_param"] in policy_value:
+                            attribute = policy_value[attr["secondary_param"]]
+                            print attribute
+                            
+                            value = str(attr["secondary_value"])
+                            print value
+                            
                             if 'operator' in attribute:
                                 op = OPS[attribute['operator']]
+                                print op
                                 del attribute['operator']
                             else:
                                 op = OPS['default']
-                            
+                                
                             for each in attribute:
-                                if op(additional_vars[attr][extra_attr], int(each)):
+                                if op(int(value), int(each)):
                                     temp_seclevel = attribute[each]
-                                    if temp_seclevel < current_seclevel:
+                                    if not current_seclevel or op(temp_seclevel, current_seclevel):
                                         current_seclevel = temp_seclevel
-                        else:
-                            current_seclevel = current_policy[params[attr]]['default']
-                else:
-                    current_seclevel = current_policy[params[attr]]
+                    else:
+                        current_seclevel = policy_value["default"]
+                        
             else:
                 current_seclevel = UNKNOWN
                 
+            print attr["primary_param"]
+            print "seclevel: " + str(current_seclevel)
+            policy.failure_threshold
+            
             if current_seclevel <= policy.failure_threshold:
-                concerns.append(attr + ": " + params[attr])
-            seclevel_inventory[attr] = current_seclevel
-                    
-                
-        certs_seclevel, certs_concerns = analyze_certs(certs, policy)
-        concerns += certs_concerns
-        seclevel_inventory['certs'] = certs_seclevel
+                concerns.append(attr["primary_param"] + ": " + attr["primary_value"])
+            seclevel_inventory[attr["primary_param"]] = current_seclevel
 
         # fetch min seclevel element based on whether or not 'unknown' elements should be reported.
         # default here is 'report'
@@ -245,8 +230,8 @@ def enrich_tls(flow, kwargs):
             certs = list()
             for x in tls['server_cert']:
                 tmp = dict()
-                tmp['signature_algorithm'] = x['signature_algorithm']
-                tmp['signature_key_size'] = x['signature_key_size']
+                tmp['sig_alg'] = x['signature_algorithm']
+                tmp['sig_key_size'] = x['signature_key_size']
                 tmp['issuer'] = x['issuer']
                 certs.append(tmp)
         else:
