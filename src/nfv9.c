@@ -266,7 +266,6 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             old_val = tmp_packet_length;
             if (pkt_len_index < MAX_NUM_PKT_LEN) {
 	        nf_record->pkt_len[pkt_len_index] = tmp_packet_length;
-	        nf_record->ob += tmp_packet_length;
 	        pkt_len_index++;
             } else {
 	        break;
@@ -284,7 +283,6 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             for (k = 0; k < repeated_length; k++) {
 	        if (pkt_len_index < MAX_NUM_PKT_LEN) {
 	            nf_record->pkt_len[pkt_len_index] = old_val;
-	            nf_record->ob += old_val;
 	            pkt_len_index++;
 	        } else {
 	            break;
@@ -479,7 +477,7 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
         switch (htons(cur_template->fields[i].FieldType)) {
             case IN_BYTES:
-                nf_record->ob = (unsigned int)ntoh64(*(const uint64_t *)flow_data);
+                nf_record->ob += (unsigned int)ntoh64(*(const uint64_t *)flow_data);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case IN_PKTS:
