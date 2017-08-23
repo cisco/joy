@@ -152,17 +152,12 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                     current_seclevel = policy_value
                 else:
                     if "secondary_param" in attr:
-                        print attr
                         if attr["secondary_param"] in policy_value:
                             attribute = policy_value[attr["secondary_param"]]
-                            print attribute
                             
-                            value = str(attr["secondary_value"])
-                            print value
-                            
+                            value = str(attr["secondary_value"])                            
                             if 'operator' in attribute:
                                 op = OPS[attribute['operator']]
-                                print op
                                 del attribute['operator']
                             else:
                                 op = OPS['default']
@@ -177,11 +172,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                         
             else:
                 current_seclevel = UNKNOWN
-                
-            print attr["primary_param"]
-            print "seclevel: " + str(current_seclevel)
-            policy.failure_threshold
-            
+                            
             if current_seclevel <= policy.failure_threshold:
                 concerns.append(attr["primary_param"] + ": " + attr["primary_value"])
             seclevel_inventory[attr["primary_param"]] = current_seclevel
