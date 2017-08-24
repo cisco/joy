@@ -85,6 +85,35 @@ static void copy_printable_string(char *buf,
 }
 
 /*
+ *
+ * \brief Find a substring in a buffer of a given length, and return a pointer
+ * to the first substring match. The substring search will terminate upon
+ * encountering a null byte or reaching the end of the buffer.
+ *
+ * \param buf The buffer to be searched.
+ * \param buflen The length of the buffer.
+ * \param sub The substring to search for.
+ * \param sublen The length of the substring.
+ *
+ * \return A pointer to the first substring match, or NULL if not found.
+ *
+ */
+static const char * memsearch(const char *buf, const unsigned int buflen, const char *sub, const unsigned int sublen) {
+    unsigned int bufidx;
+
+    for (bufidx = 0; bufidx < buflen; bufidx++) {
+        if ((bufidx + sublen > buflen) || buf[bufidx] == '\0') {
+            break;
+        }
+        if (memcmp(buf+bufidx, sub, sublen) == 0) {
+            return buf+bufidx;
+        }
+    }
+
+    return NULL;
+}
+
+/*
  * A vector is contains a pointer to a string of bytes of a specified length.
  */
 struct vector {
@@ -280,7 +309,7 @@ static unsigned int ssh_packet_parse(const char *pkt,
     *msg_code = ssh_packet->payload;
 
     /* robustness check */
-    length -= ssh_packet->padding_length - 5;
+    length -= ssh_packet->padding_length;
     if (length > MAX_SSH_PAYLOAD_LEN) {
       return 0;
     }
@@ -748,7 +777,7 @@ void ssh_update(struct ssh *ssh,
     unsigned int total_length;
     unsigned char msg_code;
     const char *data_ptr = (const char *)data;
-    char *tmpptr;
+    const char *tmpptr;
 
     if (len == 0) {
     return;        /* skip zero-length messages */
@@ -776,7 +805,7 @@ void ssh_update(struct ssh *ssh,
          */
 
         /* skip to version message */
-        if ((tmpptr = strstr(data_ptr, "SSH-")) && len >= (tmpptr-data_ptr)+4) {
+        if ((tmpptr = memsearch(data_ptr, len, "SSH-", 4))) {
             len -= (tmpptr-data_ptr);
             data_ptr = tmpptr;
             copy_printable_string(ssh->protocol, sizeof(ssh->protocol), data_ptr, len);
@@ -785,7 +814,7 @@ void ssh_update(struct ssh *ssh,
         }
 
         /* skip past version message */
-        if ((tmpptr = strstr(data_ptr, "\n")) && len >= (tmpptr-data_ptr)+1) {
+        if ((tmpptr = memsearch(data_ptr, len, "\n", 1))) {
             tmpptr += 1; /* skip past the "\n" */
             len -= (tmpptr-data_ptr);
             data_ptr = tmpptr;
@@ -1451,10 +1480,12 @@ static int ssh_test_handshake() {
 
     if ( ! cli.newkeys) {
         joy_log_err("failure: cli newkeys");
+        num_fails++;
     }
 
     if ( ! cli.newkeys) {
         joy_log_err("failure: cli newkeys");
+        num_fails++;
     }
 
     ssh_delete(&cli);
