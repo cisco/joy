@@ -370,7 +370,7 @@ static int usage (char *s) {
  \brief main entry point for joy
  \param argc command line argument count
  \param argv command line arguments
- \return o
+ \return 0
  */
 int main (int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
