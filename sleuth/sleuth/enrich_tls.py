@@ -130,6 +130,18 @@ def build_iterable_params(params, client_key_length, certs):
         
     return iterable_params
     
+    
+def audit_certs_issuer(certs, trusted_ca_list):
+    # as implemented now, we will get the tls certs in order so that the root
+    # cert is at the end. We check to see if the issuer is in our trusted_ca_list;
+    # if not, we report it as a concern
+    for each in certs[-1]['issuer']:
+        if each['entry_id'] == 'organizationName':
+            if each['entry_data'] not in trusted_ca_list:
+                return 'CA not trusted: ' + each['entry_data']
+    
+    return None
+    
 # This function opens the policy file, consolidates the certs (if they exist)
 # with the selected cipher suite attributes, and analyzes the minimum
 # security level of the flows
@@ -147,6 +159,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
         params = data["tls_params"][scs]
         seclevel_inventory = {}
         concerns = []
+        max_seclevel = max(policy.classifications.values())
 
         # consolidate parameters so that they have a consistent architecture to
         # be compared to the policy in the JSON file
@@ -158,6 +171,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
             current_policy = policy.rules[attr["primary_param"]]
             if current_policy[attr["primary_value"]]:
                 policy_value = current_policy[attr["primary_value"]]
+
                 # if the policy value is a raw seclevel, assign the seclevel
                 # and move on
                 if isinstance(policy_value, int):
@@ -169,7 +183,7 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                         if attr["secondary_param"] in policy_value:
                             attribute = policy_value[attr["secondary_param"]]
                             
-                            value = str(attr["secondary_value"])
+                            value = attr["secondary_value"]
                             # the operator tells us how to compare each value with
                             # the value in the policy
                             if 'operator' in attribute:
@@ -181,10 +195,16 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
                             # now check each value in the policy using the operator
                             # to ensure that the best fit seclevel is chosen
                             for each in attribute:
-                                if op(int(value), int(each)):
+                                if op(value, int(each)):
                                     temp_seclevel = attribute[each]
                                     if not current_seclevel or op(temp_seclevel, current_seclevel):
                                         current_seclevel = temp_seclevel
+                            # if we make it through each value in the policy attribute
+                            # and compare with the defined operator, but seclevel
+                            # is still undefined, the number is more stringent 
+                            # than the policy defines, so is assigned max_seclevel
+                            if not current_seclevel:
+                                current_seclevel = max_seclevel
                     else:
                         current_seclevel = policy_value["default"]
                         
@@ -194,8 +214,18 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
             # build a list of items whose seclevel falls below the failure_threshold
             # and the value that caused the failure
             if current_seclevel <= policy.failure_threshold:
-                concerns.append(attr["primary_param"] + ": " + attr["primary_value"])
+                concern_string = attr["primary_param"] + ": " + attr["primary_value"]
+                if "secondary_param" in attr:
+                    concern_string += ", " + attr["secondary_param"] + ": " + str(attr["secondary_value"])
+                concerns.append(concern_string)
             seclevel_inventory[attr["primary_param"]] = current_seclevel
+
+        if certs:
+            ca_result = audit_certs_issuer(certs, policy.trusted_ca_list)
+            if ca_result:
+                concerns.append(ca_result)
+        else:
+            concerns.append('no certs data')
 
         # fetch min seclevel element based on whether or not 'unknown' elements should be reported.
         # default here is 'report'
@@ -210,6 +240,8 @@ def tls_seclevel(policy, unknowns, scs, client_key_length, certs):
         if not concerns:
             return classification
         else:
+            # remove any duplicate entries... usually from cert audit
+            concerns = list(set(concerns))
             return { "classification": classification,
                      "concerns": concerns }
 
@@ -247,7 +279,7 @@ def enrich_tls(flow, kwargs):
                 certs.append(tmp)
         else:
             certs = None
-
+        
         seclevel_policy = Policy(kwargs["policy_file"], kwargs["failure_threshold"])
 
         tls_sec_info = {}

@@ -6,7 +6,7 @@
         "recommended": 4
     },
     "trusted_ca_list": [
-      "Google Inc", "GeoTrust Inc."
+      "Starfield Technologies, Inc.", "GeoTrust Inc.", "Symantec Corporation", "COMODO CA Limited", "DigiCert Inc", "GlobalSign", "SwissSign AG", "thawte, Inc.", "VeriSign, Inc.", "Entrust, Inc.", "Certplus", "OpenTrust", "GoDaddy.com, Inc.", "IdenTrust", "StartCom Ltd.", "SecureTrust Corporation"
     ],
     "default_failure_threshold": 2,
     "rules": {
