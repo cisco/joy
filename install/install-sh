@@ -10,9 +10,11 @@
 usage() { 
     echo "usage:"
     echo ""
-    echo "   $0 [ -c configfile ] [ -a anonfile ] [-w watchfile ] [ -k keyfile ]"
+    echo "   $0 [ [ -h ] | [ -c configfile ] [ -a anonfile ] [-w watchfile ] [ -k keyfile ] [ -p prefix ] [ -r rootdir ] ]"
     echo ""
     echo "where the options are as follows"
+    echo ""
+    echo "   The -h flag prints usage information and exits."
     echo ""
     echo "   configfile is the name of a joy configuration file; if no" 
     echo "   such file is provided, then the default configuration options.cfg is used"
@@ -28,10 +30,13 @@ usage() {
     echo "   to upload the JSON flow data files to a server via scp; if no such file"
     echo "   is provided, then an SSH file with the default name of upload-key is created" 
     echo ""
-    echo "for more information about these files and their formats, please read the" 
+    echo "   prefix is the installation prefix (default: /usr/local)"
+    echo ""
+    echo "   rootdir specifies the RPM build root directory. Only use when building an RPM."
+    echo ""
+    echo "For more information about these files and their formats, please read the"
     echo "joy man page"
     echo ""
-    exit
 } 
 
 # set defaults
@@ -42,17 +47,24 @@ CONFIGFILE=${CWD}/options.cfg
 ANONFILE=${APP_ROOT}/internal.net
 WATCHFILE=""
 KEYFILE=""
+NEWKEY=0
 TLS_FINGERPRINT_FILE=${APP_ROOT}/resources/tls_fingerprint.json
+PREFIX="/usr/local"
+RPMBUILDROOT=""
 
 echo
 echo JOY INSTALL-SH
 echo --------------------
 echo
 
-# check command line arguments, ovveride defaults as appropirate
+# check command line arguments, ovveride defaults as appropriate
 #
-while getopts "c:a:w:k:" arg; do
+while getopts "hc:a:w:k:p:r:" arg; do
     case $arg in
+	h)
+	    usage
+		exit
+	    ;;
 	c)
 	    echo "-c was triggered with option ${OPTARG}" 
 	    CONFIGFILE=${OPTARG}
@@ -69,23 +81,36 @@ while getopts "c:a:w:k:" arg; do
 	    echo "-k was triggered with option ${OPTARG}" 
 	    KEYFILE=${OPTARG}
 	    ;;
+	p)
+	    echo "-p was triggered with option ${OPTARG}" 
+	    PREFIX=${OPTARG}
+	    ;;
+	r)
+	    echo "-r was triggered with option ${OPTARG}" 
+	    RPMBUILD=true
+        RPMBUILDROOT=${OPTARG}
+	    ;;
+	\?)
+	    echo "error: invalid option -${OPTARG}" 
+        usage
+        exit 1
+		;;
 	:)
 	    echo "error: option -${OPTARG} requires an argument" 
-	    usage
-	    ;;
-	?)
-	    usage
+        usage
+        exit 1
 	    ;;
     esac
 done
 if [ $(($# + 1)) != "${OPTIND}" ]; then
     echo "error: illegal option"
     usage
+	exit 1
 fi
 
 # this script requires root privileges; complain and bail otherwise
 #
-if [[ $EUID -ne 0 ]]; then
+if [ -z "$RPMBUILD" -a "$EUID" -ne 0 ]; then
    echo "error: $0 must be run as root; perhaps run \"sudo $0\"" 
    exit 1
 fi
@@ -94,27 +119,27 @@ fi
 #
 if [ ! -x ${APP_ROOT}/bin/joy ]; then
     echo "error: could not find executable file joy (please run \"make\")"
-    exit
+    exit 1
 fi
 
 if [ ! -f ${APP_ROOT}/doc/joy.1 ]; then
     echo "error: could not find manual page joy.1"
-    exit
+    exit 1
 fi
 
 if [ ! -f ${CWD}/joy.rc ]; then
     echo "error: could not find script joy.rc"
-    exit
+    exit 1
 fi
 
 if [ ! -f $CONFIGFILE ]; then
     echo "error: could not find configuration file $CONFIGFILE"
-    exit
+    exit 1
 fi
 
 if [ ! -f ${ANONFILE} ]; then
     echo "error: could not find private address configuration file ${ANONFILE}"
-    exit
+    exit 1
 fi
 
 if [ "${KEYFILE}" == "" ]; then
@@ -126,27 +151,31 @@ if [ -f ${KEYFILE} ]; then
     echo "file ${KEYFILE} exists; not overwriting it"
     NEWKEY=0
 else
-    echo "generating SSH public/private keypair ... "
-    ssh-keygen -f ${KEYFILE} -P "" -t rsa -b 2048
-    retval=$?
-    if [ $retval -ne "0" ]; then
-	echo "error: could not generate SSH key ${KEYFILE}"
-	exit
-    fi
-    if [ ! -f ${KEYFILE} ]; then
-	echo "error: could not find keyfile ${KEYFILE}"
-	exit
-    fi
-    NEWKEY=1
+	if [ -z "$RPMBUILD" ]; then
+    	echo "generating SSH public/private keypair ... "
+    	ssh-keygen -f ${KEYFILE} -P "" -t rsa -b 2048
+    	retval=$?
+    	if [ $retval -ne "0" ]; then
+			echo "error: could not generate SSH key ${KEYFILE}"
+			exit
+    	fi
+    	if [ ! -f ${KEYFILE} ]; then
+			echo "error: could not find keyfile ${KEYFILE}"
+			exit 1
+    	fi
+    	NEWKEY=1
+	else
+		echo "Did not build SSH public/private keypair due to RPM build"
+	fi
 fi
 
 create_directory () {
     if [ ! -d $1 ]; then
-        mkdir $1
+        mkdir -p $1
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: could not make directory $1"
-            exit
+            exit 1
         fi
     else
         echo "directory $1 already exists"
@@ -161,106 +190,108 @@ if [ "$sysname" == "Darwin" ]; then
     ##
     echo "found $sysname (Mac OS X), installing joy ..."
 
-    # Create /usr/local/bin directory if it does not currently exist
-    create_directory /usr/local/bin
+    # Create ${PREFIX}/bin directory if it does not currently exist
+    create_directory ${PREFIX}/bin
 
-    # Create /usr/local/var directory if it does not currently exist
-    create_directory /usr/local/var
+    # Create ${PREFIX}/var directory if it does not currently exist
+    create_directory ${PREFIX}/var
 
-    # Create /usr/local/var/joy directory if it does not currently exist
-    create_directory /usr/local/var/joy
+    # Create ${PREFIX}/var/joy directory if it does not currently exist
+    create_directory ${PREFIX}/var/joy
 
-    # Create /usr/local/var/log directory if it does not currently exist
-    create_directory /usr/local/var/log
+    # Create ${PREFIX}/var/log directory if it does not currently exist
+    create_directory ${PREFIX}/var/log
 
-    # Create /usr/local/etc directory if it does not currently exist
-    create_directory /usr/local/etc
+    # Create ${PREFIX}/etc directory if it does not currently exist
+    create_directory ${PREFIX}/etc
 
-    # Create /usr/local/etc/joy directory if it does not currently exist
-    create_directory /usr/local/etc/joy
+    # Create ${PREFIX}/etc/joy directory if it does not currently exist
+    create_directory ${PREFIX}/etc/joy
 
-    # Create /usr/local/share directory if it does not currently exist
-    create_directory /usr/local/share
+    # Create ${PREFIX}/share directory if it does not currently exist
+    create_directory ${PREFIX}/share
 
-    # Create /usr/local/share/man directory if it does not currently exist
-    create_directory /usr/local/share/man
+    # Create ${PREFIX}/share/man directory if it does not currently exist
+    create_directory ${PREFIX}/share/man
 
-    # Create /usr/local/share/man/man1 directory if it does not currently exist
-    create_directory /usr/local/share/man/man1
+    # Create ${PREFIX}/share/man/man1 directory if it does not currently exist
+    create_directory ${PREFIX}/share/man/man1
 
     # Install the binary executable
-    cp ${APP_ROOT}/bin/joy /usr/local/bin
+    cp ${APP_ROOT}/bin/joy ${PREFIX}/bin
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy bin/joy to /usr/local/bin"
-        exit
+        echo "error: could not copy joy to ${PREFIX}/bin"
+        exit 1
     fi
 
     # Install query
-    cp ${APP_ROOT}/query.py /usr/local/bin/
+    cp ${APP_ROOT}/query.py ${PREFIX}/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy to /usr/local/bin/"
-        exit
+        echo "error: could not copy query.py to ${PREFIX}/bin/"
+        exit 1
     fi
 
     # Install the configuration file
-    if [ -f /usr/local/etc/joy/options.cfg ]; then
-        echo "warning: file /usr/local/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
-        mv /usr/local/etc/joy/options.cfg /usr/local/etc/joy/options.cfg.bak 
+    if [ -f ${PREFIX}/etc/joy/options.cfg ]; then
+        echo "warning: file ${PREFIX}/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
+        mv ${PREFIX}/etc/joy/options.cfg ${PREFIX}/etc/joy/options.cfg.bak 
     else
-        cp ${CONFIGFILE} /usr/local/etc/joy/options.cfg
+        cp ${CONFIGFILE} ${PREFIX}/etc/joy/options.cfg
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${CONFIGFILE} to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy ${CONFIGFILE} to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
     # Install the tls fingerprint file
-    if [ -f /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} ]; then
-        echo "file /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
+    if [ -f ${PREFIX}/etc/joy/${TLS_FINGERPRINT_FILE} ]; then
+        echo "file ${PREFIX}/etc/joy/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
     else
-        cp ${TLS_FINGERPRINT_FILE} /usr/local/etc/joy/
+        cp ${TLS_FINGERPRINT_FILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
     # Install the anonymization file
-    if [ -f /usr/local/etc/joy/${ANONFILE} ]; then
-        echo "file /usr/local/etc/joy/${ANONFILE} exists; not installing anonymization subnet file"
+    if [ -f ${PREFIX}/etc/joy/${ANONFILE} ]; then
+        echo "file ${PREFIX}/etc/joy/${ANONFILE} exists; not installing anonymization subnet file"
     else
-        cp ${ANONFILE} /usr/local/etc/joy/
+        cp ${ANONFILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${ANONFILE} to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy ${ANONFILE} to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
     # Install the ssh key file
-    mv ${KEYFILE} /usr/local/etc/joy/
-    retval=$?
-    if [ $retval -ne "0" ]; then
-        echo "error: could not move ${KEYFILE} to /usr/local/etc/joy"
-        exit
-    fi
-    chmod 600 /usr/local/etc/joy/${KEYFILE}
+    if [ -z "$RPMBUILD" ]; then
+    	mv ${KEYFILE} ${PREFIX}/etc/joy/
+    	retval=$?
+    	if [ $retval -ne "0" ]; then
+        	echo "error: could not move ${KEYFILE} to ${PREFIX}/etc/joy"
+        	exit 1
+    	fi
+    	chmod 600 ${PREFIX}/etc/joy/${KEYFILE}
+	fi
 
 
     if [ "${WATCHFILE}" != "" ]; then
         # Install the watch file
-        if [ -f /usr/local/etc/joy/${WATCHFILE} ]; then
+        if [ -f ${PREFIX}/etc/joy/${WATCHFILE} ]; then
             echo "file /etc/joy/${WATCHFILE} exists; overwriting with recent file"
         fi
-        cp ${WATCHFILE} /usr/local/etc/joy/
+        cp ${WATCHFILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${WATCHFILE} to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy ${WATCHFILE} to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
@@ -269,21 +300,21 @@ if [ "$sysname" == "Darwin" ]; then
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy joy.plist to /Library/LaunchDaemons"
-        exit
+        exit 1
     fi
 
     # Install the manpage documentation
-    cp ${APP_ROOT}/doc/joy.1 /usr/local/share/man/man1/
+    cp ${APP_ROOT}/doc/joy.1 ${PREFIX}/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy to /usr/local/share/man/man1 (man page will be unavailable)"
-        exit
+        echo "error: could not copy joy.1 to ${PREFIX}/share/man/man1 (man page will be unavailable)"
+        exit 1
     fi
 
-    ls -l /usr/local/bin/joy
-    ls -l /usr/local/bin/query.py
-    ls -l /usr/local/etc/joy/*
-    ls -l /usr/local/share/man/man1/joy.1
+    ls -l ${PREFIX}/bin/joy
+    ls -l ${PREFIX}/bin/query.py
+    ls -l ${PREFIX}/etc/joy/*
+    ls -l ${PREFIX}/share/man/man1/joy.1
     ls -l /Library/LaunchDaemons/joy.plist
 
     echo "stopping flow capture daemon (just in case one is already running)"
@@ -307,7 +338,7 @@ elif [ "$sysname" == "Linux" ]; then
         # Check if the file is a symbolic link
         if [ -h /sbin/init ]; then
             # Check whether linked to systemd
-            file /sbin/init | grep 'systemd'
+            file /sbin/init | grep -q 'systemd'
             retval=$?
             if [ $retval == "0" ]; then
                 daemon_system='systemd'
@@ -315,215 +346,233 @@ elif [ "$sysname" == "Linux" ]; then
         fi
     fi
 
-    # Create /usr/local/bin directory if it does not currently exist
-    create_directory /usr/local/bin
+    # Create ${PREFIX}/bin directory if it does not currently exist
+    create_directory ${PREFIX}/bin
 
-    # Create /usr/local/var directory if it does not currently exist
-    create_directory /usr/local/var
+    # Create ${PREFIX}/var directory if it does not currently exist
+    create_directory ${PREFIX}/var
 
-    # Create /usr/local/var/joy directory if it does not currently exist
-    create_directory /usr/local/var/joy
+    # Create ${PREFIX}/var/joy directory if it does not currently exist
+    create_directory ${PREFIX}/var/joy
 
-    # Create /usr/local/var/log directory if it does not currently exist
-    create_directory /usr/local/var/log
+    # Create ${PREFIX}/var/log directory if it does not currently exist
+    create_directory ${PREFIX}/var/log
 
-    # Create /usr/local/etc directory if it does not currently exist
-    create_directory /usr/local/etc
+    # Create ${PREFIX}/etc directory if it does not currently exist
+    create_directory ${PREFIX}/etc
 
-    # Create /usr/local/etc/joy directory if it does not currently exist
-    create_directory /usr/local/etc/joy
+    # Create ${PREFIX}/etc/joy directory if it does not currently exist
+    create_directory ${PREFIX}/etc/joy
 
-    # Create /usr/local/share directory if it does not currently exist
-    create_directory /usr/local/share
+    # Create ${PREFIX}/share directory if it does not currently exist
+    create_directory ${PREFIX}/share
 
-    # Create /usr/local/share/man directory if it does not currently exist
-    create_directory /usr/local/share/man
+    # Create ${PREFIX}/share/man directory if it does not currently exist
+    create_directory ${PREFIX}/share/man
 
-    # Create /usr/local/share/man/man1 directory if it does not currently exist
-    create_directory /usr/local/share/man/man1
+    # Create ${PREFIX}/share/man/man1 directory if it does not currently exist
+    create_directory ${PREFIX}/share/man/man1
 
-    # Create /usr/local/share/joy directory if it does not currently exist
-    create_directory /usr/local/share/joy
+    # Create ${PREFIX}/share/joy directory if it does not currently exist
+    create_directory ${PREFIX}/share/joy
 
-    # Create /usr/local/share/joy/data directory if it does not currently exist
-    create_directory /usr/local/share/joy/data
+    # Create ${PREFIX}/share/joy/data directory if it does not currently exist
+    create_directory ${PREFIX}/share/joy/data
 
     # Stop service, if a previous version is already running
-    echo "stopping service (this might take some time)" 
-    if [ "$daemon_system" == "sysv" ]; then
-        service joy stop 
-    elif [ "$daemon_system" == "systemd" ]; then
-        systemctl stop joy.service
+    if [ -z "$RPMBUILD" ]; then
+        echo "stopping service (this might take some time)" 
+        if [ "$daemon_system" == "sysv" ]; then
+            service joy stop 
+        elif [ "$daemon_system" == "systemd" ]; then
+            systemctl stop joy.service
+        fi
     fi
 
     # Install the binary executable
-    cp ${APP_ROOT}/bin/joy /usr/local/bin/
+    cp ${APP_ROOT}/bin/joy ${PREFIX}/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy to /usr/local/bin/"
-        exit
+        echo "error: could not copy joy to ${PREFIX}/bin/"
+        exit 1
     fi
 
     # Install joyq
-    cp ${APP_ROOT}/joyq /usr/local/bin/
+    cp ${APP_ROOT}/joyq ${PREFIX}/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy to /usr/local/bin/"
-        exit
+        echo "error: could not copy joyq to ${PREFIX}/bin/"
+        exit 1
     fi
 
     # Install the sleuth python module (dependency of joyq)
-    pip install ${APP_ROOT}/sleuth/
+	if [ -z "$RPMBUILD" ]; then
+    	pip install ${APP_ROOT}/sleuth/
+	else
+    	pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
+	fi
 
     # Install the configuration file
-    if [ -f /usr/local/etc/joy/options.cfg ]; then
-        echo "warning: file /usr/local/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
-        mv /usr/local/etc/joy/options.cfg /usr/local/etc/joy/options.cfg.bak 
+    if [ -f ${PREFIX}/etc/joy/options.cfg ]; then
+        echo "warning: file ${PREFIX}/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
+        mv ${PREFIX}/etc/joy/options.cfg ${PREFIX}/etc/joy/options.cfg.bak 
     else
-        cp ${CONFIGFILE} /usr/local/etc/joy/options.cfg
+        cp ${CONFIGFILE} ${PREFIX}/etc/joy/options.cfg
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy options.cfg to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
     # Install the tls fingerprint file
-    if [ -f /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} ]; then
-        echo "file /usr/local/etc/joy/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
+    if [ -f ${PREFIX}/etc/joy/${TLS_FINGERPRINT_FILE} ]; then
+        echo "file ${PREFIX}/etc/joy/${TLS_FINGERPRINT_FILE} exists; not installing tls fingerprint file"
     else
-        cp ${TLS_FINGERPRINT_FILE} /usr/local/etc/joy/
+        cp ${TLS_FINGERPRINT_FILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy ${TLS_FINGERPRINT_FILE} to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
     # Install the anonymization file
-    if [ -f /usr/local/etc/joy/${ANONFILE} ]; then
-        echo "file /usr/local/etc/joy/${ANONFILE} exists; not installing subnet file"
+    if [ -f ${PREFIX}/etc/joy/${ANONFILE} ]; then
+        echo "file ${PREFIX}/etc/joy/${ANONFILE} exists; not installing subnet file"
     else
-        cp ${ANONFILE} /usr/local/etc/joy/
+        cp ${ANONFILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy ${ANONFILE} to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
     # Install the ssh key file
-    mv ${KEYFILE} /usr/local/etc/joy/
-    retval=$?
-    if [ $retval -ne "0" ]; then
-        echo "error: could not move ${KEYFILE} to /usr/local/etc/joy"
-        exit
-    fi
-    chmod 600 /usr/local/etc/joy/${KEYFILE}
+    if [ -z "$RPMBUILD" ]; then
+    	mv ${KEYFILE} ${PREFIX}/etc/joy/
+    	retval=$?
+    	if [ $retval -ne "0" ]; then
+        	echo "error: could not move ${KEYFILE} to ${PREFIX}/etc/joy"
+        	exit 1
+    	fi
+    	chmod 600 ${PREFIX}/etc/joy/${KEYFILE}
+	fi
 
     if [ "${WATCHFILE}" != "" ]; then
         # Install the watch file
-        if [ -f /usr/local/etc/joy/${WATCHFILE} ]; then
-            echo "file /usr/local/etc/joy/${WATCHFILE} exists; overwriting with recent file"
+        if [ -f ${PREFIX}/etc/joy/${WATCHFILE} ]; then
+            echo "file ${PREFIX}/etc/joy/${WATCHFILE} exists; overwriting with recent file"
         fi
-        cp ${WATCHFILE} /usr/local/etc/joy/
+        cp ${WATCHFILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy to /usr/local/etc/joy"
-            exit
+            echo "error: could not copy ${WATCHFILE} to ${PREFIX}/etc/joy"
+            exit 1
         fi
     fi
 
     # Install the manpage documentation
-    cp ${APP_ROOT}/doc/joy.1 /usr/local/share/man/man1/
+    cp ${APP_ROOT}/doc/joy.1 ${PREFIX}/share/man/man1/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy to /usr/local/share/man/man1/"
-        exit
+        echo "error: could not copy joy.1 to ${PREFIX}/share/man/man1/"
+        exit 1
     fi
-    mandb >/dev/null
-    retval=$?
-    if [ $retval -ne "0" ]; then
-        echo "error: could not run mandb (man page will be unavailable)"
-        # exit
-    fi
+	if [ -z "$RPMBUILD" ]; then
+    	mandb >/dev/null
+    	retval=$?
+    	if [ $retval -ne "0" ]; then
+        	echo "error: could not run mandb (man page will be unavailable)"
+        	# exit 1
+    	fi
+	fi
 
-    cp ${APP_ROOT}/data/* /usr/local/share/joy/data
+    cp ${APP_ROOT}/data/* ${PREFIX}/share/joy/data
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy data files into directory /usr/local/share/joy/data"
-        exit
+        echo "error: could not copy data files into directory ${PREFIX}/share/joy/data"
+        exit 1
     fi
 
     ##
     # Copy the daemon service files and start it
     ##
     if [ "$daemon_system" == "sysv" ]; then
-        cp ${CWD}/joy.rc /etc/init.d/joy
-        retval=$?
-        if [ $retval -ne "0" ]; then
-            echo "error: could not copy to /etc/init.d"
-            exit
-        fi
-        chmod +x /etc/init.d/joy
-        retval=$?
-        if [ $retval -ne "0" ]; then
-            echo "error: could not chmod +x /etc/init.d/joy"
-            exit
-        fi
+        create_directory $RPMBUILDROOT/etc/init.d
+       	cp ${CWD}/joy.rc $RPMBUILDROOT/etc/init.d/joy
+       	retval=$?
+       	if [ $retval -ne "0" ]; then
+           	echo "error: could not copy to $RPMBUILDROOT/etc/init.d"
+           	exit 1
+       	fi
+       	chmod +x /etc/init.d/joy
+       	retval=$?
+       	if [ $retval -ne "0" ]; then
+           	echo "error: could not chmod +x $RPMBUILDROOT/etc/init.d/joy"
+           	exit 1
+       	fi
+	    if [ -z "$RPMBUILD" ]; then
+        	# Configure to run automatically at boot time
+        	update-rc.d joy defaults
+        	retval=$?
+        	if [ $retval -ne "0" ]; then
+            	echo "error: update-rc.d failed (return value: $retval)"
+            	exit 1
+        	fi
 
-        # Configure to run automatically at boot time
-        update-rc.d joy defaults
-        retval=$?
-        if [ $retval -ne "0" ]; then
-            echo "error: update-rc.d failed (return value: $retval)"
-            exit
+        	# Start service 
+        	service joy start
         fi
-
-        # Start service 
-        service joy start
     elif [ "$daemon_system" == "systemd" ]; then
-        cp ${CWD}/joy.service /etc/systemd/system
-        retval=$?
-        if [ $retval -ne "0" ]; then
-            echo "error: could not copy joy.service to /etc/systemd/system"
-            exit
-        fi
-        chmod 644 /etc/systemd/system/joy.service
-        retval=$?
-        if [ $retval -ne "0" ]; then
-            echo "error: could not chmod 644 /etc/systemd/system/joy.service"
-            exit
-        fi
+        create_directory ${RPMBUILDROOT}/usr/lib/systemd/system
+       	cp ${CWD}/joy.service ${RPMBUILDROOT}/usr/lib/systemd/system/
+       	retval=$?
+       	if [ $retval -ne "0" ]; then
+           	echo "error: could not copy joy.service to ${RPMBUILDROOT}/usr/lib/systemd/system/"
+           	exit 1
+       	fi
+       	chmod 644 ${RPMBUILDROOT}/usr/lib/systemd/system/joy.service
+       	retval=$?
+       	if [ $retval -ne "0" ]; then
+           	echo "error: could not chmod 644 ${RPMBUILDROOT}/usr/lib/systemd/system/joy.service"
+           	exit 1
+       	fi
 
-        # Configure to run at boot time
-        systemctl enable joy.service
+	    if [ -z "$RPMBUILD" ]; then
+        	# Configure to run at boot time
+        	systemctl enable joy.service
 
-        # Start service
-        systemctl start joy.service
-    fi
+        	# Start service
+        	systemctl start joy.service
+    	fi
+	fi
 
     # List all the installed files
-    ls -l /usr/local/bin/joy
-    ls -l /usr/local/bin/query.py
-    ls -l /usr/local/etc/joy/*
-    ls -l /usr/local/share/joy/data/*
-    ls -l /usr/local/share/man/man1/joy.1
+    
+	if [ -z "$RPMBUILD" ]; then
+        ls -l ${PREFIX}/bin/joy
+        ls -l ${PREFIX}/bin/joyq
+        ls -l ${PREFIX}/etc/joy/*
+        ls -l ${PREFIX}/share/joy/data/*
+        ls -l ${PREFIX}/share/man/man1/joy.1
 
-    if [ "$daemon_system" == "sysv" ]; then
-        ls -l /etc/init.d/joy
-        service joy status
-    elif [ "$daemon_system" == "systemd" ]; then
-        ls -l /etc/systemd/system/joy.service
-        systemctl status joy.service
-    fi
+    	if [ "$daemon_system" == "sysv" ]; then
+        	ls -l /etc/init.d/joy
+        	service joy status
+    	elif [ "$daemon_system" == "systemd" ]; then
+        	ls -l /etc/systemd/system/joy.service
+        	systemctl status joy.service
+    	fi
+	fi
 
     echo "done" 
     echo
 else
 
     echo "error: unknown system ($sysname)"
-    exit
+    exit 1
 
 fi
 
@@ -531,7 +580,7 @@ fi
 if [ "$NEWKEY" -eq "1" ]; then
 
     echo "A new SSH key was generated, and its private key was installed in"
-    echo "the /usr/local/etc/joy directory.  To use this key to authenticate scp"
+    echo "the ${PREFIX}/etc/joy directory.  To use this key to authenticate scp"
     echo "connections to a server that copy the JSON files, you will need to"
     echo "provide the public key ${KEYFILE}.pub to the server administrator,"
     echo "as it needs to be installed in the ./ssh/known_hosts file."
