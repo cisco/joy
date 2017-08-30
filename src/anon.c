@@ -135,15 +135,15 @@ enum status key_init (char *ANON_KEYFILE) {
 		CryptReleaseContext(hProv, 0);
 #else
         /* key file does not exist, so generate new one */
-        fd = open("/dev/random", O_RDONLY);
+        fd = open("/dev/urandom", O_RDONLY);
         if (fd < 0) {
-            perror("error: could not open /dev/random");
+            perror("error: could not open /dev/urandom");
             return failure;
         }
         bytes = read(fd, buf, MAX_KEY_SIZE);
         close(fd);
         if (bytes != MAX_KEY_SIZE) {
-            perror("error: could not read key from /dev/random");
+            perror("error: could not read key from /dev/urandom");
             return failure;
         }
 #endif
