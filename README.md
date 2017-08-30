@@ -114,20 +114,10 @@ To build the package, run "make" in the main directory:
 This will cause the programs to be compiled, linked, stripped, and
 copied into the 'bin' directory as appropriate.
 
-To build and execute the unit test programs, run "make test" in the main
-directory:
-
-```
-[joy]$ make test
-```
-
 Mac OSX 10.11 has more dependencies than 10.10; the OpenSSL header
 files are needed to build this package. You can install these
 header files via Mac Ports (https://www.macports.org/install.php)
-using the command "sudo port install openssl". Version 10.11 broke
-the run-on-boot feature of joy (and many other programs that
-relied on /System/Library/LaunchDaemons), so for now that program
-can only perform live capture from the command line.
+using the command "sudo port install openssl".
 
 Set COMPRESSED_OUTPUT (in src/include/output.h) to 1 for gzip-compressed
 JSON output. This compile-time option is on by default. If that
@@ -155,6 +145,26 @@ combine these DLL files with your binary to produce a package that can be droppe
 onto a windows based machine and execute correctly.
 
 Execution of win-joy.exe has been tested on Windows 7, Windows 10 and Windows Server 2012.
+
+#### Testing
+
+First. ensure both bin/joy and bin/unit_test exist by running either
+`make` or `make unit_test`. Then you can manually run the unit tests:
+```
+./test/unit_test
+```
+Or the black box tests:
+```
+./test/run_tests.py
+```
+You may also automatically build the binaries and run the tests in
+one swoop by executing:
+```
+make test
+```
+The test programs will indicate success or failure on the command line.
+Please see [test/README.md](test/README.md) for more information
+on blackbox testing.
 
 #### Running and Configuration
 
@@ -190,9 +200,9 @@ By making a local copy that has a different name, your
 configuration will not be clobbered if you update the joy package.
 
 
-#### Analytics
+#### Analysis
 
-Please see the file saltUI/README.
+Please see the file [analysis/README](analysis/README).
 
 #### Installation
 
@@ -232,10 +242,3 @@ to see the help or "usage" message.
 A man page will be built and installed automatically as part of the
 package.  See the file joy.1, or after the install-sh script
 has been run, access the man page through "man joy".
-
-
-#### Testing
-
-Run the script ./joy.sh and the utility bin/unit_test to
-test the programs.  These programs will indicate success or failure
-on the command line.
