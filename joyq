@@ -45,6 +45,7 @@ import collections
 import os
 import subprocess
 import argparse
+sys.path.append("/usr/local/lib/python")
 from sleuth import DictStreamIterator
 from sleuth import DictStreamIteratorFromFile
 from sleuth import DictStreamFilterIterator
