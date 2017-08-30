@@ -7,7 +7,7 @@
 Summary: Capture and analyze network flow data for research, forensics and monitoring.
 Name: joy
 Version: 1.71
-Release: 0.%{shortcommit0}.1
+Release: 0.%{shortcommit0}.1%{?dist}
 License: GPLv2
 Group: System Environment/Base
 #Source0:  https://github.com/cisco/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{shortcommit0}.tar.gz
@@ -16,10 +16,10 @@ URL: https://github.com/cisco/joy/
 Distribution: Red Hat Enterprise Linux
 Packager: brilong@cisco.com
 Vendor: Cisco Systems Inc.
-BuildArch: noarch
+BuildArch: x86_64
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot-%(%{__id_u} -n)
-BuildRequires: curl-devel, libpcap-devel, make, openssl-devel
-Requires: fileutils, initscripts, python
+BuildRequires: libcurl-devel, libpcap-devel, make, openssl-devel, zlib-devel
+Requires: fileutils, initscripts, libcurl, libpcap, kernel => 3.10, openssl, python, zlib
 
 %description
 Joy is a libpcap-based software package for extracting data features from live
@@ -30,55 +30,54 @@ files. Joy can be used to explore data at scale, especially security and
 threat-relevant data.
 
 %prep
-%autosetup -n %{name}-%{commit0}
+%autosetup -n %{name}
 
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir $RPM_BUILD_ROOT
+./config -l /usr/lib64
+echo "%{version}-%{shortcommit0}" > VERSION
+make
+make DESTDIR=${RPM_BUILD_ROOT}/usr/local RPM_BUILD_ROOT=${RPM_BUILD_ROOT} rpm
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-
-%pre
-if [ $1 -gt 1 ]; then
-# Determine if someone modified sendmail.mc locally.
-    if [ ! -h "/etc/postfix/main.cf" -a -f "/etc/postfix/main.cf.internal" ]; then
-        DIFF=`diff /etc/postfix/main.cf /etc/postfix/main.cf.internal`
-        if [ -n "$DIFF" ]; then
-            touch /tmp/no-postfix-overwrite
-            echo "Not overwriting /etc/postfix/main.cf"
-        fi
-    fi
-fi
+/usr/lib/systemd/system/joy.service
+/usr/local/bin/joy
+/usr/local/bin/joyq
+%attr(0700,root,root) %dir /usr/local/etc/joy
+%config(noreplace) /usr/local/etc/joy/*
+/usr/local/lib/python/sleuth*
+/usr/local/share/joy
+%doc /usr/local/share/man/man1/joy.1
+%attr(0700,root,root) %dir /usr/local/var/joy
+%attr(0700,root,root) %dir /usr/local/var/log
 
 %post
-rm -f /tmp/no-postfix-overwrite
 
-%triggerin -- postfix
-cp -p /etc/postfix/main.cf /etc/postfix/main.cf.BaK
-if [ $1 = 1 -a $2 = 1 ]; then
-   ln -sf /etc/postfix/main.cf.internal /etc/postfix/main.cf
-   RESTART=true
-else
-   if [ ! -h "/etc/postfix/main.cf" -a ! -f "/tmp/no-postfix-overwrite" ]; then
-      ln -sf /etc/postfix/main.cf.internal /etc/postfix/main.cf
-      RESTART=true
-   fi
+if [ $1 -eq 1 ] ; then
+        # Initial installation
+        systemctl preset joy.service >/dev/null 2>&1 || :
 fi
-/usr/sbin/postmap /etc/postfix/virtual
-
-if [ "$RESTART" = "true" ]; then
-    # Remove sendmail.cf so it will be built automatically from our macro file.
-#    /bin/rm /etc/mail/sendmail.cf /etc/mail/submit.cf
-    /sbin/service postfix condrestart >/dev/null 2>&1
+if [ ! -f /usr/local/etc/joy/upload-key ]; then
+        ssh-keygen -f /usr/local/etc/joy/upload-key -P "" -t rsa -b 2048
 fi
 
-%triggerun -- postfix
-if [ $1 = 0 ]; then
-    [ -h /etc/postfix/main.cf ] && rm -f /etc/postfix/main.cf
-    cp -p /etc/postfix/main.cf.BaK /etc/postfix/main.cf
-    /sbin/service postfix condrestart >/dev/null 2>&1
+%preun
+
+if [ $1 -eq 0 ] ; then
+        # Package removal, not upgrade
+        systemctl --no-reload disable joy.service  >/dev/null 2>&1 || :
+        systemctl stop joy.service >/dev/null 2>&1 || :
+fi
+
+%postun
+
+systemctl daemon-reload >/dev/null 2>&1 || :
+if [ $1 -ge 1 ] ; then
+        # Package upgrade, not uninstall
+        systemctl try-restart joy.service >/dev/null 2>&1 || :
 fi
