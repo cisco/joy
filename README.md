@@ -163,7 +163,8 @@ one swoop by executing:
 make test
 ```
 The test programs will indicate success or failure on the command line.
-Please see the file [test/README.md] for more information on blackbox testing.
+Please see [test/README.md](test/README.md) for more information
+on blackbox testing.
 
 #### Running and Configuration
 
@@ -201,7 +202,7 @@ configuration will not be clobbered if you update the joy package.
 
 #### Analysis
 
-Please see the file analysis/README.
+Please see the file [analysis/README](analysis/README).
 
 #### Installation
 
