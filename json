@@ -62,7 +62,7 @@
              },
 
     "oidp" : {"type" : "string",
-              "description" : "The outbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string.  For example, \"iidp\": 450000300268000080019758ac1047ebac1001010000a8e214180000e8d27a99d108000000000000000000001090fdff."
+              "description" : "The outbound initial data packet, including the IP header and all layers above it, expressed as a hexadecimal value in a JSON string.  For example, \"oidp\": 450000300268000080019758ac1047ebac1001010000a8e214180000e8d27a99d108000000000000000000001090fdff."
              },
 
     "oidp_len" : {"type" : "number",
