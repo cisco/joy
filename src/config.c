@@ -192,6 +192,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "zeros")) {
         parse_check(parse_bool(&config->include_zeroes, arg, num));
 
+    } else if (match(command, "retrans")) {
+        parse_check(parse_bool(&config->include_retrans, arg, num));
+
     } else if (match(command, "bidir")) {
         parse_check(parse_bool(&config->bidir, arg, num));
 
@@ -458,6 +461,7 @@ void config_print (FILE *f, const struct configuration *c) {
     fprintf(f, "num_pkts = %u\n", c->num_pkts);
     fprintf(f, "type = %u\n", c->type);
     fprintf(f, "zeros = %u\n", c->include_zeroes);
+    fprintf(f, "retrans = %u\n", c->include_retrans);
     fprintf(f, "dist = %u\n", c->byte_distribution);
     fprintf(f, "cdist = %s\n", val(c->compact_byte_distribution));
     fprintf(f, "entropy = %u\n", c->report_entropy);
@@ -503,6 +507,7 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"num_pkts\":%u,", c->num_pkts);
     zprintf(f, "\"type\":%u,", c->type);
     zprintf(f, "\"zeros\":%u,", c->include_zeroes);
+    zprintf(f, "\"retrans\":%u,", c->include_retrans);
     zprintf(f, "\"dist\":%u,", c->byte_distribution);
     zprintf(f, "\"cdist\":\"%s\",", val(c->compact_byte_distribution));
     zprintf(f, "\"entropy\":%u,", c->report_entropy);

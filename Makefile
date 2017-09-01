@@ -2,10 +2,10 @@
 #
 # Top Level Makefile for the joy open source binaries
 #
-# Copyright (c) 2016 Cisco Systems 
+# Copyright (c) 2016 Cisco Systems
 
 ##
-# variables 
+# variables
 ##
 
 ##
@@ -44,12 +44,13 @@ $(error error is "Please run ./config first.")
 endif
 
 export BINDIR = $(ROOT_PATH)/bin
+export TESTDIR = $(ROOT_PATH)/test
 export DOCDIR = $(ROOT_PATH)/doc
 
 ##
 # main executable and unit test program
 ##
-all: 
+all:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
@@ -72,9 +73,9 @@ str_match_test:
 ##
 # testing
 ##
-test: joy joy_test.py
+test: joy unit_test $(TESTDIR)/run_tests.py
 	$(BINDIR)/unit_test
-	./joy_test.py
+	$(TESTDIR)/run_tests.py
 
 ##
 # cscope
@@ -87,19 +88,25 @@ cscope:
 # DOCUMENTATION
 ##
 man: $(DOCDIR)/joy.1
-	man $(DOCDIR)/joy.1 > $(DOCDIR)/joy.txt 
-#	man -Tdvi $(DOCDIR)/joy.1 > $(DOCDIR)/joy.dvi 
+	man $(DOCDIR)/joy.1 > $(DOCDIR)/joy.txt
+#	man -Tdvi $(DOCDIR)/joy.1 > $(DOCDIR)/joy.dvi
 #	dvipdf $(DOCDIR)/joy.dvi
 #	rm -f $(DOCDIR)/joy.dvi
 
 ##
 # housekeeping
 ##
-clean: 
+clean:
 	rm -f cscope.out cscope.files
 	rm -f "$(DOCDIR)/joy.txt"
 	@cd src; $(MAKE) clean
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
+
+##
+# remove everything not under version control
+##
+clobber: clean
+	rm -rf bin/ joy.bin config.vars
 
 ##
 # installation via shell script

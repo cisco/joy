@@ -67,7 +67,7 @@
 #include <limits.h>  
 #include <getopt.h>
 #include <unistd.h>   
-#include <pthread.h>    
+#include <pthread.h>
 
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* joy data structures       */
@@ -111,6 +111,8 @@ extern unsigned short compact_bd_mapping[16];
 extern unsigned int bidir;
 
 extern unsigned int include_zeroes;
+
+extern unsigned int include_retrans;
 
 extern unsigned int byte_distribution;
 
@@ -329,6 +331,7 @@ static int usage (char *s) {
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
+           "  retrans=1                  include TCP retransmissions in packet list\n"
            "  bidir=1                    merge unidirectional flows into bidirectional ones\n" 
            "  dist=1                     include byte distribution array\n" 
            "  cdist=F                    include compact byte distribution array using the mapping file, F\n" 
@@ -367,7 +370,7 @@ static int usage (char *s) {
  \brief main entry point for joy
  \param argc command line argument count
  \param argv command line arguments
- \return o
+ \return 0
  */
 int main (int argc, char **argv) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
@@ -382,8 +385,6 @@ int main (int argc, char **argv) {
     unsigned int file_count = 0;
     char filename[MAX_FILENAME_LEN];   /* output file */
     char pcap_filename[MAX_FILENAME_LEN*2];   /* output file */
-    char *cli_interface = NULL; 
-    char *cli_filename = NULL; 
     char *config_file = NULL;
     struct intrface ifl[IFL_MAX];
     char *capture_if = NULL;
@@ -482,6 +483,7 @@ int main (int argc, char **argv) {
          */
         bidir = config.bidir;
         include_zeroes = config.include_zeroes;
+        include_retrans = config.include_retrans;
         byte_distribution = config.byte_distribution;
         compact_byte_distribution = config.compact_byte_distribution;
         report_entropy = config.report_entropy;
@@ -506,24 +508,6 @@ int main (int argc, char **argv) {
         }
     }
 
-    /*
-     * allow some command line variables to override the config file
-     */
-    if (cli_filename) {
-        /*
-         * output filename provided on command line supersedes that
-         * provided in the config file
-         */
-        config.filename = cli_filename;
-    } 
-    if (cli_interface) {
-        /*
-         * interface provided on command line supersedes that provided
-         * in the config file
-         */
-        config.intface = cli_interface;
-    }
-
     if (config.ipfix_collect_port && config.ipfix_export_port) {
         /*
          * Simultaneous IPFIX collection and exporting is not allowed
@@ -539,10 +523,6 @@ int main (int argc, char **argv) {
         fprintf(info, "error: must enable IPFIX collection via ipfix_collect_port "
                       "to use ipfix_collect_online\n");
         return -1;
-    }
-
-    if (config.filename) {
-        strncpy(filename, config.filename, MAX_FILENAME_LEN);
     }
 
     /*
@@ -732,14 +712,11 @@ int main (int argc, char **argv) {
       
         } else {    
             /* set output file based on command line or config file */
-      
-            if (cli_filename) {
-	               strncpy(filename, config.filename, MAX_FILENAME_LEN);
+
+            if (config.filename[0] == '/') {
+                strncpy(filename, config.filename, MAX_FILENAME_LEN);
             } else {
-	               char tmp_filename[MAX_FILENAME_LEN];
-	
-	               strncpy(tmp_filename, filename, MAX_FILENAME_LEN);
-	               snprintf(filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, tmp_filename);
+                snprintf(filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
             }
         }
         file_base_len = strlen(filename);
