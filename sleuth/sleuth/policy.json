@@ -160,7 +160,7 @@
             "DH_anon": {
               "default": 1,
               "client_key_length": {
-                "operator": "<=",
+                "operator": ">=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -171,7 +171,7 @@
            "sha1WithRSAEncryption": {
              "default": 1,
              "sig_key_size": {
-               "operator": "<=",
+               "operator": ">=",
                "1024": 2
              }
            },
