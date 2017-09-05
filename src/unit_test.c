@@ -45,12 +45,15 @@
 #include "modules.h"
 #include "p2f.h"
 #include "dns.h"
+#include "err.h"
 
 /*
  * use the "info" output stream to represent secondary output - it is
  * called by debug_printf()
  */
 FILE *info;
+
+extern unsigned int verbosity;
 
 /**
  * \fn int main (int argc, char *argv[]) 
@@ -65,6 +68,9 @@ int main (int argc, char *argv[]) {
      * use stderr for debug output 
      */
     info = stderr; 
+
+    /* Set logging to warning level */
+    verbosity = JOY_LOG_WARN;
 
     if (radix_trie_unit_test() != 0) {
         printf("error: radix_trie test failed\n");

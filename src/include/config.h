@@ -61,6 +61,7 @@
 struct configuration {
     unsigned int bidir;
     unsigned int include_zeroes;
+    unsigned int include_retrans;
     unsigned int byte_distribution;
     unsigned int report_entropy;
     unsigned int report_hd;

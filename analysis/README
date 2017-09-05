@@ -1,0 +1,23 @@
+Learning Parameters
+
+The model.py python program will generate logistic regression parameters suitable for use in the user interface. The arguments to model.py are:
+
+  -p POS_DIR, --pos_dir POS_DIR
+                        Directory of Positive Examples (JSON Format)
+  -n NEG_DIR, --neg_dir NEG_DIR
+                        Directory of Negative Examples (JSON Format)
+  -m, --meta            Parse Metadata Information
+  -l, --lengths         Parse Packet Size Information
+  -t, --times           Parse Inter-packet Time Information
+  -d, --dist            Parse Byte Distribution Information
+  -o OUTPUT, --output OUTPUT
+                        Output file for parameters
+
+To generate the two parameter files to be used with LAUI, we first generate the parameter file that does use the byte distribution:
+
+   python model.py -m -l -t -p /var/tls_json_files/ -n /var/non_tls_json_files/ -o params.txt
+
+and then we generate the parameters that do use the byte distribution:
+
+   python model.py -m -l -t -d -p /var/tls_json_files/ -n /var/non_tls_json_files/ -o params_bd.txt
+

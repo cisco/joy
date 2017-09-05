@@ -45,6 +45,10 @@ ifndef BINDIR
 BINDIR = ../bin
 endif
 
+ifndef TESTDIR
+TESTDIR = ../test
+endif
+
 ##
 # compiler directives
 ##
@@ -97,6 +101,7 @@ joy-anon: joy-anon.c $(JFDANON_SRC)
 
 unit_test: unit_test.c $(JOY_SRC)
 	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
+	ln -sf "$(BINDIR)/unit_test" "$(TESTDIR)/unit_test"
 
 str_match_test: str_match_test.c $(JOY_SRC)
 	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
