@@ -233,27 +233,27 @@ def get_scs_seclevel(policy, scs, client_key_length):
         concerns = []
 
         # loop through the items that need to be evaluated against the policy
-        for attr in params:
-            if attr == "desc":
+        for alg_type, alg_value in params.iteritems():
+            if alg_type == "desc":
                 continue
 
             current_seclevel = UNKNOWN
 
-            if attr in policy.rules:
-                if params[attr] in policy.rules[attr]:
-                    if attr == "kex":
-                        current_seclevel = get_seclevel_with_param(policy, attr, params[attr], client_key_length)
+            if alg_type in policy.rules:
+                if alg_value in policy.rules[alg_type]:
+                    if alg_type == "kex":
+                        current_seclevel = get_seclevel_with_param(policy, alg_type, alg_value, client_key_length)
                     else:
-                        current_seclevel = policy.rules[attr][params[attr]]
+                        current_seclevel = policy.rules[alg_type][alg_value]
 
             # build a list of items whose seclevel falls below the failure_threshold
             # and the value that caused the failure
             if current_seclevel <= policy.failure_threshold:
-                concern_string = attr + " - " + params[attr]
-                if attr == "kex":
+                concern_string = alg_type + " - " + alg_value
+                if alg_type == "kex":
                     concern_string += " client_key_length " + str(client_key_length)
                 concerns.append(concern_string)
-            seclevel_inventory[attr] = current_seclevel
+            seclevel_inventory[alg_type] = current_seclevel
 
         # fetch min seclevel element based on whether or not 'unknown' elements should be reported.
         # default here is 'report'
