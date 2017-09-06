@@ -167,7 +167,7 @@
               }
             }
         },
-        "sig_alg": {
+        "cert_sig_alg": {
            "sha1WithRSAEncryption": {
              "default": 1,
              "sig_key_size": {
