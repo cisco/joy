@@ -225,14 +225,6 @@ if [ "$sysname" == "Darwin" ]; then
         exit 1
     fi
 
-    # Install query
-    cp ${APP_ROOT}/query.py ${PREFIX}/bin/
-    retval=$?
-    if [ $retval -ne "0" ]; then
-        echo "error: could not copy query.py to ${PREFIX}/bin/"
-        exit 1
-    fi
-
     # Install the configuration file
     if [ -f ${PREFIX}/etc/joy/options.cfg ]; then
         echo "warning: file ${PREFIX}/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
@@ -312,7 +304,6 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     ls -l ${PREFIX}/bin/joy
-    ls -l ${PREFIX}/bin/query.py
     ls -l ${PREFIX}/etc/joy/*
     ls -l ${PREFIX}/share/man/man1/joy.1
     ls -l /Library/LaunchDaemons/joy.plist
