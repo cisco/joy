@@ -44,6 +44,7 @@ $(error error is "Please run ./config first.")
 endif
 
 export BINDIR = $(ROOT_PATH)/bin
+export TESTDIR = $(ROOT_PATH)/test
 export DOCDIR = $(ROOT_PATH)/doc
 
 ##
@@ -72,9 +73,9 @@ str_match_test:
 ##
 # testing
 ##
-test: joy joy_test.py
+test: joy unit_test $(TESTDIR)/run_tests.py
 	$(BINDIR)/unit_test
-	./joy_test.py
+	$(TESTDIR)/run_tests.py
 
 ##
 # cscope
