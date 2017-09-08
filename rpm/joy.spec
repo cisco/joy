@@ -1,16 +1,16 @@
 %define _enable_debug_packages 0
 %define debug_package %{nil}
 %global commit0 %{COMMIT_ID}
+%global version %{GIT_VERSION}
 %global gittag0 refs/heads/master
 %global shortcommit0 %(c=%{commit0}; echo ${c:0:7})
 
 Summary: Capture and analyze network flow data for research, forensics and monitoring.
 Name: joy
-Version: 1.71
+Version: %{version}
 Release: 0.%{shortcommit0}.1%{?dist}
 License: GPLv2
 Group: System Environment/Base
-#Source0:  https://github.com/cisco/%{name}/archive/%{commit0}.tar.gz#/%{name}-%{shortcommit0}.tar.gz
 Source0:  joy-%{shortcommit0}.tar.gz
 URL: https://github.com/cisco/joy/
 Distribution: Red Hat Enterprise Linux
