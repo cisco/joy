@@ -15,7 +15,9 @@ if [ "$?" != 0 ]; then
     echo Failed to create git archive tar
     exit 1
 fi
+# Used for rpm development
 #if [ "$GITREF" != "master" ]; then
+#    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/rpm/joy.spec joy/src/anon.c
 #    tar -uf $TAR_FILE ../joy/Makefile ../joy/install/install-sh ../joy/rpm/joy.spec ../joy/src/anon.c
 #    if [ "$?" != 0 ]; then
 #        echo Failed to update archive tar
@@ -27,7 +29,7 @@ if [ "$?" != 0 ]; then
     echo Failed to gzip archive tar
     exit 1
 fi
-rpmbuild -tb --define "COMMIT_ID $COMMIT_ID" --define "dist .el7" ./$TGZ_FILE
+rpmbuild -tb --define "COMMIT_ID $COMMIT_ID" --define "GIT_VERSION `cat VERSION`" --define "dist .el7" ./$TGZ_FILE
 if [ "$?" != 0 ]; then
     echo Failed to build RPM
     exit 1
