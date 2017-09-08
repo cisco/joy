@@ -38,7 +38,7 @@
  * \file dhcp.c
  *
  * \brief Dynamic Host Configuration Protocol (DHCP) awareness
- * 
+ *
  */
 #include <stdlib.h>
 #include <string.h>   /* for memset()    */
@@ -47,6 +47,7 @@
 #include "p2f.h"
 #include "anon.h"
 #include "utils.h"
+#include "pkt.h"
 #include "err.h"
 
 /**
@@ -159,7 +160,7 @@ static const char *dhcp_option_msg_types[] = {
 };
 
 /**
- * 
+ *
  * \brief Initialize the memory of DHCP struct \r.
  *
  * \param dhcp structure to initialize
@@ -198,7 +199,7 @@ void dhcp_delete(struct dhcp *dhcp)
         if (dhcp->messages[i].sname) {
             free(dhcp->messages[i].sname);
         }
-        
+
         if (dhcp->messages[i].file) {
             free(dhcp->messages[i].file);
         }
@@ -257,6 +258,45 @@ static int dhcp_option_value_to_string(struct dhcp_option *opt,
     return 0;
 }
 
+/**
+ * \brief Get the DHCP option value.
+ *
+ * If the value at \p data_ptr has a string representation, use that.
+ * Otherwise, allocate memory to store the data and copy in.
+ *
+ * \param opt dhcp_option
+ * \param opt_len length of the option data
+ * \param data_ptr pointer to the option data
+ *
+ * \return none
+ */
+static void dhcp_get_option_value(struct dhcp_option *opt,
+                                  unsigned char opt_len,
+                                  const unsigned char *data_ptr) {
+    /*
+     * Try to convert the option value into a human-readable string.
+     * If none are found, then copy in the raw bytes.
+     */
+    if (!dhcp_option_value_to_string(opt, data_ptr)) {
+        /* Allocate memory for the option data */
+        opt->value = malloc(opt_len);
+
+        memcpy(opt->value, data_ptr, opt_len);
+    }
+}
+
+/**
+ * \brief Parse, process, and record DHCP \p data.
+ *
+ * \param dhcp DHCP structure pointer
+ * \param header PCAP packet header pointer
+ * \param data Beginning of the DHCP payload data.
+ * \param len Length in bytes of the \p data.
+ * \param report_dhcp Flag indicating whether this feature should run.
+ *                    0 for no, 1 for yes
+ *
+ * \return none
+ */
 void dhcp_update(struct dhcp *dhcp,
                  const struct pcap_pkthdr *header,
                  const void *data,
@@ -289,7 +329,7 @@ void dhcp_update(struct dhcp *dhcp,
     msg = &dhcp->messages[dhcp->message_count];
 
     /* op */
-    msg->op = *ptr; 
+    msg->op = *ptr;
     ptr += 1;
 
     msg->htype = *ptr;
@@ -378,27 +418,27 @@ void dhcp_update(struct dhcp *dhcp,
         ptr += 1;
 
         if (opt_len != 0) {
-            /*
-             * Try to convert the option value into a human-readable string.
-             * If none are found, then copy in the raw bytes.
-             */
-            if (!dhcp_option_value_to_string(&msg->options[index], ptr)) {
-                /* Allocate memory for the option data */
-                msg->options[index].value = malloc(opt_len);
-
-                memcpy(msg->options[index].value, ptr, opt_len);
-            }
+            dhcp_get_option_value(&msg->options[index], opt_len, ptr);
 
             ptr += opt_len;
             msg->options_length += opt_len;
         }
 
-        msg->options_count += 1; 
+        msg->options_count += 1;
     }
 
     dhcp->message_count += 1;
 }
 
+/**
+ * \brief Print the DHCP struct to JSON output file \p f.
+ *
+ * \param d1 pointer to DHCP structure
+ * \param d2 pointer to twin DHCP structure
+ * \param f destination file for the output
+ *
+ * \return none
+ */
 void dhcp_print_json(const struct dhcp *d1,
                      const struct dhcp *d2,
                      zfile f)
@@ -499,12 +539,441 @@ void dhcp_print_json(const struct dhcp *d1,
 }
 
 /**
+ * \brief Skip over the L1/L2/L3 header of packet containing DHCP data.
+ *
+ * \param packet_data[in] pointer to beginning of packet
+ * \param packet_len[in] length in bytes of the packet
+ * \param size_payload[out] length of the DHCP payload stored here
+ *
+ * \return pointer to the beginning of DHCP message data, NULL if fail
+ */
+static unsigned char* dhcp_skip_packet_udp_header(const unsigned char *packet_data,
+                                                  unsigned int packet_len,
+                                                  unsigned int *size_payload) {
+    const struct ip_hdr *ip = NULL;
+    unsigned int ip_hdr_len = 0;
+    unsigned int udp_hdr_len = 8;
+    unsigned char *payload = NULL;
+
+    /* define/compute ip header offset */
+    ip = (struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
+    ip_hdr_len = ip_hdr_length(ip);
+    if (ip_hdr_len < 20) {
+        joy_log_err("invalid ip header of len %d", ip_hdr_len);
+        return NULL;
+    }
+
+    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+        /* IP packet is malformed (shorter than a complete IP header) */
+        joy_log_err("ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
+        return NULL;
+    }
+
+    /* define/compute udp payload (segment) offset */
+    payload = (unsigned char *)(packet_data + ETHERNET_HDR_LEN + ip_hdr_len + udp_hdr_len);
+
+    /* compute udp payload (segment) size */
+    *size_payload = packet_len - ETHERNET_HDR_LEN - ip_hdr_len - udp_hdr_len;
+
+    return payload;
+}
+
+/**
+ * \brief Compare two dhcp_messages to see if they are equal.
+ *
+ * \param m1 pointer to first dhcp_message struct
+ * \param m2 pointer to second dhcp_message struct
+ *
+ * \return 0 for no, 1 for yes
+ */
+static int dhcp_test_message_equality(struct dhcp_message *m1,
+                                      struct dhcp_message *m2) {
+    int i = 0;
+
+    if (m1 == NULL || m2 == NULL) {
+        joy_log_err("api parameter is null");
+        return 0;
+    }
+
+    if (m1->op != m2->op) {
+        joy_log_err("bad op");
+        return 0;
+    }
+
+    if (m1->htype != m2->htype) {
+        joy_log_err("bad htype");
+        return 0;
+    }
+
+    if (m1->hlen != m2->hlen) {
+        joy_log_err("bad hlen");
+        return 0;
+    }
+
+    if (m1->hops != m2->hops) {
+        joy_log_err("bad hops");
+        return 0;
+    }
+
+    if (m1->xid != m2->xid) {
+        joy_log_err("bad xid");
+        return 0;
+    }
+
+    if (m1->secs != m2->secs) {
+        joy_log_err("bad secs");
+        return 0;
+    }
+
+    if (m1->flags != m2->flags) {
+        joy_log_err("bad flags");
+        return 0;
+    }
+
+    if (m1->ciaddr.s_addr != m2->ciaddr.s_addr) {
+        joy_log_err("bad ciaddr");
+        return 0;
+    }
+
+    if (m1->yiaddr.s_addr != m2->yiaddr.s_addr) {
+        joy_log_err("bad yiaddr");
+        return 0;
+    }
+
+    if (m1->siaddr.s_addr != m2->siaddr.s_addr) {
+        joy_log_err("bad siaddr");
+        return 0;
+    }
+
+    if (m1->giaddr.s_addr != m2->giaddr.s_addr) {
+        joy_log_err("bad giaddr");
+        return 0;
+    }
+
+    if (memcmp(m1->chaddr, m2->chaddr, MAX_DHCP_CHADDR) != 0) {
+        joy_log_err("bad chaddr");
+        return 0;
+    }
+
+    /* Compare options */
+    if (m1->options_count != m2->options_count) {
+        joy_log_err("bad options_count");
+        return 0;
+    }
+
+    if (m1->options_length != m2->options_length) {
+        joy_log_err("bad options_length");
+        return 0;
+    }
+
+    /* Iterate over each option */
+    for (i = 0; i < m1->options_count; i++) {
+        if (m1->options[i].code != m2->options[i].code) {
+            joy_log_err("bad options[%d] code", i);
+            return 0;
+        }
+
+        if (m1->options[i].len != m2->options[i].len) {
+            joy_log_err("bad options[%d] len", i);
+            return 0;
+        }
+
+        if (m1->options[i].value != NULL || m2->options[i].value != NULL) {
+            if (m1->options[i].value == NULL || m2->options[i].value == NULL) {
+                /* One of the messages has value memory while the other does not */
+                joy_log_err("one of options[%d] value is null", i);
+                return 0;
+            } else {
+                /* Compare the option values */
+                if (memcmp(m1->options[i].value, m1->options[i].value, m1->options[i].len) != 0) {
+                    joy_log_err("one of options[%d] value is null", i);
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return 1;
+}
+
+/**
+ * \brief Test the dhcp_update function by comparing KAT values against data extracted from PCAP.
+ *
+ * This only looks at the discover and offer messages for sake of readability.
+ *
+ * \return 0 for success, otherwise number of fails
+ */
+static int dhcp_test_vanilla_parsing() {
+    struct dhcp d = {0};
+    pcap_t *pcap_handle = NULL;
+    struct pcap_pkthdr header;
+    const unsigned char *pkt_ptr = NULL;
+    const unsigned char *payload_ptr = NULL;
+    unsigned int payload_len = 0;
+    char *filename = "dhcp.pcap";
+    struct dhcp known_dhcp = {0};
+    struct dhcp_message *msg = NULL;
+    int num_fails = 0;
+
+    unsigned char kat_chaddr[] = {0x00, 0x0b, 0x82, 0x01, 0xfc, 0x42, 0x00, 0x00,
+                                  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+    dhcp_init(&d);
+    dhcp_init(&known_dhcp);
+
+    /*
+     * Known answers
+     */
+
+    /*
+     * KAT Discover
+     */
+    msg = &known_dhcp.messages[0];
+    msg->op = 0x01;
+    msg->htype = 0x01;
+    msg->hlen = 0x06;
+    msg->hops = 0x00;
+    msg->xid = 0x00003d1d;
+    msg->secs = 0x0000;
+    msg->flags = 0x0000;
+    msg->ciaddr.s_addr = ntohl(0x00000000);
+    msg->yiaddr.s_addr = ntohl(0x00000000);
+    msg->siaddr.s_addr = ntohl(0x00000000);
+    msg->giaddr.s_addr = ntohl(0x00000000);
+    memcpy(msg->chaddr, kat_chaddr, MAX_DHCP_CHADDR);
+
+    {
+        /* Discover Options */
+        unsigned char opt_len = 0;
+        unsigned char opt_val_0[] = {0x05}; /* Discover */
+        unsigned char opt_val_1[] = {0x01, 0x00, 0x0b, 0x82, 0x01, 0xfc, 0x42}; /* Eth and Mac */
+        unsigned char opt_val_2[] = {0x00, 0x00, 0x00, 0x00}; /* Requested IP address */
+        unsigned char opt_val_3[] = {0x01, 0x03, 0x06, 0x2a}; /* Mask, Router, DNS, NTPS */
+
+        /* Opt 0 */
+        msg->options[0].code = 53; /* Message type */
+        msg->options_length += 1;
+
+        opt_len = 1;
+        msg->options[0].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[0], opt_len, opt_val_0);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 1 */
+        msg->options[1].code = 61; /* Client identifier */
+        msg->options_length += 1;
+
+        opt_len = 7;
+        msg->options[1].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[1], opt_len, opt_val_1);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 2 */
+        msg->options[2].code = 50; /* Requested IP address */
+        msg->options_length += 1;
+
+        opt_len = 4;
+        msg->options[2].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[2], opt_len, opt_val_2);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 3 */
+        msg->options[3].code = 55; /* Parameter Request List */
+        msg->options_length += 1;
+
+        opt_len = 4;
+        msg->options[3].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[3], opt_len, opt_val_3);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+    }
+
+    /* Increment the message count */
+    known_dhcp.message_count += 1;
+
+    /*
+     * KAT Offer
+     */
+    msg = &known_dhcp.messages[1];
+    msg->op = 0x02;
+    msg->htype = 0x01;
+    msg->hlen = 0x06;
+    msg->hops = 0x00;
+    msg->xid = 0x00003d1d;
+    msg->secs = 0x0000;
+    msg->flags = 0x0000;
+    msg->ciaddr.s_addr = ntohl(0x00000000);
+    msg->yiaddr.s_addr = ntohl(0xc0a8000a);
+    msg->siaddr.s_addr = ntohl(0xc0a80001);
+    msg->giaddr.s_addr = ntohl(0x00000000);
+    memcpy(msg->chaddr, kat_chaddr, MAX_DHCP_CHADDR);
+
+    {
+        /* Offer Options */
+        unsigned char opt_len = 0;
+        unsigned char opt_val_0[] = {0x02}; /* Offer */
+        unsigned char opt_val_1[] = {0xff, 0xff, 0xff, 0x00}; /* Subnet mask */
+        unsigned char opt_val_2[] = {0x00, 0x00, 0x07, 0x08}; /* Renewal time */
+        unsigned char opt_val_3[] = {0x00, 0x00, 0x0c, 0x4e}; /* Rebinding time */
+        unsigned char opt_val_4[] = {0x00, 0x00, 0x0e, 0x10}; /* IP address lease time */
+        unsigned char opt_val_5[] = {0xc0, 0xa8, 0x00, 0x01}; /* DHCP server id */
+
+        /* Opt 0 */
+        msg->options[0].code = 53; /* Message type */
+        msg->options_length += 1;
+
+        opt_len = 1;
+        msg->options[0].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[0], opt_len, opt_val_0);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 1 */
+        msg->options[1].code = 1; /* Subnet mask */
+        msg->options_length += 1;
+
+        opt_len = 4;
+        msg->options[1].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[1], opt_len, opt_val_1);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 2 */
+        msg->options[2].code = 58; /* Renewal time */
+        msg->options_length += 1;
+
+        opt_len = 4;
+        msg->options[2].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[2], opt_len, opt_val_2);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 3 */
+        msg->options[3].code = 59; /* Rebinding time */
+        msg->options_length += 1;
+
+        opt_len = 4;
+        msg->options[3].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[3], opt_len, opt_val_3);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 4 */
+        msg->options[4].code = 51; /* IP address lease time */
+        msg->options_length += 1;
+
+        opt_len = 4;
+        msg->options[4].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[4], opt_len, opt_val_4);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+
+        /* Opt 5 */
+        msg->options[5].code = 54; /* DHCP server identifier */
+        msg->options_length += 1;
+
+        opt_len = 4;
+        msg->options[5].len = opt_len;
+        msg->options_length += 1;
+
+        dhcp_get_option_value(&msg->options[5], opt_len, opt_val_5);
+
+        msg->options_length += opt_len;
+        msg->options_count += 1;
+    }
+    /* Increment the message count */
+    known_dhcp.message_count += 1;
+
+
+    /*
+     * Test dhcp_update parsing with pcap
+     */
+    pcap_handle = joy_utils_open_test_pcap(filename);
+    if (!pcap_handle) {
+        joy_log_err("unable to open %s", filename);
+        num_fails++;
+        goto end;
+    }
+
+    /* Discover */
+    pkt_ptr = pcap_next(pcap_handle, &header);
+    payload_ptr = dhcp_skip_packet_udp_header(pkt_ptr, header.len, &payload_len);
+    dhcp_update(&d, &header, payload_ptr, payload_len, 1);
+
+    if (! dhcp_test_message_equality(&d.messages[d.message_count-1], &known_dhcp.messages[0])) {
+        joy_log_err("incorrect discover");
+        num_fails++;
+    }
+
+    /* Offer */
+    pkt_ptr = pcap_next(pcap_handle, &header);
+    payload_ptr = dhcp_skip_packet_udp_header(pkt_ptr, header.len, &payload_len);
+    dhcp_update(&d, &header, payload_ptr, payload_len, 1);
+
+    if (! dhcp_test_message_equality(&d.messages[d.message_count-1], &known_dhcp.messages[1])) {
+        joy_log_err("incorrect offer");
+        num_fails++;
+    }
+
+end:
+    if (pcap_handle) {
+        pcap_close(pcap_handle);
+    }
+    dhcp_delete(&d);
+    dhcp_delete(&known_dhcp);
+
+    return num_fails;
+}
+
+/**
  * \brief Unit test for DHCP
- * \param none
+ *
  * \return none
  */
 void dhcp_unit_test()
 {
-    /* NYI */
+    int num_fails = 0;
+
+    fprintf(info, "\n******************************\n");
+    fprintf(info, "DHCP Unit Test starting...\n");
+
+    num_fails += dhcp_test_vanilla_parsing();
+
+    if (num_fails) {
+        fprintf(info, "Finished - # of failures: %d\n", num_fails);
+    } else {
+        fprintf(info, "Finished - success\n");
+    }
+    fprintf(info, "******************************\n\n");
 }
 
