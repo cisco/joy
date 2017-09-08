@@ -50,7 +50,7 @@ KEYFILE=""
 NEWKEY=0
 TLS_FINGERPRINT_FILE=${APP_ROOT}/resources/tls_fingerprint.json
 PREFIX="/usr/local"
-RPMBUILDROOT=""
+BUILDROOT=""
 
 echo
 echo JOY INSTALL-SH
@@ -61,51 +61,51 @@ echo
 #
 while getopts "hc:a:w:k:p:r:" arg; do
     case $arg in
-	h)
-	    usage
-		exit
-	    ;;
-	c)
-	    echo "-c was triggered with option ${OPTARG}" 
-	    CONFIGFILE=${OPTARG}
-	    ;;
-	a)
-	    echo "-a was triggered with option ${OPTARG}" 
-	    ANONFILE=${OPTARG}
-	    ;;
-	w)
-	    echo "-w was triggered with option ${OPTARG}" 
-	    WATCHFILE=${OPTARG}
-	    ;;
-	k)
-	    echo "-k was triggered with option ${OPTARG}" 
-	    KEYFILE=${OPTARG}
-	    ;;
-	p)
-	    echo "-p was triggered with option ${OPTARG}" 
-	    PREFIX=${OPTARG}
-	    ;;
-	r)
-	    echo "-r was triggered with option ${OPTARG}" 
-	    RPMBUILD=true
-        RPMBUILDROOT=${OPTARG}
-	    ;;
-	\?)
-	    echo "error: invalid option -${OPTARG}" 
+    h)
+        usage
+        exit
+        ;;
+    c)
+        echo "-c was triggered with option ${OPTARG}" 
+        CONFIGFILE=${OPTARG}
+        ;;
+    a)
+        echo "-a was triggered with option ${OPTARG}" 
+        ANONFILE=${OPTARG}
+        ;;
+    w)
+        echo "-w was triggered with option ${OPTARG}" 
+        WATCHFILE=${OPTARG}
+        ;;
+    k)
+        echo "-k was triggered with option ${OPTARG}" 
+        KEYFILE=${OPTARG}
+        ;;
+    p)
+        echo "-p was triggered with option ${OPTARG}" 
+        PREFIX=${OPTARG}
+        ;;
+    r)
+        echo "-r was triggered with option ${OPTARG}" 
+        RPMBUILD=true
+        BUILDROOT=${OPTARG}
+        ;;
+    \?)
+        echo "error: invalid option -${OPTARG}" 
         usage
         exit 1
-		;;
-	:)
-	    echo "error: option -${OPTARG} requires an argument" 
+        ;;
+    :)
+        echo "error: option -${OPTARG} requires an argument" 
         usage
         exit 1
-	    ;;
+        ;;
     esac
 done
 if [ $(($# + 1)) != "${OPTIND}" ]; then
     echo "error: illegal option"
     usage
-	exit 1
+    exit 1
 fi
 
 # this script requires root privileges; complain and bail otherwise
@@ -151,22 +151,22 @@ if [ -f ${KEYFILE} ]; then
     echo "file ${KEYFILE} exists; not overwriting it"
     NEWKEY=0
 else
-	if [ -z "$RPMBUILD" ]; then
-    	echo "generating SSH public/private keypair ... "
-    	ssh-keygen -f ${KEYFILE} -P "" -t rsa -b 2048
-    	retval=$?
-    	if [ $retval -ne "0" ]; then
-			echo "error: could not generate SSH key ${KEYFILE}"
-			exit
-    	fi
-    	if [ ! -f ${KEYFILE} ]; then
-			echo "error: could not find keyfile ${KEYFILE}"
-			exit 1
-    	fi
-    	NEWKEY=1
-	else
-		echo "Did not build SSH public/private keypair due to RPM build"
-	fi
+    if [ -z "$RPMBUILD" ]; then
+        echo "generating SSH public/private keypair ... "
+        ssh-keygen -f ${KEYFILE} -P "" -t rsa -b 2048
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not generate SSH key ${KEYFILE}"
+            exit
+        fi
+        if [ ! -f ${KEYFILE} ]; then
+            echo "error: could not find keyfile ${KEYFILE}"
+            exit 1
+        fi
+        NEWKEY=1
+    else
+        echo "Did not build SSH public/private keypair due to RPM build"
+    fi
 fi
 
 create_directory () {
@@ -272,14 +272,14 @@ if [ "$sysname" == "Darwin" ]; then
 
     # Install the ssh key file
     if [ -z "$RPMBUILD" ]; then
-    	mv ${KEYFILE} ${PREFIX}/etc/joy/
-    	retval=$?
-    	if [ $retval -ne "0" ]; then
-        	echo "error: could not move ${KEYFILE} to ${PREFIX}/etc/joy"
-        	exit 1
-    	fi
-    	chmod 600 ${PREFIX}/etc/joy/${KEYFILE}
-	fi
+        mv ${KEYFILE} ${PREFIX}/etc/joy/
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not move ${KEYFILE} to ${PREFIX}/etc/joy"
+            exit 1
+        fi
+        chmod 600 ${PREFIX}/etc/joy/${KEYFILE}
+    fi
 
 
     if [ "${WATCHFILE}" != "" ]; then
@@ -406,11 +406,11 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the sleuth python module (dependency of joyq)
-	if [ -z "$RPMBUILD" ]; then
-    	pip install ${APP_ROOT}/sleuth/
-	else
-    	pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
-	fi
+    if [ -z "$RPMBUILD" ]; then
+        pip install ${APP_ROOT}/sleuth/
+    else
+        pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
+    fi
 
     # Install the configuration file
     if [ -f ${PREFIX}/etc/joy/options.cfg ]; then
@@ -451,14 +451,14 @@ elif [ "$sysname" == "Linux" ]; then
 
     # Install the ssh key file
     if [ -z "$RPMBUILD" ]; then
-    	mv ${KEYFILE} ${PREFIX}/etc/joy/
-    	retval=$?
-    	if [ $retval -ne "0" ]; then
-        	echo "error: could not move ${KEYFILE} to ${PREFIX}/etc/joy"
-        	exit 1
-    	fi
-    	chmod 600 ${PREFIX}/etc/joy/${KEYFILE}
-	fi
+        mv ${KEYFILE} ${PREFIX}/etc/joy/
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not move ${KEYFILE} to ${PREFIX}/etc/joy"
+            exit 1
+        fi
+        chmod 600 ${PREFIX}/etc/joy/${KEYFILE}
+    fi
 
     if [ "${WATCHFILE}" != "" ]; then
         # Install the watch file
@@ -480,14 +480,14 @@ elif [ "$sysname" == "Linux" ]; then
         echo "error: could not copy joy.1 to ${PREFIX}/share/man/man1/"
         exit 1
     fi
-	if [ -z "$RPMBUILD" ]; then
-    	mandb >/dev/null
-    	retval=$?
-    	if [ $retval -ne "0" ]; then
-        	echo "error: could not run mandb (man page will be unavailable)"
-        	# exit 1
-    	fi
-	fi
+    if [ -z "$RPMBUILD" ]; then
+        mandb >/dev/null
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not run mandb (man page will be unavailable)"
+            # exit 1
+        fi
+    fi
 
     cp ${APP_ROOT}/data/* ${PREFIX}/share/joy/data
     retval=$?
@@ -500,72 +500,72 @@ elif [ "$sysname" == "Linux" ]; then
     # Copy the daemon service files and start it
     ##
     if [ "$daemon_system" == "sysv" ]; then
-        create_directory $RPMBUILDROOT/etc/init.d
-       	cp ${CWD}/joy.rc $RPMBUILDROOT/etc/init.d/joy
-       	retval=$?
-       	if [ $retval -ne "0" ]; then
-           	echo "error: could not copy to $RPMBUILDROOT/etc/init.d"
-           	exit 1
-       	fi
-       	chmod +x /etc/init.d/joy
-       	retval=$?
-       	if [ $retval -ne "0" ]; then
-           	echo "error: could not chmod +x $RPMBUILDROOT/etc/init.d/joy"
-           	exit 1
-       	fi
-	    if [ -z "$RPMBUILD" ]; then
-        	# Configure to run automatically at boot time
-        	update-rc.d joy defaults
-        	retval=$?
-        	if [ $retval -ne "0" ]; then
-            	echo "error: update-rc.d failed (return value: $retval)"
-            	exit 1
-        	fi
+        create_directory $BUILDROOT/etc/init.d
+        cp ${CWD}/joy.rc $BUILDROOT/etc/init.d/joy
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy to $BUILDROOT/etc/init.d"
+            exit 1
+        fi
+        chmod +x /etc/init.d/joy
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not chmod +x $BUILDROOT/etc/init.d/joy"
+            exit 1
+        fi
+        if [ -z "$RPMBUILD" ]; then
+            # Configure to run automatically at boot time
+            update-rc.d joy defaults
+            retval=$?
+            if [ $retval -ne "0" ]; then
+                echo "error: update-rc.d failed (return value: $retval)"
+                exit 1
+            fi
 
-        	# Start service 
-        	service joy start
+            # Start service 
+            service joy start
         fi
     elif [ "$daemon_system" == "systemd" ]; then
-        create_directory ${RPMBUILDROOT}/usr/lib/systemd/system
-       	cp ${CWD}/joy.service ${RPMBUILDROOT}/usr/lib/systemd/system/
-       	retval=$?
-       	if [ $retval -ne "0" ]; then
-           	echo "error: could not copy joy.service to ${RPMBUILDROOT}/usr/lib/systemd/system/"
-           	exit 1
-       	fi
-       	chmod 644 ${RPMBUILDROOT}/usr/lib/systemd/system/joy.service
-       	retval=$?
-       	if [ $retval -ne "0" ]; then
-           	echo "error: could not chmod 644 ${RPMBUILDROOT}/usr/lib/systemd/system/joy.service"
-           	exit 1
-       	fi
+        create_directory ${BUILDROOT}/usr/lib/systemd/system
+        cp ${CWD}/joy.service ${BUILDROOT}/usr/lib/systemd/system/
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy joy.service to ${BUILDROOT}/usr/lib/systemd/system/"
+            exit 1
+        fi
+        chmod 644 ${BUILDROOT}/usr/lib/systemd/system/joy.service
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not chmod 644 ${BUILDROOT}/usr/lib/systemd/system/joy.service"
+            exit 1
+        fi
 
-	    if [ -z "$RPMBUILD" ]; then
-        	# Configure to run at boot time
-        	systemctl enable joy.service
+        if [ -z "$RPMBUILD" ]; then
+            # Configure to run at boot time
+            systemctl enable joy.service
 
-        	# Start service
-        	systemctl start joy.service
-    	fi
-	fi
+            # Start service
+            systemctl start joy.service
+        fi
+    fi
 
     # List all the installed files
     
-	if [ -z "$RPMBUILD" ]; then
+    if [ -z "$RPMBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/bin/joyq
         ls -l ${PREFIX}/etc/joy/*
         ls -l ${PREFIX}/share/joy/data/*
         ls -l ${PREFIX}/share/man/man1/joy.1
 
-    	if [ "$daemon_system" == "sysv" ]; then
-        	ls -l /etc/init.d/joy
-        	service joy status
-    	elif [ "$daemon_system" == "systemd" ]; then
-        	ls -l /etc/systemd/system/joy.service
-        	systemctl status joy.service
-    	fi
-	fi
+        if [ "$daemon_system" == "sysv" ]; then
+            ls -l /etc/init.d/joy
+            service joy status
+        elif [ "$daemon_system" == "systemd" ]; then
+            ls -l /etc/systemd/system/joy.service
+            systemctl status joy.service
+        fi
+    fi
 
     echo "done" 
     echo
