@@ -114,7 +114,7 @@ clobber: clean
 install: $(BINDIR)/joy $(BINDIR)/unit_test test
 	./install/install-sh
  
-rpm: $(BINDIR)/joy $(BINDIR)/unit_test test
-	./install/install-sh -r $(RPM_BUILD_ROOT) -p $(DESTDIR)
+pkg: $(BINDIR)/joy $(BINDIR)/unit_test test
+	./install/install-sh -r $(BUILDROOT) -p $(DESTDIR)
 
 # EOF
