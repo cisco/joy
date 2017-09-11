@@ -230,6 +230,21 @@ if [ "$sysname" == "Darwin" ]; then
         exit 1
     fi
 
+    # Install joyq
+    cp ${APP_ROOT}/joyq ${PREFIX}/bin/
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not copy joyq to ${PREFIX}/bin/"
+        exit 1
+    fi
+
+    # Install the sleuth python module (dependency of joyq)
+    if [ -z "$PKGBUILD" ]; then
+        pip install ${APP_ROOT}/sleuth/
+    else
+        pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
+    fi
+
     # Install the configuration file
     if [ -f ${PREFIX}/etc/joy/options.cfg ]; then
         echo "warning: file ${PREFIX}/etc/joy/options.cfg exists; renaming that file to options.cfg.bak"
@@ -282,7 +297,7 @@ if [ "$sysname" == "Darwin" ]; then
     if [ "${WATCHFILE}" != "" ]; then
         # Install the watch file
         if [ -f ${PREFIX}/etc/joy/${WATCHFILE} ]; then
-            echo "file /etc/joy/${WATCHFILE} exists; overwriting with recent file"
+            echo "file ${PREFIX}/etc/joy/${WATCHFILE} exists; overwriting with recent file"
         fi
         cp ${WATCHFILE} ${PREFIX}/etc/joy/
         retval=$?
@@ -298,6 +313,15 @@ if [ "$sysname" == "Darwin" ]; then
         retval=$?
         if [ $retval -ne "0" ]; then
             echo "error: could not copy joy.plist to /Library/LaunchDaemons"
+            exit 1
+        fi
+    else
+        # Copy joy.plist for pkg post-installation
+        create_directory ${PREFIX}/etc/joy/
+        cp ${CWD}/joy.plist ${PREFIX}/etc/joy/
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy joy.plist to ${PREFIX}/etc/joy/"
             exit 1
         fi
     fi
