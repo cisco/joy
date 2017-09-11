@@ -32,7 +32,7 @@ usage() {
     echo ""
     echo "   prefix is the installation prefix (default: /usr/local)"
     echo ""
-    echo "   rootdir specifies the RPM build root directory. Only use when building an RPM."
+    echo "   rootdir specifies the package build root directory. Only use when building a package."
     echo ""
     echo "For more information about these files and their formats, please read the"
     echo "joy man page"
@@ -87,7 +87,7 @@ while getopts "hc:a:w:k:p:r:" arg; do
         ;;
     r)
         echo "-r was triggered with option ${OPTARG}" 
-        RPMBUILD=true
+        PKGBUILD=true
         BUILDROOT=${OPTARG}
         ;;
     \?)
@@ -110,7 +110,7 @@ fi
 
 # this script requires root privileges; complain and bail otherwise
 #
-if [ -z "$RPMBUILD" -a "$EUID" -ne 0 ]; then
+if [ -z "$PKGBUILD" -a "$EUID" -ne 0 ]; then
    echo "error: $0 must be run as root; perhaps run \"sudo $0\"" 
    exit 1
 fi
@@ -151,7 +151,7 @@ if [ -f ${KEYFILE} ]; then
     echo "file ${KEYFILE} exists; not overwriting it"
     NEWKEY=0
 else
-    if [ -z "$RPMBUILD" ]; then
+    if [ -z "$PKGBUILD" ]; then
         echo "generating SSH public/private keypair ... "
         ssh-keygen -f ${KEYFILE} -P "" -t rsa -b 2048
         retval=$?
@@ -165,7 +165,7 @@ else
         fi
         NEWKEY=1
     else
-        echo "Did not build SSH public/private keypair due to RPM build"
+        echo "Did not build SSH public/private keypair due to package build"
     fi
 fi
 
@@ -189,6 +189,11 @@ if [ "$sysname" == "Darwin" ]; then
     # Darwin operating system detected
     ##
     echo "found $sysname (Mac OS X), installing joy ..."
+
+    if [ -z "$PKGBUILD" ]; then
+        echo "stopping flow capture daemon (just in case one is already running)"
+        launchctl unload /Library/LaunchDaemons/joy.plist
+    fi
 
     # Create ${PREFIX}/bin directory if it does not currently exist
     create_directory ${PREFIX}/bin
@@ -263,7 +268,7 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install the ssh key file
-    if [ -z "$RPMBUILD" ]; then
+    if [ -z "$PKGBUILD" ]; then
         mv ${KEYFILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
@@ -288,11 +293,13 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install the Launchd script for daemon management
-    cp ${CWD}/joy.plist /Library/LaunchDaemons/
-    retval=$?
-    if [ $retval -ne "0" ]; then
-        echo "error: could not copy joy.plist to /Library/LaunchDaemons"
-        exit 1
+    if [ -z "$PKGBUILD" ]; then
+        cp ${CWD}/joy.plist /Library/LaunchDaemons/
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy joy.plist to /Library/LaunchDaemons"
+            exit 1
+        fi
     fi
 
     # Install the manpage documentation
@@ -303,20 +310,19 @@ if [ "$sysname" == "Darwin" ]; then
         exit 1
     fi
 
-    ls -l ${PREFIX}/bin/joy
-    ls -l ${PREFIX}/etc/joy/*
-    ls -l ${PREFIX}/share/man/man1/joy.1
-    ls -l /Library/LaunchDaemons/joy.plist
-
-    echo "stopping flow capture daemon (just in case one is already running)"
-    launchctl unload /Library/LaunchDaemons/joy.plist
-
-    echo "starting flow capture daemon"
-    launchctl load /Library/LaunchDaemons/joy.plist
+    if [ -z "$PKGBUILD" ]; then
+        ls -l ${PREFIX}/bin/joy
+        ls -l ${PREFIX}/etc/joy/*
+        ls -l ${PREFIX}/share/joy/data/*
+        ls -l ${PREFIX}/share/man/man1/joy.1
+        ls -l /Library/LaunchDaemons/joy.plist
+        echo "starting flow capture daemon"
+        launchctl load /Library/LaunchDaemons/joy.plist
+    fi
 
     echo "...done"
     echo
-    exit
+
 elif [ "$sysname" == "Linux" ]; then 
     ##
     # Linux operating system detected
@@ -371,7 +377,7 @@ elif [ "$sysname" == "Linux" ]; then
     create_directory ${PREFIX}/share/joy/data
 
     # Stop service, if a previous version is already running
-    if [ -z "$RPMBUILD" ]; then
+    if [ -z "$PKGBUILD" ]; then
         echo "stopping service (this might take some time)" 
         if [ "$daemon_system" == "sysv" ]; then
             service joy stop 
@@ -397,7 +403,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the sleuth python module (dependency of joyq)
-    if [ -z "$RPMBUILD" ]; then
+    if [ -z "$PKGBUILD" ]; then
         pip install ${APP_ROOT}/sleuth/
     else
         pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
@@ -441,7 +447,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the ssh key file
-    if [ -z "$RPMBUILD" ]; then
+    if [ -z "$PKGBUILD" ]; then
         mv ${KEYFILE} ${PREFIX}/etc/joy/
         retval=$?
         if [ $retval -ne "0" ]; then
@@ -471,7 +477,7 @@ elif [ "$sysname" == "Linux" ]; then
         echo "error: could not copy joy.1 to ${PREFIX}/share/man/man1/"
         exit 1
     fi
-    if [ -z "$RPMBUILD" ]; then
+    if [ -z "$PKGBUILD" ]; then
         mandb >/dev/null
         retval=$?
         if [ $retval -ne "0" ]; then
@@ -504,7 +510,7 @@ elif [ "$sysname" == "Linux" ]; then
             echo "error: could not chmod +x $BUILDROOT/etc/init.d/joy"
             exit 1
         fi
-        if [ -z "$RPMBUILD" ]; then
+        if [ -z "$PKGBUILD" ]; then
             # Configure to run automatically at boot time
             update-rc.d joy defaults
             retval=$?
@@ -531,7 +537,7 @@ elif [ "$sysname" == "Linux" ]; then
             exit 1
         fi
 
-        if [ -z "$RPMBUILD" ]; then
+        if [ -z "$PKGBUILD" ]; then
             # Configure to run at boot time
             systemctl enable joy.service
 
@@ -542,7 +548,7 @@ elif [ "$sysname" == "Linux" ]; then
 
     # List all the installed files
     
-    if [ -z "$RPMBUILD" ]; then
+    if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/bin/joyq
         ls -l ${PREFIX}/etc/joy/*
@@ -566,7 +572,6 @@ else
     exit 1
 
 fi
-
 
 if [ "$NEWKEY" -eq "1" ]; then
 
