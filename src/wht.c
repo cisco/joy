@@ -47,16 +47,22 @@
 #include "wht.h"     
 
 /**
- * \fn __inline void wht_init (struct wht *wht)
- * \param wht pointer to the structure to initialize
+ * \brief Initialize the memory of WHT struct.
+ *
+ * \param wht_handle contains wht structure to init
+ *
  * \return none
  */
 __inline void wht_init (struct wht **wht_handle) {
     struct wht *wht = NULL;
 
-    /* Allocate if needed */
     if (*wht_handle == NULL) {
         wht = malloc(sizeof(struct wht));
+        /* Grab a handle on the memory */
+        *wht_handle = wht;
+    } else {
+        /* Already exisiting */
+        wht = *wht_handle;
     }
 
     if (wht != NULL) {
@@ -66,8 +72,6 @@ __inline void wht_init (struct wht **wht_handle) {
         wht->spectrum[2] = 0;
         wht->spectrum[3] = 0;
     }
-
-    *wht_handle = wht;
 }
 
 /*
@@ -193,17 +197,20 @@ void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f) {
 }
 
 /**
- * \fn void wht_delete (struct wht *wht)
- * \param pointer to the structure
+ * \brief Delete the memory of WHT struct.
+ *
+ * \param wht_handle contains wht structure to delete
+ *
  * \return none
  */
 void wht_delete (struct wht **wht_handle) {
-    struct wht *wht = *wht_handle; /* Derefence the handle */
+    struct wht *wht = *wht_handle;
 
     if (wht == NULL) {
         return;
     }
 
+    /* Free the memory and set to NULL */
     memset(wht, 0, sizeof(struct wht));
     free(wht);
     *wht_handle = NULL;

@@ -726,18 +726,25 @@ static void ssh_process(struct ssh *cli,
     }
 }
 
-/*
- * start of ssh feature functions
+/**
+ *
+ * \brief Initialize the memory of SSH struct.
+ *
+ * \param ssh_handle contains ssh structure to initialize
+ *
+ * \return none
  */
-
 inline void ssh_init(struct ssh **ssh_handle) {
     int i;
-
     struct ssh *ssh = NULL;
 
-    /* Allocate if needed */
     if (*ssh_handle == NULL) {
         ssh = malloc(sizeof(struct ssh));
+        /* Grab a handle on the memory */
+        *ssh_handle = ssh;
+    } else {
+        /* Already exisiting */
+        ssh = *ssh_handle;
     }
 
     ssh->role = role_unknown;
@@ -773,8 +780,6 @@ inline void ssh_init(struct ssh **ssh_handle) {
     ssh->c_gex_max = 0;
     ssh->newkeys = 0;
     ssh->unencrypted = 0;
-
-    *ssh_handle = ssh;
 }
 
 void ssh_update(struct ssh *ssh,
@@ -973,9 +978,17 @@ void ssh_print_json(const struct ssh *x1,
     zprintf(f, "}");
 }
 
+/**
+ *
+ * \brief Delete the memory of SSH struct.
+ *
+ * \param ssh_handle contains ssh structure to delete
+ *
+ * \return none
+ */
 void ssh_delete(struct ssh **ssh_handle) {
     int i;
-    struct ssh *ssh = *ssh_handle; /* Derefence the handle */
+    struct ssh *ssh = *ssh_handle;
 
     if (ssh == NULL) {
         return;
@@ -1007,6 +1020,7 @@ void ssh_delete(struct ssh **ssh_handle) {
         vector_free(ssh->kex_msgs[i].data); free(ssh->kex_msgs[i].data);
     }
 
+    /* Free the memory and set to NULL */
     memset(ssh, 0, sizeof(struct ssh));
     free(ssh);
     *ssh_handle = NULL;

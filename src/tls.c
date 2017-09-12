@@ -115,9 +115,9 @@ static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
 /**
  * \fn void tls_init (struct tls_information *r)
  *
- * \brief Initialize the memory of TLS struct \r.
+ * \brief Initialize the memory of TLS struct.
  *
- * \param r TLS record structure pointer
+ * \param tls_handle contains tls structure to initialize
  *
  * \return
  */
@@ -125,9 +125,13 @@ void tls_init (struct tls_information **tls_handle) {
     int i;
     struct tls_information *r = NULL;
 
-    /* Allocate if needed */
     if (*tls_handle == NULL) {
         r = malloc(sizeof(struct tls_information));
+        /* Grab a handle on the memory */
+        *tls_handle = r;
+    } else {
+        /* Already exisiting */
+        r = *tls_handle;
     }
 
     r->role = role_unknown;
@@ -180,22 +184,18 @@ void tls_init (struct tls_information **tls_handle) {
         memset(cert->subject, 0, sizeof(cert->subject));
         memset(cert->extensions, 0, sizeof(cert->extensions));
     }
-
-    *tls_handle = r;
 }
 
 /**
- * \fn void tls_delete (struct tls_information *r)
+ * \brief Delete the memory of TLS struct.
  *
- * \brief Clear and free memory of TLS struct \r.
- *
- * \param r TLS record structure pointer
+ * \param tls_handle contains tls structure to delete
  *
  * \return
  */
 void tls_delete (struct tls_information **tls_handle) {
     int i, j = 0;
-    struct tls_information *r = *tls_handle; /* Derefence the handle */
+    struct tls_information *r = *tls_handle;
 
     if (r == NULL) {
       return;
@@ -270,6 +270,7 @@ void tls_delete (struct tls_information **tls_handle) {
         }
     }
 
+    /* Free the memory and set to NULL */
     memset(r, 0, sizeof(struct tls_information));
     free(r);
     *tls_handle = NULL;

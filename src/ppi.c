@@ -58,22 +58,26 @@ static void pkt_info_print_interleaved(zfile f,
 				       unsigned int np2);
 
 /**
- * \fn void ppi_init (struct ppi *ppi)
- * \param ppi structure to initialize
+ * \brief Initialize the memory of PPI struct.
+ *
+ * \param ppi_handle contains ppi structure to init
+ *
  * \return none
  */
 void ppi_init (struct ppi **ppi_handle) {
     struct ppi *ppi = NULL;
 
-    /* Allocate if needed */
     if (*ppi_handle == NULL) {
         ppi = malloc(sizeof(struct ppi));
+        /* Grab a handle on the memory */
+        *ppi_handle = ppi;
+    } else {
+        /* Already exisiting */
+        ppi = *ppi_handle;
     }
 
     ppi->np = 0;
     memset(ppi->pkt_info, 0, sizeof(ppi->pkt_info));
-
-    *ppi_handle = ppi;
 }
 
 /**
@@ -147,17 +151,20 @@ void ppi_print_json (const struct ppi *x1, const struct ppi *x2, zfile f) {
 }
 
 /**
- * \fn void ppi_delete (struct ppi *ppi)
- * \param ppi pointer to ppi stucture
+ * \brief Delete the memory of PPI struct.
+ *
+ * \param ppi_handle contains ppi structure to delete
+ *
  * \return none
  */
 void ppi_delete (struct ppi **ppi_handle) { 
-    struct ppi *ppi = *ppi_handle; /* Derefence the handle */
+    struct ppi *ppi = *ppi_handle;
 
     if (ppi == NULL) {
         return;
     }
 
+    /* Free the memory and set to NULL */
     memset(ppi, 0, sizeof(struct ppi));
     free(ppi);
     *ppi_handle = NULL;

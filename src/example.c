@@ -48,21 +48,25 @@
 #include "example.h"     
 
 /**
- * \fn __inline void example_init (struct example *example)
- * \param example structure to initialize
+ * \brief Initialize the memory of Example struct.
+ *
+ * \param example_handle contains example structure to init
+ *
  * \return none
  */
 __inline void example_init (struct example **example_handle) {
     struct example *example = NULL;
 
-    /* Allocate if needed */
     if (*example_handle == NULL) {
         example = malloc(sizeof(struct example));
+        /* Grab a handle on the memory */
+        *example_handle = example;
+    } else {
+        /* Already exisiting */
+        example = *example_handle;
     }
 
     example->counter = 0;
-
-    *example_handle = example;
 }
 
 /**
@@ -108,17 +112,20 @@ void example_print_json (const struct example *x1, const struct example *x2, zfi
 }
 
 /**
- * \fn void example_delete (struct example *example)
- * \param example pointer to example stucture
+ * \brief Delete the memory of Example struct.
+ *
+ * \param example_handle contains example structure to delete
+ *
  * \return none
  */
 void example_delete (struct example **example_handle) { 
-    struct example *example = *example_handle; /* Derefence the handle */
+    struct example *example = *example_handle;
 
     if (example == NULL) {
         return;
     }
 
+    /* Free the memory and set to NULL */
     memset(example, 0, sizeof(struct example));
     free(example);
     *example_handle = NULL;

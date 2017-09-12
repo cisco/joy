@@ -56,22 +56,26 @@
 
 
 /**
- * \fn void ip_id_init (struct ip_id *ip_id)
- * \param ip_id structure to initialize
+ * \brief Initialize the memory of IP_ID struct.
+ *
+ * \param ip_id_handle contains ip_id structure to init
+ *
  * \return none
  */
 void ip_id_init (struct ip_id **ip_id_handle) {
     struct ip_id *ip_id = NULL;
 
-    /* Allocate if needed */
     if (*ip_id_handle == NULL) {
         ip_id = malloc(sizeof(struct ip_id));
+        /* Grab a handle on the memory */
+        *ip_id_handle = ip_id;
+    } else {
+        /* Already exisiting */
+        ip_id = *ip_id_handle;
     }
 
     memset(ip_id->id, 0, sizeof(ip_id->id));
     ip_id->num_ip_id = 0;
-
-    *ip_id_handle = ip_id;
 }
 
 /**
@@ -134,17 +138,20 @@ void ip_id_print_json (const struct ip_id *x1, const struct ip_id *x2, zfile f) 
 }
 
 /**
- * \fn void ip_id_delete (struct ip_id *ip_id)
- * \param ip_id pointer to ip_id stucture
+ * \brief Delete the memory of IP_ID struct.
+ *
+ * \param ip_id_handle contains ip_id structure to delete
+ *
  * \return none
  */
 void ip_id_delete (struct ip_id **ip_id_handle) { 
-    struct ip_id *ip_id = *ip_id_handle; /* Derefence the handle */
+    struct ip_id *ip_id = *ip_id_handle;
 
     if (ip_id == NULL) {
         return;
     }
 
+    /* Free the memory and set to NULL */
     memset(ip_id, 0, sizeof(struct ip_id));
     free(ip_id);
     *ip_id_handle = NULL;
