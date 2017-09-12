@@ -5,6 +5,9 @@
         "acceptable": 3,
         "recommended": 4
     },
+    "trusted_ca_list": [
+      "Starfield Technologies, Inc.", "GeoTrust Inc.", "Symantec Corporation", "COMODO CA Limited", "DigiCert Inc", "GlobalSign", "SwissSign AG", "thawte, Inc.", "VeriSign, Inc.", "Entrust, Inc.", "Certplus", "OpenTrust", "GoDaddy.com, Inc.", "IdenTrust", "StartCom Ltd.", "SecureTrust Corporation"
+    ],
     "default_failure_threshold": 2,
     "rules": {
         "hash": {
@@ -79,6 +82,7 @@
             "DH": {
               "default": 2,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -87,6 +91,7 @@
             "SRP_SHA": {
               "default": 2,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -95,6 +100,7 @@
             "ECDH_anon": {
               "default": 1,
               "client_key_length": {
+                "operator": "<=",
                 "512": 4,
                 "256": 3,
                 "224": 2
@@ -106,6 +112,7 @@
             "ECDH": {
               "default": 3,
               "client_key_length": {
+                "operator": "<=",
                 "512": 4,
                 "256": 3,
                 "224": 2
@@ -114,6 +121,7 @@
             "RSA": {
               "default": 3,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -122,6 +130,7 @@
             "SRP_SHA_RSA": {
               "default": 2,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -130,6 +139,7 @@
             "ECDHE": {
               "default": 4,
               "client_key_length": {
+                "operator": "<=",
                 "512": 4,
                 "256": 3,
                 "224": 2
@@ -138,6 +148,7 @@
             "DHE_PSK": {
               "default": 3,
               "client_key_length": {
+                "operator": "<=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
@@ -149,22 +160,25 @@
             "DH_anon": {
               "default": 1,
               "client_key_length": {
+                "operator": ">=",
                 "3072": 4,
                 "2048": 3,
                 "1024": 2
               }
             }
         },
-        "sig_alg": {
+        "cert_sig_alg": {
            "sha1WithRSAEncryption": {
              "default": 1,
              "sig_key_size": {
+               "operator": ">=",
                "1024": 2
              }
            },
            "sha256WithRSAEncryption": {
              "default": 3,
              "sig_key_size": {
+               "operator": "<=",
                "2048": 3,
                "1024": 2
              }
@@ -172,6 +186,7 @@
            "sha384WithRSAEncryption": {
              "default": 3,
              "sig_key_size": {
+               "operator": "<=",
                "3072": 4,
                "2048": 3,
                "1024": 2
@@ -180,6 +195,7 @@
            "sha512WithRSAEncryption": {
              "default": 4,
              "sig_key_size": {
+               "operator": "<=",
                "3072": 4,
                "2048": 3,
                "1024": 2
@@ -188,6 +204,7 @@
            "ecdsa-with-SHA256": {
              "default": 3,
              "sig_key_size": {
+               "operator": "<=",
                "832": 2
              }
            },
