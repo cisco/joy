@@ -3049,7 +3049,7 @@ static int tls_test_certificate_parsing() {
         cert_record = &tmp_tls_record.certificates[0];
         tmp_tls_record.num_certificates++;
 
-        fp = joy_utils_open_resource_file(filename);
+        fp = joy_utils_open_test_file(filename);
         if (!fp) {
             joy_log_err("unable to open %s", filename);
             num_fails++;
@@ -3869,7 +3869,7 @@ static int tls_test_initial_handshake() {
     char *filename = "sample_tls12_handshake_0.pcap";
     int num_fails = 0;
 
-    pcap_handle = joy_utils_open_resource_pcap(filename);
+    pcap_handle = joy_utils_open_test_pcap(filename);
     if (!pcap_handle) {
         joy_log_err("fail, unable to open %s", filename);
         num_fails++;

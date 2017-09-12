@@ -145,7 +145,7 @@ int main (int argc, char* argv[]) {
         fprintf(stderr, "error: could not allocate string matching context\n");
         return -1;
     }
-    if (str_match_ctx_init_from_file(ctx, "test/userid-example.txt", NULL) != 0) {
+    if (str_match_ctx_init_from_file(ctx, "test/misc/userid-example.txt", NULL) != 0) {
         fprintf(stderr, "error: could not init string matching context from file\n");
         exit(EXIT_FAILURE);
     }
