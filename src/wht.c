@@ -52,10 +52,10 @@
  * \return none
  */
 __inline void wht_init (struct wht **wht_handle) {
-    struct wht *wht = *wht_handle; /* Derefence the handle */
+    struct wht *wht = NULL;
 
     /* Allocate if needed */
-    if (wht == NULL) {
+    if (*wht_handle == NULL) {
         wht = malloc(sizeof(struct wht));
     }
 
@@ -66,6 +66,8 @@ __inline void wht_init (struct wht **wht_handle) {
         wht->spectrum[2] = 0;
         wht->spectrum[3] = 0;
     }
+
+    *wht_handle = wht;
 }
 
 /*
@@ -204,7 +206,7 @@ void wht_delete (struct wht **wht_handle) {
 
     memset(wht, 0, sizeof(struct wht));
     free(wht);
-    wht = NULL;
+    *wht_handle = NULL;
 }
 
 /**

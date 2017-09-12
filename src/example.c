@@ -53,14 +53,16 @@
  * \return none
  */
 __inline void example_init (struct example **example_handle) {
-    struct example *example = *example_handle; /* Derefence the handle */
+    struct example *example = NULL;
 
     /* Allocate if needed */
-    if (example == NULL) {
+    if (*example_handle == NULL) {
         example = malloc(sizeof(struct example));
     }
 
     example->counter = 0;
+
+    *example_handle = example;
 }
 
 /**
@@ -119,7 +121,7 @@ void example_delete (struct example **example_handle) {
 
     memset(example, 0, sizeof(struct example));
     free(example);
-    example = NULL;
+    *example_handle = NULL;
 }
 
 /**

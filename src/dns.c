@@ -769,16 +769,18 @@ void dns_unit_test () {
  * \return none
  */
 void dns_init (struct dns **dns_handle) {
-    struct dns *dns = *dns_handle; /* Derefence the handle */
+    struct dns *dns = NULL;
 
     /* Allocate if needed */
-    if (dns == NULL) {
+    if (*dns_handle == NULL) {
         dns = malloc(sizeof(struct dns));
     }
 
     memset(dns->dns_name, 0, sizeof(dns->dns_name));
     memset(dns->pkt_len, 0, sizeof(dns->pkt_len));
     dns->pkt_count = 0;
+
+    *dns_handle = dns;
 }
 
 /**
@@ -802,7 +804,7 @@ void dns_delete (struct dns **dns_handle) {
 
     memset(dns, 0, sizeof(struct dns));
     free(dns);
-    dns = NULL;
+    *dns_handle = NULL;
 }
 
 /**

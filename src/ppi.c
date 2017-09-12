@@ -63,15 +63,17 @@ static void pkt_info_print_interleaved(zfile f,
  * \return none
  */
 void ppi_init (struct ppi **ppi_handle) {
-    struct ppi *ppi = *ppi_handle; /* Derefence the handle */
+    struct ppi *ppi = NULL;
 
     /* Allocate if needed */
-    if (ppi == NULL) {
+    if (*ppi_handle == NULL) {
         ppi = malloc(sizeof(struct ppi));
     }
 
     ppi->np = 0;
     memset(ppi->pkt_info, 0, sizeof(ppi->pkt_info));
+
+    *ppi_handle = ppi;
 }
 
 /**
@@ -158,7 +160,7 @@ void ppi_delete (struct ppi **ppi_handle) {
 
     memset(ppi, 0, sizeof(struct ppi));
     free(ppi);
-    ppi = NULL;
+    *ppi_handle = NULL;
 }
 
 /**

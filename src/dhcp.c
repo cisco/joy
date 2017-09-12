@@ -171,14 +171,16 @@ static const char *dhcp_option_msg_types[] = {
  */
 void dhcp_init(struct dhcp **dhcp_handle)
 {
-    struct dhcp *dhcp = *dhcp_handle; /* Derefence the handle */
+    struct dhcp *dhcp = NULL;
 
     /* Allocate if needed */
-    if (dhcp == NULL) {
+    if (*dhcp_handle == NULL) {
         dhcp = malloc(sizeof(struct dhcp));
     }
 
     memset(dhcp, 0, sizeof(struct dhcp));
+
+    *dhcp_handle = dhcp;
 }
 
 /**
@@ -219,7 +221,7 @@ void dhcp_delete(struct dhcp **dhcp_handle)
 
     memset(dhcp, 0, sizeof(struct dhcp));
     free(dhcp);
-    dhcp = NULL;
+    *dhcp_handle = NULL;
 }
 
 /**

@@ -56,10 +56,10 @@
 * \return none
 */
 void salt_init(struct salt **salt_handle) {
-    struct salt *salt = *salt_handle; /* Derefence the handle */
+    struct salt *salt = NULL;
 
     /* Allocate if needed */
-    if (salt == NULL) {
+    if (*salt_handle == NULL) {
         salt = malloc(sizeof(struct salt));
     }
 
@@ -68,6 +68,8 @@ void salt_init(struct salt **salt_handle) {
     memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
     memset(salt->seq, 0, sizeof(salt->seq));
     memset(salt->ack, 0, sizeof(salt->ack));
+
+    *salt_handle = salt;
 }
 
 /**
@@ -206,7 +208,7 @@ void salt_delete (struct salt **salt_handle) {
 
     memset(salt, 0, sizeof(struct salt));
     free(salt);
-    salt = NULL;
+    *salt_handle = NULL;
 }
 
 /**

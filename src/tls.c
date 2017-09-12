@@ -123,10 +123,10 @@ static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
  */
 void tls_init (struct tls_information **tls_handle) {
     int i;
-    struct tls_information *r = *tls_handle; /* Derefence the handle */
+    struct tls_information *r = NULL;
 
     /* Allocate if needed */
-    if (r == NULL) {
+    if (*tls_handle == NULL) {
         r = malloc(sizeof(struct tls_information));
     }
 
@@ -180,6 +180,8 @@ void tls_init (struct tls_information **tls_handle) {
         memset(cert->subject, 0, sizeof(cert->subject));
         memset(cert->extensions, 0, sizeof(cert->extensions));
     }
+
+    *tls_handle = r;
 }
 
 /**
@@ -267,6 +269,10 @@ void tls_delete (struct tls_information **tls_handle) {
             free(cert->validity_not_after);
         }
     }
+
+    memset(r, 0, sizeof(struct tls_information));
+    free(r);
+    *tls_handle = NULL;
 }
 
 static unsigned short raw_to_unsigned_short (const void *x) {

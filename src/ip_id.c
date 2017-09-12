@@ -61,15 +61,17 @@
  * \return none
  */
 void ip_id_init (struct ip_id **ip_id_handle) {
-    struct ip_id *ip_id = *ip_id_handle; /* Derefence the handle */
+    struct ip_id *ip_id = NULL;
 
     /* Allocate if needed */
-    if (ip_id == NULL) {
+    if (*ip_id_handle == NULL) {
         ip_id = malloc(sizeof(struct ip_id));
     }
 
     memset(ip_id->id, 0, sizeof(ip_id->id));
     ip_id->num_ip_id = 0;
+
+    *ip_id_handle = ip_id;
 }
 
 /**
@@ -145,7 +147,7 @@ void ip_id_delete (struct ip_id **ip_id_handle) {
 
     memset(ip_id, 0, sizeof(struct ip_id));
     free(ip_id);
-    ip_id = NULL;
+    *ip_id_handle = NULL;
 }
 
 /**

@@ -733,10 +733,10 @@ static void ssh_process(struct ssh *cli,
 inline void ssh_init(struct ssh **ssh_handle) {
     int i;
 
-    struct ssh *ssh = *ssh_handle; /* Derefence the handle */
+    struct ssh *ssh = NULL;
 
     /* Allocate if needed */
-    if (ssh == NULL) {
+    if (*ssh_handle == NULL) {
         ssh = malloc(sizeof(struct ssh));
     }
 
@@ -773,6 +773,8 @@ inline void ssh_init(struct ssh **ssh_handle) {
     ssh->c_gex_max = 0;
     ssh->newkeys = 0;
     ssh->unencrypted = 0;
+
+    *ssh_handle = ssh;
 }
 
 void ssh_update(struct ssh *ssh,
@@ -1007,7 +1009,7 @@ void ssh_delete(struct ssh **ssh_handle) {
 
     memset(ssh, 0, sizeof(struct ssh));
     free(ssh);
-    ssh = NULL;
+    *ssh_handle = NULL;
 }
 
 static int ssh_test_handshake() {
