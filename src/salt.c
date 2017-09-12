@@ -45,6 +45,7 @@
 
 #include <stdio.h>  
 #include <string.h>   /* for memset() */
+#include <stdlib.h>
 #include "salt.h"     
 #include "pkt.h"      /* for tcp macros */
 
@@ -54,7 +55,14 @@
 * \param salt structure to initialize
 * \return none
 */
-void salt_init(struct salt *salt) {
+void salt_init(struct salt **salt_handle) {
+    struct salt *salt = *salt_handle; /* Derefence the handle */
+
+    /* Allocate if needed */
+    if (salt == NULL) {
+        salt = malloc(sizeof(struct salt));
+    }
+
     salt->np = 0;
     memset(salt->pkt_len, 0, sizeof(salt->pkt_len));
     memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
@@ -189,8 +197,16 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
  * \param salt pointer to salt stucture
  * \return none
  */
-void salt_delete (struct salt *salt) { 
-    /* no memory needs to be freed */
+void salt_delete (struct salt **salt_handle) { 
+    struct salt *salt = *salt_handle; /* Derefence the handle */
+
+    if (salt == NULL) {
+        return;
+    }
+
+    memset(salt, 0, sizeof(struct salt));
+    free(salt);
+    salt = NULL;
 }
 
 /**

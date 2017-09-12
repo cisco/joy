@@ -77,7 +77,7 @@ typedef struct ppi {
 declare_feature(ppi);
 
 /** initialization function */
-void ppi_init(struct ppi *ppi);
+void ppi_init(struct ppi **ppi_handle);
 
 /** update ppi */
 void ppi_update(struct ppi *ppi, 
@@ -92,7 +92,7 @@ void ppi_print_json(const struct ppi *w1,
 		     zfile f);
 
 /** delete ppi */
-void ppi_delete(struct ppi *ppi);
+void ppi_delete(struct ppi **ppi_handle);
 
 /** ppi unit test entry point */
 void ppi_unit_test();

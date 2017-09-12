@@ -43,6 +43,8 @@
  */
 
 #include <stdio.h>  
+#include <stdlib.h>
+#include <string.h>
 #include "example.h"     
 
 /**
@@ -50,7 +52,14 @@
  * \param example structure to initialize
  * \return none
  */
-__inline void example_init (struct example *example) {
+__inline void example_init (struct example **example_handle) {
+    struct example *example = *example_handle; /* Derefence the handle */
+
+    /* Allocate if needed */
+    if (example == NULL) {
+        example = malloc(sizeof(struct example));
+    }
+
     example->counter = 0;
 }
 
@@ -86,7 +95,7 @@ void example_update (struct example *example,
  */
 void example_print_json (const struct example *x1, const struct example *x2, zfile f) {
     unsigned int total;
-  
+
     total = x1->counter;
     if (x2) {
         total += x2->counter;
@@ -101,8 +110,16 @@ void example_print_json (const struct example *x1, const struct example *x2, zfi
  * \param example pointer to example stucture
  * \return none
  */
-void example_delete (struct example *example) { 
-    /* no memory needs to be freed */
+void example_delete (struct example **example_handle) { 
+    struct example *example = *example_handle; /* Derefence the handle */
+
+    if (example == NULL) {
+        return;
+    }
+
+    memset(example, 0, sizeof(struct example));
+    free(example);
+    example = NULL;
 }
 
 /**
@@ -111,7 +128,7 @@ void example_delete (struct example *example) {
  * \return none
  */
 void example_unit_test () {
-    struct example example;
+    struct example *example = NULL;
     const struct pcap_pkthdr *header = NULL; 
     zfile output;
 
@@ -120,15 +137,17 @@ void example_unit_test () {
         fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
     }
     example_init(&example);
-    example_update(&example, header, NULL, 1, 1);
-    example_update(&example, header, NULL, 2, 1);
-    example_update(&example, header, NULL, 3, 1);
-    example_update(&example, header, NULL, 4, 1);
-    example_update(&example, header, NULL, 5, 1);
-    example_update(&example, header, NULL, 6, 1);
-    example_update(&example, header, NULL, 7, 1);
-    example_update(&example, header, NULL, 8, 1);
-    example_update(&example, header, NULL, 9, 1);
-    example_print_json(&example, NULL, output);
+    example_update(example, header, NULL, 1, 1);
+    example_update(example, header, NULL, 2, 1);
+    example_update(example, header, NULL, 3, 1);
+    example_update(example, header, NULL, 4, 1);
+    example_update(example, header, NULL, 5, 1);
+    example_update(example, header, NULL, 6, 1);
+    example_update(example, header, NULL, 7, 1);
+    example_update(example, header, NULL, 8, 1);
+    example_update(example, header, NULL, 9, 1);
+    example_print_json(example, NULL, output);
+
+    example_delete(&example);
 } 
 

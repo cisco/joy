@@ -97,7 +97,7 @@ typedef struct ssh {
 
 declare_feature(ssh);
 
-void ssh_init(struct ssh *ssh);
+void ssh_init(struct ssh **ssh_handle);
 
 void ssh_update(struct ssh *ssh,
                 const struct pcap_pkthdr *header,
@@ -109,7 +109,7 @@ void ssh_print_json(const struct ssh *w1,
 		    const struct ssh *w2,
 		    zfile f);
 
-void ssh_delete(struct ssh *ssh);
+void ssh_delete(struct ssh **ssh_handle);
 
 void ssh_unit_test();
 

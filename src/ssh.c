@@ -730,8 +730,15 @@ static void ssh_process(struct ssh *cli,
  * start of ssh feature functions
  */
 
-inline void ssh_init(struct ssh *ssh) {
+inline void ssh_init(struct ssh **ssh_handle) {
     int i;
+
+    struct ssh *ssh = *ssh_handle; /* Derefence the handle */
+
+    /* Allocate if needed */
+    if (ssh == NULL) {
+        ssh = malloc(sizeof(struct ssh));
+    }
 
     ssh->role = role_unknown;
     ssh->protocol[0] = 0; /* null terminate string */
@@ -964,8 +971,13 @@ void ssh_print_json(const struct ssh *x1,
     zprintf(f, "}");
 }
 
-void ssh_delete(struct ssh *ssh) {
+void ssh_delete(struct ssh **ssh_handle) {
     int i;
+    struct ssh *ssh = *ssh_handle; /* Derefence the handle */
+
+    if (ssh == NULL) {
+        return;
+    }
 
     if (ssh->kex_algo != NULL) {
         free(ssh->kex_algo);
@@ -992,11 +1004,15 @@ void ssh_delete(struct ssh *ssh) {
     for (i = 0; i < MAX_SSH_KEX_MESSAGES; ++i) {
         vector_free(ssh->kex_msgs[i].data); free(ssh->kex_msgs[i].data);
     }
+
+    memset(ssh, 0, sizeof(struct ssh));
+    free(ssh);
+    ssh = NULL;
 }
 
 static int ssh_test_handshake() {
-    struct ssh cli;
-    struct ssh srv;
+    struct ssh *cli = NULL;
+    struct ssh *srv = NULL;
     int num_fails = 0;
 
     char c_protocol[] = { /* Client Protocol */
@@ -1447,43 +1463,43 @@ static int ssh_test_handshake() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     ssh_init(&cli);
-    ssh_update(&cli, NULL, c_protocol, sizeof(c_protocol), 1);
-    ssh_update(&cli, NULL, c_kexinit, sizeof(c_kexinit), 1);
-    ssh_update(&cli, NULL, c_dhkex, sizeof(c_dhkex), 1);
-    ssh_update(&cli, NULL, c_newkeys, sizeof(c_newkeys), 1);
+    ssh_update(cli, NULL, c_protocol, sizeof(c_protocol), 1);
+    ssh_update(cli, NULL, c_kexinit, sizeof(c_kexinit), 1);
+    ssh_update(cli, NULL, c_dhkex, sizeof(c_dhkex), 1);
+    ssh_update(cli, NULL, c_newkeys, sizeof(c_newkeys), 1);
 
     ssh_init(&srv);
-    ssh_update(&srv, NULL, s_protocol, sizeof(s_protocol), 1);
-    ssh_update(&srv, NULL, s_kexinit, sizeof(s_kexinit), 1);
-    ssh_update(&srv, NULL, s_dhkex_newkeys, sizeof(s_dhkex_newkeys), 1);
-    ssh_process(&cli, &srv);
+    ssh_update(srv, NULL, s_protocol, sizeof(s_protocol), 1);
+    ssh_update(srv, NULL, s_kexinit, sizeof(s_kexinit), 1);
+    ssh_update(srv, NULL, s_dhkex_newkeys, sizeof(s_dhkex_newkeys), 1);
+    ssh_process(cli, srv);
 
-    if (strcmp(cli.protocol, "SSH-2.0-OpenSSH_7.4p1 Debian-10") != 0) {
+    if (strcmp(cli->protocol, "SSH-2.0-OpenSSH_7.4p1 Debian-10") != 0) {
         joy_log_err("failure: cli protocol");
         num_fails++;
     }
 
-    if (strcmp(srv.protocol, "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2.8") != 0) {
+    if (strcmp(srv->protocol, "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2.8") != 0) {
         joy_log_err("failure: srv protocol");
         num_fails++;
     }
 
-    if (strcmp(cli.kex_algo, "curve25519-sha256@libssh.org") != 0) {
+    if (strcmp(cli->kex_algo, "curve25519-sha256@libssh.org") != 0) {
         joy_log_err("failure: cli kex_algo");
         num_fails++;
     }
 
-    if (strcmp(srv.kex_algo, "curve25519-sha256@libssh.org") != 0) {
+    if (strcmp(srv->kex_algo, "curve25519-sha256@libssh.org") != 0) {
         joy_log_err("failure: srv kex_algo");
         num_fails++;
     }
 
-    if ( ! cli.newkeys) {
+    if ( ! cli->newkeys) {
         joy_log_err("failure: cli newkeys");
         num_fails++;
     }
 
-    if ( ! cli.newkeys) {
+    if ( ! cli->newkeys) {
         joy_log_err("failure: cli newkeys");
         num_fails++;
     }

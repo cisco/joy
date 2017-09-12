@@ -43,6 +43,7 @@
  */
 
 #include <stdio.h>  
+#include <stdlib.h>
 #include <string.h>   /* for memset()    */
 #include "pkt.h"      /* for tcp macros  */
 #include "utils.h"    /* for enum role   */
@@ -61,7 +62,14 @@ static void pkt_info_print_interleaved(zfile f,
  * \param ppi structure to initialize
  * \return none
  */
-void ppi_init (struct ppi *ppi) {
+void ppi_init (struct ppi **ppi_handle) {
+    struct ppi *ppi = *ppi_handle; /* Derefence the handle */
+
+    /* Allocate if needed */
+    if (ppi == NULL) {
+        ppi = malloc(sizeof(struct ppi));
+    }
+
     ppi->np = 0;
     memset(ppi->pkt_info, 0, sizeof(ppi->pkt_info));
 }
@@ -141,8 +149,16 @@ void ppi_print_json (const struct ppi *x1, const struct ppi *x2, zfile f) {
  * \param ppi pointer to ppi stucture
  * \return none
  */
-void ppi_delete (struct ppi *ppi) { 
-    /* no memory needs to be freed */
+void ppi_delete (struct ppi **ppi_handle) { 
+    struct ppi *ppi = *ppi_handle; /* Derefence the handle */
+
+    if (ppi == NULL) {
+        return;
+    }
+
+    memset(ppi, 0, sizeof(struct ppi));
+    free(ppi);
+    ppi = NULL;
 }
 
 /**

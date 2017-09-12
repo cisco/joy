@@ -43,6 +43,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "wht.h"     
 
 /**
@@ -50,7 +51,14 @@
  * \param wht pointer to the structure to initialize
  * \return none
  */
-__inline void wht_init (struct wht *wht) {
+__inline void wht_init (struct wht **wht_handle) {
+    struct wht *wht = *wht_handle; /* Derefence the handle */
+
+    /* Allocate if needed */
+    if (wht == NULL) {
+        wht = malloc(sizeof(struct wht));
+    }
+
     if (wht != NULL) {
         wht->b = 0;
         wht->spectrum[0] = 0;
@@ -94,7 +102,7 @@ void wht_update (struct wht *wht, const struct pcap_pkthdr *header, const void *
     const uint8_t *d = data;
 
     /* sanity checks */
-    if ((wht == NULL) || (data == NULL))
+    if (data == NULL)
         return;
 
     /* see if we should process */
@@ -187,8 +195,16 @@ void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f) {
  * \param pointer to the structure
  * \return none
  */
-void wht_delete (struct wht *wht) {
-    memset (wht, 0x00, sizeof (struct wht));
+void wht_delete (struct wht **wht_handle) {
+    struct wht *wht = *wht_handle; /* Derefence the handle */
+
+    if (wht == NULL) {
+        return;
+    }
+
+    memset(wht, 0, sizeof(struct wht));
+    free(wht);
+    wht = NULL;
 }
 
 /**
@@ -197,8 +213,10 @@ void wht_delete (struct wht *wht) {
  * \return none
  */
 void wht_unit_test() {
-    struct wht wht, wht2;
+    struct wht *wht = NULL;
+    struct wht *wht2 = NULL;
     const struct pcap_pkthdr *header = NULL;
+
     uint8_t buffer1[8] = {
           1, 1, 1, 1, 1, 1, 1, 1
     };
@@ -220,21 +238,25 @@ void wht_unit_test() {
     }
 
     wht_init(&wht);
-    wht_update(&wht, header, buffer1, sizeof(buffer1), 1);
-    wht_printf_scaled(&wht, output);
+    wht_update(wht, header, buffer1, sizeof(buffer1), 1);
+    wht_printf_scaled(wht, output);
 
     wht_init(&wht);
-    wht_update(&wht, header, buffer2, sizeof(buffer2), 1);
-    wht_printf_scaled(&wht, output);
+    wht_update(wht, header, buffer2, sizeof(buffer2), 1);
+    wht_printf_scaled(wht, output);
 
     wht_init(&wht);
-    wht_update(&wht, header, buffer3, sizeof(buffer3), 1);
-    wht_printf_scaled(&wht, output);
+    wht_update(wht, header, buffer3, sizeof(buffer3), 1);
+    wht_printf_scaled(wht, output);
 
     wht_init(&wht);
     wht_init(&wht2);
-    wht_update(&wht, header, buffer4, 1, 1); /* note: only reading first byte */
-    wht_update(&wht, header, buffer4, 1, 1); /* note: only reading first byte */
-    wht_update(&wht, header, buffer4, 1, 1); /* note: only reading first byte */
-    wht_print_json(&wht, &wht2, output);
+    wht_update(wht, header, buffer4, 1, 1); /* note: only reading first byte */
+    wht_update(wht, header, buffer4, 1, 1); /* note: only reading first byte */
+    wht_update(wht, header, buffer4, 1, 1); /* note: only reading first byte */
+    wht_print_json(wht, wht2, output);
+
+    wht_delete(&wht);
+    wht_delete(&wht2);
 } 
+

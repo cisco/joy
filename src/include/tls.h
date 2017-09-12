@@ -303,10 +303,10 @@ enum tls_content_type {
  */
 
 /** initialize TLS structure */
-void tls_init(struct tls_information *r);
+void tls_init(struct tls_information **tls_handle);
 
 /** free data associated with TLS record */
-void tls_delete(struct tls_information *r);
+void tls_delete(struct tls_information **tls_handle);
 
 /** process TLS packet for consumption */
 void tls_update(struct tls_information *r,

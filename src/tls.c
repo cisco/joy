@@ -121,8 +121,14 @@ static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
  *
  * \return
  */
-void tls_init (struct tls_information *r) {
+void tls_init (struct tls_information **tls_handle) {
     int i;
+    struct tls_information *r = *tls_handle; /* Derefence the handle */
+
+    /* Allocate if needed */
+    if (r == NULL) {
+        r = malloc(sizeof(struct tls_information));
+    }
 
     r->role = role_unknown;
     r->tls_op = 0;
@@ -185,8 +191,9 @@ void tls_init (struct tls_information *r) {
  *
  * \return
  */
-void tls_delete (struct tls_information *r) {
+void tls_delete (struct tls_information **tls_handle) {
     int i, j = 0;
+    struct tls_information *r = *tls_handle; /* Derefence the handle */
 
     if (r == NULL) {
       return;
@@ -2195,14 +2202,6 @@ void tls_update (struct tls_information *r,
         return;
     }
 
-    /* Allocate TLS info struct if needed and initialize */
-    if (r == NULL) {
-        r = malloc(sizeof(struct tls_information));
-        if (r != NULL) {
-            tls_init(r);
-        }
-    }
-
     /* Cast beginning of payload to a tls_header */
     tls = (const struct tls_header *)start;
 
@@ -2981,41 +2980,41 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
  * \return 0 for success, otherwise number of failures
  */
 static int tls_test_client_fingerprint_match() {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     int num_fails = 0;
 
     tls_init(&record);
 
-    record.num_ciphersuites = 20;
-    record.num_tls_extensions = 1;
+    record->num_ciphersuites = 20;
+    record->num_tls_extensions = 1;
 
     /* Known ciphersuites */
-    record.ciphersuites[0] = 0x0039;
-    record.ciphersuites[1] = 0x0038;
-    record.ciphersuites[2] = 0x0035;
-    record.ciphersuites[3] = 0x0016;
-    record.ciphersuites[4] = 0x0013;
-    record.ciphersuites[5] = 0x000a;
-    record.ciphersuites[6] = 0x0033;
-    record.ciphersuites[7] = 0x0032;
-    record.ciphersuites[8] = 0x002f;
-    record.ciphersuites[9] = 0x0007;
-    record.ciphersuites[10] = 0x0005;
-    record.ciphersuites[11] = 0x0004;
-    record.ciphersuites[12] = 0x0015;
-    record.ciphersuites[13] = 0x0012;
-    record.ciphersuites[14] = 0x0009;
-    record.ciphersuites[15] = 0x0014;
-    record.ciphersuites[16] = 0x0011;
-    record.ciphersuites[17] = 0x0008;
-    record.ciphersuites[18] = 0x0006;
-    record.ciphersuites[19] = 0x0003;
+    record->ciphersuites[0] = 0x0039;
+    record->ciphersuites[1] = 0x0038;
+    record->ciphersuites[2] = 0x0035;
+    record->ciphersuites[3] = 0x0016;
+    record->ciphersuites[4] = 0x0013;
+    record->ciphersuites[5] = 0x000a;
+    record->ciphersuites[6] = 0x0033;
+    record->ciphersuites[7] = 0x0032;
+    record->ciphersuites[8] = 0x002f;
+    record->ciphersuites[9] = 0x0007;
+    record->ciphersuites[10] = 0x0005;
+    record->ciphersuites[11] = 0x0004;
+    record->ciphersuites[12] = 0x0015;
+    record->ciphersuites[13] = 0x0012;
+    record->ciphersuites[14] = 0x0009;
+    record->ciphersuites[15] = 0x0014;
+    record->ciphersuites[16] = 0x0011;
+    record->ciphersuites[17] = 0x0008;
+    record->ciphersuites[18] = 0x0006;
+    record->ciphersuites[19] = 0x0003;
 
     /* Known extensions */
-    record.tls_extensions[0].type = 0x0023;
+    record->tls_extensions[0].type = 0x0023;
 
-    tls_client_fingerprint_match(&record, 100);
-    if (record.tls_fingerprint == NULL) {
+    tls_client_fingerprint_match(record, 100);
+    if (record->tls_fingerprint == NULL) {
         joy_log_err("could not match known fingerprint");
         num_fails++;
     }
@@ -3040,14 +3039,14 @@ static int tls_test_certificate_parsing() {
     for (i = 0; i < num_test_cert_files; i++) {
         FILE *fp = NULL;
         X509 *cert = NULL;
-        struct tls_information tmp_tls_record;
+        struct tls_information *tmp_tls_record = NULL;
         struct tls_certificate *cert_record = NULL;
         const char *filename = test_cert_filenames[i];
 
         /* Preprare the temporary record */
         tls_init(&tmp_tls_record);
-        cert_record = &tmp_tls_record.certificates[0];
-        tmp_tls_record.num_certificates++;
+        cert_record = &tmp_tls_record->certificates[0];
+        tmp_tls_record->num_certificates++;
 
         fp = joy_utils_open_test_file(filename);
         if (!fp) {
@@ -3599,7 +3598,7 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
 static int tls_test_extract_client_hello(const unsigned char *data,
                                          unsigned int data_len,
                                          char *filename) {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     const struct tls_header *tls_hdr = NULL;
     const unsigned char *body = NULL;
     unsigned int body_len = 0;
@@ -3617,9 +3616,9 @@ static int tls_test_extract_client_hello(const unsigned char *data,
         goto end;
     }
 
-    tls_handshake_hello_get_version(&record, body);
-    tls_client_hello_get_ciphersuites(body, body_len, &record);
-    tls_client_hello_get_extensions(body, body_len, &record);
+    tls_handshake_hello_get_version(record, body);
+    tls_client_hello_get_ciphersuites(body, body_len, record);
+    tls_client_hello_get_extensions(body, body_len, record);
 
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         unsigned short known_ciphersuites_count = 15;
@@ -3695,19 +3694,19 @@ static int tls_test_extract_client_hello(const unsigned char *data,
         known_extensions[10].data = calloc(known_extensions[10].length, sizeof(unsigned char));
         memcpy(known_extensions[10].data, kat_data_10, known_extensions[10].length);
 
-        if (record.num_ciphersuites != known_ciphersuites_count) {
+        if (record->num_ciphersuites != known_ciphersuites_count) {
             joy_log_err("ciphersuites count does not match")
             failed = 1;
         } else {
             for (i = 0; i < known_ciphersuites_count; i++) {
-                if (record.ciphersuites[i] != known_ciphersuites[i]) {
+                if (record->ciphersuites[i] != known_ciphersuites[i]) {
                     joy_log_err("ciphersuite[%d] does not match", i)
                     failed = 1;
                 }
             }
         }
 
-        if (record.num_tls_extensions != known_extensions_count) {
+        if (record->num_tls_extensions != known_extensions_count) {
             joy_log_err("extensions count does not match")
             failed = 1;
         } else {
@@ -3715,18 +3714,18 @@ static int tls_test_extract_client_hello(const unsigned char *data,
                 /*
                  * KAT
                  */
-                if (known_extensions[i].type != record.tls_extensions[i].type) {
+                if (known_extensions[i].type != record->tls_extensions[i].type) {
                     joy_log_err("extension[%d] type does not match", i)
                     failed = 1;
                 }
 
-                if (known_extensions[i].length != record.tls_extensions[i].length) {
+                if (known_extensions[i].length != record->tls_extensions[i].length) {
                     joy_log_err("extension[%d] length does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].data) {
-                    if (memcmp(known_extensions[i].data, record.tls_extensions[i].data,
+                    if (memcmp(known_extensions[i].data, record->tls_extensions[i].data,
                                known_extensions[i].length)) {
                         joy_log_err("extension[%d] data does not match", i)
                         failed = 1;
@@ -3754,7 +3753,7 @@ end:
 static int tls_test_extract_server_hello(const unsigned char *data,
                                          unsigned int data_len,
                                          const char *filename) {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     const struct tls_header *tls_hdr = NULL;
     const unsigned char *body = NULL;
     unsigned int body_len = 0;
@@ -3772,9 +3771,9 @@ static int tls_test_extract_server_hello(const unsigned char *data,
         goto end;
     }
 
-    tls_handshake_hello_get_version(&record, body);
-    tls_server_hello_get_ciphersuite(body, body_len, &record);
-    tls_server_hello_get_extensions(body, body_len, &record);
+    tls_handshake_hello_get_version(record, body);
+    tls_server_hello_get_ciphersuite(body, body_len, record);
+    tls_server_hello_get_extensions(body, body_len, record);
 
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         unsigned short known_extensions_count = 5;
@@ -3811,12 +3810,12 @@ static int tls_test_extract_server_hello(const unsigned char *data,
         known_extensions[4].data = calloc(known_extensions[4].length, sizeof(unsigned char));
         memcpy(known_extensions[4].data, kat_data_4, known_extensions[4].length);
 
-        if (record.ciphersuites[0] != known_ciphersuite) {
+        if (record->ciphersuites[0] != known_ciphersuite) {
             joy_log_err("ciphersuite does not match")
             failed = 1;
         }
 
-        if (record.num_server_tls_extensions != known_extensions_count) {
+        if (record->num_server_tls_extensions != known_extensions_count) {
             joy_log_err("extensions count does not match")
             failed = 1;
         } else {
@@ -3824,18 +3823,18 @@ static int tls_test_extract_server_hello(const unsigned char *data,
                 /*
                  * KAT
                  */
-                if (known_extensions[i].type != record.server_tls_extensions[i].type) {
+                if (known_extensions[i].type != record->server_tls_extensions[i].type) {
                     joy_log_err("extension[%d] type does not match", i)
                     failed = 1;
                 }
 
-                if (known_extensions[i].length != record.server_tls_extensions[i].length) {
+                if (known_extensions[i].length != record->server_tls_extensions[i].length) {
                     joy_log_err("extension[%d] length does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].data) {
-                    if (memcmp(known_extensions[i].data, record.server_tls_extensions[i].data,
+                    if (memcmp(known_extensions[i].data, record->server_tls_extensions[i].data,
                                known_extensions[i].length)) {
                         joy_log_err("extension[%d] data does not match", i)
                         failed = 1;
@@ -3904,7 +3903,7 @@ end:
  * \return 0 for success, otherwise number of failures
  */
 static int tls_test_handshake_hello_get_version() {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     unsigned char ssl_v3[] = {0x03, 0x00};
     unsigned char tls_1_0[] = {0x03, 0x01};
     unsigned char tls_1_1[] = {0x03, 0x02};
@@ -3914,32 +3913,32 @@ static int tls_test_handshake_hello_get_version() {
 
     tls_init(&record);
 
-    tls_handshake_hello_get_version(&record, ssl_v3);
-    if (record.tls_v != TLS_VERSION_SSLV3) {
+    tls_handshake_hello_get_version(record, ssl_v3);
+    if (record->tls_v != TLS_VERSION_SSLV3) {
         joy_log_err("fail, sslv3 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_0);
-    if (record.tls_v != TLS_VERSION_1_0) {
+    tls_handshake_hello_get_version(record, tls_1_0);
+    if (record->tls_v != TLS_VERSION_1_0) {
         joy_log_err("fail, tls 1.0 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_1);
-    if (record.tls_v != TLS_VERSION_1_1) {
+    tls_handshake_hello_get_version(record, tls_1_1);
+    if (record->tls_v != TLS_VERSION_1_1) {
         joy_log_err("fail, tls 1.1 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_2);
-    if (record.tls_v != TLS_VERSION_1_2) {
+    tls_handshake_hello_get_version(record, tls_1_2);
+    if (record->tls_v != TLS_VERSION_1_2) {
         joy_log_err("fail, tls 1.2 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_3);
-    if (record.tls_v != TLS_VERSION_1_3) {
+    tls_handshake_hello_get_version(record, tls_1_3);
+    if (record->tls_v != TLS_VERSION_1_3) {
         joy_log_err("fail, tls 1.3 version capture");
         num_fails++;
     }

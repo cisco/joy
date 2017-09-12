@@ -82,7 +82,7 @@ __inline void ip_id_init(struct ip_id *ip_id) {
 #endif
 
 /** initialization function */
-void ip_id_init(struct ip_id *ip_id);
+void ip_id_init(struct ip_id **ip_id_handle);
 
 /** update ip_id */
 void ip_id_update(struct ip_id *ip_id, 
@@ -97,7 +97,7 @@ void ip_id_print_json(const struct ip_id *w1,
 		    zfile f);
 
 /** delete ip_id */
-void ip_id_delete(struct ip_id *ip_id);
+void ip_id_delete(struct ip_id **ip_id_handle);
 
 /** ip_id unit test entry point */
 void ip_id_unit_test();

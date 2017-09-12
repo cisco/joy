@@ -95,7 +95,7 @@ typedef struct dhcp {
     uint16_t message_count;
 } dhcp_t;
 
-void dhcp_init(struct dhcp *dhcp);
+void dhcp_init(struct dhcp **dhcp_handle);
 
 void dhcp_update(struct dhcp *dhcp,
                  const struct pcap_pkthdr *header,
@@ -107,7 +107,7 @@ void dhcp_print_json(const struct dhcp *d1,
                      const struct dhcp *d2,
                      zfile f);
 
-void dhcp_delete(struct dhcp *dhcp);
+void dhcp_delete(struct dhcp **dhcp_handle);
 
 void dhcp_unit_test();
 

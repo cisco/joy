@@ -768,7 +768,14 @@ void dns_unit_test () {
  * \param dns DNS structure pointer
  * \return none
  */
-void dns_init (struct dns *dns) {
+void dns_init (struct dns **dns_handle) {
+    struct dns *dns = *dns_handle; /* Derefence the handle */
+
+    /* Allocate if needed */
+    if (dns == NULL) {
+        dns = malloc(sizeof(struct dns));
+    }
+
     memset(dns->dns_name, 0, sizeof(dns->dns_name));
     memset(dns->pkt_len, 0, sizeof(dns->pkt_len));
     dns->pkt_count = 0;
@@ -779,14 +786,23 @@ void dns_init (struct dns *dns) {
  * \param dns DNS structure pointer
  * \return none
  */
-void dns_delete (struct dns *dns) {
+void dns_delete (struct dns **dns_handle) {
     unsigned int i;
+    struct dns *dns = *dns_handle; /* Derefence the handle */
+
+    if (dns == NULL) {
+        return;
+    }
 
     for (i=0; i<dns->pkt_count; i++) {
         if (dns->dns_name[i]) {
             free(dns->dns_name[i]);
         }
     }
+
+    memset(dns, 0, sizeof(struct dns));
+    free(dns);
+    dns = NULL;
 }
 
 /**
