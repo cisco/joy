@@ -775,12 +775,12 @@ void dns_init (struct dns **dns_handle) {
         dns_delete(dns_handle);
     }
 
-    *dns_handle = malloc(sizeof(struct ssh));
+    *dns_handle = malloc(sizeof(struct dns));
     if (*dns_handle == NULL) {
         /* Allocation failed */
         return;
     }
-    memset(*dns_handle, 0, sizeof(struct ssh));
+    memset(*dns_handle, 0, sizeof(struct dns));
 }
 
 /**
