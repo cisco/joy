@@ -65,7 +65,7 @@ typedef struct wht {
 } wht_t;
 
 /** initializes a walsh-hadamard structure */
-void wht_init(struct wht *wht);
+void wht_init(struct wht **wht_handle);
 
 /** updates the contents of walsh-hadamard structure */
 void wht_update(struct wht *wht, 
@@ -78,7 +78,7 @@ void wht_update(struct wht *wht,
 void wht_print_json(const struct wht *w1, const struct wht *w2, zfile f);
 
 /** clear out the walsh-hadamard structure */
-void wht_delete(struct wht *wht);
+void wht_delete(struct wht **wht_handle);
 
 /** unit test entry point */
 void wht_unit_test();

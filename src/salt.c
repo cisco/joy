@@ -45,21 +45,29 @@
 
 #include <stdio.h>  
 #include <string.h>   /* for memset() */
+#include <stdlib.h>
 #include "salt.h"     
 #include "pkt.h"      /* for tcp macros */
 
 
 /**
-* \fn void salt_init (struct salt *salt)
-* \param salt structure to initialize
-* \return none
-*/
-void salt_init(struct salt *salt) {
-    salt->np = 0;
-    memset(salt->pkt_len, 0, sizeof(salt->pkt_len));
-    memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
-    memset(salt->seq, 0, sizeof(salt->seq));
-    memset(salt->ack, 0, sizeof(salt->ack));
+ * \brief Initialize the memory of SALT struct.
+ *
+ * \param salt_handle contains salt structure to init
+ *
+ * \return none
+ */
+void salt_init(struct salt **salt_handle) {
+    if (*salt_handle != NULL) {
+        salt_delete(salt_handle);
+    }
+
+    *salt_handle = malloc(sizeof(struct salt));
+    if (*salt_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*salt_handle, 0, sizeof(struct salt));
 }
 
 /**
@@ -185,12 +193,22 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
 }
 
 /**
- * \fn void salt_delete (struct salt *salt)
- * \param salt pointer to salt stucture
+ * \brief Delete the memory of SALT struct.
+ *
+ * \param salt_handle contains salt structure to delete
+ *
  * \return none
  */
-void salt_delete (struct salt *salt) { 
-    /* no memory needs to be freed */
+void salt_delete (struct salt **salt_handle) { 
+    struct salt *salt = *salt_handle;
+
+    if (salt == NULL) {
+        return;
+    }
+
+    /* Free the memory and set to NULL */
+    free(salt);
+    *salt_handle = NULL;
 }
 
 /**

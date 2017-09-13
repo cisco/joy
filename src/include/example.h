@@ -63,7 +63,7 @@ typedef struct example {
 declare_feature(example);
 
 /** initialization function */
-void example_init(struct example *example);
+void example_init(struct example **example_handle);
 
 /** update example */
 void example_update(struct example *example, 
@@ -78,7 +78,7 @@ void example_print_json(const struct example *w1,
 		    zfile f);
 
 /** delete example */
-void example_delete(struct example *example);
+void example_delete(struct example **example_handle);
 
 /** example unit test entry point */
 void example_unit_test();

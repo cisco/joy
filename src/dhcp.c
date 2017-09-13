@@ -163,35 +163,39 @@ static const char *dhcp_option_msg_types[] = {
 
 /**
  *
- * \brief Initialize the memory of DHCP struct \r.
+ * \brief Initialize the memory of DHCP struct.
  *
- * \param dhcp structure to initialize
+ * \param dhcp_handle contains dhcp structure to initialize
  *
  * \return none
  */
-void dhcp_init(struct dhcp *dhcp)
+void dhcp_init(struct dhcp **dhcp_handle)
 {
-    if (dhcp == NULL) {
-        joy_log_err("dhcp is null");
-        return;
+    if (*dhcp_handle != NULL) {
+        dhcp_delete(dhcp_handle);
     }
 
-    memset(dhcp, 0, sizeof(struct dhcp));
+    *dhcp_handle = malloc(sizeof(struct dhcp));
+    if (*dhcp_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*dhcp_handle, 0, sizeof(struct dhcp));
 }
 
 /**
- * \brief Clear and free memory of DHCP struct \r.
+ * \brief Delete the memory of DHCP struct \r.
  *
- * \param dhcp pointer to dhcp stucture
+ * \param dhcp_handle contains dhcp structure to delete
  *
  * \return none
  */
-void dhcp_delete(struct dhcp *dhcp)
+void dhcp_delete(struct dhcp **dhcp_handle)
 {
     int i = 0;
+    struct dhcp *dhcp = *dhcp_handle;
 
     if (dhcp == NULL) {
-        joy_log_err("dhcp is null");
         return;
     }
 
@@ -214,9 +218,9 @@ void dhcp_delete(struct dhcp *dhcp)
         }
     }
 
-    memset(dhcp, 0, sizeof(struct dhcp));
-    //free(dhcp);
-    //dhcp = NULL;
+    /* Free the memory and set to NULL */
+    free(dhcp);
+    *dhcp_handle = NULL;
 }
 
 /**
@@ -312,14 +316,6 @@ void dhcp_update(struct dhcp *dhcp,
     /* Check run flag. Bail if 0 */
     if (!report_dhcp) {
         return;
-    }
-
-    /* Allocate struct if needed and initialize */
-    if (dhcp == NULL) {
-        dhcp = malloc(sizeof(struct dhcp));
-        if (dhcp != NULL) {
-            dhcp_init(dhcp);
-        }
     }
 
     /* Make sure there's space to record another message */
@@ -750,14 +746,14 @@ static int dhcp_test_message_equality(struct dhcp_message *m1,
  * \return 0 for success, otherwise number of fails
  */
 static int dhcp_test_vanilla_parsing() {
-    struct dhcp d = {0};
+    struct dhcp *d = NULL;
     pcap_t *pcap_handle = NULL;
     struct pcap_pkthdr header;
     const unsigned char *pkt_ptr = NULL;
     const unsigned char *payload_ptr = NULL;
     unsigned int payload_len = 0;
     char *filename = "dhcp.pcap";
-    struct dhcp known_dhcp = {0};
+    struct dhcp *known_dhcp = NULL;
     struct dhcp_message *msg = NULL;
     int num_fails = 0;
 
@@ -774,7 +770,7 @@ static int dhcp_test_vanilla_parsing() {
     /*
      * KAT Ack
      */
-    msg = &known_dhcp.messages[0];
+    msg = &known_dhcp->messages[0];
     msg->op = 0x02;
     msg->htype = 0x01;
     msg->hlen = 0x06;
@@ -895,7 +891,7 @@ static int dhcp_test_vanilla_parsing() {
         msg->options_count += 1;
     }
     /* Increment the message count */
-    known_dhcp.message_count += 1;
+    known_dhcp->message_count += 1;
 
 
     /*
@@ -914,9 +910,9 @@ static int dhcp_test_vanilla_parsing() {
     /* Ack */
     pkt_ptr = pcap_next(pcap_handle, &header);
     payload_ptr = dhcp_skip_packet_udp_header(pkt_ptr, header.len, &payload_len);
-    dhcp_update(&d, &header, payload_ptr, payload_len, 1);
+    dhcp_update(d, &header, payload_ptr, payload_len, 1);
 
-    if (! dhcp_test_message_equality(&d.messages[d.message_count-1], &known_dhcp.messages[0])) {
+    if (! dhcp_test_message_equality(&d->messages[d->message_count-1], &known_dhcp->messages[0])) {
         joy_log_err("incorrect ack parsing");
         num_fails++;
     }

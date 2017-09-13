@@ -506,8 +506,6 @@ static void flow_record_init (/* @out@ */ struct flow_record *record,
     record->tcp_option_tstamp = 0;
     record->tcp_initial_window_size = 0;
     record->tcp_syn_size = 0;
-    //  memset(record->dns.dns_name, 0, sizeof(record->dns.dns_name));
-    // dns_init(&record->dns);
     record->idp = NULL;
     record->idp_len = 0;
     record->exp_type = 0;
@@ -1655,24 +1653,6 @@ static void flow_record_print_json (const struct flow_record *record) {
         if (rec->twin) {
             http_printf(&rec->twin->http_data, "ihttp", output);
         }
-    }
-
-    if (report_dns && (rec->key.sp == 53 || rec->key.dp == 53)) {
-        //    unsigned int count;
-        //    char **twin_dns_name = NULL;
-        //unsigned short *twin_pkt_len = NULL;
-        //
-        //count = rec->op > MAX_NUM_PKT_LEN ? MAX_NUM_PKT_LEN : rec->op;
-        //if (rec->twin) {
-        //  count = rec->twin->op > count ? rec->twin->op : count;
-        //  twin_dns_name = rec->twin->dns.dns_name;
-        //  twin_pkt_len = rec->twin->pkt_len;
-        // }
-        //
-        //    dns_printf(rec->dns.dns_name, rec->pkt_len, twin_dns_name, twin_pkt_len, count, output);
-
-        dns_print_json(&rec->dns, rec->twin ? &rec->twin->dns : NULL, output);
-
     }
 
     {

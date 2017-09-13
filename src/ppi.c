@@ -43,6 +43,7 @@
  */
 
 #include <stdio.h>  
+#include <stdlib.h>
 #include <string.h>   /* for memset()    */
 #include "pkt.h"      /* for tcp macros  */
 #include "utils.h"    /* for enum role   */
@@ -57,13 +58,23 @@ static void pkt_info_print_interleaved(zfile f,
 				       unsigned int np2);
 
 /**
- * \fn void ppi_init (struct ppi *ppi)
- * \param ppi structure to initialize
+ * \brief Initialize the memory of PPI struct.
+ *
+ * \param ppi_handle contains ppi structure to init
+ *
  * \return none
  */
-void ppi_init (struct ppi *ppi) {
-    ppi->np = 0;
-    memset(ppi->pkt_info, 0, sizeof(ppi->pkt_info));
+void ppi_init (struct ppi **ppi_handle) {
+    if (*ppi_handle != NULL) {
+        ppi_delete(ppi_handle);
+    }
+
+    *ppi_handle = malloc(sizeof(struct ppi));
+    if (*ppi_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*ppi_handle, 0, sizeof(struct ppi));
 }
 
 /**
@@ -137,12 +148,22 @@ void ppi_print_json (const struct ppi *x1, const struct ppi *x2, zfile f) {
 }
 
 /**
- * \fn void ppi_delete (struct ppi *ppi)
- * \param ppi pointer to ppi stucture
+ * \brief Delete the memory of PPI struct.
+ *
+ * \param ppi_handle contains ppi structure to delete
+ *
  * \return none
  */
-void ppi_delete (struct ppi *ppi) { 
-    /* no memory needs to be freed */
+void ppi_delete (struct ppi **ppi_handle) { 
+    struct ppi *ppi = *ppi_handle;
+
+    if (ppi == NULL) {
+        return;
+    }
+
+    /* Free the memory and set to NULL */
+    free(ppi);
+    *ppi_handle = NULL;
 }
 
 /**

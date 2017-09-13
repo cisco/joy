@@ -89,7 +89,7 @@ __inline void salt_init(struct salt *salt) {
 #endif
 
 /** initialization function */
-void salt_init(struct salt *salt);
+void salt_init(struct salt **salt_handle);
 
 /** update salt */
 void salt_update(struct salt *salt, 
@@ -104,7 +104,7 @@ void salt_print_json(const struct salt *w1,
 		     zfile f);
 
 /** delete salt */
-void salt_delete(struct salt *salt);
+void salt_delete(struct salt **salt_handle);
 
 /** salt unit test entry point */
 void salt_unit_test();

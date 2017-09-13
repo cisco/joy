@@ -764,29 +764,49 @@ void dns_unit_test () {
 
 
 /**
- * \fn void dns_init (struct dns *dns)
- * \param dns DNS structure pointer
+ * \brief Initialize the memory of DNS struct.
+ *
+ * \param dns_handle contains dns structure to initialize
+ *
  * \return none
  */
-void dns_init (struct dns *dns) {
-    memset(dns->dns_name, 0, sizeof(dns->dns_name));
-    memset(dns->pkt_len, 0, sizeof(dns->pkt_len));
-    dns->pkt_count = 0;
+void dns_init (struct dns **dns_handle) {
+    if (*dns_handle != NULL) {
+        dns_delete(dns_handle);
+    }
+
+    *dns_handle = malloc(sizeof(struct ssh));
+    if (*dns_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*dns_handle, 0, sizeof(struct ssh));
 }
 
 /**
- * \fn void dns_delete (struct dns *dns)
- * \param dns DNS structure pointer
+ * \brief Delete the memory of DNS struct.
+ *
+ * \param dns_handle contains dns structure to delete
+ *
  * \return none
  */
-void dns_delete (struct dns *dns) {
+void dns_delete (struct dns **dns_handle) {
     unsigned int i;
+    struct dns *dns = *dns_handle;
+
+    if (dns == NULL) {
+        return;
+    }
 
     for (i=0; i<dns->pkt_count; i++) {
         if (dns->dns_name[i]) {
             free(dns->dns_name[i]);
         }
     }
+
+    /* Free the memory and set to NULL */
+    free(dns);
+    *dns_handle = NULL;
 }
 
 /**

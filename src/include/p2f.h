@@ -102,8 +102,6 @@ struct flow_record {
     header_description_t hd;         /*!< header description (proto ident)    */
     struct tls_information *tls_info;      /*!< TLS awareness                       */
     http_data_t http_data;           /*!< HTTP header information             */
-    //  char *dns_name[MAX_NUM_PKT_LEN];       /*!< array of DNS names                 */
-    // struct dns dns;
     void *idp;
     unsigned int idp_len;
     unsigned int ack;
