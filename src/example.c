@@ -55,18 +55,16 @@
  * \return none
  */
 __inline void example_init (struct example **example_handle) {
-    struct example *example = NULL;
-
-    if (*example_handle == NULL) {
-        example = malloc(sizeof(struct example));
-        /* Grab a handle on the memory */
-        *example_handle = example;
-    } else {
-        /* Already exisiting */
-        example = *example_handle;
+    if (*example_handle != NULL) {
+        example_delete(example_handle);
     }
 
-    example->counter = 0;
+    *example_handle = malloc(sizeof(struct example));
+    if (*example_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*example_handle, 0, sizeof(struct example));
 }
 
 /**
@@ -126,7 +124,6 @@ void example_delete (struct example **example_handle) {
     }
 
     /* Free the memory and set to NULL */
-    memset(example, 0, sizeof(struct example));
     free(example);
     *example_handle = NULL;
 }

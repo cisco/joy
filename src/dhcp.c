@@ -171,18 +171,16 @@ static const char *dhcp_option_msg_types[] = {
  */
 void dhcp_init(struct dhcp **dhcp_handle)
 {
-    struct dhcp *dhcp = NULL;
-
-    if (*dhcp_handle == NULL) {
-        dhcp = malloc(sizeof(struct dhcp));
-        /* Grab a handle on the memory */
-        *dhcp_handle = dhcp;
-    } else {
-        /* Already exisiting */
-        dhcp = *dhcp_handle;
+    if (*dhcp_handle != NULL) {
+        dhcp_delete(dhcp_handle);
     }
 
-    memset(dhcp, 0, sizeof(struct dhcp));
+    *dhcp_handle = malloc(sizeof(struct dhcp));
+    if (*dhcp_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*dhcp_handle, 0, sizeof(struct dhcp));
 }
 
 /**
@@ -198,7 +196,6 @@ void dhcp_delete(struct dhcp **dhcp_handle)
     struct dhcp *dhcp = *dhcp_handle;
 
     if (dhcp == NULL) {
-        joy_log_err("dhcp is null");
         return;
     }
 
@@ -222,7 +219,6 @@ void dhcp_delete(struct dhcp **dhcp_handle)
     }
 
     /* Free the memory and set to NULL */
-    memset(dhcp, 0, sizeof(struct dhcp));
     free(dhcp);
     *dhcp_handle = NULL;
 }

@@ -58,22 +58,16 @@
  * \return none
  */
 void salt_init(struct salt **salt_handle) {
-    struct salt *salt = NULL;
-
-    if (*salt_handle == NULL) {
-        salt = malloc(sizeof(struct salt));
-        /* Grab a handle on the memory */
-        *salt_handle = salt;
-    } else {
-        /* Already exisiting */
-        salt = *salt_handle;
+    if (*salt_handle != NULL) {
+        salt_delete(salt_handle);
     }
 
-    salt->np = 0;
-    memset(salt->pkt_len, 0, sizeof(salt->pkt_len));
-    memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
-    memset(salt->seq, 0, sizeof(salt->seq));
-    memset(salt->ack, 0, sizeof(salt->ack));
+    *salt_handle = malloc(sizeof(struct salt));
+    if (*salt_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*salt_handle, 0, sizeof(struct salt));
 }
 
 /**
@@ -213,7 +207,6 @@ void salt_delete (struct salt **salt_handle) {
     }
 
     /* Free the memory and set to NULL */
-    memset(salt, 0, sizeof(struct salt));
     free(salt);
     *salt_handle = NULL;
 }

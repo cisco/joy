@@ -771,20 +771,16 @@ void dns_unit_test () {
  * \return none
  */
 void dns_init (struct dns **dns_handle) {
-    struct dns *dns = NULL;
-
-    if (*dns_handle == NULL) {
-        dns = malloc(sizeof(struct dns));
-        /* Grab a handle on the memory */
-        *dns_handle = dns;
-    } else {
-        /* Already exisiting */
-        dns = *dns_handle;
+    if (*dns_handle != NULL) {
+        dns_delete(dns_handle);
     }
 
-    memset(dns->dns_name, 0, sizeof(dns->dns_name));
-    memset(dns->pkt_len, 0, sizeof(dns->pkt_len));
-    dns->pkt_count = 0;
+    *dns_handle = malloc(sizeof(struct ssh));
+    if (*dns_handle == NULL) {
+        /* Allocation failed */
+        return;
+    }
+    memset(*dns_handle, 0, sizeof(struct ssh));
 }
 
 /**
@@ -809,7 +805,6 @@ void dns_delete (struct dns **dns_handle) {
     }
 
     /* Free the memory and set to NULL */
-    memset(dns, 0, sizeof(struct dns));
     free(dns);
     *dns_handle = NULL;
 }

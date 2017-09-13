@@ -224,7 +224,7 @@ void F##_print_json(const F##_t *F,      \
  * the feature context
  */
 #define update_feature(f) \
-    if (f##_filter(key)) { \
+    if (f##_filter(key) && (report_##f)) { \
         if (record->f == NULL) f##_init(&record->f); \
         f##_update(record->f, header, payload, size_payload, report_##f); \
     }
@@ -232,12 +232,20 @@ void F##_print_json(const F##_t *F,      \
 /** The macro update_ip_feature(f) processes a single packet, given
  * a pointer to the IP header, and updates the feature context
  */
-#define update_ip_feature(f) if (f##_filter(key)) f##_update(record->f, header, ip, ip_hdr_len, report_##f);
+#define update_ip_feature(f) \
+    if (f##_filter(key) && (report_##f)) { \
+        if (record->f == NULL) f##_init(&record->f); \
+        f##_update(record->f, header, ip, ip_hdr_len, report_##f); \
+    }
 
 /** The macro update_tcp_feature(f) processes a single packet, given
  * a pointer to the TCP header, and updates the feature context
  */
-#define update_tcp_feature(f) if (f##_filter(key)) f##_update(record->f, header, transport_start, transport_len, report_##f);
+#define update_tcp_feature(f) \
+    if (f##_filter(key) && (report_##f)) { \
+        if (record->f == NULL) f##_init(&record->f); \
+        f##_update(record->f, header, transport_start, transport_len, report_##f); \
+    }
 
 /** The macro print_feature(f) prints the feature as JSON 
  */

@@ -54,24 +54,16 @@
  * \return none
  */
 __inline void wht_init (struct wht **wht_handle) {
-    struct wht *wht = NULL;
+    if (*wht_handle != NULL) {
+        wht_delete(wht_handle);
+    }
 
+    *wht_handle = malloc(sizeof(struct wht));
     if (*wht_handle == NULL) {
-        wht = malloc(sizeof(struct wht));
-        /* Grab a handle on the memory */
-        *wht_handle = wht;
-    } else {
-        /* Already exisiting */
-        wht = *wht_handle;
+        /* Allocation failed */
+        return;
     }
-
-    if (wht != NULL) {
-        wht->b = 0;
-        wht->spectrum[0] = 0;
-        wht->spectrum[1] = 0;
-        wht->spectrum[2] = 0;
-        wht->spectrum[3] = 0;
-    }
+    memset(*wht_handle, 0, sizeof(struct wht));
 }
 
 /*
@@ -211,7 +203,6 @@ void wht_delete (struct wht **wht_handle) {
     }
 
     /* Free the memory and set to NULL */
-    memset(wht, 0, sizeof(struct wht));
     free(wht);
     *wht_handle = NULL;
 }

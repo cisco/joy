@@ -122,68 +122,16 @@ static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
  * \return
  */
 void tls_init (struct tls_information **tls_handle) {
-    int i;
-    struct tls_information *r = NULL;
+    if (*tls_handle != NULL) {
+        tls_delete(tls_handle);
+    }
 
+    *tls_handle = malloc(sizeof(struct tls_information));
     if (*tls_handle == NULL) {
-        r = malloc(sizeof(struct tls_information));
-        /* Grab a handle on the memory */
-        *tls_handle = r;
-    } else {
-        /* Already exisiting */
-        r = *tls_handle;
+        /* Allocation failed */
+        return;
     }
-
-    r->role = role_unknown;
-    r->tls_op = 0;
-    r->num_ciphersuites = 0;
-    r->num_tls_extensions = 0;
-    r->num_server_tls_extensions = 0;
-    r->tls_sid_len = 0;
-    r->tls_v = 0;
-    r->tls_client_key_length = 0;
-    r->certificate_buffer = 0;
-    r->certificate_offset = 0;
-    r->start_cert = 0;
-    r->sni = 0;
-    r->sni_length = 0;
-    r->tls_fingerprint = NULL;
-
-    memset(r->tls_len, 0, sizeof(r->tls_len));
-    memset(r->tls_time, 0, sizeof(r->tls_time));
-    memset(r->tls_type, 0, sizeof(r->tls_type));
-    memset(r->ciphersuites, 0, sizeof(r->ciphersuites));
-    memset(r->tls_extensions, 0, sizeof(r->tls_extensions));
-    memset(r->server_tls_extensions, 0, sizeof(r->server_tls_extensions));
-    memset(r->tls_sid, 0, sizeof(r->tls_sid));
-    memset(r->tls_random, 0, sizeof(r->tls_random));
-
-    r->num_certificates = 0;
-    for (i = 0; i < MAX_CERTIFICATES; i++) {
-        struct tls_certificate *cert = &r->certificates[i];
-
-        cert->length = 0;
-        cert->signature = NULL;
-        cert->signature_length = 0;
-        memset(cert->signature_algorithm, 0,
-               sizeof(cert->signature_algorithm));
-        memset(cert->subject_public_key_algorithm, 0,
-               sizeof(cert->signature_algorithm));
-        cert->subject_public_key_size = 0;
-        cert->signature_key_size = 0;
-        cert->serial_number = NULL;
-        cert->serial_number_length = 0;
-        cert->validity_not_before = NULL;
-        cert->validity_not_before_length = 0;
-        cert->validity_not_after = NULL;
-        cert->validity_not_after_length = 0;
-        cert->num_issuer_items = 0;
-        cert->num_subject_items = 0;
-        cert->num_extension_items = 0;
-        memset(cert->issuer, 0, sizeof(cert->issuer));
-        memset(cert->subject, 0, sizeof(cert->subject));
-        memset(cert->extensions, 0, sizeof(cert->extensions));
-    }
+    memset(*tls_handle, 0, sizeof(struct tls_information));
 }
 
 /**
@@ -271,7 +219,6 @@ void tls_delete (struct tls_information **tls_handle) {
     }
 
     /* Free the memory and set to NULL */
-    memset(r, 0, sizeof(struct tls_information));
     free(r);
     *tls_handle = NULL;
 }

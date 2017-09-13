@@ -736,50 +736,40 @@ static void ssh_process(struct ssh *cli,
  */
 inline void ssh_init(struct ssh **ssh_handle) {
     int i;
-    struct ssh *ssh = NULL;
 
+    if (*ssh_handle != NULL) {
+        ssh_delete(ssh_handle);
+    }
+
+    *ssh_handle = malloc(sizeof(struct ssh));
     if (*ssh_handle == NULL) {
-        ssh = malloc(sizeof(struct ssh));
-        /* Grab a handle on the memory */
-        *ssh_handle = ssh;
-    } else {
-        /* Already exisiting */
-        ssh = *ssh_handle;
+        /* Allocation failed */
+        return;
     }
+    memset(*ssh_handle, 0, sizeof(struct ssh));
 
-    ssh->role = role_unknown;
-    ssh->protocol[0] = 0; /* null terminate string */
-    memset(ssh->cookie, 0, sizeof(ssh->cookie));
-    ssh->kex_algo = NULL;
-    ssh->buffer                 = malloc(sizeof(struct vector)); vector_init(ssh->buffer);
-    ssh->kex_algos              = malloc(sizeof(struct vector)); vector_init(ssh->kex_algos);
-    ssh->s_host_key_algos       = malloc(sizeof(struct vector)); vector_init(ssh->s_host_key_algos);
-    ssh->c_encryption_algos     = malloc(sizeof(struct vector)); vector_init(ssh->c_encryption_algos);
-    ssh->s_encryption_algos     = malloc(sizeof(struct vector)); vector_init(ssh->s_encryption_algos);
-    ssh->c_mac_algos            = malloc(sizeof(struct vector)); vector_init(ssh->c_mac_algos);
-    ssh->s_mac_algos            = malloc(sizeof(struct vector)); vector_init(ssh->s_mac_algos);
-    ssh->c_comp_algos           = malloc(sizeof(struct vector)); vector_init(ssh->c_comp_algos);
-    ssh->s_comp_algos           = malloc(sizeof(struct vector)); vector_init(ssh->s_comp_algos);
-    ssh->c_languages            = malloc(sizeof(struct vector)); vector_init(ssh->c_languages);
-    ssh->s_languages            = malloc(sizeof(struct vector)); vector_init(ssh->s_languages);
-    ssh->s_hostkey_type         = malloc(sizeof(struct vector)); vector_init(ssh->s_hostkey_type);
-    ssh->s_signature_type       = malloc(sizeof(struct vector)); vector_init(ssh->s_signature_type);
-    ssh->c_kex                  = malloc(sizeof(struct vector)); vector_init(ssh->c_kex);
-    ssh->s_kex                  = malloc(sizeof(struct vector)); vector_init(ssh->s_kex);
-    ssh->s_hostkey              = malloc(sizeof(struct vector)); vector_init(ssh->s_hostkey);
-    ssh->s_signature            = malloc(sizeof(struct vector)); vector_init(ssh->s_signature);
-    ssh->s_gex_p                = malloc(sizeof(struct vector)); vector_init(ssh->s_gex_p);
-    ssh->s_gex_g                = malloc(sizeof(struct vector)); vector_init(ssh->s_gex_g);
+    (*ssh_handle)->buffer                 = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->buffer);
+    (*ssh_handle)->kex_algos              = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->kex_algos);
+    (*ssh_handle)->s_host_key_algos       = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_host_key_algos);
+    (*ssh_handle)->c_encryption_algos     = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_encryption_algos);
+    (*ssh_handle)->s_encryption_algos     = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_encryption_algos);
+    (*ssh_handle)->c_mac_algos            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_mac_algos);
+    (*ssh_handle)->s_mac_algos            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_mac_algos);
+    (*ssh_handle)->c_comp_algos           = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_comp_algos);
+    (*ssh_handle)->s_comp_algos           = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_comp_algos);
+    (*ssh_handle)->c_languages            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_languages);
+    (*ssh_handle)->s_languages            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_languages);
+    (*ssh_handle)->s_hostkey_type         = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_hostkey_type);
+    (*ssh_handle)->s_signature_type       = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_signature_type);
+    (*ssh_handle)->c_kex                  = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_kex);
+    (*ssh_handle)->s_kex                  = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_kex);
+    (*ssh_handle)->s_hostkey              = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_hostkey);
+    (*ssh_handle)->s_signature            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_signature);
+    (*ssh_handle)->s_gex_p                = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_gex_p);
+    (*ssh_handle)->s_gex_g                = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_gex_g);
     for (i = 0; i < MAX_SSH_KEX_MESSAGES; ++i) {
-        ssh->kex_msgs[i].msg_code = 0;
-        ssh->kex_msgs[i].data   = malloc(sizeof(struct vector)); vector_init(ssh->kex_msgs[i].data);
+        (*ssh_handle)->kex_msgs[i].data   = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->kex_msgs[i].data);
     }
-    ssh->kex_msgs_len = 0;
-    ssh->c_gex_min = 0;
-    ssh->c_gex_n = 0;
-    ssh->c_gex_max = 0;
-    ssh->newkeys = 0;
-    ssh->unencrypted = 0;
 }
 
 void ssh_update(struct ssh *ssh,
@@ -1021,7 +1011,6 @@ void ssh_delete(struct ssh **ssh_handle) {
     }
 
     /* Free the memory and set to NULL */
-    memset(ssh, 0, sizeof(struct ssh));
     free(ssh);
     *ssh_handle = NULL;
 }
