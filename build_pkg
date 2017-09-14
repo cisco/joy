@@ -162,9 +162,10 @@ if [ "$?" != 0 ]; then
 fi
 FPM_LINUX_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION --iteration $ITERATION \
     --after-install $APP_ROOT/joy/install/postinstall-linux \
+    --before-remove $APP_ROOT/joy/install/preuninstall-linux \
     --vendor Cisco --config-files /usr/local/etc/joy/ \
-    --config-files /usr/local/var/joy/ \
-    --config-files /usr/local/var/log/ \
+    --config-files /usr/local/var/joy \
+    --config-files /usr/local/var/log \
     -m brilong@cisco.com -p $APP_ROOT \
     --url https://github.com/cisco/joy"
 FPM_MAC_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION-$ITERATION \
@@ -172,8 +173,8 @@ FPM_MAC_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION-$ITERATION \
     --vendor Cisco \
     --osxpkg-identifier-prefix com.cisco \
     --osxpkg-dont-obsolete /usr/local/etc/joy/ \
-    --osxpkg-dont-obsolete /usr/local/var/joy/ \
-    --osxpkg-dont-obsolete /usr/local/var/log/ \
+    --osxpkg-dont-obsolete /usr/local/var/joy \
+    --osxpkg-dont-obsolete /usr/local/var/log \
     -m brilong@cisco.com -p $APP_ROOT \
     --url https://github.com/cisco/joy"
 
@@ -185,8 +186,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux 2>/dev/null
-    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux
+    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux 2>/dev/null
+    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
