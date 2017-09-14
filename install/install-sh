@@ -337,7 +337,7 @@ if [ "$sysname" == "Darwin" ]; then
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/etc/joy/*
-        ls -l ${PREFIX}/share/joy/data/*
+        #ls -l ${PREFIX}/share/joy/data/*
         ls -l ${PREFIX}/share/man/man1/joy.1
         ls -l /Library/LaunchDaemons/joy.plist
         echo "starting flow capture daemon"
@@ -398,7 +398,7 @@ elif [ "$sysname" == "Linux" ]; then
     create_directory ${PREFIX}/share/joy
 
     # Create ${PREFIX}/share/joy/data directory if it does not currently exist
-    create_directory ${PREFIX}/share/joy/data
+    #create_directory ${PREFIX}/share/joy/data
 
     # Stop service, if a previous version is already running
     if [ -z "$PKGBUILD" ]; then
@@ -510,12 +510,12 @@ elif [ "$sysname" == "Linux" ]; then
         fi
     fi
 
-    cp ${APP_ROOT}/data/* ${PREFIX}/share/joy/data
-    retval=$?
-    if [ $retval -ne "0" ]; then
-        echo "error: could not copy data files into directory ${PREFIX}/share/joy/data"
-        exit 1
-    fi
+    #cp ${APP_ROOT}/data/* ${PREFIX}/share/joy/data
+    #retval=$?
+    #if [ $retval -ne "0" ]; then
+        #echo "error: could not copy data files into directory ${PREFIX}/share/joy/data"
+        #exit 1
+    #fi
 
     ##
     # Copy the daemon service files and start it
@@ -576,7 +576,7 @@ elif [ "$sysname" == "Linux" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/bin/joyq
         ls -l ${PREFIX}/etc/joy/*
-        ls -l ${PREFIX}/share/joy/data/*
+        #ls -l ${PREFIX}/share/joy/data/*
         ls -l ${PREFIX}/share/man/man1/joy.1
 
         if [ "$daemon_system" == "sysv" ]; then
