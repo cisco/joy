@@ -11,18 +11,32 @@ if [ "$OSREL" == "CentOS" -o "$OSREL" == "RedHatEnterpriseServer" ]; then
         if [ -f /usr/lib/systemd/system/joy.service ]; then
             systemctl enable joy.service >/dev/null 2>&1 || :
         elif [ -f /etc/init.d/joy -a -f /usr/sbin/chkconfig ]; then
-            chkconfig add joy
+            chkconfig --add joy 2>&1 || :
+        fi
+    # Upgrade
+    else
+        if [ -f /usr/lib/systemd/system/joy.service ]; then
+            systemctl try-restart joy.service >/dev/null 2>&1 || :
+        elif [ -f /etc/init.d/joy -a -f /usr/sbin/chkconfig ]; then
+            service joy condrestart >/dev/null 2>&1 || :
         fi
     fi
 elif [ "$OSREL" == "Ubuntu" -o "$OSREL" == "Debian" ]; then
     # Initial deb installation
     if [ -z $2 ]; then
         if [ -f /usr/lib/systemd/system/joy.service ]; then
-            systemctl enable joy.service >/dev/null 2>&1 || :
+            systemctl enable joy.service  >/dev/null 2>&1 || :
         elif [ -f /etc/init.d/joy -a -f /usr/sbin/chkconfig ]; then
-            chkconfig add joy
+            chkconfig --add joy >/dev/null 2>&1 || :
         elif [ -x /usr/sbin/update-rc.d ]; then
-            update-rc.d joy defaults
+            update-rc.d joy defaults >/dev/null 2>&1 || :
+        fi
+    # Upgrade
+    else
+        if [ -f /usr/lib/systemd/system/joy.service ]; then
+            systemctl try-restart joy.service >/dev/null 2>&1 || :
+        elif [ -f /etc/init.d/joy ]; then
+            service joy condrestart >/dev/null 2>&1 || :
         fi
     fi
 fi
