@@ -282,5 +282,5 @@ threat-relevant data.' \
         exit 1
     fi
 fi
-#rm -f $TAR_FILE
-#rm -rf $TMPDIR
+rm -f $TAR_FILE
+rm -rf $TMPDIR
