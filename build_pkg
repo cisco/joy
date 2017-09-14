@@ -27,12 +27,18 @@ GITREF=master
 CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP_ROOT=$(dirname "$CWD")
 PROGNAME=`basename $0`
-DEB_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
+DEBIAN_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
+    libssl1.0.2 libssl-dev make python python-pip ruby \
+    ruby-ffi zlib1g"
+DEBIAN_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.2"
+UBUNTU_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     libssl1.0.0 libssl-dev make python python-pip ruby \
     ruby-ffi zlib1g"
+UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
     openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
+OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
 
 echo
 echo BUILD_PKGS
@@ -80,23 +86,39 @@ fi
 # Check for build dependencies
 #
 if [ "$BUILDTYPE" == "deb" ]; then
-    if [ ! -f /etc/debian_version ]; then
+    if [ "$OSREL" != "ubuntu" -a "$OSREL" != "debian" ]; then
         echo "You must build a deb on a Debian or Ubuntu system."
         exit 1
     fi
     PKGMISSING=0
-    for pkg in $DEB_PKGS; do
-        STATUS=`/usr/bin/dpkg-query --show --showformat='${db:Status-Status}\n' ${pkg}`
-        if [ "$STATUS" != "installed" ]; then
-            PKGMISSING=1
+    if [ "$OSREL" == "ubuntu" ]; then
+        for pkg in $UBUNTU_PKGS; do
+            STATUS=`/usr/bin/dpkg-query --show --showformat='${db:Status-Status}\n' ${pkg}`
+            if [ "$STATUS" != "installed" ]; then
+                PKGMISSING=1
+            fi
+        done
+        if [ "$PKGMISSING" != 0 ]; then
+            echo "Please install the missing packages.  All required packages"
+            echo "can be installed as follows:"
+            echo "apt-get install $UBUNTU_PKGS"
+            exit 1
         fi
-    done
-    if [ "$PKGMISSING" != 0 ]; then
-        echo "Please install the missing packages.  All required packages"
-        echo "can be installed as follows:"
-        echo "apt-get install $DEB_PKGS"
-        exit 1
+    elif [ "$OSREL" == "debian" ]; then
+        for pkg in $DEBIAN_PKGS; do
+            STATUS=`/usr/bin/dpkg-query --show --showformat='${db:Status-Status}\n' ${pkg}`
+            if [ "$STATUS" != "installed" ]; then
+                PKGMISSING=1
+            fi
+        done
+        if [ "$PKGMISSING" != 0 ]; then
+            echo "Please install the missing packages.  All required packages"
+            echo "can be installed as follows:"
+            echo "apt-get install $DEBIAN_PKGS"
+            exit 1
+        fi
     fi
+
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
     PKGMISSING=0
     for pkg in $MAC_PKGS; do
@@ -152,6 +174,9 @@ if [ "$GITREF" != "master" ]; then
     ITERATION="0.${SHORT_COMMIT_ID}"
 else
     ITERATION="1.${SHORT_COMMIT_ID}"
+fi
+if [ "$OSREL" == "debian" -o "$OSREL" == "ubuntu" ]; then
+    ITERATION="$ITERATION.$OSREL"
 fi
 FULL_VERSION="${VERSION}-${ITERATION}"
 TAR_FILE=`pwd`/joy-$SHORT_COMMIT_ID.tar
@@ -236,8 +261,12 @@ fi
 #strip -s ${TMPDIR}/usr/local/bin/joy
 
 if [ "$BUILDTYPE" == "deb" ]; then
-    fpm -s dir -t deb $FPM_LINUX_OPTIONS \
-        -d libcurl3 -d libpcap0.8 -d libssl1.0.0 \
+    if [ "$OSREL" == "ubuntu" ]; then
+        FPM_REQS="$UBUNTU_REQS"
+    elif [ "$OSREL" == "debian" ]; then
+        FPM_REQS="$DEBIAN_REQS"
+    fi
+    fpm -s dir -t deb $FPM_LINUX_OPTIONS $FPM_REQS \
         -d "python >= 2.7" -d zlib1g \
         --deb-no-default-config-files \
         --description 'Joy is a libpcap-based software package for extracting data features from live
