@@ -32,7 +32,7 @@ DEB_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     ruby-ffi zlib1g"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
-    openssl-devel python ruby rubygems zlib zlib-devel"
+    openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
 
 echo
 echo BUILD_PKGS
@@ -142,22 +142,38 @@ if [ ! -x "/usr/local/bin/fpm" -a ! -x "/opt/local/bin/fpm" ]; then
 fi
 
 COMMIT_ID=$(git show-ref --hash refs/heads/$GITREF)
+if [ -z "$COMMIT_ID" ]; then
+    echo "Unable to find git reference $GITREF. Please enter a valid reference."
+    exit 1
+fi
 SHORT_COMMIT_ID=$(git show-ref --hash=7 refs/heads/$GITREF)
-FULL_VERSION="${VERSION}-${SHORT_COMMIT_ID}"
+ITERATION=""
+if [ "$GITREF" != "master" ]; then
+    ITERATION="0.${SHORT_COMMIT_ID}"
+else
+    ITERATION="1.${SHORT_COMMIT_ID}"
+fi
+FULL_VERSION="${VERSION}-${ITERATION}"
 TAR_FILE=`pwd`/joy-$SHORT_COMMIT_ID.tar
 TMPDIR=`mktemp -d /var/tmp/${PROGNAME}.XXXXXX`
 if [ "$?" != 0 ]; then
     echo Failed to create temp directory $TMPDIR
     exit 1
 fi
-FPM_LINUX_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION --iteration $SHORT_COMMIT_ID \
+FPM_LINUX_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION --iteration $ITERATION \
+    --after-install $APP_ROOT/joy/install/postinstall-linux \
     --vendor Cisco --config-files /usr/local/etc/joy/ \
+    --config-files /usr/local/var/joy/ \
+    --config-files /usr/local/var/log/ \
     -m brilong@cisco.com -p $APP_ROOT \
     --url https://github.com/cisco/joy"
-FPM_MAC_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION-$SHORT_COMMIT_ID \
+FPM_MAC_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION-$ITERATION \
+    --after-install $APP_ROOT/joy/install/postinstall-darwin \
     --vendor Cisco \
     --osxpkg-identifier-prefix com.cisco \
     --osxpkg-dont-obsolete /usr/local/etc/joy/ \
+    --osxpkg-dont-obsolete /usr/local/var/joy/ \
+    --osxpkg-dont-obsolete /usr/local/var/log/ \
     -m brilong@cisco.com -p $APP_ROOT \
     --url https://github.com/cisco/joy"
 
@@ -169,8 +185,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh 2>/dev/null
-    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh
+    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux 2>/dev/null
+    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
