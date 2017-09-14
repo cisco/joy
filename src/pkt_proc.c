@@ -672,11 +672,6 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
     update_all_features(payload_feature_list);
 
-    /* if packet has port 80 and nonzero data length, process it as HTTP */
-    if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
-        http_update(&record->http_data, payload, size_payload, config.http);
-    }
-
     /*
      * update header description
      */

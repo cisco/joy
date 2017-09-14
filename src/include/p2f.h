@@ -56,9 +56,7 @@
 #include <dirent.h>
 #include <time.h>
 
-#include "tls.h"          /* provides TLS awareness        */
 #include "hdr_dsc.h"      /* header description (proto id) */
-#include "http.h"         /* http header data              */
 #include "modules.h"      
 #include "feature.h"
 
@@ -100,8 +98,6 @@ struct flow_record {
     double bd_mean;
     double bd_variance;
     header_description_t hd;         /*!< header description (proto ident)    */
-    struct tls_information *tls_info;      /*!< TLS awareness                       */
-    http_data_t http_data;           /*!< HTTP header information             */
     void *idp;
     unsigned int idp_len;
     unsigned int ack;
