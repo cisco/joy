@@ -178,6 +178,7 @@ void dhcp_init(struct dhcp **dhcp_handle)
     *dhcp_handle = malloc(sizeof(struct dhcp));
     if (*dhcp_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*dhcp_handle, 0, sizeof(struct dhcp));

@@ -40,13 +40,13 @@
  * \brief http data extraction implementation
  */
 #include <ctype.h>
-#include "http.h"
-#include "p2f.h"      
-#include "str_match.h" 
-#include "anon.h"
 #include <string.h> 
 #include <stdlib.h>   
+#include "http.h"
 #include "p2f.h"
+#include "anon.h"
+#include "str_match.h"
+#include "err.h"
 
 /*
  * change this flag is you want hexadecimal output
@@ -93,6 +93,7 @@ void http_init (struct http **http_handle) {
     *http_handle = malloc(sizeof(struct http));
     if (*http_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*http_handle, 0, sizeof(struct http));

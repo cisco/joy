@@ -744,6 +744,7 @@ inline void ssh_init(struct ssh **ssh_handle) {
     *ssh_handle = malloc(sizeof(struct ssh));
     if (*ssh_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*ssh_handle, 0, sizeof(struct ssh));

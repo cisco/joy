@@ -48,6 +48,7 @@
 #include <stdlib.h>
 #include "salt.h"     
 #include "pkt.h"      /* for tcp macros */
+#include "err.h"
 
 
 /**
@@ -65,6 +66,7 @@ void salt_init(struct salt **salt_handle) {
     *salt_handle = malloc(sizeof(struct salt));
     if (*salt_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*salt_handle, 0, sizeof(struct salt));

@@ -48,6 +48,7 @@
 #include "pkt.h"      /* for tcp macros  */
 #include "utils.h"    /* for enum role   */
 #include "ppi.h"     
+#include "err.h"
 
 /* helper functions defined below */
 
@@ -72,6 +73,7 @@ void ppi_init (struct ppi **ppi_handle) {
     *ppi_handle = malloc(sizeof(struct ppi));
     if (*ppi_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*ppi_handle, 0, sizeof(struct ppi));

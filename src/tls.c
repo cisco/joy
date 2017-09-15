@@ -129,6 +129,7 @@ void tls_init (struct tls_information **tls_handle) {
     *tls_handle = malloc(sizeof(struct tls_information));
     if (*tls_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*tls_handle, 0, sizeof(struct tls_information));

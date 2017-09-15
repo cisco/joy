@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "example.h"     
+#include "err.h"
 
 /**
  * \brief Initialize the memory of Example struct.
@@ -62,6 +63,7 @@ __inline void example_init (struct example **example_handle) {
     *example_handle = malloc(sizeof(struct example));
     if (*example_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*example_handle, 0, sizeof(struct example));
