@@ -54,10 +54,7 @@
 #include "p2f.h"      /* joy data structures       */
 #include "err.h"      /* error codes and error reporting */
 #include "anon.h"     /* address anonymization           */
-#include "tls.h"      /* TLS awareness                   */
-#include "dns.h"      /* DNS awareness                   */
 #include "classify.h" /* inline classification           */
-#include "http.h"     /* http header data                */
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "config.h"     /* configuration                 */
@@ -516,7 +513,6 @@ static void flow_record_init (/* @out@ */ struct flow_record *record,
     record->time_next = NULL;
     record->twin = NULL;
 
-    http_init(&record->http_data);
     init_all_features(feature_list);
 
     header_description_init(&record->hd);
@@ -857,12 +853,9 @@ static void flow_record_delete (struct flow_record *r) {
     /*
      * free the memory allocated inside of flow record
      */
-    // dns_delete(&r->dns);
     if (r->idp) {
         free(r->idp);
     }
-
-    http_delete(&r->http_data);
 
     if (r->exe_name) {
         free(r->exe_name);
@@ -1645,13 +1638,6 @@ static void flow_record_print_json (const struct flow_record *record) {
             zprintf(output, ",\"iidp\":");
             zprintf_raw_as_hex(output, rec->twin->idp, rec->twin->idp_len);
             zprintf(output, ",\"iidp_len\":%u", rec->twin->idp_len);
-        }
-    }
-
-    if (config.http) {
-        http_printf(&rec->http_data, "ohttp", output);
-        if (rec->twin) {
-            http_printf(&rec->twin->http_data, "ihttp", output);
         }
     }
 

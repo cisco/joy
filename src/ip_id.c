@@ -53,6 +53,7 @@
 
 #include "pkt.h"        /* for struct ip_hdr */
 #include "ip_id.h"     
+#include "err.h"
 
 
 /**
@@ -70,6 +71,7 @@ void ip_id_init (struct ip_id **ip_id_handle) {
     *ip_id_handle = malloc(sizeof(struct ip_id));
     if (*ip_id_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*ip_id_handle, 0, sizeof(struct ip_id));

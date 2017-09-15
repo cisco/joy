@@ -45,6 +45,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "wht.h"     
+#include "err.h"
 
 /**
  * \brief Initialize the memory of WHT struct.
@@ -61,6 +62,7 @@ __inline void wht_init (struct wht **wht_handle) {
     *wht_handle = malloc(sizeof(struct wht));
     if (*wht_handle == NULL) {
         /* Allocation failed */
+        joy_log_err("malloc failed");
         return;
     }
     memset(*wht_handle, 0, sizeof(struct wht));

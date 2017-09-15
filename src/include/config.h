@@ -68,7 +68,6 @@ struct configuration {
     unsigned int report_exe;
     unsigned int include_classifier;
     unsigned int idp;
-    unsigned int http;
     unsigned int promisc;
     unsigned int num_pkts;
     unsigned int type;           /*!< 1=SPLT, 2=SALT */

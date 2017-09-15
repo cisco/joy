@@ -52,5 +52,6 @@
 #include "ppi.h"          /* per-packet information        */
 #include "tls.h"          /* tls protocol                  */
 #include "dhcp.h"         /* dhcp protocol                 */
+#include "http.h"         /* http protocol                 */
 
 #endif /* MODULES_H */
