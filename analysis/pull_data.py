@@ -116,8 +116,8 @@ class Pull:
                         print len(tmp_data)
                     self.data.append(tmp_data)
                 for i in range(len(tmp)):
-                    if ignore[i] == 1 and label == 1.0:
-                        continue
+＃                    if ignore[i] == 1 and label == 1.0:
+＃                       continue
                     self.labels.append(label)
             if max_files != None and num_files >= max_files:
                 break
