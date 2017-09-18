@@ -70,6 +70,8 @@ struct flow_key {
     unsigned short int prot;
 };
 
+#include "procwatch.h"
+
 /** Main entry point for the uploader thread */
 void *uploader_main(void* ptr);
 
@@ -111,8 +113,11 @@ struct flow_record {
     unsigned int initial_seq;
     unsigned int invalid;
     unsigned int retrans;
-    char *exe_name;                       /*!< executable associated with flow    */ 
-    unsigned char tcp_option_nop;
+	char *exe_name;                       /*!< executable associated with flow    */
+	char *full_path;                      /*!< executable path associated with flow    */
+	char *file_version;                   /*!< executable version associated with flow    */
+	char *file_hash;                      /*!< executable file hash associated with flow    */
+	unsigned char tcp_option_nop;
     unsigned int tcp_option_mss;
     unsigned int tcp_option_wscale;
     unsigned char tcp_option_sack;
@@ -276,11 +281,12 @@ void flocap_stats_output(FILE *f);
 void flocap_stats_timer_init();
 
 /**
- * \brief the function flow_key_set_exe_name(key, name) finds the flow record
- * associated with key, if there is one, and then sets the exe_name of
- * that record to the provided name
- */
-int flow_key_set_exe_name(const struct flow_key *key, const char *exe_name);
+* \brief the function flow_key_set_process_info(key, data) finds the flow record
+* associated with key, if there is one, and then sets the process info of
+* that record to the provided data
+*/
+int flow_key_set_process_info(const struct flow_key *key, const struct host_flow *data);
+
 
 enum SALT_algorithm { 
   reserved = 0,

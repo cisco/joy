@@ -497,8 +497,11 @@ static void flow_record_init (/* @out@ */ struct flow_record *record,
     memset(record->pkt_len, 0, sizeof(record->pkt_len));
     memset(record->pkt_time, 0, sizeof(record->pkt_time));
     memset(record->pkt_flags, 0, sizeof(record->pkt_flags));
-    record->exe_name = NULL;
-    record->tcp_option_nop = 0;
+	record->exe_name = NULL;
+	record->full_path = NULL;
+	record->file_version = NULL;
+	record->file_hash = NULL;
+	record->tcp_option_nop = 0;
     record->tcp_option_mss = 0;
     record->tcp_option_wscale = 0;
     record->tcp_option_sack = 0;
@@ -870,6 +873,18 @@ static void flow_record_delete (struct flow_record *r) {
         free(r->exe_name);
     }
 
+	if (r->full_path) {
+		free(r->full_path);
+	}
+
+	if (r->file_version) {
+		free(r->file_version);
+	}
+
+	if (r->file_hash) {
+		free(r->file_hash);
+	}
+
     delete_all_features(feature_list);
 
     /*
@@ -881,27 +896,36 @@ static void flow_record_delete (struct flow_record *r) {
 }
 
 /**
- * \fn int flow_key_set_exe_name (const struct flow_key *key, const char *name)
- * \param key flow key structure
- * \param name executable name
- * \return failure
- * \return ok
- */
-int flow_key_set_exe_name (const struct flow_key *key, const char *name) {
-    struct flow_record *r;
+* \fn int flow_key_set_process_info (const struct flow_key *key, const struct host_flow *data)
+* \param key flow key structure
+* \param data process flow information
+* \return failure
+* \return ok
+*/
+int flow_key_set_process_info(const struct flow_key *key, const struct host_flow *data) {
+	struct flow_record *r;
 
-    if (name == NULL) {
-        return failure;   /* no point in looking for flow_record */
-    }
-    r = flow_key_get_record(key, DONT_CREATE_RECORDS);
-    // flow_key_print(key);
-    if (r) {
-        if (r->exe_name == NULL) {
-            r->exe_name = strdup(name);
-            return ok;
-        }
-    }
-    return failure;
+	if (data->exe_name == NULL) {
+		return failure;   /* no point in looking for flow_record */
+	}
+	r = flow_key_get_record(key, DONT_CREATE_RECORDS);
+	// flow_key_print(key);
+	if (r) {
+		if (r->exe_name == NULL) {
+			r->exe_name = strdup(data->exe_name);
+		}
+		if (r->full_path == NULL) {
+			r->full_path = strdup(data->full_path);
+		}
+		if (r->file_version == NULL) {
+			r->file_version = strdup(data->file_version);
+		}
+		if (r->file_hash == NULL) {
+			r->file_hash = strdup(data->hash);
+		}
+		return ok;
+	}
+	return failure;
 }
 
 /**
@@ -1693,9 +1717,21 @@ static void flow_record_print_json (const struct flow_record *record) {
 
     }
 
-    if (rec->exe_name) {
-        zprintf(output, ",\"exe\":\"%s\"", rec->exe_name);
-    }
+	if (rec->exe_name) {
+		zprintf(output, ",\"exe\":\"%s\"", rec->exe_name);
+	}
+
+	if (rec->full_path) {
+		zprintf(output, ",\"path\":\"%s\"", rec->full_path);
+	}
+
+	if (rec->file_version) {
+		zprintf(output, ",\"fileVer\":\"%s\"", rec->file_version);
+	}
+
+	if (rec->file_hash) {
+		zprintf(output, ",\"fileHash\":\"%s\"", rec->file_hash);
+	}
 
     if (rec->exp_type) {
         zprintf(output, ",\"x\":\"%c\"", rec->exp_type);

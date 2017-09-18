@@ -43,6 +43,26 @@
 #ifndef PROCWATCH_H
 #define PROCWATCH_H
 
+#define PROC_EXE_LEN 32
+#define PROC_PATH_LEN 128
+#define PROC_HASH_LEN 65
+
+#define ALL_PROC_SOCKETS 1
+#define ACTIVE_PROC_SOCKETS_ONLY 0
+
+#define HOST_PROC_FLOW_TABLE_LEN 128
+
+struct host_flow {
+	struct flow_key key;
+	unsigned long pid;
+	unsigned long parent_pid;
+	unsigned int threads;
+	char *exe_name;
+	char *full_path;
+	char *file_version;
+	char *hash;
+};
+
 /*
  * The function get_host_flow_data() obtains information about the
  * processes running on the host that are associated with packet
