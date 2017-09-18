@@ -108,6 +108,19 @@ void timer_sub (const struct timeval *a, const struct timeval *b, struct timeval
     }
 }
 
+/**
+ * \fn void timer_add (const struct timeval *a, const struct timeval *b, struct timeval *result)
+ * \brief calculate the sum  of two times (result = a + b)
+ * \param a first time value
+ * \param b second time value
+ * \param result the result of the sum of the two time values
+ * \return none
+ */
+void timer_add (const struct timeval *a, const struct timeval *b, struct timeval *result)  {
+    result->tv_sec = a->tv_sec + b->tv_sec;
+    result->tv_usec = a->tv_usec + b->tv_usec;
+}
+
 static inline void timer_clear (struct timeval *a) {
     a->tv_sec = a->tv_usec = 0;
 }
@@ -766,7 +779,7 @@ static unsigned int flow_record_is_past_active_expiration (const struct flow_rec
  * \return NULL if expired or could not create or retrieve record
  */
 struct flow_record *flow_key_get_record (const struct flow_key *key,
-    unsigned int create_new_records) {
+    unsigned int create_new_records,const struct pcap_pkthdr *header) {
     struct flow_record *record;
     unsigned int hash_key;
 
@@ -774,7 +787,23 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
     hash_key = flow_key_hash(key);
     record = flow_record_list_find_record_by_key(&flow_record_list_array[hash_key], key);
     if (record != NULL) {
-        if (create_new_records && flow_record_is_in_chrono_list(record) && flow_record_is_past_active_expiration(record)) {
+	/*
+	 * On a typical networking switch which supports netflow, packets
+	 * come in real time and there is a software poll timer which runs say 
+	 * every 3 seconds to look for active and inactive timeouts and 
+	 * accordingly decide whether to export the flow record or not.
+	 * Since Joy supports offline pcap processing as well , the
+	 * poll timer technique will not work well since its not time based
+         * anymore . Therefore another way to check for timeouts is to look
+	 * for active and inactive timeouts whenever a new packet is going
+         * to be added to a record
+	*/
+       if (header && create_new_records && 
+			flow_record_time_to_export(header,record)) {
+            flow_record_print_and_delete(record);
+            record = NULL;
+       }
+       else if (create_new_records && flow_record_is_in_chrono_list(record) && flow_record_is_past_active_expiration(record)) {
             /*
              *  active-timeout exceeded for this flow_record; print and delete
              *  it, then set record = NULL to cause the creation of a new
@@ -884,7 +913,7 @@ int flow_key_set_exe_name (const struct flow_key *key, const char *name) {
     if (name == NULL) {
         return failure;   /* no point in looking for flow_record */
     }
-    r = flow_key_get_record(key, DONT_CREATE_RECORDS);
+    r = flow_key_get_record(key, DONT_CREATE_RECORDS,NULL);
     // flow_key_print(key);
     if (r) {
         if (r->exe_name == NULL) {
@@ -1229,6 +1258,43 @@ static void reduce_bd_bits (unsigned int *bd, unsigned int len) {
         bd[i] = bd[i] >> shift;
     }
 }
+/**
+ * \fn int flow_record_time_to_export
+ * \brief decides whether to export the record ot not
+ * \param header - this is the packet header which contains timestamp
+ * \param record - this contains the flow record ideal for the packet
+ * \return int - whether its time to export the record or not
+ */
+int flow_record_time_to_export(const struct pcap_pkthdr *header,
+                               struct flow_record *record) {
+	struct timeval inactive_expiration;
+    timer_add(&record->end, &time_window, &inactive_expiration);
+    struct timeval active_expiration;
+    timer_add(&record->start, &active_timeout, &active_expiration);
+    if(timer_lt(&inactive_expiration,&header->ts)) {
+	/*
+	 * This is the inactive timeout check, if the incoming packet 
+	 * timestamp is greater than the inactive expiration time of
+     * the record , then export the existing record and create a new
+     * one
+	*/
+    	return 1;       
+    } 
+    else if(timer_lt(&active_expiration,&header->ts)) {
+     /*
+	 * This is the active timeout check , if the incoming packet
+	 * timestamp is greater than the active expiration time of the
+	 * record , then export the existing record and create a new one
+	 */
+    	return 1;       
+    }
+    /*
+     * Neither active nor inactive timeout has passed , so use the 
+	 * same record for the incoming packet
+    */
+    return 0; 
+}
+
 
 /* output flow record in JSON format */
 static void flow_record_print_json (const struct flow_record *record) {

@@ -505,7 +505,8 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 
 	                  // get a nf record
 	                  struct flow_record *nf_record = NULL;
-	                  nf_record = flow_key_get_record(&key, CREATE_RECORDS);
+	                  nf_record = flow_key_get_record(&key, 
+					CREATE_RECORDS,header);
 
 	                  // fill out record
 	                  if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
@@ -583,7 +584,7 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     key->sp = ntohs(tcp->src_port);
     key->dp = ntohs(tcp->dst_port);
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }
@@ -721,7 +722,7 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
     key->sp = ntohs(udp->src_port);
     key->dp = ntohs(udp->dst_port);
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }
@@ -793,7 +794,7 @@ process_icmp (const struct pcap_pkthdr *header, const char *start, int len, stru
     key->sp = 0;
     key->dp = 0;
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }
@@ -841,7 +842,7 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
     /* signify IP by using zero (reserved) port values */
     key->sp = key->dp = 0;
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }

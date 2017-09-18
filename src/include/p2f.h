@@ -200,7 +200,7 @@ typedef struct flow_record *flow_record_list;
  *
  */
 struct flow_record *flow_key_get_record(const struct flow_key *key, 
-					unsigned int create_new_records);
+	unsigned int create_new_records,const struct pcap_pkthdr *header);
 
 
 /** update the byte count of the flow record */
@@ -305,5 +305,9 @@ void *convert_string_to_printable(char *s, unsigned int len);
 
 /** print a buffer as hexadecimal */
 void zprintf_raw_as_hex(zfile f, const unsigned char *data, unsigned int len);
+
+int flow_record_time_to_export(const struct pcap_pkthdr *header,
+                                struct flow_record *record);
+
 
 #endif /* P2F_H */
