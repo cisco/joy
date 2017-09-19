@@ -266,7 +266,6 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             old_val = tmp_packet_length;
             if (pkt_len_index < MAX_NUM_PKT_LEN) {
 	        nf_record->pkt_len[pkt_len_index] = tmp_packet_length;
-	        nf_record->ob += tmp_packet_length;
 	        pkt_len_index++;
             } else {
 	        break;
@@ -284,7 +283,6 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             for (k = 0; k < repeated_length; k++) {
 	        if (pkt_len_index < MAX_NUM_PKT_LEN) {
 	            nf_record->pkt_len[pkt_len_index] = old_val;
-	            nf_record->ob += old_val;
 	            pkt_len_index++;
 	        } else {
 	            break;
@@ -292,6 +290,44 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             }
         }
     }
+}
+
+/*
+ * @brief Process the flow's absolute start or ending time in milliseconds.
+ *
+ * @param flow_data Contains the exported start/end flow time.
+ * @param nf_record NFV9 flow record being encoded.
+ * @param flag_end Signals whether the end or start time is being encoded.
+ *        0 for start, 1 for end, anything else is invalid.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int nfv9_process_flow_time_milli(const void *flow_data,
+                                        struct flow_record *nf_record,
+                                        int flag_end) {
+    struct timeval *time;
+
+    switch (flag_end) {
+        case 0:
+            time = &nf_record->start;
+            break;
+        case 1:
+            time = &nf_record->end;
+            break;
+        default:
+            joy_log_err("invalid value for flag_end, must be 0 or 1");
+            return 1;
+    }
+
+    if (time->tv_sec + time->tv_usec == 0) {
+        time->tv_sec =
+            (time_t)((uint32_t)(ntoh64(*(const uint64_t *)flow_data) / 1000));
+
+        time->tv_usec =
+            (time_t)((uint32_t)ntoh64(*(const uint64_t *)flow_data) % 1000)*1000;
+    }
+
+    return 0;
 }
 
 /**
@@ -440,6 +476,10 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
         switch (htons(cur_template->fields[i].FieldType)) {
+            case IN_BYTES:
+                nf_record->ob += (unsigned int)ntoh64(*(const uint64_t *)flow_data);
+                flow_data += htons(cur_template->fields[i].FieldLength);
+                break;
             case IN_PKTS:
                 if (record_num == 0) {
 	            if (htons(cur_template->fields[i].FieldLength) == 4) {
@@ -465,6 +505,16 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	            nf_record->end.tv_sec = (time_t)((int)(htonl(*(const int *)flow_data) / 1000));
 	            nf_record->end.tv_usec = (time_t)((int)htonl(*(const int *)flow_data) % 1000)*1000;
                 }
+
+                flow_data += htons(cur_template->fields[i].FieldLength);
+                break;
+            case NFV9_FLOW_START_MILLISECONDS:
+                nfv9_process_flow_time_milli(flow_data, nf_record, 0);
+
+                flow_data += htons(cur_template->fields[i].FieldLength);
+                break;
+            case NFV9_FLOW_END_MILLISECONDS:
+                nfv9_process_flow_time_milli(flow_data, nf_record, 1);
 
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;

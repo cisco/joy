@@ -254,6 +254,8 @@ enum nfv9_type {
     layer2packetSectionOffset =    102,   
     layer2packetSectionSize =      103,   
     layer2packetSectionData =      104,   
+    NFV9_FLOW_START_MILLISECONDS = 152,
+    NFV9_FLOW_END_MILLISECONDS =   153,
     IDP =                        44940,
     SPLT =                       44941,
     SALT =                       44942,
