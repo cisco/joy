@@ -39,6 +39,7 @@ MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
     openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
 OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
+ARCH=`uname -i`
 
 echo
 echo BUILD_PKGS
@@ -140,10 +141,13 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
     fi
     PKGMISSING=0
     for pkg in $RPM_PKGS; do
-        STATUS=`rpm -q --qf '%{name}' ${pkg}`
+        STATUS=`rpm -q --qf '%{name}' ${pkg}.${ARCH}`
         if [ "$STATUS" != "$pkg" ]; then
-            echo "$STATUS"
-            PKGMISSING=1
+            STATUS=`rpm -q --qf '%{name}' ${pkg}.noarch`
+            if [ "$STATUS" != "$pkg" ]; then
+                echo "$STATUS"
+                PKGMISSING=1
+            fi
         fi
     done
     if [ "$PKGMISSING" != 0 ]; then
