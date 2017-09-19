@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+# Launch agent location
+LAUNCH_AGENT_SRC="/usr/local/joy/etc/joy.plist"
+LAUNCH_AGENT_DEST="/Library/LaunchAgents/com.cisco.joy.plist"
+
+# Uninstall old launch agent
+launchctl unload "$LAUNCH_AGENT_DEST" || true
+rm -f "$LAUNCH_AGENT_DEST" || true
+
+# Install launch agent
+cp "$LAUNCH_AGENT_SRC" "$LAUNCH_AGENT_DEST" || true
+launchctl load "$LAUNCH_AGENT_DEST" || true
+
+if [ ! -f /usr/local/etc/joy/upload-key ]; then
+        ssh-keygen -f /usr/local/etc/joy/upload-key -P "" -t rsa -b 2048 || true
+fi
+
+exit 0

@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# Determine OS release
+OSREL=`lsb_release -is 2>/dev/null`
+
+# On removal, disable and remove joy service
+#
+if [ "$OSREL" == "CentOS" -o "$OSREL" == "RedHatEnterpriseServer" ]; then
+    # RPM removal, not upgrade
+    if [ $1 -eq 0 ] ; then
+        if [ -f /usr/lib/systemd/system/joy.service ]; then
+            systemctl --no-reload disable joy.service  >/dev/null 2>&1 || :
+            systemctl stop joy.service >/dev/null 2>&1 || :
+        elif [ -f /etc/init.d/joy -a -f /usr/sbin/chkconfig ]; then
+            service joy stop >/dev/null 2>&1 || :
+            chkconfig --del joy >/dev/null 2>&1 || :
+        fi
+    fi
+elif [ "$OSREL" == "Ubuntu" -o "$OSREL" == "Debian" ]; then
+    # deb removal, not upgrade
+    if [ -z $2 ]; then
+        if [ -f /usr/lib/systemd/system/joy.service ]; then
+            systemctl --no-reload disable joy.service  >/dev/null 2>&1 || :
+            systemctl stop joy.service >/dev/null 2>&1 || :
+        elif [ -f /etc/init.d/joy ]; then
+            service joy stop >/dev/null 2>&1 || :
+            if [ -f /usr/sbin/chkconfig ]; then
+                chkconfig --del joy >/dev/null 2>&1 || :
+            elif [ -x /usr/sbin/update-rc.d ]; then
+                update-rc.d joy disable >/dev/null 2>&1 || :
+            fi
+        fi
+    fi
+fi

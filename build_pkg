@@ -1,0 +1,315 @@
+#!/bin/bash
+#
+# Build a binary package of joy. Supports deb, osxpkg and rpm.
+#
+
+usage() { 
+    echo "usage:"
+    echo ""
+    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] ]"
+    echo ""
+    echo "where the options are as follows"
+    echo ""
+    echo "   The -h flag prints usage information and exits."
+    echo ""
+    echo "   The -t rpm flag builds a RPM.  The -t deb flag builds a deb."
+    echo "   The -t osxpkg flag builds an OS X pkg."
+    echo ""
+    echo "   The -r git-reference pulls from the specified git-reference instead of master."
+    echo ""
+} 
+
+# set defaults
+#
+NAME=joy
+VERSION=`cat VERSION`
+GITREF=master
+CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+APP_ROOT=$(dirname "$CWD")
+PROGNAME=`basename $0`
+DEBIAN_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
+    libssl1.0.2 libssl-dev make python python-pip ruby \
+    ruby-ffi zlib1g"
+DEBIAN_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.2"
+UBUNTU_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
+    libssl1.0.0 libssl-dev make python python-pip ruby \
+    ruby-ffi zlib1g"
+UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0"
+MAC_PKGS="gcc gem git make python ruby"
+RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
+    openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
+OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
+
+echo
+echo BUILD_PKGS
+echo --------------------
+echo
+
+# check command line arguments, ovveride defaults as appropriate
+#
+while getopts "ht:r:" arg; do
+    case $arg in
+    h)
+        usage
+        exit
+        ;;
+    t)
+        echo "-t was triggered with option ${OPTARG}" 
+        BUILDTYPE=${OPTARG}
+        ;;
+    r)
+        echo "-r was triggered with option ${OPTARG}" 
+        GITREF=${OPTARG}
+        ;;
+    \?)
+        echo "error: invalid option -${OPTARG}" 
+        usage
+        exit 1
+        ;;
+    :)
+        echo "error: option -${OPTARG} requires an argument" 
+        usage
+        exit 1
+        ;;
+    esac
+done
+if [ $(($# + 1)) != "${OPTIND}" ]; then
+    echo "error: illegal option"
+    usage
+    exit 1
+fi
+if [ -z "$BUILDTYPE" ]; then
+    echo "-t deb|osxpkg|rpm must be specified" >&2
+    exit 1
+fi
+
+# Check for build dependencies
+#
+if [ "$BUILDTYPE" == "deb" ]; then
+    if [ "$OSREL" != "ubuntu" -a "$OSREL" != "debian" ]; then
+        echo "You must build a deb on a Debian or Ubuntu system."
+        exit 1
+    fi
+    PKGMISSING=0
+    if [ "$OSREL" == "ubuntu" ]; then
+        for pkg in $UBUNTU_PKGS; do
+            STATUS=`/usr/bin/dpkg-query --show --showformat='${db:Status-Status}\n' ${pkg}`
+            if [ "$STATUS" != "installed" ]; then
+                PKGMISSING=1
+            fi
+        done
+        if [ "$PKGMISSING" != 0 ]; then
+            echo "Please install the missing packages.  All required packages"
+            echo "can be installed as follows:"
+            echo "apt-get install $UBUNTU_PKGS"
+            exit 1
+        fi
+    elif [ "$OSREL" == "debian" ]; then
+        for pkg in $DEBIAN_PKGS; do
+            STATUS=`/usr/bin/dpkg-query --show --showformat='${db:Status-Status}\n' ${pkg}`
+            if [ "$STATUS" != "installed" ]; then
+                PKGMISSING=1
+            fi
+        done
+        if [ "$PKGMISSING" != 0 ]; then
+            echo "Please install the missing packages.  All required packages"
+            echo "can be installed as follows:"
+            echo "apt-get install $DEBIAN_PKGS"
+            exit 1
+        fi
+    fi
+
+elif [ "$BUILDTYPE" == "osxpkg" ]; then
+    PKGMISSING=0
+    for pkg in $MAC_PKGS; do
+        if [ ! -x /usr/bin/$pkg ]; then
+            echo "You must have $pkg installed to build an OS X package."
+            PKGMISSING=1
+        fi
+    done
+    if [ "$PKGMISSING" != 0 ]; then
+        echo "Please install the missing packages.  All required packages"
+        echo "can be installed as follows:"
+        echo "xcode-select --install"
+        exit 1
+    fi
+elif [ "$BUILDTYPE" == "rpm" ]; then
+    if [ ! -f /etc/redhat-release ]; then
+        echo "You must build an RPM on a Red Hat or CentOS system."
+        exit 1
+    fi
+    PKGMISSING=0
+    for pkg in $RPM_PKGS; do
+        STATUS=`rpm -q --qf '%{name}' ${pkg}`
+        if [ "$STATUS" != "$pkg" ]; then
+            echo "$STATUS"
+            PKGMISSING=1
+        fi
+    done
+    if [ "$PKGMISSING" != 0 ]; then
+        echo "Please install the missing packages.  All required packages"
+        echo "can be installed as follows:"
+        echo "yum install $RPM_PKGS"
+        exit 1
+    fi
+else
+    echo "Unsupported build type $BUILDTYPE"
+    usage
+    exit 1
+fi
+if [ ! -x "/usr/local/bin/fpm" -a ! -x "/opt/local/bin/fpm" ]; then
+    echo "You must install fpm before proceeding."
+    echo "Run 'gem install fpm'"
+    exit 1
+fi
+
+COMMIT_ID=$(git show-ref --hash refs/heads/$GITREF)
+if [ -z "$COMMIT_ID" ]; then
+    echo "Unable to find git reference $GITREF. Please enter a valid reference."
+    exit 1
+fi
+SHORT_COMMIT_ID=$(git show-ref --hash=7 refs/heads/$GITREF)
+ITERATION=""
+if [ "$GITREF" != "master" ]; then
+    ITERATION="0.${SHORT_COMMIT_ID}"
+else
+    ITERATION="1.${SHORT_COMMIT_ID}"
+fi
+if [ "$OSREL" == "debian" -o "$OSREL" == "ubuntu" ]; then
+    ITERATION="$ITERATION.$OSREL"
+fi
+FULL_VERSION="${VERSION}-${ITERATION}"
+TAR_FILE=`pwd`/joy-$SHORT_COMMIT_ID.tar
+TMPDIR=`mktemp -d /var/tmp/${PROGNAME}.XXXXXX`
+if [ "$?" != 0 ]; then
+    echo Failed to create temp directory $TMPDIR
+    exit 1
+fi
+FPM_LINUX_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION --iteration $ITERATION \
+    --after-install $APP_ROOT/joy/install/postinstall-linux \
+    --before-remove $APP_ROOT/joy/install/preuninstall-linux \
+    --vendor Cisco --config-files /usr/local/etc/joy/ \
+    --config-files /usr/local/var/joy \
+    --config-files /usr/local/var/log \
+    -m brilong@cisco.com -p $APP_ROOT \
+    --url https://github.com/cisco/joy"
+FPM_MAC_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION-$ITERATION \
+    --after-install $APP_ROOT/joy/install/postinstall-darwin \
+    --vendor Cisco \
+    --osxpkg-identifier-prefix com.cisco \
+    --osxpkg-dont-obsolete /usr/local/etc/joy/ \
+    --osxpkg-dont-obsolete /usr/local/var/joy \
+    --osxpkg-dont-obsolete /usr/local/var/log \
+    -m brilong@cisco.com -p $APP_ROOT \
+    --url https://github.com/cisco/joy"
+
+git archive --format=tar --prefix="joy/" $COMMIT_ID > $TAR_FILE
+if [ "$?" != 0 ]; then
+    echo Failed to create git archive tar
+    rmdir $TMPDIR
+    exit 1
+fi
+# Used for pkg development; grab files not yet checked-in to master
+if [ "$GITREF" != "master" ]; then
+    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux 2>/dev/null
+    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux
+    if [ "$?" != 0 ]; then
+        echo Failed to update archive tar
+        rmdir $TMPDIR
+        exit 1
+    fi
+fi
+cd $TMPDIR
+if [ "$?" != 0 ]; then
+    echo Failed to change to $TMPDIR
+    rmdir $TMPDIR
+    exit 1
+fi
+tar xf $TAR_FILE || exit 1
+if [ "$?" != 0 ]; then
+    echo Failed to untar $TAR_FILE
+    exit 1
+fi
+cd $NAME
+if [ "$?" != 0 ]; then
+    echo Failed to change directory to $NAME
+    exit 1
+fi
+if [ "$BUILDTYPE" == "deb" ]; then
+    ./config -l /usr/lib/x86_64-linux-gnu
+elif [ "$BUILDTYPE" == "osxpkg" ]; then
+    ./config
+elif [ "$BUILDTYPE" == "rpm" ]; then
+    ./config -l /usr/lib64
+fi
+if [ "$?" != 0 ]; then
+    echo Failed to run ./config
+    exit 1
+fi
+echo "$FULL_VERSION" > VERSION
+make
+if [ "$?" != 0 ]; then
+    echo Failed to run make
+    exit 1
+fi
+make DESTDIR=${TMPDIR}/usr/local BUILDROOT=${TMPDIR} pkg
+if [ "$?" != 0 ]; then
+    echo Failed to run make pkg
+    exit 1
+fi
+
+#strip -s ${TMPDIR}/usr/local/bin/joy
+
+if [ "$BUILDTYPE" == "deb" ]; then
+    if [ "$OSREL" == "ubuntu" ]; then
+        FPM_REQS="$UBUNTU_REQS"
+    elif [ "$OSREL" == "debian" ]; then
+        FPM_REQS="$DEBIAN_REQS"
+    fi
+    fpm -s dir -t deb $FPM_LINUX_OPTIONS $FPM_REQS \
+        -d "python >= 2.7" -d zlib1g \
+        --deb-no-default-config-files \
+        --description 'Joy is a libpcap-based software package for extracting data features from live
+network traffic or packet capture \(pcap\) files, using a flow-oriented model
+similar to that of IPFIX or Netflow, and then representing these data features
+in JSON. It also contains analysis tools that can be applied to these data
+files. Joy can be used to explore data at scale, especially security and
+threat-relevant data.' \
+        ./usr
+    if [ "$?" != 0 ]; then
+        echo Failed to build deb
+        exit 1
+    fi
+elif [ "$BUILDTYPE" == "osxpkg" ]; then
+    fpm -s dir -t osxpkg $FPM_MAC_OPTIONS \
+        --description 'Joy is a libpcap-based software package for extracting data features from live
+network traffic or packet capture \(pcap\) files, using a flow-oriented model
+similar to that of IPFIX or Netflow, and then representing these data features
+in JSON. It also contains analysis tools that can be applied to these data
+files. Joy can be used to explore data at scale, especially security and
+threat-relevant data.' \
+        ./usr
+    if [ "$?" != 0 ]; then
+        echo Failed to build OS X pkg
+        exit 1
+    fi
+elif [ "$BUILDTYPE" == "rpm" ]; then
+    fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
+        -d libcurl -d libpcap -d "kernel >= 3.10" -d openssl \
+        -d openssl-libs -d "python >= 2.7" -d zlib \
+        --description 'Joy is a libpcap-based software package for extracting data features from live
+network traffic or packet capture \(pcap\) files, using a flow-oriented model
+similar to that of IPFIX or Netflow, and then representing these data features
+in JSON. It also contains analysis tools that can be applied to these data
+files. Joy can be used to explore data at scale, especially security and
+threat-relevant data.' \
+        --rpm-dist el7 \
+        --rpm-summary "Capture and analyze network flow data for research, forensics and monitoring." \
+        ./usr
+    if [ "$?" != 0 ]; then
+        echo Failed to build RPM
+        exit 1
+    fi
+fi
+rm -f $TAR_FILE
+rm -rf $TMPDIR
