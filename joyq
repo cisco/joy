@@ -56,6 +56,7 @@ from sleuth import DictStreamDistributionProcessor
 from sleuth import DictStreamSplitProcessor
 from sleuth import DictStreamElementSelectProcessor
 from sleuth import SleuthPredicate
+from sleuth import SleuthFileType
 from sleuth import enrich_tls
 
 """
@@ -96,15 +97,21 @@ class FlowIteratorFromFile(DictStreamIteratorFromFile):
         if self.file_name is sys.stdin:
             self.f = self.file_name
         else:
-            if self.file_name.endswith('.gz'):
-                self.f = gzip.open(self.file_name, 'r')
-            elif self.pcap_loader.is_pcap():
+            if self.pcap_loader.is_pcap():
                 # Run Joy to generate some JSON for use in this script.
                 self.pcap_loader.run()
                 # Open the json file that was just made.
-                self.f = gzip.open(self.pcap_loader.temp_json['file'], 'r')
+                ft = SleuthFileType(self.pcap_loader.temp_json['file'])
+                if ft.is_gz():
+                    self.f = gzip.open(self.pcap_loader.temp_json['file'], 'r')
+                else:
+                    self.f = open(self.pcap_loader.temp_json['file'], 'r')
             else:
-                self.f = open(self.file_name, 'r')
+                ft = SleuthFileType(self.file_name)
+                if ft.is_gz():
+                    self.f = gzip.open(self.file_name, 'r')
+                else:
+                    self.f = open(self.file_name, 'r')
 
 
 class FlowStitchIterator(DictStreamIterator):
