@@ -915,12 +915,15 @@ int flow_key_set_process_info(const struct flow_key *key, const struct host_flow
 			r->exe_name = strdup(data->exe_name);
 		}
 		if (r->full_path == NULL) {
+                    if (data->full_path)
 			r->full_path = strdup(data->full_path);
 		}
 		if (r->file_version == NULL) {
+                    if (data->file_version)
 			r->file_version = strdup(data->file_version);
 		}
 		if (r->file_hash == NULL) {
+                    if (data->hash)
 			r->file_hash = strdup(data->hash);
 		}
 		return ok;
