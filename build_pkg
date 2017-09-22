@@ -301,6 +301,7 @@ elif [ "$BUILDTYPE" == "rpm" ]; then
     fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
         -d libcurl -d libpcap -d "kernel >= 3.10" -d openssl \
         -d openssl-libs -d "python >= 2.7" -d zlib \
+        --config-files /etc/systemd/system/joy.service.d/20-accounting.conf \
         --description 'Joy is a libpcap-based software package for extracting data features from live
 network traffic or packet capture \(pcap\) files, using a flow-oriented model
 similar to that of IPFIX or Netflow, and then representing these data features
