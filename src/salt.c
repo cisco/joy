@@ -1,24 +1,24 @@
 /*
- *	
+ *
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -43,10 +43,10 @@
  *
  */
 
-#include <stdio.h>  
+#include <stdio.h>
 #include <string.h>   /* for memset() */
 #include <stdlib.h>
-#include "salt.h"     
+#include "salt.h"
 #include "pkt.h"      /* for tcp macros */
 #include "err.h"
 
@@ -83,22 +83,22 @@ void salt_init(struct salt **salt_handle) {
  * \param data data to use for update
  * \param len length of the data
  * \param report_salt flag to determine if we filter salt
- * 
+ *
  * \return none
  */
-void salt_update (struct salt *salt, 
-		  const struct pcap_pkthdr *header,
-		  const void *tcp_start, 
-		  unsigned int len, 
-		  unsigned int report_salt) {
-    const struct tcp_hdr *tcp = tcp_start;  
+void salt_update (struct salt *salt,
+          const struct pcap_pkthdr *header,
+          const void *tcp_start,
+          unsigned int len,
+          unsigned int report_salt) {
+    const struct tcp_hdr *tcp = tcp_start;
 
     if (report_salt) {
         if (salt->np < MAX_NUM_PKT) {
-	    salt->seq[salt->np] = ntohl(tcp->tcp_seq);
-	    salt->ack[salt->np] = ntohl(tcp->tcp_ack);	
-	    salt->np++;
-	} 
+            salt->seq[salt->np] = ntohl(tcp->tcp_seq);
+            salt->ack[salt->np] = ntohl(tcp->tcp_ack);
+            salt->np++;
+        }
     }
 }
 
@@ -116,77 +116,77 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
 
     if (x1->np) {
         zprintf(f, ",\"oseq\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x1->seq[i] - x1->seq[0]);
-	}
+    for (i=0; i < x1->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x1->seq[i] - x1->seq[0]);
+    }
         zprintf(f, "],oack\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x1->ack[i] - x1->ack[0]);
-	}
+    for (i=0; i < x1->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x1->ack[i] - x1->ack[0]);
+    }
         zprintf(f, "]");
     }
     if (x2 && x2->np) {
         zprintf(f, ",\"iseq\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x2->seq[i] - x2->seq[0]);
-	}
+    for (i=0; i < x2->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x2->seq[i] - x2->seq[0]);
+    }
         zprintf(f, "],iack\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x2->ack[i] - x2->ack[0]);
-	}
+    for (i=0; i < x2->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x2->ack[i] - x2->ack[0]);
+    }
         zprintf(f, "]");
     }
 
-#else 
-    
+#else
+
     if (x1->np) {
         zprintf(f, ",\"oseq\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x1->seq[i] - x1->seq[i-1]);
-	    } else {
-		zprintf(f, "%u", x1->seq[i]);
-	    }
-	}
-        zprintf(f, "],oack\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x1->ack[i] - x1->ack[i-1]);
-	    } else {
-		zprintf(f, "%u", x1->ack[i]);
-	    }
-	}
+        for (i=0; i < x1->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x1->seq[i] - x1->seq[i-1]);
+            } else {
+                zprintf(f, "%u", x1->seq[i]);
+            }
+        }
+        zprintf(f, "],\"oack\":[");
+        for (i=0; i < x1->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x1->ack[i] - x1->ack[i-1]);
+            } else {
+                zprintf(f, "%u", x1->ack[i]);
+            }
+        }
         zprintf(f, "]");
     }
     if (x2 && x2->np) {
         zprintf(f, ",\"iseq\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x2->seq[i] - x2->seq[i-1]);
-	    } else {
-		zprintf(f, "%u", x2->seq[i]);
-	    }
-	}
-        zprintf(f, "],iack\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x2->ack[i] - x2->ack[i-1]);
-	    } else {
-		zprintf(f, "%u", x2->ack[i]);
-	    }
-	}
+        for (i=0; i < x2->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x2->seq[i] - x2->seq[i-1]);
+            } else {
+                zprintf(f, "%u", x2->seq[i]);
+            }
+        }
+        zprintf(f, "],\"iack\":[");
+        for (i=0; i < x2->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x2->ack[i] - x2->ack[i-1]);
+            } else {
+                zprintf(f, "%u", x2->ack[i]);
+            }
+        }
         zprintf(f, "]");
     }
 
@@ -201,7 +201,7 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
  *
  * \return none
  */
-void salt_delete (struct salt **salt_handle) { 
+void salt_delete (struct salt **salt_handle) {
     struct salt *salt = *salt_handle;
 
     if (salt == NULL) {
@@ -219,8 +219,7 @@ void salt_delete (struct salt **salt_handle) {
  * \return none
  */
 void salt_unit_test () {
-    
+
     /* no unit test at this time */
 
-} 
-
+}
