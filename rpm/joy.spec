@@ -45,6 +45,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
+%config(noreplace) /etc/systemd/system/joy.service.d/20-accounting.conf
 /usr/lib/systemd/system/joy.service
 /usr/local/bin/joy
 /usr/local/bin/joyq
@@ -58,6 +59,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 
+systemctl daemon-reload >/dev/null 2>&1 || :
 if [ $1 -eq 1 ] ; then
         # Initial installation
         systemctl preset joy.service >/dev/null 2>&1 || :
