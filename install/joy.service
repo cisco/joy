@@ -5,12 +5,12 @@ After=network.target
 
 [Service]
 Environment=CONFIGFILE=/usr/local/etc/joy/options.cfg
-
 ExecStart=/usr/local/bin/joy -x ${CONFIGFILE}
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure
 RestartSec=60s
+MemoryLimit=8G
 
 [Install]
 WantedBy=multi-user.target
