@@ -185,11 +185,12 @@ fi
 FULL_VERSION="${VERSION}-${ITERATION}"
 TAR_FILE=`pwd`/joy-$SHORT_COMMIT_ID.tar
 TMPDIR=`mktemp -d /var/tmp/${PROGNAME}.XXXXXX`
+BUILDROOT="${TMPDIR}/build"
 if [ "$?" != 0 ]; then
     echo Failed to create temp directory $TMPDIR
     exit 1
 fi
-FPM_LINUX_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION --iteration $ITERATION \
+FPM_LINUX_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION --iteration $ITERATION \
     --after-install $APP_ROOT/joy/install/postinstall-linux \
     --before-remove $APP_ROOT/joy/install/preuninstall-linux \
     --vendor Cisco --config-files /usr/local/etc/joy/ \
@@ -197,7 +198,7 @@ FPM_LINUX_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION --iteration $ITERATION \
     --config-files /usr/local/var/log \
     -m brilong@cisco.com -p $APP_ROOT \
     --url https://github.com/cisco/joy"
-FPM_MAC_OPTIONS="-C ${TMPDIR} -n $NAME -v $VERSION-$ITERATION \
+FPM_MAC_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION-$ITERATION \
     --after-install $APP_ROOT/joy/install/postinstall-darwin \
     --vendor Cisco \
     --osxpkg-identifier-prefix com.cisco \
@@ -256,7 +257,7 @@ if [ "$?" != 0 ]; then
     echo Failed to run make
     exit 1
 fi
-make DESTDIR=${TMPDIR}/usr/local BUILDROOT=${TMPDIR} pkg
+make DESTDIR=${BUILDROOT}/usr/local BUILDROOT=${BUILDROOT} pkg
 if [ "$?" != 0 ]; then
     echo Failed to run make pkg
     exit 1
@@ -279,7 +280,7 @@ similar to that of IPFIX or Netflow, and then representing these data features
 in JSON. It also contains analysis tools that can be applied to these data
 files. Joy can be used to explore data at scale, especially security and
 threat-relevant data.' \
-        ./usr
+        ./
     if [ "$?" != 0 ]; then
         echo Failed to build deb
         exit 1
@@ -292,7 +293,7 @@ similar to that of IPFIX or Netflow, and then representing these data features
 in JSON. It also contains analysis tools that can be applied to these data
 files. Joy can be used to explore data at scale, especially security and
 threat-relevant data.' \
-        ./usr
+        ./
     if [ "$?" != 0 ]; then
         echo Failed to build OS X pkg
         exit 1
@@ -310,7 +311,7 @@ files. Joy can be used to explore data at scale, especially security and
 threat-relevant data.' \
         --rpm-dist el7 \
         --rpm-summary "Capture and analyze network flow data for research, forensics and monitoring." \
-        ./usr
+        ./
     if [ "$?" != 0 ]; then
         echo Failed to build RPM
         exit 1
