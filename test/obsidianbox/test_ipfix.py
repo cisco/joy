@@ -43,6 +43,7 @@ import logging
 import json
 import gzip
 from .utils import end_process
+from .utils import FileType
 
 
 class ValidateExporter(object):
@@ -104,13 +105,23 @@ class ValidateExporter(object):
             logger.error("Subprocess Joy IPFIX failure")
             raise RuntimeError("Subprocess Joy IPFIX failure")
 
-        with gzip.open(self.tmp_outputs['collect'], 'r') as f:
-            for line in f:
-                try:
-                    flow = json.loads(line)
-                    self.ipfix_flows.append(flow)
-                except:
-                    continue
+        ft = FileType(self.tmp_outputs['collect'])
+        if ft.is_gz():
+            with gzip.open(self.tmp_outputs['collect'], 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        self.ipfix_flows.append(flow)
+                    except:
+                        continue
+        else:
+            with open(self.tmp_outputs['collect'], 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        self.ipfix_flows.append(flow)
+                    except:
+                        continue
 
     def _sniff_pcap(self):
         """
@@ -131,13 +142,23 @@ class ValidateExporter(object):
             logger.error("Subprocess Joy sniffer failure")
             raise RuntimeError("Subprocess Joy sniffer failure")
 
-        with gzip.open(self.tmp_outputs['sniff'], 'r') as f:
-            for line in f:
-                try:
-                    flow = json.loads(line)
-                    self.sniff_flows.append(flow)
-                except:
-                    continue
+        ft = FileType(self.tmp_outputs['sniff'])
+        if ft.is_gz():
+            with gzip.open(self.tmp_outputs['sniff'], 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        self.sniff_flows.append(flow)
+                    except:
+                        continue
+        else:
+            with open(self.tmp_outputs['sniff'], 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        self.sniff_flows.append(flow)
+                    except:
+                        continue
 
     def validate_export_against_sniff(self):
         """

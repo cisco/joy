@@ -70,3 +70,19 @@ def ensure_path_exists(path):
     except OSError:
         if not os.path.isdir(path):
             raise
+
+
+class FileType(object):
+    def __init__(self, filename):
+        self.filename = filename
+
+    def is_gz(self):
+        magic = "\x1f\x8b\x08"
+
+        with open(self.filename) as f:
+            data = f.read(len(magic))
+
+            if data.startswith(magic):
+                return True
+
+        return False

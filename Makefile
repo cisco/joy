@@ -99,6 +99,7 @@ man: $(DOCDIR)/joy.1
 clean:
 	rm -f cscope.out cscope.files
 	rm -f $(DOCDIR)/joy.txt
+	find . -name '*.pyc' -delete
 	@cd src; $(MAKE) clean
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 

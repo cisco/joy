@@ -45,6 +45,7 @@ import uuid
 import glob
 from .utils import end_process
 from .utils import ensure_path_exists
+from .utils import FileType
 
 
 # Default globals
@@ -143,13 +144,23 @@ class ValidateTLS(object):
             latest_file = max(base_files, key=os.path.getmtime)
             logger.debug('latest ' + str(version) + ' base file selected ' + str(latest_file))
 
-            with gzip.open(latest_file, 'r') as f:
-                for line in f:
-                    try:
-                        flow = json.loads(line)
-                        flows.append(flow)
-                    except:
-                        continue
+            ft = FileType(latest_file)
+            if ft.is_gz():
+                with gzip.open(latest_file, 'r') as f:
+                    for line in f:
+                        try:
+                            flow = json.loads(line)
+                            flows.append(flow)
+                        except:
+                            continue
+            else:
+                with open(latest_file, 'r') as f:
+                    for line in f:
+                        try:
+                            flow = json.loads(line)
+                            flows.append(flow)
+                        except:
+                            continue
 
     def _run_tls(self):
         for version, flows in self.new_flows.iteritems():
@@ -165,13 +176,23 @@ class ValidateTLS(object):
                 logger.error("Subprocess Joy failure")
                 raise RuntimeError("Subprocess Joy failure")
 
-            with gzip.open(self.tmp_outputs[version], 'r') as f:
-                for line in f:
-                    try:
-                        flow = json.loads(line)
-                        flows.append(flow)
-                    except:
-                        continue
+            ft = FileType(self.tmp_outputs[version])
+            if ft.is_gz():
+                with gzip.open(self.tmp_outputs[version], 'r') as f:
+                    for line in f:
+                        try:
+                            flow = json.loads(line)
+                            flows.append(flow)
+                        except:
+                            continue
+            else:
+                with open(self.tmp_outputs[version], 'r') as f:
+                    for line in f:
+                        try:
+                            flow = json.loads(line)
+                            flows.append(flow)
+                        except:
+                            continue
 
     def compare_new_against_base(self):
         # Load the baseline json into memory
