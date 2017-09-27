@@ -10,7 +10,6 @@ ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process
 Restart=on-failure
 RestartSec=60s
-MemoryLimit=8G
 
 [Install]
 WantedBy=multi-user.target
