@@ -560,8 +560,24 @@ elif [ "$sysname" == "Linux" ]; then
             echo "error: could not chmod 644 ${BUILDROOT}/usr/lib/systemd/system/joy.service"
             exit 1
         fi
+        create_directory ${BUILDROOT}/etc/systemd/system/joy.service.d
+        cp ${CWD}/joy-accounting.conf ${BUILDROOT}/etc/systemd/system/joy.service.d/20-accounting.conf
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy joy-accounting.conf to ${BUILDROOT}/etc/systemd/system/joy.service.d/20-accounting.conf"
+            exit 1
+        fi
+        chmod 644 ${BUILDROOT}/etc/systemd/system/joy.service.d/20-accounting.conf
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not chmod 644 ${BUILDROOT}/etc/systemd/system/joy.service.d/20-accounting.conf"
+            exit 1
+        fi
 
         if [ -z "$PKGBUILD" ]; then
+            # Reload systemd to enable accounting
+            systemctl daemon-reload
+
             # Configure to run at boot time
             systemctl enable joy.service
 
@@ -583,7 +599,8 @@ elif [ "$sysname" == "Linux" ]; then
             ls -l /etc/init.d/joy
             service joy status
         elif [ "$daemon_system" == "systemd" ]; then
-            ls -l /etc/systemd/system/joy.service
+            ls -l /usr/lib/systemd/system/joy.service
+            ls -l /etc/systemd/system/joy.service.d/20-accounting.conf
             systemctl status joy.service
         fi
     fi
