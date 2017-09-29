@@ -483,11 +483,11 @@ void dhcp_print_json(const struct dhcp *d1,
             zprintf(f, ",\"chaddr\":");
             zprintf_raw_as_hex(f, msg->chaddr, sizeof(msg->chaddr));
             if (msg->sname != NULL) {
-                convert_string_to_printable(msg->sname, MAX_DHCP_SNAME);
+                joy_utils_convert_to_json_string(msg->sname, MAX_DHCP_SNAME);
                 zprintf(f, ",\"sname\":\"%s\"", msg->sname);
             }
             if (msg->file != NULL) {
-                convert_string_to_printable(msg->file, MAX_DHCP_FILE);
+                joy_utils_convert_to_json_string(msg->file, MAX_DHCP_FILE);
                 zprintf(f, ",\"file\":\"%s\"", msg->file);
             }
 
