@@ -157,6 +157,7 @@
     <ClCompile Include="..\..\src\anon.c" />
     <ClCompile Include="..\..\src\classify.c" />
     <ClCompile Include="..\..\src\config.c" />
+    <ClCompile Include="..\..\src\dhcp.c" />
     <ClCompile Include="..\..\src\dns.c" />
     <ClCompile Include="..\..\src\example.c" />
     <ClCompile Include="..\..\src\fingerprint.c" />
@@ -189,6 +190,7 @@
     <ClInclude Include="..\..\src\include\anon.h" />
     <ClInclude Include="..\..\src\include\classify.h" />
     <ClInclude Include="..\..\src\include\config.h" />
+    <ClInclude Include="..\..\src\include\dhcp.h" />
     <ClInclude Include="..\..\src\include\dns.h" />
     <ClInclude Include="..\..\src\include\err.h" />
     <ClInclude Include="..\..\src\include\example.h" />

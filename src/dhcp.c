@@ -42,7 +42,6 @@
  */
 #include <stdlib.h>
 #include <string.h>   /* for memset()    */
-#include <netinet/in.h>
 #include "dhcp.h"
 #include "p2f.h"
 #include "anon.h"
