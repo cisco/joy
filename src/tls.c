@@ -618,7 +618,7 @@ static int tls_x509_get_subject(X509 *cert,
          * Give extra byte for manual null-termination.
          */
         cert_record_entry->data = malloc(entry_data_len + 1);
-        cert_record_entry->data_length = entry_data_len + 1;
+        cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
             /*
@@ -643,7 +643,7 @@ static int tls_x509_get_subject(X509 *cert,
         memcpy(cert_record_entry->data, entry_data_str, entry_data_len);
         /* Find any special (json) characters and replace them */
         joy_utils_convert_to_json_string((char*)cert_record_entry->data,
-                                         cert_record_entry->data_length);
+                                         entry_data_len + 1);
     }
 
     return 0;
@@ -718,7 +718,7 @@ static int tls_x509_get_issuer(X509 *cert,
          * Give extra byte for manual null-termination.
          */
         cert_record_entry->data = malloc(entry_data_len + 1);
-        cert_record_entry->data_length = entry_data_len + 1;
+        cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
             /*
@@ -743,7 +743,7 @@ static int tls_x509_get_issuer(X509 *cert,
         memcpy(cert_record_entry->data, entry_data_str, entry_data_len);
         /* Find any special (json) characters and replace them */
         joy_utils_convert_to_json_string((char*)cert_record_entry->data,
-                                         cert_record_entry->data_length);
+                                         entry_data_len + 1);
     }
 
     return 0;
@@ -1027,7 +1027,7 @@ static int tls_x509_get_extensions(X509 *cert,
          */
         cert_record_entry->data = malloc(ext_data_len + 1);
         memset(cert_record_entry->data, 0, ext_data_len + 1);
-        cert_record_entry->data_length = ext_data_len + 1;
+        cert_record_entry->data_length = ext_data_len;
 
         if (nid == NID_undef) {
             /*
@@ -1052,7 +1052,7 @@ static int tls_x509_get_extensions(X509 *cert,
         memcpy(cert_record_entry->data, bio_mem_ptr->data, ext_data_len);
         /* Find any special (json) characters and replace them */
         joy_utils_convert_to_json_string((char*)cert_record_entry->data,
-                                         cert_record_entry->data_length);
+                                         ext_data_len + 1);
 
         if (ext_bio) {
             BIO_free(ext_bio);
@@ -3028,37 +3028,37 @@ static int tls_test_certificate_parsing() {
 
                     /* Known values */
                     strncpy(kat_subject[0].id, "countryName", MAX_OPENSSL_STRING);
-                    kat_subject[0].data_length = 3;
+                    kat_subject[0].data_length = 2;
                     kat_subject[0].data = calloc(kat_subject[0].data_length, sizeof(unsigned char));
                     memcpy(kat_subject[0].data, "US", kat_subject[0].data_length);
 
                     strncpy(kat_subject[1].id, "stateOrProvinceName", MAX_OPENSSL_STRING);
-                    kat_subject[1].data_length = 11;
+                    kat_subject[1].data_length = 10;
                     kat_subject[1].data = calloc(kat_subject[1].data_length, sizeof(unsigned char));
                     memcpy(kat_subject[1].data, "California", kat_subject[1].data_length);
 
                     strncpy(kat_subject[2].id, "localityName", MAX_OPENSSL_STRING);
-                    kat_subject[2].data_length = 12;
+                    kat_subject[2].data_length = 11;
                     kat_subject[2].data = calloc(kat_subject[2].data_length, sizeof(unsigned char));
                     memcpy(kat_subject[2].data, "Los Angeles", kat_subject[2].data_length);
 
                     strncpy(kat_subject[3].id, "organizationName", MAX_OPENSSL_STRING);
-                    kat_subject[3].data_length = 13;
+                    kat_subject[3].data_length = 12;
                     kat_subject[3].data = calloc(kat_subject[3].data_length, sizeof(unsigned char));
                     memcpy(kat_subject[3].data, "Joy Software", kat_subject[3].data_length);
 
                     strncpy(kat_subject[4].id, "organizationalUnitName", MAX_OPENSSL_STRING);
-                    kat_subject[4].data_length = 13;
+                    kat_subject[4].data_length = 12;
                     kat_subject[4].data = calloc(kat_subject[4].data_length, sizeof(unsigned char));
                     memcpy(kat_subject[4].data, "Unit Testing", kat_subject[4].data_length);
 
                     strncpy(kat_subject[5].id, "commonName", MAX_OPENSSL_STRING);
-                    kat_subject[5].data_length = 11;
+                    kat_subject[5].data_length = 10;
                     kat_subject[5].data = calloc(kat_subject[5].data_length, sizeof(unsigned char));
                     memcpy(kat_subject[5].data, "github.com", kat_subject[5].data_length);
 
                     strncpy(kat_subject[6].id, "emailAddress", MAX_OPENSSL_STRING);
-                    kat_subject[6].data_length = 17;
+                    kat_subject[6].data_length = 16;
                     kat_subject[6].data = calloc(kat_subject[6].data_length, sizeof(unsigned char));
                     memcpy(kat_subject[6].data, "dummy@brains.com", kat_subject[6].data_length);
 
@@ -3120,37 +3120,37 @@ static int tls_test_certificate_parsing() {
 
                     /* Known values */
                     strncpy(kat_issuer[0].id, "countryName", MAX_OPENSSL_STRING);
-                    kat_issuer[0].data_length = 3;
+                    kat_issuer[0].data_length = 2;
                     kat_issuer[0].data = calloc(kat_issuer[0].data_length, sizeof(unsigned char));
                     memcpy(kat_issuer[0].data, "US", kat_issuer[0].data_length);
 
                     strncpy(kat_issuer[1].id, "stateOrProvinceName", MAX_OPENSSL_STRING);
-                    kat_issuer[1].data_length = 11;
+                    kat_issuer[1].data_length = 10;
                     kat_issuer[1].data = calloc(kat_issuer[1].data_length, sizeof(unsigned char));
                     memcpy(kat_issuer[1].data, "California", kat_issuer[1].data_length);
 
                     strncpy(kat_issuer[2].id, "localityName", MAX_OPENSSL_STRING);
-                    kat_issuer[2].data_length = 12;
+                    kat_issuer[2].data_length = 11;
                     kat_issuer[2].data = calloc(kat_issuer[2].data_length, sizeof(unsigned char));
                     memcpy(kat_issuer[2].data, "Los Angeles", kat_issuer[2].data_length);
 
                     strncpy(kat_issuer[3].id, "organizationName", MAX_OPENSSL_STRING);
-                    kat_issuer[3].data_length = 13;
+                    kat_issuer[3].data_length = 12;
                     kat_issuer[3].data = calloc(kat_issuer[3].data_length, sizeof(unsigned char));
                     memcpy(kat_issuer[3].data, "Joy Software", kat_issuer[3].data_length);
 
                     strncpy(kat_issuer[4].id, "organizationalUnitName", MAX_OPENSSL_STRING);
-                    kat_issuer[4].data_length = 13;
+                    kat_issuer[4].data_length = 12;
                     kat_issuer[4].data = calloc(kat_issuer[4].data_length, sizeof(unsigned char));
                     memcpy(kat_issuer[4].data, "Unit Testing", kat_issuer[4].data_length);
 
                     strncpy(kat_issuer[5].id, "commonName", MAX_OPENSSL_STRING);
-                    kat_issuer[5].data_length = 11;
+                    kat_issuer[5].data_length = 10;
                     kat_issuer[5].data = calloc(kat_issuer[5].data_length, sizeof(unsigned char));
                     memcpy(kat_issuer[5].data, "github.com", kat_issuer[5].data_length);
 
                     strncpy(kat_issuer[6].id, "emailAddress", MAX_OPENSSL_STRING);
-                    kat_issuer[6].data_length = 17;
+                    kat_issuer[6].data_length = 16;
                     kat_issuer[6].data = calloc(kat_issuer[6].data_length, sizeof(unsigned char));
                     memcpy(kat_issuer[6].data, "dummy@brains.com", kat_issuer[6].data_length);
 
@@ -3305,17 +3305,17 @@ static int tls_test_certificate_parsing() {
 
                     /* Known values */
                     strncpy(kat_extensions[0].id, "X509v3 Subject Key Identifier", MAX_OPENSSL_STRING);
-                    kat_extensions[0].data_length = 60;
+                    kat_extensions[0].data_length = 59;
                     kat_extensions[0].data = calloc(kat_extensions[0].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[0].data, known_subject_key_identifier, kat_extensions[0].data_length);
 
                     strncpy(kat_extensions[1].id, "X509v3 Authority Key Identifier", MAX_OPENSSL_STRING);
-                    kat_extensions[1].data_length = 67;
+                    kat_extensions[1].data_length = 66;
                     kat_extensions[1].data = calloc(kat_extensions[1].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[1].data, known_authority_key_identifier, kat_extensions[1].data_length);
 
                     strncpy(kat_extensions[2].id, "X509v3 Basic Constraints", MAX_OPENSSL_STRING);
-                    kat_extensions[2].data_length = 8;
+                    kat_extensions[2].data_length = 7;
                     kat_extensions[2].data = calloc(kat_extensions[2].data_length, sizeof(unsigned char));
                     memcpy(kat_extensions[2].data, known_basic_constraints, kat_extensions[2].data_length);
 
