@@ -44,7 +44,6 @@
 #include "radix_trie.h"
 #include "modules.h"
 #include "p2f.h"
-#include "dns.h"
 #include "err.h"
 
 /*
@@ -78,9 +77,11 @@ int main (int argc, char *argv[]) {
         printf("radix_trie tests passed\n");
     }
 
+    /* Test p2f.c */
+    p2f_unit_test();
+
+    /* Test all feature modules */
     unit_test_all_features(feature_list);
-    flow_record_list_unit_test();
-    dns_unit_test();
   
     return 0;
 }
