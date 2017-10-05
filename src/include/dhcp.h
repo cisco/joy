@@ -47,9 +47,14 @@
 #include <stdio.h>   /* for FILE* */
 #include <stdint.h>
 #include <pcap.h>
-#include <netinet/in.h>
 #include "output.h"
 #include "utils.h"
+
+#ifdef WIN32
+# include <Winsock2.h>
+#else
+# include <netinet/in.h>
+#endif
 
 #define dhcp_usage "  dhcp=1                     report dhcp information\n"
 

@@ -83,6 +83,9 @@
 #include "ipfix.h"    /* IPFIX cleanup */
 #include "pcap.h"
 
+/**
+ * \brief The supported operating modes that Joy can run in.
+ */
 enum operating_mode {
     mode_none = 0,
     mode_offline = 1,

@@ -68,6 +68,8 @@ pcap_t* joy_utils_open_test_pcap(const char *filename);
 
 JSON_Value* joy_utils_open_resource_parson(const char *filename);
 
+void joy_utils_convert_to_json_string (char *s, unsigned int len);
+
 enum role {
   role_unknown = 0,
   role_client  = 1,

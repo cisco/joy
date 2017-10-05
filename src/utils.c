@@ -179,3 +179,51 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
     return handle;
 }
 
+/**
+ * \brief Converts the character string into a JSON-safe, NULL-terminated printable string.
+ *
+ * Non-alphanumeric characters are converted to "." (a period). This
+ * function is useful only to ensure that strings that one expects to
+ * be printable, such as DNS names, don't cause encoding errors when
+ * they are actually not non-printable, non-JSON-safe strings.
+ *
+ * Stops if a NULL terminator is seen.
+ *
+ * WARNING: This will NULL terminate the end of string \p s.
+ *          i.e. s[len-1] = '0'
+ *
+ * \param s Pointer to the string
+ * \param len Length of the string in bytes
+ * \return none
+ */
+void joy_utils_convert_to_json_string (char *s, unsigned int len) {
+    unsigned int i;
+
+    for (i=0; i < len; i++) {
+        if (s[i] == 0) {
+            /* Encountered termination, no need to go further */
+            return;
+        } else if (!isprint(s[i])) {
+            /* Not a printable character */
+            s[i] = '.';
+            continue;
+        }
+        switch (s[i]) {
+            case '\n':
+            case '\r':
+            case '\b':
+            case '\f':
+            case '\t':
+            case '\\':
+            case '/':
+            case '"':
+                s[i] = '.';
+            default:
+                continue;
+        }
+    }
+
+    /* NULL terminate */
+    s[len-1] = 0;
+}
+

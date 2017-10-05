@@ -71,7 +71,6 @@ struct flow_key {
 /** Main entry point for the uploader thread */
 void *uploader_main(void* ptr);
 
-
 /*
  * default and maximum number of packets on which to report
  * lengths/times (actual value configurable on command line)
@@ -284,24 +283,10 @@ enum SALT_algorithm {
   rle = 4
 };
 
-int upload_file(char *filename); 
 
+int upload_file(char *filename);
 
-void flow_record_list_unit_test();
-
-/** 
- * \brief convert_string_to_printable(s, len) convers the character string s
- * into a JSON-safe, NULL-terminated printable string.
- * Non-alphanumeric characters are converted to "." (a period).  This
- * function is useful only to ensure that strings that one expects to
- * be printable, such as DNS names, don't cause encoding errors when
- * they are actually not non-printable, non-JSON-safe strings.  
- *
- * \brief RETURN VALUE: a pointer to the location immediately after the
- * NULL-terminated string
- */ 
-void *convert_string_to_printable(char *s, unsigned int len);
-
+void p2f_unit_test();
 
 /** print a buffer as hexadecimal */
 void zprintf_raw_as_hex(zfile f, const unsigned char *data, unsigned int len);
