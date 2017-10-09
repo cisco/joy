@@ -99,7 +99,7 @@ struct ike_sa {
     struct vector *integrity_level_v1;
     struct vector *integrity_category_v1;
     unsigned int num_proposals;
-	struct ike_proposal *proposals[IKE_MAX_PROPOSALS];
+    struct ike_proposal *proposals[IKE_MAX_PROPOSALS];
 };
 
 struct ike_ke {
@@ -199,13 +199,13 @@ void ike_init(struct ike **ike_handle);
 
 void ike_update(struct ike *ike,
                 const struct pcap_pkthdr *header,
-		const void *data,
-		unsigned int len,
-		unsigned int report_ike);
+        const void *data,
+        unsigned int len,
+        unsigned int report_ike);
 
 void ike_print_json(const struct ike *w1,
-		    const struct ike *w2,
-		    zfile f);
+            const struct ike *w2,
+            zfile f);
 
 void ike_delete(struct ike **ike_handle);
 
