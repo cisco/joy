@@ -101,12 +101,6 @@ extern radix_trie_t rt;
 
 extern struct flocap_stats stats;
 
-extern struct timeval time_window;
-
-extern struct timeval active_timeout;
-
-extern unsigned int active_max;
-
 extern unsigned short compact_bd_mapping[16];
 
 /* configuration state */
@@ -277,7 +271,7 @@ static void sig_close (int signal_arg) {
      * flush remaining flow records, and print them even though they are
      * not expired
      */
-    flow_record_list_print_json(NULL);
+    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
     zclose(output);  
     fprintf(info, "got signal %d, shutting down\n", signal_arg); 
     exit(EXIT_SUCCESS);
@@ -863,9 +857,9 @@ int main (int argc, char **argv) {
         config_print_json(output, &config);
 
         while(1) {
-            struct timeval time_of_day, inactive_flow_cutoff;
-
-            /* loop over packets captured from interface */
+            /* 
+             * Loop over packets captured from interface.
+             */
             pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
       
             joy_log_info("PCAP processing loop done");
@@ -880,19 +874,13 @@ int main (int argc, char **argv) {
 	              }
            }
 
-           /*
-            * periodically report on progress
-            */
+           /* Periodically report on progress */
            if ((flocap_stats_get_num_packets() % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
 	              flocap_stats_output(info);
            }
 
-           /* print out inactive flows */
-	   gettimeofday(&time_of_day, NULL);
-
-           timer_sub(&time_of_day, &time_window, &inactive_flow_cutoff);
-
-           flow_record_list_print_json(&inactive_flow_cutoff);
+           /* Print out expired flows */
+           flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
 
            if (config.filename) {
 	
@@ -959,7 +947,7 @@ int main (int argc, char **argv) {
 
         ipfix_collect_main();
 
-        flow_record_list_print_json(NULL);
+        flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
         fflush(info);
     } else { /* mode = mode_offline */
 
@@ -1077,7 +1065,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     pcap_close(handle);
   
-    flow_record_list_print_json(NULL);
+    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
     flow_record_list_free();
 
     return 0;

@@ -53,11 +53,13 @@
 #include "nfv9.h"
 #include "ipfix.h"
 #include "config.h"
+#include "utils.h"
 
 /*
  * external variables, defined in joy
  */
 extern FILE *info;
+extern struct timeval global_time;
 extern unsigned int num_pkt_len;
 extern unsigned int include_zeroes;
 extern unsigned int include_retrans;
@@ -958,6 +960,17 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         key.da = ip->ip_dst;
         key.prot = IPPROTO_IP;
         proto = (unsigned char)key.prot;
+    }
+
+    /*
+     * Keep track of the most recent packet time.
+     * For all intents and purposes, this should be used as the "current" time in Joy.
+     * In addition to being usable in real-time (online) scenarios, it also works
+     * in situations where we can't use the real time, such as offline PCAP processing
+     * because the time is contextual based.
+     */
+    if (joy_timer_lt(&global_time, &header->ts)) {
+        global_time = header->ts;
     }
 
     /* determine transport protocol and handle appropriately */
