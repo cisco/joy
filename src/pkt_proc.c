@@ -505,10 +505,13 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 	                  // init key
 	                  nfv9_flow_key_init(&key, cur_template, flow_data);
 
-	                  // get a nf record
+                      /*
+                       * Either get an existing record for the netflow data or make a new one.
+                       * Don't include the header because it is the packet that was sent
+                       * by exporter -> collector (not the netflow data).
+                       */
 	                  struct flow_record *nf_record = NULL;
-	                  nf_record = flow_key_get_record(&key, 
-					CREATE_RECORDS,header);
+	                  nf_record = flow_key_get_record(&key, CREATE_RECORDS, NULL);
 
 	                  // fill out record
 	                  if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
