@@ -112,7 +112,7 @@
  */
 #define ip_feature_list ip_id
 #define tcp_feature_list salt, ppi
-#define payload_feature_list wht, example, dns, ssh, tls, dhcp, http
+#define payload_feature_list wht, example, dns, ssh, tls, dhcp, http, ike
 #define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
 #define define_feature_config_uint(f) unsigned int report_##f = 0;
