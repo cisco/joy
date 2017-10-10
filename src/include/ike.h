@@ -127,7 +127,7 @@ struct ike_auth {
     struct vector *data;
 };
 
-struct ike_hash_v1 {
+struct ike_hash {
     struct vector *data;
 };
 
@@ -154,7 +154,7 @@ union ike_payload_body {
     struct ike_cert *cert;
     struct ike_cr *cr;
     struct ike_auth *auth;
-    struct ike_hash_v1 *hash_v1;
+    struct ike_hash *hash;
     struct ike_nonce *nonce;
     struct ike_notify *notify;
     struct ike_vendor_id *vendor_id;
