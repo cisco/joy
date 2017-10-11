@@ -114,11 +114,6 @@ To build the package, run "make" in the main directory:
 This will cause the programs to be compiled, linked, stripped, and
 copied into the 'bin' directory as appropriate.
 
-Mac OSX 10.11 has more dependencies than 10.10; the OpenSSL header
-files are needed to build this package. You can install these
-header files via Mac Ports (https://www.macports.org/install.php)
-using the command "sudo port install openssl".
-
 Set COMPRESSED_OUTPUT (in src/include/output.h) to 1 for gzip-compressed
 JSON output. This compile-time option is on by default. If that
 \#define is instead set to 0, then normal JSON will be output.
@@ -127,28 +122,36 @@ output, such as zless, gunzip, etc.
 
 The main program for extracting data features from pcap files or
 live packet captures is the program joy, which occupies the
-src/ subdirectory. It is copied into the main joy directory after
+src/ subdirectory. It is copied into the bin/ directory after
 a successful build. It can be run from that directory, or
 installed so that it will automatically run as a daemon on Linux or
 Mac OSX.
 
-WINDOWS BUILDS
+###### MacOS
+Version 10.11 has more dependencies than 10.10; the OpenSSL header
+files are needed to build this package. You can install these
+header files via Mac Ports (https://www.macports.org/install.php)
+using the command `sudo port install openssl`.
+
+###### Windows
 We have tried to make building on Windows as easy as possible. In the
-joy/win-joy directory there is a visual studio project file. Open the project
+joy/win-joy directory there is a Visual Studio solution file. Open the solution
 file with Visual Studio 2015 (we have tested on VS 2013 as well) and it should
 load up all the defaults and source files required. Currently, the project is
 only setup to build 64-bit binaries. Once the project file loads, you can execute
 a "clean" and "build" of the code. All of the dependent libraries and headers files
 are in the joy/windows directory. Once you have the binary built, the required DLL
-files that are necessary are located in the joy/windows/64/DLL directory. You can
-combine these DLL files with your binary to produce a package that can be dropped
-onto a windows based machine and execute correctly.
+files that are necessary for program execution are located in the joy/windows/64/DLL
+directory. You can place these DLL files alongside your binary in a directory to
+produce a package that can be dropped onto a windows based machine and execute correctly.
+If you want to run the binary directly within the Visual Studio IDE, then you may add this
+value to the project Properties->Debugging->Environment: `PATH=%PATH%;$(ProjectDir)\..\..\windows\64\DLL`
 
 Execution of win-joy.exe has been tested on Windows 7, Windows 10 and Windows Server 2012.
 
 #### Testing
 
-First. ensure both bin/joy and bin/unit_test exist by running either
+First, ensure both bin/joy and bin/unit_test exist by running either
 `make` or `make unit_test`. Then you can manually run the unit tests:
 ```
 ./test/unit_test
@@ -165,6 +168,13 @@ make test
 The test programs will indicate success or failure on the command line.
 Please see [test/README.md](test/README.md) for more information
 on blackbox testing.
+
+###### Windows
+
+Build the unit-test project. Make sure that unit-test.exe has access to the required DLL files either
+by placing them together in the same directory, or modifying the debug environment as described
+above in the "Building - Windows" section. Then you may run the unit-test.exe executable either
+through the command line or the Visual Studio IDE.
 
 #### Running and Configuration
 

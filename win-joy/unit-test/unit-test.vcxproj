@@ -133,6 +133,7 @@
     <ClCompile Include="..\..\src\getline.c" />
     <ClCompile Include="..\..\src\hdr_dsc.c" />
     <ClCompile Include="..\..\src\http.c" />
+    <ClCompile Include="..\..\src\ike.c" />
     <ClCompile Include="..\..\src\ipfix.c" />
     <ClCompile Include="..\..\src\ip_id.c" />
     <ClCompile Include="..\..\src\nfv9.c" />
@@ -167,6 +168,7 @@
     <ClInclude Include="..\..\src\include\fingerprint.h" />
     <ClInclude Include="..\..\src\include\hdr_dsc.h" />
     <ClInclude Include="..\..\src\include\http.h" />
+    <ClInclude Include="..\..\src\include\ike.h" />
     <ClInclude Include="..\..\src\include\ipfix.h" />
     <ClInclude Include="..\..\src\include\ip_id.h" />
     <ClInclude Include="..\..\src\include\map.h" />
