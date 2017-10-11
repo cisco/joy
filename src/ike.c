@@ -2123,23 +2123,25 @@ static char *ike_group_type_v1_string(enum ike_group_type s) {
 static void ike_attribute_print_json(struct ike_attribute *s, zfile f) {
     uint16_t value;
     
-    if (s->encoding == 1) {
+    if (s->encoding == 1 || s->data->len == 2) {
         value = raw_to_uint16((char *)s->data->bytes);
     }
 
     zprintf(f, "{");
-    zprintf(f, "\"type\":[%u,\"%s\"]", s->type, ike_attribute_type_string(s->type));
-    zprintf(f, ",\"data\":[");
+    zprintf(f, "\"type\":{\"name\":\"%s\",\"value\":%u}", ike_attribute_type_string(s->type), s->type);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
-    zprintf(f, ",\"");
     switch (s->type) {
     case IKE_KEY_LENGTH_V2:
-        zprintf(f, "%u bits", value);
+        zprintf(f, ",\"parsed\": \"%u bits\"", value);
         break;
     default:
         break;
     }
-    zprintf(f, "\"]}");
+    zprintf(f, "}");
+    }
+    zprintf(f, "}");
 }
 
 /**
@@ -2155,42 +2157,42 @@ static void ike_attribute_print_json(struct ike_attribute *s, zfile f) {
 static void ike_attribute_v1_print_json(struct ike_attribute *s, zfile f) {
     uint16_t value;
 
-    if (s->encoding == 1) {
+    if (s->encoding == 1 || s->data->len == 2) {
         value = raw_to_uint16((char *)s->data->bytes);
     }
     zprintf(f, "{");
-    zprintf(f, "\"type\":[%u,\"%s\"]", s->type, ike_attribute_type_v1_string(s->type));
-    zprintf(f, ",\"data\":[");
+    zprintf(f, "\"type\":{\"name\":\"%s\",\"value\":%u}", ike_attribute_type_v1_string(s->type), s->type);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
-    zprintf(f, ",\"");
     switch (s->type) {
     /* fixed-length encoding */
     case IKE_ENCRYPTION_ALGORITHM_V1:
-        zprintf(f, "%s", ike_encryption_algorithm_v1_string(value));
+        zprintf(f, ",\"parsed\":\"%s\"", ike_encryption_algorithm_v1_string(value));
         break;
     case IKE_HASH_ALGORITHM_V1:
-        zprintf(f, "%s", ike_hash_algorithm_v1_string(value));
+        zprintf(f, ",\"parsed\":\"%s\"", ike_hash_algorithm_v1_string(value));
         break;
     case IKE_AUTHENTICATION_METHOD_V1:
-        zprintf(f, "%s", ike_authentication_method_v1_string(value));
+        zprintf(f, ",\"parsed\":\"%s\"", ike_authentication_method_v1_string(value));
         break;
     case IKE_GROUP_DESCRIPTION_V1:
-        zprintf(f, "%s", ike_diffie_hellman_group_v1_string(value));
+        zprintf(f, ",\"parsed\":\"%s\"", ike_diffie_hellman_group_v1_string(value));
         break;
     case IKE_GROUP_TYPE_V1:
-        zprintf(f, "%s", ike_group_type_v1_string(value));
+        zprintf(f, ",\"parsed\":\"%s\"", ike_group_type_v1_string(value));
         break;
     case IKE_LIFE_TYPE_V1:
-        zprintf(f, "%s", ike_life_type_v1_string(value));
+        zprintf(f, ",\"parsed\":\"%s\"", ike_life_type_v1_string(value));
         break;
     case IKE_PRF_V1:
-        zprintf(f, "%s", ike_pseudorandom_function_v1_string(value));
+        zprintf(f, ",\"parsed\":\"%s\"", ike_pseudorandom_function_v1_string(value));
         break;
     case IKE_KEY_LENGTH_V1:
-        zprintf(f, "%u bits", value);
+        zprintf(f, ",\"parsed\":\"%u bits\"", value);
         break;
     case IKE_FIELD_SIZE_V1:
-        zprintf(f, "%u bits", value);
+        zprintf(f, ",\"parsed\":\"%u bits\"", value);
         break;
     /* variable-length encoding */
     case IKE_GROUP_PRIME_IRREDUCIBLE_POLYNOMIAL_V1:
@@ -2204,13 +2206,18 @@ static void ike_attribute_v1_print_json(struct ike_attribute *s, zfile f) {
     case IKE_GROUP_CURVE_B_V1:
         break;
     case IKE_LIFE_DURATION_V1:
+        if (s->data->len == 2) {
+        zprintf(f, ",\"parsed\":\"%u\"", value);
+        }
         break;
     case IKE_GROUP_ORDER_V1:
         break;
     default:
         break;
     }
-    zprintf(f, "\"]}");
+    zprintf(f, "}");
+    }
+    zprintf(f, "}");
 }
 
 /*
@@ -2314,8 +2321,8 @@ static void ike_transform_print_json(struct ike_transform *s, zfile f) {
     int i;
 
     zprintf(f, "{");
-    zprintf(f, "\"type\":[%u,\"%s\"]", s->type, ike_transform_type_string(s->type));
-    zprintf(f, ",\"id\":[%u,\"%s\"]", s->id, ike_transform_id_string(s->type, s->id));
+    zprintf(f, "\"type\":{\"name\":\"%s\",\"value\":%u}", ike_transform_type_string(s->type), s->type);
+    zprintf(f, ",\"id\":{\"name\":\"%s\",\"value\":%u}", ike_transform_id_string(s->type, s->id), s->id);
     for (i = 0; i < s->num_attributes; i++) {
         if (i == 0) {
             zprintf(f, ",\"attributes\":[");
@@ -2344,8 +2351,8 @@ static void ike_transform_v1_print_json(struct ike_transform *s, zfile f) {
     int i;
 
     zprintf(f, "{");
-    zprintf(f, "\"id\":[%u,\"%s\"]", s->id_v1, ike_transform_id_v1_string(s->id_v1));
-    zprintf(f, ",\"num\":\"%u\"", s->num_v1);
+    zprintf(f, "\"id\":{\"name\":\"%s\",\"value\":%u}", ike_transform_id_v1_string(s->id_v1), s->id_v1);
+    zprintf(f, ",\"num\":%u", s->num_v1);
     for (i = 0; i < s->num_attributes; i++) {
         if (i == 0) {
             zprintf(f, ",\"attributes\":[");
@@ -2530,18 +2537,21 @@ static void ike_proposal_print_json(struct ike_proposal *s, zfile f) {
 
     zprintf(f, "{");
     zprintf(f, "\"num\":%u", s->num);
-    zprintf(f, ",\"protocol_id\":[%u,\"%s\"]", s->protocol_id, ike_protocol_id_string(s->protocol_id));
+    zprintf(f, ",\"protocol_id\":{\"name\":\"%s\",\"value\":%u}", ike_protocol_id_string(s->protocol_id), s->protocol_id);
+    if (s->spi->len > 0) {
     zprintf(f, ",\"spi\":");
     zprintf_raw_as_hex(f, s->spi->bytes, s->spi->len);
-    if (s->num_transforms > 0) {
-        zprintf(f, ",\"transforms\":[");
-        for (i = 0; i < s->num_transforms; i++) {
-            if (i > 0) {
-                zprintf(f, ",");
-            }
-            ike_transform_print_json(s->transforms[i], f);
+    }
+    for (i = 0; i < s->num_transforms; i++) {
+        if (i == 0) {
+            zprintf(f, ",\"transforms\":[");
+        } else {
+            zprintf(f, ",");
         }
-        zprintf(f, "]");
+        ike_transform_print_json(s->transforms[i], f);
+        if (i == s->num_transforms-1) {
+            zprintf(f, "]");
+        }
     }
     zprintf(f, "}");
 }
@@ -2561,18 +2571,21 @@ static void ike_proposal_v1_print_json(struct ike_proposal *s, zfile f) {
 
     zprintf(f, "{");
     zprintf(f, "\"num\":%u", s->num);
-    zprintf(f, ",\"protocol_id\":[%u,\"%s\"]", s->protocol_id, ike_protocol_id_v1_string(s->protocol_id));
+    zprintf(f, ",\"protocol_id\":{\"name\":\"%s\",\"value\":%u}", ike_protocol_id_v1_string(s->protocol_id), s->protocol_id);
+    if (s->spi->len > 0) {
     zprintf(f, ",\"spi\":");
     zprintf_raw_as_hex(f, s->spi->bytes, s->spi->len);
-    if (s->num_transforms > 0) {
-        zprintf(f, ",\"transforms\":[");
-        for (i = 0; i < s->num_transforms; i++) {
-            if (i > 0) {
-                zprintf(f, ",");
-            }
-            ike_transform_v1_print_json(s->transforms[i], f);
+    }
+    for (i = 0; i < s->num_transforms; i++) {
+        if (i == 0) {
+            zprintf(f, ",\"transforms\":[");
+        } else {
+            zprintf(f, ",");
         }
-        zprintf(f, "]");
+        ike_transform_v1_print_json(s->transforms[i], f);
+        if (i == s->num_transforms-1) {
+            zprintf(f, "]");
+        }
     }
     zprintf(f, "}");
 }
@@ -2812,7 +2825,7 @@ static void ike_sa_v1_print_json(struct ike_sa *s, zfile f) {
     int i;
 
     zprintf(f, "{");
-    zprintf(f, "\"doi\":[%u,\"%s\"]", s->doi_v1, ike_doi_v1_string(s->doi_v1));
+    zprintf(f, "\"doi\":{\"name\":\"%s\",\"value\":%u}", ike_doi_v1_string(s->doi_v1), s->doi_v1);
     zprintf(f, ",\"situation\":%u", s->situation_v1);
     if (s->doi_v1 == IKE_IPSEC_V1) {
         if (s->situation_v1 & (IKE_SIT_SECRECY_V1 | IKE_SIT_INTEGRITY_V1)) {
@@ -3030,9 +3043,12 @@ static unsigned int ike_sa_v1_unmarshal(struct ike_sa *s, const char *data, unsi
 static void ike_ke_print_json(struct ike_ke *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"group\":[%u,\"%s\"]", s->group, ike_diffie_hellman_group_string(s->group));
-    zprintf(f, ",\"data\":");
+    zprintf(f, "\"group\":{\"name\":\"%s\",\"value\":%u}", ike_diffie_hellman_group_string(s->group), s->group);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3049,8 +3065,11 @@ static void ike_ke_print_json(struct ike_ke *s, zfile f) {
 static void ike_ke_v1_print_json(struct ike_ke *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"data\":");
+    if (s->data->len > 0) {
+    zprintf(f, "\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3159,9 +3178,12 @@ static unsigned int ike_ke_v1_unmarshal(struct ike_ke *s, const char *data, unsi
 static void ike_id_print_json(struct ike_id *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"type\":[%u,\"%s\"]", s->type, ike_identification_type_string(s->type));
-    zprintf(f, ",\"data\":");
+    zprintf(f, "\"type\":{\"name\":\"%s\",\"value\":%u}", ike_identification_type_string(s->type), s->type);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3178,9 +3200,12 @@ static void ike_id_print_json(struct ike_id *s, zfile f) {
 static void ike_id_v1_print_json(struct ike_id *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"type\":[%u,\"%s\"]", s->type, ike_identification_type_v1_string(s->type));
-    zprintf(f, ",\"data\":");
+    zprintf(f, "\"type\":{\"name\":\"%s\",\"value\":%u}", ike_identification_type_v1_string(s->type), s->type);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3268,9 +3293,12 @@ static unsigned int ike_id_unmarshal(struct ike_id *s, const char *data, unsigne
 static void ike_cert_print_json(struct ike_cert *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"encoding\":[%u,\"%s\"]", s->encoding, ike_certificate_encoding_string(s->encoding));
-    zprintf(f, ",\"data\":");
+    zprintf(f, "\"encoding\":{\"name\":\"%s\",\"value\":%u}", ike_certificate_encoding_string(s->encoding), s->encoding);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3357,9 +3385,12 @@ static unsigned int ike_cert_unmarshal(struct ike_cert *s, const char *data, uns
 static void ike_cr_print_json(struct ike_cr *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"encoding\":[%u,\"%s\"]", s->encoding, ike_certificate_encoding_string(s->encoding));
-    zprintf(f, ",\"data\":");
+    zprintf(f, "\"encoding\":{\"name\":\"%s\",\"value\":%u}", ike_certificate_encoding_string(s->encoding), s->encoding);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3446,9 +3477,12 @@ static unsigned int ike_cr_unmarshal(struct ike_cr *s, const char *data, unsigne
 static void ike_auth_print_json(struct ike_auth *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"method\":[%u,\"%s\"]", s->method, ike_authentication_method_string(s->method));
-    zprintf(f, ",\"data\":");
+    zprintf(f, "\"method\":{\"name\":\"%s\",\"value\":%u}", ike_authentication_method_string(s->method), s->method);
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3536,8 +3570,11 @@ static unsigned int ike_auth_unmarshal(struct ike_auth *s, const char *data, uns
 static void ike_hash_v1_print_json(struct ike_hash *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"data\":");
+    if (s->data->len > 0) {
+    zprintf(f, "\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3620,27 +3657,36 @@ static void ike_notify_print_json(struct ike_notify *s, zfile f) {
     uint16_t id;
 
     zprintf(f, "{");
-    zprintf(f, "\"protocol_id\":[%u,\"%s\"]", s->protocol_id, ike_protocol_id_string(s->protocol_id));
-    zprintf(f, ",\"type\":[%u,\"%s\"]", s->type, ike_notify_type_string(s->type));
+    zprintf(f, "\"protocol_id\":{\"name\":\"%s\",\"value\":%u}", ike_protocol_id_string(s->protocol_id), s->protocol_id);
+    zprintf(f, ",\"type\":{\"name\":\"%s\",\"value\":%u}", ike_notify_type_string(s->type), s->type);
+    if (s->spi->len > 0) {
     zprintf(f, ",\"spi\":");
     zprintf_raw_as_hex(f, s->spi->bytes, s->spi->len);
-    zprintf(f, ",\"data\":[");
+    }
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
-    zprintf(f, ",\"");
     switch (s->type) {
     case IKE_SIGNATURE_HASH_ALGORITHMS_V2:
         for (i = 0; i < s->data->len/2; i++) {
-            if (i != 0) {
+            if (i == 0) {
+                zprintf(f, ",\"parsed\":\"");
+            } else {
                 zprintf(f, ",");
             }
             id = raw_to_uint16((char *)s->data->bytes+2*i);
             zprintf(f, "%s", ike_hash_algorithm_string(id));
+            if (i == s->data->len/2 - 1) {
+                zprintf(f, "\"");
+            }
         }
         break;
     default:
         break;
     }
-    zprintf(f, "\"]}");
+    zprintf(f, "}");
+    }
+    zprintf(f, "}");
 }
 
 /**
@@ -3656,13 +3702,18 @@ static void ike_notify_print_json(struct ike_notify *s, zfile f) {
 static void ike_notify_v1_print_json(struct ike_notify *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"doi\":[%u,\"%s\"]", s->doi_v1, ike_doi_v1_string(s->doi_v1));
-    zprintf(f, ",\"protocol_id\":[%u,\"%s\"]", s->protocol_id, ike_protocol_id_v1_string(s->protocol_id));
-    zprintf(f, ",\"type\":[%u,\"%s\"]", s->type, ike_notify_type_v1_string(s->type));
+    zprintf(f, "\"doi\":{\"name\":\"%s\",\"value\":%u}", ike_doi_v1_string(s->doi_v1), s->doi_v1);
+    zprintf(f, ",\"protocol_id\":{\"name\":\"%s\",\"value\":%u}", ike_protocol_id_v1_string(s->protocol_id), s->protocol_id);
+    zprintf(f, ",\"type\":{\"name\":\"%s\",\"value\":%u}", ike_notify_type_v1_string(s->type), s->type);
+    if (s->spi->len > 0) {
     zprintf(f, ",\"spi\":");
     zprintf_raw_as_hex(f, s->spi->bytes, s->spi->len);
-    zprintf(f, ",\"data\":");
+    }
+    if (s->data->len > 0) {
+    zprintf(f, ",\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3802,8 +3853,11 @@ static unsigned int ike_notify_v1_unmarshal(struct ike_notify *s, const char *da
 static void ike_nonce_print_json(struct ike_nonce *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"data\":");
+    if (s->data->len > 0) {
+    zprintf(f, "\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
+    zprintf(f, "}");
+    }
     zprintf(f, "}");
 }
 
@@ -3886,9 +3940,10 @@ static void ike_vendor_id_print_json(struct ike_vendor_id *s, zfile f) {
     int i;
 
     zprintf(f, "{");
-    zprintf(f, "\"data\":[");
+    if (s->data->len > 0) {
+    zprintf(f, "\"data\":{\"hex\":");
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
-    zprintf(f, ",\"");
+    zprintf(f, ",\"parsed\":\"");
     for (i = 0; i < sizeof(ike_vendor_ids); i++) {
         if (s->data->len == ike_vendor_ids[i].len) {
             if (memcmp(s->data->bytes, ike_vendor_ids[i].id, s->data->len) == 0) {
@@ -3900,7 +3955,9 @@ static void ike_vendor_id_print_json(struct ike_vendor_id *s, zfile f) {
     if (i == sizeof(ike_vendor_ids)) {
         zprintf(f, "unknown");
     }
-    zprintf(f, "\"]}");
+    zprintf(f, "\"}");
+    }
+    zprintf(f, "}");
 }
 
 /*
@@ -3980,62 +4037,75 @@ static unsigned int ike_vendor_id_unmarshal(struct ike_vendor_id *s, const char 
 static void ike_payload_print_json(struct ike_payload *s, zfile f) {
 
     zprintf(f, "{");
-    zprintf(f, "\"type\":[%d,\"%s\"]", s->type, ike_payload_type_string(s->type));
+    zprintf(f, "\"type\":{\"name\":\"%s\",\"value\":%u}", ike_payload_type_string(s->type), s->type);
 
     /* print payload body */
-    zprintf(f, ",\"body\":[");
     switch(s->type) {
-        case IKE_SECURITY_ASSOCIATION_V2:
-            ike_sa_print_json(s->body->sa, f);
-            break;
-        case IKE_SECURITY_ASSOCIATION_V1:
-            ike_sa_v1_print_json(s->body->sa, f);
-            break;
-        case IKE_KEY_EXCHANGE_V2:
-            ike_ke_print_json(s->body->ke, f);
-            break;
-        case IKE_KEY_EXCHANGE_V1:
-            ike_ke_v1_print_json(s->body->ke, f);
-            break;
-        case IKE_IDENTIFICATION_INITIATOR_V2:
-        case IKE_IDENTIFICATION_RESPONDER_V2:
-            ike_id_print_json(s->body->id, f);
-            break;
-        case IKE_IDENTIFICATION_V1:
-            ike_id_v1_print_json(s->body->id, f);
-            break;
-        case IKE_CERTIFICATE_V2:
-        case IKE_CERTIFICATE_V1:
-            ike_cert_print_json(s->body->cert, f);
-            break;
-        case IKE_CERTIFICATE_REQUEST_V2:
-        case IKE_CERTIFICATE_REQUEST_V1:
-            ike_cr_print_json(s->body->cr, f);
-            break;
-        case IKE_AUTHENTICATION_V2:
-            ike_auth_print_json(s->body->auth, f);
-            break;
-        case IKE_HASH_V1:
-            ike_hash_v1_print_json(s->body->hash, f);
-            break;
-        case IKE_NONCE_V2:
-        case IKE_NONCE_V1:
-            ike_nonce_print_json(s->body->nonce, f);
-            break;
-        case IKE_NOTIFY_V2:
-            ike_notify_print_json(s->body->notify, f);
-            break;
-        case IKE_NOTIFICATION_V1:
-            ike_notify_v1_print_json(s->body->notify, f);
-            break;
-        case IKE_VENDOR_ID_V2:
-        case IKE_VENDOR_ID_V1:
-            ike_vendor_id_print_json(s->body->vendor_id, f);
-            break;
-        default:
-            break;
+    case IKE_SECURITY_ASSOCIATION_V2:
+        zprintf(f, ",\"body\":");
+        ike_sa_print_json(s->body->sa, f);
+        break;
+    case IKE_SECURITY_ASSOCIATION_V1:
+        zprintf(f, ",\"body\":");
+        ike_sa_v1_print_json(s->body->sa, f);
+        break;
+    case IKE_KEY_EXCHANGE_V2:
+        zprintf(f, ",\"body\":");
+        ike_ke_print_json(s->body->ke, f);
+        break;
+    case IKE_KEY_EXCHANGE_V1:
+        zprintf(f, ",\"body\":");
+        ike_ke_v1_print_json(s->body->ke, f);
+        break;
+    case IKE_IDENTIFICATION_INITIATOR_V2:
+    case IKE_IDENTIFICATION_RESPONDER_V2:
+        zprintf(f, ",\"body\":");
+        ike_id_print_json(s->body->id, f);
+        break;
+    case IKE_IDENTIFICATION_V1:
+        zprintf(f, ",\"body\":");
+        ike_id_v1_print_json(s->body->id, f);
+        break;
+    case IKE_CERTIFICATE_V2:
+    case IKE_CERTIFICATE_V1:
+        zprintf(f, ",\"body\":");
+        ike_cert_print_json(s->body->cert, f);
+        break;
+    case IKE_CERTIFICATE_REQUEST_V2:
+    case IKE_CERTIFICATE_REQUEST_V1:
+        zprintf(f, ",\"body\":");
+        ike_cr_print_json(s->body->cr, f);
+        break;
+    case IKE_AUTHENTICATION_V2:
+        zprintf(f, ",\"body\":");
+        ike_auth_print_json(s->body->auth, f);
+        break;
+    case IKE_HASH_V1:
+        zprintf(f, ",\"body\":");
+        ike_hash_v1_print_json(s->body->hash, f);
+        break;
+    case IKE_NONCE_V2:
+    case IKE_NONCE_V1:
+        zprintf(f, ",\"body\":");
+        ike_nonce_print_json(s->body->nonce, f);
+        break;
+    case IKE_NOTIFY_V2:
+        zprintf(f, ",\"body\":");
+        ike_notify_print_json(s->body->notify, f);
+        break;
+    case IKE_NOTIFICATION_V1:
+        zprintf(f, ",\"body\":");
+        ike_notify_v1_print_json(s->body->notify, f);
+        break;
+    case IKE_VENDOR_ID_V2:
+    case IKE_VENDOR_ID_V1:
+        zprintf(f, ",\"body\":");
+        ike_vendor_id_print_json(s->body->vendor_id, f);
+        break;
+    default:
+        break;
     }
-    zprintf(f, "]}");
+    zprintf(f, "}");
 }
 
 /*
@@ -4249,19 +4319,20 @@ static void ike_header_print_json(struct ike_header *s, zfile f) {
     zprintf_raw_as_hex(f, s->resp_spi, sizeof(s->resp_spi));
     zprintf(f, ",\"major\":%u", s->major);
     zprintf(f, ",\"minor\":%u", s->minor);
-    zprintf(f, ",\"exchange_type\":[%u,\"%s\"]", s->exchange_type, ike_exchange_type_string(s->exchange_type));
-    zprintf(f, ",\"flags\":[%u,\"", s->flags);
+    zprintf(f, ",\"exchange_type\":{\"name\":\"%s\",\"value\":%u}", ike_exchange_type_string(s->exchange_type), s->exchange_type);
+    zprintf(f, ",\"flags\":{\"hex\":\"%04x\"", s->flags);
+    zprintf(f, ",\"parsed\":\"");
     if (s->major == 1) {
         zprintf(f, (s->flags & IKE_ENCRYPTION_BIT_V1)? "encryption": "no_encryption");
         zprintf(f, (s->flags & IKE_COMMIT_BIT_V1)? ",commit": ",no_commit");
         zprintf(f, (s->flags & IKE_AUTHENTICATION_BIT_V1)? ",authentication": ",no_authentication");
     }
     if (s->major == 2) {
-        zprintf(f, (s->flags & IKE_INITIATOR_BIT_V2) ? ",initiator": ",responder");
-        zprintf(f, (s->flags & IKE_VERSION_BIT_V2) ? ",no_higher_version": ",higher_version");
-        zprintf(f, (s->flags & IKE_RESPONSE_BIT_V2) ? "response": "request");
+        zprintf(f, (s->flags & IKE_INITIATOR_BIT_V2) ? "initiator": "responder");
+        zprintf(f, (s->flags & IKE_VERSION_BIT_V2) ? ",higher_version": ",no_higher_version");
+        zprintf(f, (s->flags & IKE_RESPONSE_BIT_V2) ? ",response": ",request");
     }
-    zprintf(f, "\"]");
+    zprintf(f, "\"}");
     zprintf(f, ",\"message_id\":%u", s->message_id);
     zprintf(f, ",\"length\":%u", s->length);
     zprintf(f, "}");
