@@ -1393,11 +1393,11 @@ static char *ike_integrity_algorithm_string(enum ike_integrity_algorithm s) {
 /**
  * \fn static char *ike_diffie_hellman_group_string(enum ike_diffie_hellman_group s)
  *
- * \brief Return a string representation of the diffie hellman group enumeration (IKEv2 only).
+ * \brief Return a string representation of the Diffie Hellman group enumeration (IKEv2 only).
  *
- * \param s A diffie hellman group enumeration.
+ * \param s A Diffie Hellman group enumeration.
  *
- * \return A string representation of the diffie hellman group enumeration.
+ * \return A string representation of the Diffie Hellman group enumeration.
  */
 static char *ike_diffie_hellman_group_string(enum ike_diffie_hellman_group s) {
 
@@ -1456,11 +1456,11 @@ static char *ike_diffie_hellman_group_string(enum ike_diffie_hellman_group s) {
 /**
  * \fn static char *ike_diffie_hellman_group_v1_string(enum ike_diffie_hellman_group s)
  *
- * \brief Return a string representation of the diffie hellman group enumeration (IKEv1 only).
+ * \brief Return a string representation of the Diffie Hellman group enumeration (IKEv1 only).
  *
- * \param s A diffie hellman group enumeration.
+ * \param s A Diffie Hellman group enumeration.
  *
- * \return A string representation of the diffie hellman group enumeration.
+ * \return A string representation of the Diffie Hellman group enumeration.
  */
 static char *ike_diffie_hellman_group_v1_string(enum ike_diffie_hellman_group s) {
 
@@ -3467,9 +3467,9 @@ static unsigned int ike_cr_unmarshal(struct ike_cr *s, const char *data, unsigne
 /**
  * \fn void ike_auth_print_json(const struct ike_auth *s, zfile f)
  *
- * \brief Print the contents of auth structure to compressed JSON output (IKEv2 only).
+ * \brief Print the contents of authentication structure to compressed JSON output (IKEv2 only).
  *
- * \param s Pointer to auth structure.
+ * \param s Pointer to authentication structure.
  * \param f Destination file for the output.
  *
  * \return
@@ -3489,9 +3489,9 @@ static void ike_auth_print_json(struct ike_auth *s, zfile f) {
 /**
  * \fn static void ike_auth_delete(struct ike_auth **s_handle)
  *
- * \brief Delete auth structure and free all associated memory.
+ * \brief Delete authentication structure and free all associated memory.
  *
- * \param s_handle Contains auth structure to delete.
+ * \param s_handle Contains authentication structure to delete.
  *
  * \return
  */
@@ -3510,9 +3510,9 @@ static void ike_auth_delete(struct ike_auth **s_handle) {
 /**
  * \fn void ike_auth_init(struct ike_auth **s_handle)
  *
- * \brief Initialize the memory of auth structure.
+ * \brief Initialize the memory of authentication structure.
  *
- * \param s_handle Contains auth structure to initialize.
+ * \param s_handle Contains authentication structure to initialize.
  *
  * \return
  */
@@ -3532,9 +3532,9 @@ static void ike_auth_init(struct ike_auth **s_handle) {
 /**
  * \fn static unsigned int ike_auth_unmarshal(struct ike_auth *s, const char *data, unsigned int len)
  *
- * \brief Unmarshal data into auth structure (IKEv2 only).
+ * \brief Unmarshal data into authentication structure (IKEv2 only).
  *
- * \param s Pointer to auth structure.
+ * \param s Pointer to authentication structure.
  * \param data Pointer to data buffer.
  * \param len Length of data in bytes.
  *
@@ -4751,7 +4751,7 @@ static struct ike_sa *ike_sa_get(struct ike *ike) {
  * \brief Perform additional parsing and verification checks on paired IKE structures.
  *
  * \param init Pointer to initiator IKE structure.
- * \param init Pointer to responder IKE structure.
+ * \param resp Pointer to responder IKE structure.
  *
  * \return
  */
