@@ -91,8 +91,9 @@ CentOS, and Raspbian), Mac OS X and Windows. The system has been built with
 gcc and GNU make, but it should work with other development
 environments as well.
 
-Go to the Wiki for instructions on building:
+Go to the Wiki for a guide on building:
 [Build Instructions](https://github.com/cisco/joy/wiki/Building)
 
 ## License
 See [License](https://github.com/cisco/joy/blob/master/LICENSE)
+See [Copying](https://github.com/cisco/joy/blob/master/COPYING) for licenses of external libraries
