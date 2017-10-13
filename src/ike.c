@@ -2121,7 +2121,7 @@ static char *ike_group_type_v1_string(enum ike_group_type s) {
  * \return
  */
 static void ike_attribute_print_json(struct ike_attribute *s, zfile f) {
-    uint16_t value;
+    uint16_t value = 0;
     
     if (s->encoding == 1 || s->data->len == 2) {
         value = raw_to_uint16((char *)s->data->bytes);
@@ -2155,7 +2155,7 @@ static void ike_attribute_print_json(struct ike_attribute *s, zfile f) {
  * \return
  */
 static void ike_attribute_v1_print_json(struct ike_attribute *s, zfile f) {
-    uint16_t value;
+    uint16_t value = 0;
 
     if (s->encoding == 1 || s->data->len == 2) {
         value = raw_to_uint16((char *)s->data->bytes);
