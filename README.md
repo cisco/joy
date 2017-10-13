@@ -95,5 +95,6 @@ Go to the Wiki for a guide on building:
 [Build Instructions](https://github.com/cisco/joy/wiki/Building)
 
 ## License
-See [License](https://github.com/cisco/joy/blob/master/LICENSE)
+See [License](https://github.com/cisco/joy/blob/master/LICENSE) of Joy
+
 See [Copying](https://github.com/cisco/joy/blob/master/COPYING) for licenses of external libraries
