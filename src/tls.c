@@ -487,62 +487,85 @@ static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h
  */
 static int tls_x509_get_validity_period(X509 *cert,
                                         struct tls_certificate *record) {
-    ASN1_TIME *not_before = NULL;
-    ASN1_TIME *not_after = NULL;
-    unsigned char *not_before_data_str = NULL;
-    unsigned char *not_after_data_str = NULL;
+    BIO *time_bio = NULL;
+    BUF_MEM *bio_mem_ptr = NULL;
     int not_before_data_len = 0;
     int not_after_data_len = 0;
     int rc_not_before = 1;
     int rc_not_after = 1;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    ASN1_TIME *not_before = NULL;
+    ASN1_TIME *not_after = NULL;
 
     not_before = X509_get_notBefore(cert);
     not_after = X509_get_notAfter(cert);
+#else
+    const ASN1_TIME *not_before = NULL;
+    const ASN1_TIME *not_after = NULL;
 
+    not_before = X509_get0_notBefore(cert);
+    not_after = X509_get0_notAfter(cert);
+#endif
+
+    time_bio = BIO_new(BIO_s_mem());
+
+    /*
+     * Convert the time to into ISO-8601 string.
+     */
     if (not_before != NULL) {
-        /* Get the time data */
-        not_before_data_str = ASN1_STRING_data(not_before);
-        /* Get the length of the data */
-        not_before_data_len = ASN1_STRING_length(not_before);
+        ASN1_TIME_print(time_bio, not_before);
+
+        /* Get length and pointer to memory inside of bio */
+        BIO_get_mem_ptr(time_bio, &bio_mem_ptr);
+        not_before_data_len = (int) bio_mem_ptr->length;
 
         if (not_before_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_before = malloc(not_before_data_len);
+            record->validity_not_before = malloc(not_before_data_len + 1);
             record->validity_not_before_length = not_before_data_len;
+
             /* Copy notBefore into record */
-            memcpy(record->validity_not_before, not_before_data_str,
+            memcpy(record->validity_not_before, bio_mem_ptr->data,
                    not_before_data_len);
+
+            /* Clear the bio */
+            BIO_reset(time_bio);
 
             /* Success */
             rc_not_before = 0;
         } else {
-            joy_log_err("no data exists for notBefore");
+            joy_log_warn("no data exists for notBefore");
         }
     } else {
         joy_log_err("could not extract notBefore");
     }
 
     if (not_after != NULL) {
-        /* Get the time data */
-        not_after_data_str = ASN1_STRING_data(not_after);
-        /* Get the length of the data */
-        not_after_data_len = ASN1_STRING_length(not_after);
+        ASN1_TIME_print(time_bio, not_after);
+
+        /* Get length and pointer to memory inside of bio */
+        BIO_get_mem_ptr(time_bio, &bio_mem_ptr);
+        not_after_data_len = (int) bio_mem_ptr->length;
 
         if (not_after_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_after = malloc(not_after_data_len);
+            record->validity_not_after = malloc(not_after_data_len + 1);
             record->validity_not_after_length = not_after_data_len;
             /* Copy notAfter into record */
-            memcpy(record->validity_not_after, not_after_data_str,
+            memcpy(record->validity_not_after, bio_mem_ptr->data,
                    not_after_data_len);
 
             /* Success */
             rc_not_after = 0;
         } else {
-            joy_log_err("no data exists for notAfter");
+            joy_log_warn("no data exists for notAfter");
         }
     } else {
         joy_log_err("could not extract notAfter");
+    }
+
+    if (time_bio) {
+        BIO_free(time_bio);
     }
 
     if (rc_not_before || rc_not_after) {
@@ -568,13 +591,18 @@ static int tls_x509_get_subject(X509 *cert,
                                 struct tls_certificate *record) {
     X509_NAME *subject = NULL;
     X509_NAME_ENTRY *entry = NULL;
-    ASN1_STRING *entry_asn1_string = NULL;
     ASN1_OBJECT *entry_asn1_object = NULL;
-    unsigned char *entry_data_str = NULL;
     int entry_data_len = 0;
     int nid = 0;
     int num_of_entries = 0;
     int i = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    ASN1_STRING *entry_asn1_string = NULL;
+    unsigned char *entry_data_str = NULL;
+#else
+    const ASN1_STRING *entry_asn1_string = NULL;
+    const unsigned char *entry_data_str = NULL;
+#endif
 
     subject = X509_get_subject_name(cert);
     if (subject == NULL) {
@@ -607,7 +635,12 @@ static int tls_x509_get_subject(X509 *cert,
         entry_asn1_string = X509_NAME_ENTRY_get_data(entry);
 
         /* Get the info out of asn1_string */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         entry_data_str = ASN1_STRING_data(entry_asn1_string);
+#else
+        entry_data_str = ASN1_STRING_get0_data(entry_asn1_string);
+#endif
+
         entry_data_len = ASN1_STRING_length(entry_asn1_string);
 
         /* NID of the asn1_object */
@@ -665,13 +698,18 @@ static int tls_x509_get_issuer(X509 *cert,
                                struct tls_certificate *record) {
     X509_NAME *issuer = NULL;
     X509_NAME_ENTRY *entry = NULL;
-    ASN1_STRING *entry_asn1_string = NULL;
     ASN1_OBJECT *entry_asn1_object = NULL;
-    unsigned char *entry_data_str = NULL;
     int entry_data_len = 0;
     int nid = 0;
     int num_of_entries = 0;
     int i = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    ASN1_STRING *entry_asn1_string = NULL;
+    unsigned char *entry_data_str = NULL;
+#else
+    const ASN1_STRING *entry_asn1_string = NULL;
+    const unsigned char *entry_data_str = NULL;
+#endif
 
     issuer = X509_get_issuer_name(cert);
     if (issuer == NULL) {
@@ -707,7 +745,12 @@ static int tls_x509_get_issuer(X509 *cert,
         entry_asn1_string = X509_NAME_ENTRY_get_data(entry);
 
         /* Get the info out of asn1_string */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         entry_data_str = ASN1_STRING_data(entry_asn1_string);
+#else
+        entry_data_str = ASN1_STRING_get0_data(entry_asn1_string);
+#endif
+
         entry_data_len = ASN1_STRING_length(entry_asn1_string);
 
         /* NID of the asn1_object */
@@ -763,9 +806,14 @@ static int tls_x509_get_issuer(X509 *cert,
  */
 static int tls_x509_get_serial(X509 *cert,
                                struct tls_certificate *record) {
+    uint16_t serial_data_length = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     ASN1_INTEGER *serial = NULL;
     unsigned char *serial_data = NULL;
-    uint16_t serial_data_length = 0;
+#else
+    const ASN1_INTEGER *serial = NULL;
+    const unsigned char *serial_data = NULL;
+#endif
 
     serial = X509_get_serialNumber(cert);
     if (serial == NULL) {
@@ -773,7 +821,12 @@ static int tls_x509_get_serial(X509 *cert,
         return 1;
     }
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     serial_data = ASN1_STRING_data(serial);
+#else
+    serial_data = ASN1_STRING_get0_data(serial);
+#endif
+
     serial_data_length = ASN1_STRING_length(serial);
 
     if (serial_data_length > MAX_CERT_SERIAL_LENGTH) {
@@ -805,105 +858,37 @@ static int tls_x509_get_serial(X509 *cert,
  */
 static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
                                                  struct tls_certificate *record) {
-    X509_PUBKEY *pubkey = NULL;
-    ASN1_OBJECT *algorithm_asn1_obj = NULL;
-    ASN1_BIT_STRING *pubkey_asn1_string = NULL;
-    const char *pubkey_alg_str = NULL;
-    int pubkey_length = 0;
-    int nid = 0;
+    EVP_PKEY *evp_pubkey = NULL;
+    const char *alg_str = NULL;
+    int key_type = 0;
 
     /*
      * Get the X509 public key.
      */
-    pubkey = X509_get_X509_PUBKEY(cert);
-    if (pubkey == NULL) {
+    evp_pubkey = X509_get_pubkey(cert);
+    if (evp_pubkey == NULL) {
         joy_log_err("could not extract public key");
         return 1;
     }
 
-    algorithm_asn1_obj = pubkey->algor->algorithm;
-    if (algorithm_asn1_obj == NULL) {
-        joy_log_err("problem getting public key algorithm");
-        return 1;
-    }
-
-    /* Look at the actual public key embedded data */
-    pubkey_asn1_string = pubkey->public_key;
-    pubkey_length = ASN1_STRING_length(pubkey_asn1_string);
-
-    /* Get the NID of the public key algorithm */
-    nid = OBJ_obj2nid(algorithm_asn1_obj);
-
-    /* Write the key size */
-    record->subject_public_key_size = pubkey_length << 3;
-
-    if (nid == NID_undef) {
-        /*
-         * The NID is unknown, so instead we will copy the OID.
-         * The OID can be looked-up online to find the name.
-         */
-        OBJ_obj2txt(record->subject_public_key_algorithm,
-                    MAX_OPENSSL_STRING, algorithm_asn1_obj, 1);
-        /* Ensure null-termination */
-        record->subject_public_key_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
-    } else {
-        pubkey_alg_str = OBJ_nid2ln(nid);
-        /* Copy the public key algorithm string */
-        strncpy(record->subject_public_key_algorithm, pubkey_alg_str,
-                MAX_OPENSSL_STRING);
-        /* Ensure null-termination */
-        record->subject_public_key_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
-    }
-
-    return 0;
-}
-
-/**
- * \fn int tls_x509_get_signature_algorithm(X509 *cert,
- *                                          struct tls_certificate *record)
- *
- * \brief Extract the signature algorithm type out of a X509 certificate.
- *
- * \param cert OpenSSL X509 certificate structure.
- * \param record Destination tls_certificate structure
- *               that will be written into.
- *
- * \return 0 for success, 1 for failure
- */
-static int tls_x509_get_signature_algorithm(X509 *cert,
-                                            struct tls_certificate *record) {
-    ASN1_OBJECT *sig_alg_asn1_obj = NULL;
-    const char *sig_alg_str = NULL;
-    int nid = 0;
+    /* Get the key type */
+    key_type = EVP_PKEY_base_id(evp_pubkey);
 
     /*
-     * Get the signature algorithm asn1_object
-     * directly out of the X509 struct.
+     * Get the key size
      */
-    sig_alg_asn1_obj = cert->sig_alg->algorithm;
-    if (sig_alg_asn1_obj == NULL) {
-        joy_log_err("problem getting signature algorithm");
-        return 1;
-    }
+    record->subject_public_key_size = EVP_PKEY_bits(evp_pubkey);
 
-    /* Get the NID of the asn1_object */
-    nid = OBJ_obj2nid(sig_alg_asn1_obj);
+    /* 
+     * Get the algorithm type string
+     */
+    alg_str = OBJ_nid2ln(key_type);
+    strncpy(record->subject_public_key_algorithm, alg_str, MAX_OPENSSL_STRING);
+    /* Ensure null-termination */
+    record->subject_public_key_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
 
-    if (nid == NID_undef) {
-        /*
-         * The NID is unknown, so instead we will copy the OID.
-         * The OID can be looked-up online to find the name.
-         */
-        OBJ_obj2txt(record->signature_algorithm,
-                    MAX_OPENSSL_STRING, sig_alg_asn1_obj, 1);
-        /* Ensure null-termination */
-        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
-    } else {
-        sig_alg_str = OBJ_nid2ln(nid);
-        strncpy(record->signature_algorithm, sig_alg_str,
-                MAX_OPENSSL_STRING);
-        /* Ensure null-termination */
-        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
+    if (evp_pubkey) {
+        EVP_PKEY_free(evp_pubkey);
     }
 
     return 0;
@@ -923,17 +908,43 @@ static int tls_x509_get_signature_algorithm(X509 *cert,
  */
 static int tls_x509_get_signature(X509 *cert,
                                   struct tls_certificate *record) {
+    int sig_length = 0;
+    const char *alg_str = NULL;
+    int nid = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     ASN1_BIT_STRING *sig = NULL;
     unsigned char *sig_str = NULL;
-    int sig_length = 0;
+    X509_ALGOR *alg = NULL;
+    ASN1_OBJECT *alg_asn1_obj = NULL;
+#else
+    const ASN1_BIT_STRING *sig = NULL;
+    const unsigned char *sig_str = NULL;
+    const X509_ALGOR *alg = NULL;
+    const ASN1_OBJECT *alg_asn1_obj = NULL;
+#endif
 
-    sig = cert->signature;
+
+    X509_get0_signature(&sig, &alg, cert);
+
     if (sig == NULL) {
         joy_log_err("problem getting signature");
         return 1;
     }
 
+    if (alg == NULL) {
+        joy_log_err("problem getting signature algorithm");
+        return 1;
+    }
+
+    /*
+     * Get the signature
+     */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     sig_str = ASN1_STRING_data(sig);
+#else
+    sig_str = ASN1_STRING_get0_data(sig);
+#endif
+
     sig_length = ASN1_STRING_length(sig);
 
     if (sig_length > 512) {
@@ -951,6 +962,39 @@ static int tls_x509_get_signature(X509 *cert,
     record->signature = malloc(sig_length);
     memcpy(record->signature, sig_str, sig_length);
     record->signature_length = sig_length;
+
+    /*
+     * Get the signature algorithm
+     */
+    X509_ALGOR_get0(&alg_asn1_obj, NULL, NULL, alg);
+    if (alg_asn1_obj == NULL) {
+        joy_log_err("problem getting signature algorithm asn1 obj");
+        return 1;
+    }
+
+    /* Get the NID of the asn1_object */
+    nid = OBJ_obj2nid(alg_asn1_obj);
+
+    if (nid == NID_undef) {
+        /*
+         * The NID is unknown, so instead we will copy the OID.
+         * The OID can be looked-up online to find the name.
+         */
+        OBJ_obj2txt(record->signature_algorithm,
+                    MAX_OPENSSL_STRING, alg_asn1_obj, 1);
+        /* Ensure null-termination */
+        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
+    } else {
+        alg_str = OBJ_nid2ln(nid);
+        strncpy(record->signature_algorithm, alg_str,
+                MAX_OPENSSL_STRING);
+        /* Ensure null-termination */
+        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
+    }
+
+    strncpy(record->signature_algorithm, alg_str, MAX_OPENSSL_STRING);
+    /* Ensure null-termination */
+    record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
 
     return 0;
 }
@@ -1015,7 +1059,7 @@ static int tls_x509_get_extensions(X509 *cert,
         ext_bio = BIO_new(BIO_s_mem());
 
         if (!X509V3_EXT_print(ext_bio, extension, 0, 0)) {
-            M_ASN1_OCTET_STRING_print(ext_bio, extension->value);
+            ASN1_STRING_print(ext_bio, X509_EXTENSION_get_data(extension));
         }
 
         /* Get length and pointer to memory inside of bio */
@@ -1160,10 +1204,7 @@ static void tls_server_certificate_parse (const unsigned char *data,
             /* Get extensions */
             tls_x509_get_extensions(x509_cert, certificate);
 
-            /* Get signature algorithm */
-            tls_x509_get_signature_algorithm(x509_cert, certificate);
-
-            /* Get signature */
+            /* Get signature and signature algorithm*/
             tls_x509_get_signature(x509_cert, certificate);
 
             /* Get public-key info */
@@ -2889,31 +2930,6 @@ static int tls_test_certificate_parsing() {
         }
 
         /*************************************
-         * Test signature algorithm
-         ************************************/
-        if (tls_x509_get_signature_algorithm(cert, cert_record)) {
-            joy_log_err("fail, tls_x509_get_signature_algorithm - %s", filename);
-            num_fails++;
-        } else {
-            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
-                /* We are using the dummy_rsa2048 for this case */
-                char *known_signature_algorithm = "sha256WithRSAEncryption";
-                int failed = 0;
-
-                if (strncmp(cert_record->signature_algorithm, known_signature_algorithm, MAX_OPENSSL_STRING)) {
-                    joy_log_err("signature algorithm does not match");
-                    failed = 1;
-                }
-
-                if (failed){
-                    /* There was at least one case that threw error */
-                    joy_log_err("fail, tls_x509_get_signature_algorithm - %s", filename);
-                    num_fails++;
-                }
-            }
-        }
-
-        /*************************************
          * Test signature
          ************************************/
         if (tls_x509_get_signature(cert, cert_record)) {
@@ -2924,6 +2940,7 @@ static int tls_test_certificate_parsing() {
                 /* We are using the dummy_rsa2048 for this case */
                 uint16_t known_signature_length = 256;
                 uint16_t known_signature_key_size = 2048;
+                char *known_signature_algorithm = "sha256WithRSAEncryption";
                 int failed = 0;
 
                 unsigned char known_signature[] = {
@@ -2976,6 +2993,11 @@ static int tls_test_certificate_parsing() {
                     failed = 1;
                 }
 
+                if (strncmp(cert_record->signature_algorithm, known_signature_algorithm, MAX_OPENSSL_STRING)) {
+                    joy_log_err("signature algorithm does not match");
+                    failed = 1;
+                }
+
                 if (failed){
                     /* There was at least one case that threw error */
                     joy_log_err("fail, tls_x509_get_signature - %s", filename);
@@ -2994,7 +3016,7 @@ static int tls_test_certificate_parsing() {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 char *known_public_key_algorithm = "rsaEncryption";
-                uint16_t known_public_key_size = 2160;
+                uint16_t known_public_key_size = 2048;
                 int failed = 0;
 
                 if (cert_record->subject_public_key_size != known_public_key_size) {
