@@ -528,8 +528,11 @@ static int tls_x509_get_validity_period(X509 *cert,
             memcpy(record->validity_not_before, bio_mem_ptr->data,
                    not_before_data_len);
 
+            joy_utils_convert_to_json_string((char*)record->validity_not_before,
+                                             not_before_data_len + 1);
+
             /* Clear the bio */
-            BIO_reset(time_bio);
+            (void) BIO_reset(time_bio);
 
             /* Success */
             rc_not_before = 0;
@@ -554,6 +557,9 @@ static int tls_x509_get_validity_period(X509 *cert,
             /* Copy notAfter into record */
             memcpy(record->validity_not_after, bio_mem_ptr->data,
                    not_after_data_len);
+
+            joy_utils_convert_to_json_string((char*)record->validity_not_after,
+                                             not_after_data_len + 1);
 
             /* Success */
             rc_not_after = 0;
@@ -2475,12 +2481,10 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     }
     
     if (data->validity_not_before) {
-        zprintf(f, ",\"validity_not_before\":");
-        zprintf_raw_as_hex_tls(f, data->validity_not_before, data->validity_not_before_length);
+        zprintf(f, ",\"validity_not_before\": \"%s\"", data->validity_not_before);
     }
     if (data->validity_not_after) {
-        zprintf(f, ",\"validity_not_after\":");
-        zprintf_raw_as_hex_tls(f, data->validity_not_after, data->validity_not_after_length);
+        zprintf(f, ",\"validity_not_after\": \"%s\"", data->validity_not_after);
     }
     
     if (*data->subject_public_key_algorithm) {
@@ -2773,26 +2777,21 @@ static int tls_test_certificate_parsing() {
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
-                uint16_t known_not_before_length = 13;
-                uint16_t known_not_after_length = 13;
+                uint16_t known_not_before_length = 24;
+                uint16_t known_not_after_length = 24;
                 int failed = 0;
 
-                unsigned char known_not_before[] = {
-                    0x31, 0x37, 0x30, 0x33, 0x33, 0x31, 0x31, 0x38,
-                    0x32, 0x38, 0x33, 0x35, 0x5a
-                };
+                char *known_not_before = "Mar 31 18:28:35 2017 GMT";
 
-                unsigned char known_not_after[] = {
-                    0x31, 0x38, 0x30, 0x33, 0x33, 0x31, 0x31, 0x38,
-                    0x32, 0x38, 0x33, 0x35, 0x5a
-                };
+                char *known_not_after = "Mar 31 18:28:35 2018 GMT";
 
                 if (cert_record->validity_not_before_length != known_not_before_length) {
                     joy_log_err("not_before length does not match");
                     failed = 1;
                 }
 
-                if (memcmp(cert_record->validity_not_before, known_not_before, known_not_before_length)) {
+                if (strncmp((char*)cert_record->validity_not_before, known_not_before,
+                            known_not_before_length)) {
                     joy_log_err("not_before data does not match");
                     failed = 1;
                 }
@@ -2802,7 +2801,8 @@ static int tls_test_certificate_parsing() {
                     failed = 1;
                 }
 
-                if (memcmp(cert_record->validity_not_after, known_not_after, known_not_after_length)) {
+                if (strncmp((char*)cert_record->validity_not_after, known_not_after,
+                            known_not_after_length)) {
                     joy_log_err("not_after data does not match");
                     failed = 1;
                 }
