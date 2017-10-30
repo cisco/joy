@@ -51,6 +51,7 @@ NEWKEY=0
 TLS_FINGERPRINT_FILE=${APP_ROOT}/resources/tls_fingerprint.json
 PREFIX="/usr/local"
 BUILDROOT=""
+ARCH=`uname -m`
 
 echo
 echo JOY INSTALL-SH
@@ -242,11 +243,20 @@ if [ "$sysname" == "Darwin" ]; then
     if [ -z "$PKGBUILD" ]; then
         pip install ${APP_ROOT}/sleuth/
     else
-        pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
-    fi
-    if [ $? -ne "0" ]; then
-        echo "error: could not run pip install"
-        exit 1
+        #pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
+	cd ${APP_ROOT}/sleuth
+	python setup.py bdist --format=gztar
+        if [ $retval -ne "0" ]; then
+            echo "error: could not run python setup.py for sleuth"
+            exit 1
+        fi
+        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-0.1.linux-${ARCH}.tar.gz"
+	if [ -f $SLEUTHFILE ]; then
+            tar -C $PREFIX xf $SLEUTHFILE
+	else
+            echo "Cannot find sleuth tarball $SLEUTHFILE"
+            exit 1
+	fi
     fi
 
     # Install the configuration file
