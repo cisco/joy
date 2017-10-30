@@ -241,10 +241,12 @@ if [ "$sysname" == "Darwin" ]; then
 
     # Install the sleuth python module (dependency of joyq)
     if [ -z "$PKGBUILD" ]; then
+        echo "Running pip install ${APP_ROOT}/sleuth/"
         pip install ${APP_ROOT}/sleuth/
     else
         #pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
 	cd ${APP_ROOT}/sleuth
+	echo "Running python setup.py bdist --format=gztar"
 	python setup.py bdist --format=gztar
         if [ $retval -ne "0" ]; then
             echo "error: could not run python setup.py for sleuth"
