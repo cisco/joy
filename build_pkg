@@ -39,7 +39,7 @@ MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
     openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
 OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
-ARCH=`uname -i`
+ARCH=`uname -m`
 
 echo
 echo BUILD_PKGS
@@ -87,8 +87,8 @@ fi
 # Check for build dependencies
 #
 if [ "$BUILDTYPE" == "deb" ]; then
-    if [ "$OSREL" != "ubuntu" -a "$OSREL" != "debian" ]; then
-        echo "You must build a deb on a Debian or Ubuntu system."
+    if [ "$OSREL" != "ubuntu" -a "$OSREL" != "debian" -a "$OSREL" != "raspbian" ]; then
+        echo "You must build a deb on a Debian, Raspbian or Ubuntu system."
         exit 1
     fi
     PKGMISSING=0
@@ -105,7 +105,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
             echo "apt-get install $UBUNTU_PKGS"
             exit 1
         fi
-    elif [ "$OSREL" == "debian" ]; then
+    elif [ "$OSREL" == "debian" -o "$OSREL" == "raspbian" ]; then
         for pkg in $DEBIAN_PKGS; do
             STATUS=`/usr/bin/dpkg-query --show --showformat='${db:Status-Status}\n' ${pkg}`
             if [ "$STATUS" != "installed" ]; then
@@ -216,8 +216,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux 2>/dev/null
-    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux
+    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh
+    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
@@ -241,7 +241,14 @@ if [ "$?" != 0 ]; then
     exit 1
 fi
 if [ "$BUILDTYPE" == "deb" ]; then
-    ./config -l /usr/lib/x86_64-linux-gnu
+    if [ "$ARCH" == "x86_64" ]; then
+        ./config -l /usr/lib/x86_64-linux-gnu
+    elif [ "$ARCH" == "armv7l" ]; then
+        ./config -l /usr/lib/arm-linux-gnueabihf
+    else
+        echo "Arch $ARCH not supported"
+        exit 1
+    fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
     ./config
 elif [ "$BUILDTYPE" == "rpm" ]; then
