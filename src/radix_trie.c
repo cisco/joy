@@ -556,6 +556,13 @@ enum status radix_trie_free (struct radix_trie *r) {
         return ok;
     }
 
+    if (r->num_flags) {
+        /* Free any flags attached to the radix_trie */
+        for (i = 0; i < r->num_flags; i++) {
+            free(r->flag[i]);
+        }
+    }
+
     /* sanity check the root node */
     if (r->root == NULL) {
         /* no root node, just free radix_trie structure */
@@ -566,12 +573,6 @@ enum status radix_trie_free (struct radix_trie *r) {
     /* perform deep free of radix_trie starting at the root */
     radix_trie_deep_free(r->root);
 
-    if (r->num_flags) {
-        for (i = 0; i < r->num_flags; i++) {
-            free(r->flag[i]);
-        }
-    }
- 
     /* now free the radix_trie structure */
     rt_free((void*)r);
 
