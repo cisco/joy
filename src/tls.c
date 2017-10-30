@@ -3442,6 +3442,8 @@ static int tls_test_handshake_hello_get_version() {
         num_fails++;
     }
 
+    tls_delete(&record);
+
     return num_fails;
 }
 
