@@ -115,78 +115,36 @@ static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
 /**
  * \fn void tls_init (struct tls_information *r)
  *
- * \brief Initialize the memory of TLS struct \r.
+ * \brief Initialize the memory of TLS struct.
  *
- * \param r TLS record structure pointer
+ * \param tls_handle contains tls structure to initialize
  *
  * \return
  */
-void tls_init (struct tls_information *r) {
-    int i;
-
-    r->role = role_unknown;
-    r->tls_op = 0;
-    r->num_ciphersuites = 0;
-    r->num_tls_extensions = 0;
-    r->num_server_tls_extensions = 0;
-    r->tls_sid_len = 0;
-    r->tls_v = 0;
-    r->tls_client_key_length = 0;
-    r->certificate_buffer = 0;
-    r->certificate_offset = 0;
-    r->start_cert = 0;
-    r->sni = 0;
-    r->sni_length = 0;
-    r->tls_fingerprint = NULL;
-
-    memset(r->tls_len, 0, sizeof(r->tls_len));
-    memset(r->tls_time, 0, sizeof(r->tls_time));
-    memset(r->tls_type, 0, sizeof(r->tls_type));
-    memset(r->ciphersuites, 0, sizeof(r->ciphersuites));
-    memset(r->tls_extensions, 0, sizeof(r->tls_extensions));
-    memset(r->server_tls_extensions, 0, sizeof(r->server_tls_extensions));
-    memset(r->tls_sid, 0, sizeof(r->tls_sid));
-    memset(r->tls_random, 0, sizeof(r->tls_random));
-
-    r->num_certificates = 0;
-    for (i = 0; i < MAX_CERTIFICATES; i++) {
-        struct tls_certificate *cert = &r->certificates[i];
-
-        cert->length = 0;
-        cert->signature = NULL;
-        cert->signature_length = 0;
-        memset(cert->signature_algorithm, 0,
-               sizeof(cert->signature_algorithm));
-        memset(cert->subject_public_key_algorithm, 0,
-               sizeof(cert->signature_algorithm));
-        cert->subject_public_key_size = 0;
-        cert->signature_key_size = 0;
-        cert->serial_number = NULL;
-        cert->serial_number_length = 0;
-        cert->validity_not_before = NULL;
-        cert->validity_not_before_length = 0;
-        cert->validity_not_after = NULL;
-        cert->validity_not_after_length = 0;
-        cert->num_issuer_items = 0;
-        cert->num_subject_items = 0;
-        cert->num_extension_items = 0;
-        memset(cert->issuer, 0, sizeof(cert->issuer));
-        memset(cert->subject, 0, sizeof(cert->subject));
-        memset(cert->extensions, 0, sizeof(cert->extensions));
+void tls_init (struct tls_information **tls_handle) {
+    if (*tls_handle != NULL) {
+        tls_delete(tls_handle);
     }
+
+    *tls_handle = malloc(sizeof(struct tls_information));
+    if (*tls_handle == NULL) {
+        /* Allocation failed */
+        joy_log_err("malloc failed");
+        return;
+    }
+    memset(*tls_handle, 0, sizeof(struct tls_information));
 }
 
 /**
- * \fn void tls_delete (struct tls_information *r)
+ * \brief Delete the memory of TLS struct.
  *
- * \brief Clear and free memory of TLS struct \r.
- *
- * \param r TLS record structure pointer
+ * \param tls_handle contains tls structure to delete
  *
  * \return
  */
-void tls_delete (struct tls_information *r) {
+void tls_delete (struct tls_information **tls_handle) {
     int i, j = 0;
+    struct tls_information *r = *tls_handle;
 
     if (r == NULL) {
       return;
@@ -260,6 +218,10 @@ void tls_delete (struct tls_information *r) {
             free(cert->validity_not_after);
         }
     }
+
+    /* Free the memory and set to NULL */
+    free(r);
+    *tls_handle = NULL;
 }
 
 static unsigned short raw_to_unsigned_short (const void *x) {
@@ -525,62 +487,91 @@ static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h
  */
 static int tls_x509_get_validity_period(X509 *cert,
                                         struct tls_certificate *record) {
-    ASN1_TIME *not_before = NULL;
-    ASN1_TIME *not_after = NULL;
-    unsigned char *not_before_data_str = NULL;
-    unsigned char *not_after_data_str = NULL;
+    BIO *time_bio = NULL;
+    BUF_MEM *bio_mem_ptr = NULL;
     int not_before_data_len = 0;
     int not_after_data_len = 0;
     int rc_not_before = 1;
     int rc_not_after = 1;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    ASN1_TIME *not_before = NULL;
+    ASN1_TIME *not_after = NULL;
 
     not_before = X509_get_notBefore(cert);
     not_after = X509_get_notAfter(cert);
+#else
+    const ASN1_TIME *not_before = NULL;
+    const ASN1_TIME *not_after = NULL;
 
+    not_before = X509_get0_notBefore(cert);
+    not_after = X509_get0_notAfter(cert);
+#endif
+
+    time_bio = BIO_new(BIO_s_mem());
+
+    /*
+     * Convert the time to into ISO-8601 string.
+     */
     if (not_before != NULL) {
-        /* Get the time data */
-        not_before_data_str = ASN1_STRING_data(not_before);
-        /* Get the length of the data */
-        not_before_data_len = ASN1_STRING_length(not_before);
+        ASN1_TIME_print(time_bio, not_before);
+
+        /* Get length and pointer to memory inside of bio */
+        BIO_get_mem_ptr(time_bio, &bio_mem_ptr);
+        not_before_data_len = (int) bio_mem_ptr->length;
 
         if (not_before_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_before = malloc(not_before_data_len);
+            record->validity_not_before = malloc(not_before_data_len + 1);
             record->validity_not_before_length = not_before_data_len;
+
             /* Copy notBefore into record */
-            memcpy(record->validity_not_before, not_before_data_str,
+            memcpy(record->validity_not_before, bio_mem_ptr->data,
                    not_before_data_len);
+
+            joy_utils_convert_to_json_string((char*)record->validity_not_before,
+                                             not_before_data_len + 1);
+
+            /* Clear the bio */
+            (void) BIO_reset(time_bio);
 
             /* Success */
             rc_not_before = 0;
         } else {
-            joy_log_err("no data exists for notBefore");
+            joy_log_warn("no data exists for notBefore");
         }
     } else {
         joy_log_err("could not extract notBefore");
     }
 
     if (not_after != NULL) {
-        /* Get the time data */
-        not_after_data_str = ASN1_STRING_data(not_after);
-        /* Get the length of the data */
-        not_after_data_len = ASN1_STRING_length(not_after);
+        ASN1_TIME_print(time_bio, not_after);
+
+        /* Get length and pointer to memory inside of bio */
+        BIO_get_mem_ptr(time_bio, &bio_mem_ptr);
+        not_after_data_len = (int) bio_mem_ptr->length;
 
         if (not_after_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_after = malloc(not_after_data_len);
+            record->validity_not_after = malloc(not_after_data_len + 1);
             record->validity_not_after_length = not_after_data_len;
             /* Copy notAfter into record */
-            memcpy(record->validity_not_after, not_after_data_str,
+            memcpy(record->validity_not_after, bio_mem_ptr->data,
                    not_after_data_len);
+
+            joy_utils_convert_to_json_string((char*)record->validity_not_after,
+                                             not_after_data_len + 1);
 
             /* Success */
             rc_not_after = 0;
         } else {
-            joy_log_err("no data exists for notAfter");
+            joy_log_warn("no data exists for notAfter");
         }
     } else {
         joy_log_err("could not extract notAfter");
+    }
+
+    if (time_bio) {
+        BIO_free(time_bio);
     }
 
     if (rc_not_before || rc_not_after) {
@@ -606,13 +597,18 @@ static int tls_x509_get_subject(X509 *cert,
                                 struct tls_certificate *record) {
     X509_NAME *subject = NULL;
     X509_NAME_ENTRY *entry = NULL;
-    ASN1_STRING *entry_asn1_string = NULL;
     ASN1_OBJECT *entry_asn1_object = NULL;
-    unsigned char *entry_data_str = NULL;
     int entry_data_len = 0;
     int nid = 0;
     int num_of_entries = 0;
     int i = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    ASN1_STRING *entry_asn1_string = NULL;
+    unsigned char *entry_data_str = NULL;
+#else
+    const ASN1_STRING *entry_asn1_string = NULL;
+    const unsigned char *entry_data_str = NULL;
+#endif
 
     subject = X509_get_subject_name(cert);
     if (subject == NULL) {
@@ -645,7 +641,12 @@ static int tls_x509_get_subject(X509 *cert,
         entry_asn1_string = X509_NAME_ENTRY_get_data(entry);
 
         /* Get the info out of asn1_string */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         entry_data_str = ASN1_STRING_data(entry_asn1_string);
+#else
+        entry_data_str = ASN1_STRING_get0_data(entry_asn1_string);
+#endif
+
         entry_data_len = ASN1_STRING_length(entry_asn1_string);
 
         /* NID of the asn1_object */
@@ -679,8 +680,9 @@ static int tls_x509_get_subject(X509 *cert,
         }
 
         memcpy(cert_record_entry->data, entry_data_str, entry_data_len);
-        /* Null-terminated in case it's used as a string */
-        cert_record_entry->data[entry_data_len] = 0;
+        /* Find any special (json) characters and replace them */
+        joy_utils_convert_to_json_string((char*)cert_record_entry->data,
+                                         entry_data_len + 1);
     }
 
     return 0;
@@ -702,13 +704,18 @@ static int tls_x509_get_issuer(X509 *cert,
                                struct tls_certificate *record) {
     X509_NAME *issuer = NULL;
     X509_NAME_ENTRY *entry = NULL;
-    ASN1_STRING *entry_asn1_string = NULL;
     ASN1_OBJECT *entry_asn1_object = NULL;
-    unsigned char *entry_data_str = NULL;
     int entry_data_len = 0;
     int nid = 0;
     int num_of_entries = 0;
     int i = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    ASN1_STRING *entry_asn1_string = NULL;
+    unsigned char *entry_data_str = NULL;
+#else
+    const ASN1_STRING *entry_asn1_string = NULL;
+    const unsigned char *entry_data_str = NULL;
+#endif
 
     issuer = X509_get_issuer_name(cert);
     if (issuer == NULL) {
@@ -744,7 +751,12 @@ static int tls_x509_get_issuer(X509 *cert,
         entry_asn1_string = X509_NAME_ENTRY_get_data(entry);
 
         /* Get the info out of asn1_string */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         entry_data_str = ASN1_STRING_data(entry_asn1_string);
+#else
+        entry_data_str = ASN1_STRING_get0_data(entry_asn1_string);
+#endif
+
         entry_data_len = ASN1_STRING_length(entry_asn1_string);
 
         /* NID of the asn1_object */
@@ -778,8 +790,9 @@ static int tls_x509_get_issuer(X509 *cert,
         }
 
         memcpy(cert_record_entry->data, entry_data_str, entry_data_len);
-        /* Null-terminated in case it's used as a string */
-        cert_record_entry->data[entry_data_len] = 0;
+        /* Find any special (json) characters and replace them */
+        joy_utils_convert_to_json_string((char*)cert_record_entry->data,
+                                         entry_data_len + 1);
     }
 
     return 0;
@@ -799,9 +812,14 @@ static int tls_x509_get_issuer(X509 *cert,
  */
 static int tls_x509_get_serial(X509 *cert,
                                struct tls_certificate *record) {
+    uint16_t serial_data_length = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     ASN1_INTEGER *serial = NULL;
     unsigned char *serial_data = NULL;
-    uint16_t serial_data_length = 0;
+#else
+    const ASN1_INTEGER *serial = NULL;
+    const unsigned char *serial_data = NULL;
+#endif
 
     serial = X509_get_serialNumber(cert);
     if (serial == NULL) {
@@ -809,7 +827,12 @@ static int tls_x509_get_serial(X509 *cert,
         return 1;
     }
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     serial_data = ASN1_STRING_data(serial);
+#else
+    serial_data = ASN1_STRING_get0_data(serial);
+#endif
+
     serial_data_length = ASN1_STRING_length(serial);
 
     if (serial_data_length > MAX_CERT_SERIAL_LENGTH) {
@@ -841,105 +864,37 @@ static int tls_x509_get_serial(X509 *cert,
  */
 static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
                                                  struct tls_certificate *record) {
-    X509_PUBKEY *pubkey = NULL;
-    ASN1_OBJECT *algorithm_asn1_obj = NULL;
-    ASN1_BIT_STRING *pubkey_asn1_string = NULL;
-    const char *pubkey_alg_str = NULL;
-    int pubkey_length = 0;
-    int nid = 0;
+    EVP_PKEY *evp_pubkey = NULL;
+    const char *alg_str = NULL;
+    int key_type = 0;
 
     /*
      * Get the X509 public key.
      */
-    pubkey = X509_get_X509_PUBKEY(cert);
-    if (pubkey == NULL) {
+    evp_pubkey = X509_get_pubkey(cert);
+    if (evp_pubkey == NULL) {
         joy_log_err("could not extract public key");
         return 1;
     }
 
-    algorithm_asn1_obj = pubkey->algor->algorithm;
-    if (algorithm_asn1_obj == NULL) {
-        joy_log_err("problem getting public key algorithm");
-        return 1;
-    }
-
-    /* Look at the actual public key embedded data */
-    pubkey_asn1_string = pubkey->public_key;
-    pubkey_length = ASN1_STRING_length(pubkey_asn1_string);
-
-    /* Get the NID of the public key algorithm */
-    nid = OBJ_obj2nid(algorithm_asn1_obj);
-
-    /* Write the key size */
-    record->subject_public_key_size = pubkey_length << 3;
-
-    if (nid == NID_undef) {
-        /*
-         * The NID is unknown, so instead we will copy the OID.
-         * The OID can be looked-up online to find the name.
-         */
-        OBJ_obj2txt(record->subject_public_key_algorithm,
-                    MAX_OPENSSL_STRING, algorithm_asn1_obj, 1);
-        /* Ensure null-termination */
-        record->subject_public_key_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
-    } else {
-        pubkey_alg_str = OBJ_nid2ln(nid);
-        /* Copy the public key algorithm string */
-        strncpy(record->subject_public_key_algorithm, pubkey_alg_str,
-                MAX_OPENSSL_STRING);
-        /* Ensure null-termination */
-        record->subject_public_key_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
-    }
-
-    return 0;
-}
-
-/**
- * \fn int tls_x509_get_signature_algorithm(X509 *cert,
- *                                          struct tls_certificate *record)
- *
- * \brief Extract the signature algorithm type out of a X509 certificate.
- *
- * \param cert OpenSSL X509 certificate structure.
- * \param record Destination tls_certificate structure
- *               that will be written into.
- *
- * \return 0 for success, 1 for failure
- */
-static int tls_x509_get_signature_algorithm(X509 *cert,
-                                            struct tls_certificate *record) {
-    ASN1_OBJECT *sig_alg_asn1_obj = NULL;
-    const char *sig_alg_str = NULL;
-    int nid = 0;
+    /* Get the key type */
+    key_type = EVP_PKEY_base_id(evp_pubkey);
 
     /*
-     * Get the signature algorithm asn1_object
-     * directly out of the X509 struct.
+     * Get the key size
      */
-    sig_alg_asn1_obj = cert->sig_alg->algorithm;
-    if (sig_alg_asn1_obj == NULL) {
-        joy_log_err("problem getting signature algorithm");
-        return 1;
-    }
+    record->subject_public_key_size = EVP_PKEY_bits(evp_pubkey);
 
-    /* Get the NID of the asn1_object */
-    nid = OBJ_obj2nid(sig_alg_asn1_obj);
+    /* 
+     * Get the algorithm type string
+     */
+    alg_str = OBJ_nid2ln(key_type);
+    strncpy(record->subject_public_key_algorithm, alg_str, MAX_OPENSSL_STRING);
+    /* Ensure null-termination */
+    record->subject_public_key_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
 
-    if (nid == NID_undef) {
-        /*
-         * The NID is unknown, so instead we will copy the OID.
-         * The OID can be looked-up online to find the name.
-         */
-        OBJ_obj2txt(record->signature_algorithm,
-                    MAX_OPENSSL_STRING, sig_alg_asn1_obj, 1);
-        /* Ensure null-termination */
-        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
-    } else {
-        sig_alg_str = OBJ_nid2ln(nid);
-        strncpy(record->signature_algorithm, sig_alg_str,
-                MAX_OPENSSL_STRING);
-        /* Ensure null-termination */
-        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
+    if (evp_pubkey) {
+        EVP_PKEY_free(evp_pubkey);
     }
 
     return 0;
@@ -959,17 +914,43 @@ static int tls_x509_get_signature_algorithm(X509 *cert,
  */
 static int tls_x509_get_signature(X509 *cert,
                                   struct tls_certificate *record) {
+    int sig_length = 0;
+    const char *alg_str = NULL;
+    int nid = 0;
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     ASN1_BIT_STRING *sig = NULL;
     unsigned char *sig_str = NULL;
-    int sig_length = 0;
+    X509_ALGOR *alg = NULL;
+    ASN1_OBJECT *alg_asn1_obj = NULL;
+#else
+    const ASN1_BIT_STRING *sig = NULL;
+    const unsigned char *sig_str = NULL;
+    const X509_ALGOR *alg = NULL;
+    const ASN1_OBJECT *alg_asn1_obj = NULL;
+#endif
 
-    sig = cert->signature;
+
+    X509_get0_signature(&sig, &alg, cert);
+
     if (sig == NULL) {
         joy_log_err("problem getting signature");
         return 1;
     }
 
+    if (alg == NULL) {
+        joy_log_err("problem getting signature algorithm");
+        return 1;
+    }
+
+    /*
+     * Get the signature
+     */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     sig_str = ASN1_STRING_data(sig);
+#else
+    sig_str = ASN1_STRING_get0_data(sig);
+#endif
+
     sig_length = ASN1_STRING_length(sig);
 
     if (sig_length > 512) {
@@ -987,6 +968,39 @@ static int tls_x509_get_signature(X509 *cert,
     record->signature = malloc(sig_length);
     memcpy(record->signature, sig_str, sig_length);
     record->signature_length = sig_length;
+
+    /*
+     * Get the signature algorithm
+     */
+    X509_ALGOR_get0(&alg_asn1_obj, NULL, NULL, alg);
+    if (alg_asn1_obj == NULL) {
+        joy_log_err("problem getting signature algorithm asn1 obj");
+        return 1;
+    }
+
+    /* Get the NID of the asn1_object */
+    nid = OBJ_obj2nid(alg_asn1_obj);
+
+    if (nid == NID_undef) {
+        /*
+         * The NID is unknown, so instead we will copy the OID.
+         * The OID can be looked-up online to find the name.
+         */
+        OBJ_obj2txt(record->signature_algorithm,
+                    MAX_OPENSSL_STRING, alg_asn1_obj, 1);
+        /* Ensure null-termination */
+        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
+    } else {
+        alg_str = OBJ_nid2ln(nid);
+        strncpy(record->signature_algorithm, alg_str,
+                MAX_OPENSSL_STRING);
+        /* Ensure null-termination */
+        record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
+    }
+
+    strncpy(record->signature_algorithm, alg_str, MAX_OPENSSL_STRING);
+    /* Ensure null-termination */
+    record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
 
     return 0;
 }
@@ -1030,7 +1044,6 @@ static int tls_x509_get_extensions(X509 *cert,
         int ext_data_len = 0;
         const char *ext_name_str = NULL;
         struct tls_item_entry *cert_record_entry = &record->extensions[i];
-        int k = 0;
 
         if (i == MAX_CERT_EXTENSIONS) {
             /* Best effort, got as many as we could */
@@ -1052,23 +1065,12 @@ static int tls_x509_get_extensions(X509 *cert,
         ext_bio = BIO_new(BIO_s_mem());
 
         if (!X509V3_EXT_print(ext_bio, extension, 0, 0)) {
-            M_ASN1_OCTET_STRING_print(ext_bio, extension->value);
+            ASN1_STRING_print(ext_bio, X509_EXTENSION_get_data(extension));
         }
 
         /* Get length and pointer to memory inside of bio */
         BIO_get_mem_ptr(ext_bio, &bio_mem_ptr);
         ext_data_len = (int) bio_mem_ptr->length;
-
-        /* Find any special (json) characters and replace them */
-        for (k = 0; k < ext_data_len; k++){
-            if (bio_mem_ptr->data[k] == '\n' || bio_mem_ptr->data[k] == '\r' ||
-                bio_mem_ptr->data[k] == '\\' || bio_mem_ptr->data[k] == '"' ||
-                bio_mem_ptr->data[k] == '\b' || bio_mem_ptr->data[k] == '\f' ||
-                bio_mem_ptr->data[k] == '\t') {
-
-                bio_mem_ptr->data[k] = '.';
-            }
-        }
 
         /*
          * Prepare the extension entry in the certificate record.
@@ -1098,8 +1100,9 @@ static int tls_x509_get_extensions(X509 *cert,
         }
 
         memcpy(cert_record_entry->data, bio_mem_ptr->data, ext_data_len);
-        /* Null-terminated in case it's used as a string */
-        cert_record_entry->data[ext_data_len] = 0;
+        /* Find any special (json) characters and replace them */
+        joy_utils_convert_to_json_string((char*)cert_record_entry->data,
+                                         ext_data_len + 1);
 
         if (ext_bio) {
             BIO_free(ext_bio);
@@ -1207,10 +1210,7 @@ static void tls_server_certificate_parse (const unsigned char *data,
             /* Get extensions */
             tls_x509_get_extensions(x509_cert, certificate);
 
-            /* Get signature algorithm */
-            tls_x509_get_signature_algorithm(x509_cert, certificate);
-
-            /* Get signature */
+            /* Get signature and signature algorithm*/
             tls_x509_get_signature(x509_cert, certificate);
 
             /* Get public-key info */
@@ -1234,436 +1234,8 @@ static void tls_server_certificate_parse (const unsigned char *data,
         if (rc) {
             return;
         }
-#if 0
-        // parse serial number
-        tmp_len = (*y);
-        if (tmp_len > 50) {
-            rc = 1;
-            goto cleanup;
-        }
-        r->certificates[cur_cert].serial_number = malloc(tmp_len);
-        memcpy(r->certificates[cur_cert].serial_number, y+1, tmp_len);
-        r->certificates[cur_cert].serial_number_length = tmp_len;
-        //printf("\tserial_number: ");
-        //printf_raw_as_hex_tls(r->certificates[cur_cert].serial_number, tmp_len);
-        //printf("\n");
-        y += tmp_len+1;
-        certs_len -= tmp_len+1;
-        y += 2;
-        certs_len -= 2;
-
-        // parse signature
-        tmp_len = *(y+1);
-        if (tmp_len > 50) {
-            rc = 1;
-            goto cleanup;
-        }
-        y += 2;
-        certs_len -= 2;
-        r->certificates[cur_cert].signature = malloc(tmp_len);
-        memcpy(r->certificates[cur_cert].signature, y, tmp_len); 
-        r->certificates[cur_cert].signature_length = tmp_len;
-        //printf("\tsignature_algorithm: ");
-        //printf_raw_as_hex_tls(r->certificates[cur_cert].signature, tmp_len);
-        //printf("\n");
-        y += tmp_len;
-        certs_len -= tmp_len;
-        y += 2;
-        certs_len -= 2;
-
-        // parse issuer
-        cur_rdn = 0;
-        issuer_len = *(y+1);
-        if (issuer_len == 129) {
-            issuer_len = *(y+2);
-            y += 5;
-            certs_len -= 5;
-        } else if (issuer_len == 130) {
-            issuer_len = raw_to_unsigned_short(y+2);
-            y += 6;
-            certs_len -= 6;
-        } else {
-            y += 4;
-            certs_len -= 4;
-        }
-        while (issuer_len > 0) {
-            if (cur_rdn >= MAX_RDN) {
-	            break;
-            }
-            rdn_seq_len = *(y+1);
-            y += 2;
-            certs_len -= 2;
-            issuer_len -= 2;
-      
-            tmp_len = *(y+1);
-            //if (tmp_len > 50) {return;}
-            r->certificates[cur_cert].issuer_id[cur_rdn] = malloc(tmp_len);
-            memcpy(r->certificates[cur_cert].issuer_id[cur_rdn], y+2, tmp_len);
-            r->certificates[cur_cert].issuer_id_length[cur_rdn] = tmp_len;
-            //printf("\tissuer_id: ");
-            //printf_raw_as_hex_tls(r->certificates[cur_cert].issuer_id[cur_rdn], tmp_len);
-            //printf("\n");
-          
-            tmp_len2 = *(y+tmp_len+2+1);
-            if (tmp_len2 > 100) {
-                rc = 1;
-                goto cleanup;
-            }
-            r->certificates[cur_cert].issuer_string[cur_rdn] = malloc(tmp_len2+1);
-            memset(r->certificates[cur_cert].issuer_string[cur_rdn], '\0', tmp_len2+1);
-            memcpy(r->certificates[cur_cert].issuer_string[cur_rdn], y+tmp_len+2+2, tmp_len2);
-            //r->certificates[cur_cert].issuer_string_length[cur_rdn] = tmp_len2;
-            //printf("\tissuer_string: \"%s\"\n", (char*)r->certificates[cur_cert].issuer_string[cur_rdn]);
-
-            y += 2;
-            certs_len -= 2;
-            issuer_len -= 2;
-            y += rdn_seq_len;
-            certs_len -= rdn_seq_len;
-            issuer_len -= rdn_seq_len;
-            cur_rdn++;
-            r->certificates[cur_cert].num_issuer = cur_rdn;
-        }
-    
-        // validity_not_before
-        //	  tmp_len = *(y+1);
-    
-        //y += 2;
-        //certs_len -= 2;
-        tmp_len = *(y+1);
-        y += 2;
-        certs_len -= 2;
-        if (tmp_len > 50) {
-            rc = 1;
-            goto cleanup;
-        }
-        r->certificates[cur_cert].validity_not_before = malloc(tmp_len+1);
-        memset(r->certificates[cur_cert].validity_not_before, '\0', tmp_len+1);
-        memcpy(r->certificates[cur_cert].validity_not_before, y, tmp_len); 
-        //printf("\tvalidity_not_before: \"%s\"\n", (char *)r->certificates[cur_cert].validity_not_before);
-        y += tmp_len;
-        certs_len -= tmp_len;
-        // validity_not_after
-        tmp_len = *(y+1);
-        y += 2;
-        certs_len -= 2;
-        if (tmp_len > 50) {
-            rc = 1;
-            goto cleanup;
-        }
-        r->certificates[cur_cert].validity_not_after = malloc(tmp_len+1);
-        memset(r->certificates[cur_cert].validity_not_after, '\0', tmp_len+1);
-        memcpy(r->certificates[cur_cert].validity_not_after, y, tmp_len); 
-        //printf("\tvalidity_not_after: \"%s\"\n", (char *)r->certificates[cur_cert].validity_not_after);
-        y += tmp_len;
-        certs_len -= tmp_len;
-
-        // parse subject
-        cur_rdn = 0;
-        subject_len = *(y+1);
-        if (subject_len == 129) {
-          subject_len = *(y+2);
-          y += 5;
-          certs_len -= 5;
-        } else if (subject_len == 130) {
-          subject_len = raw_to_unsigned_short(y+2);
-          y += 6;
-          certs_len -= 6;
-        } else {
-          y += 4;
-          certs_len -= 4;
-        }
-    
-        while (subject_len > 0) {
-            if (cur_rdn >= MAX_RDN) {
-	            break;
-            }
-            rdn_seq_len = *(y+1);
-            y += 2;
-            certs_len -= 2;
-            subject_len -= 2;
-      
-            tmp_len = *(y+1);
-            if (tmp_len > 150) {
-                rc = 1;
-                goto cleanup;
-            }
-            r->certificates[cur_cert].subject_id[cur_rdn] = malloc(tmp_len);
-            memcpy(r->certificates[cur_cert].subject_id[cur_rdn], y+2, tmp_len);
-            r->certificates[cur_cert].subject_id_length[cur_rdn] = tmp_len;
-            //printf("\tsubject_id: ");
-            //printf_raw_as_hex_tls(r->certificates[cur_cert].subject_id[cur_rdn], tmp_len);
-            //printf("\n");
-      
-            tmp_len2 = *(y+tmp_len+2+1);
-            //if (tmp_len2 > 50) {return;}
-            r->certificates[cur_cert].subject_string[cur_rdn] = malloc(tmp_len2+1);
-            memset(r->certificates[cur_cert].subject_string[cur_rdn], '\0', tmp_len2+1);
-            memcpy(r->certificates[cur_cert].subject_string[cur_rdn], y+tmp_len+2+2, tmp_len2);
-            //printf("\tsubject_string: \"%s\"\n", (char*)r->certificates[cur_cert].subject_string[cur_rdn]);
-
-            y += 2;
-            certs_len -= 2;
-            subject_len -= 2;
-            y += rdn_seq_len;
-            certs_len -= rdn_seq_len;
-            subject_len -= rdn_seq_len;
-            cur_rdn++;
-            r->certificates[cur_cert].num_subject = cur_rdn;
-        }
-    
-        //printf("\tNext Three Bytes: ");
-        //printf_raw_as_hex_tls(y, 3);
-        //printf("\n");
-    
-        // parse subject public key info
-        if (*(y+1) == 48) {
-            y += 3;
-            certs_len -= 3;
-        } else {
-            y += 4;
-            certs_len -= 4;
-        }
-        tmp_len = *(y+1);
-        y += 2;
-        certs_len -= 2;
-        if (tmp_len > 50) {
-            rc = 1;
-            goto cleanup;
-        }
-        r->certificates[cur_cert].subject_public_key_algorithm = malloc(tmp_len);
-        memcpy(r->certificates[cur_cert].subject_public_key_algorithm, y, tmp_len); 
-        r->certificates[cur_cert].subject_public_key_algorithm_length = tmp_len;
-        //printf("\tsubject_public_key_algorithm: ");
-        //printf_raw_as_hex_tls(r->certificates[cur_cert].subject_public_key_algorithm, tmp_len);
-        //printf("\n");
-        y += tmp_len;
-        certs_len -= tmp_len;
-        y += 2;
-        certs_len -= 2;
-    
-        if (*(y+1) == 129) {
-            tmp_len = *(y+2);
-            r->certificates[cur_cert].subject_public_key_size = (tmp_len-13)*8;
-            //printf("\tsubject_public_key_size: %i\n", (tmp_len-13)*8);
-            //tmp_len -= 13;
-            y += tmp_len+3;
-            certs_len -= tmp_len+3;
-        } else if (*(y+1) == 130) {
-            tmp_len = raw_to_unsigned_short(y+2);
-            r->certificates[cur_cert].subject_public_key_size = (tmp_len-15)*8;
-            //printf("\tsubject_public_key_size: %i\n", (tmp_len-15)*8);
-            //tmp_len -= 15;
-            y += tmp_len+4;
-            certs_len -= tmp_len+4;	    
-        } else {
-            break ;
-        }
-    
-    
-        // optional: parse extensions
-        if (*y == 163) {
-            if (*(y+1) == 130) {
-	            y += 5;
-	            certs_len -= 5;
-            } else if (*(y+1) == 129) {
-	            y += 4;
-	            certs_len -= 4;
-            }
-      
-            if (*y == 130) {
-	            ext_len = raw_to_unsigned_short(y+1);
-	            y += 3;
-	            certs_len -= 3;
-            } else if (*y == 129) {
-	            ext_len = *(y+1);
-	            y += 2;
-	            certs_len -= 2;
-            } else {
-	            ext_len = *y;
-	            y += 2;
-	            certs_len -= 2;
-            }
-            cur_ext = 0;
-            while (ext_len > 0) {
-	            if (cur_ext >= MAX_CERT_EXTENSIONS) {
-	                break ;
-	            }
-	            if (certs_len <= 10) {
-	                break;
-            	}
-	            tmp_len2 = *(y+1);
-	            if (tmp_len2 == 130) {
-	                tmp_len2 = raw_to_unsigned_short(y+2);
-	                y += 4;
-	                certs_len -= 4;
-	                ext_len -= 4;		
-	            } else if (tmp_len2 == 129) {
-	                tmp_len2 = *(y+2);
-	                y += 3;
-	                certs_len -= 3;
-	                ext_len -= 3;
-	            } else {
-	                y += 2;
-	                certs_len -= 2;
-	                ext_len -= 2;
-	            }
-	
-	            // check for extension-specific parsing
-	            hi = *(y+2);
-	            mid = *(y+3);
-	            lo = *(y+4);
-	            if ((hi == 85) && (mid == 29) && (lo == 17)) { // parse SAN
-	                tmp_len = *(y+1);
-	                tmp_len2 = tmp_len2-tmp_len-2;
-
-	                if (*(y+6) == 129) {
-	                    tls_san_parse(y+tmp_len+2+4+2, tmp_len2-4-2, &r->certificates[cur_cert]);
-	                } else {
-	                    tls_san_parse(y+tmp_len+2+4, tmp_len2-4, &r->certificates[cur_cert]);
-	                }
-	  
-	                y += tmp_len2+tmp_len+2;
-	                certs_len -= tmp_len2+tmp_len+2;
-	                ext_len -= tmp_len2+tmp_len+2;
-	            } else { // general purpose ext parsing
-	                tmp_len = *(y+1);
-  
-	                if (tmp_len == 130) {
-	                    //tmp_len = *(y+2);
-	                    tmp_len = raw_to_unsigned_short(y+2);
-	                    y += 2;
-	                    certs_len -= 2;
-	                    ext_len -= 2;		
-	                } else if (tmp_len == 129) {
-	                    tmp_len = *(y+2);
-	                    y += 1;
-	                    certs_len -= 1;
-	                    ext_len -= 1;
-	                } else {
-	                }
-	  
-	                if (tmp_len > 20 || tmp_len < 3 || tmp_len2-tmp_len-2 <= 0) {
-	                    break;
-	                }
-
-	                //if (tmp_len > 50) {return;}
-	                r->certificates[cur_cert].ext_id[cur_ext] = malloc(tmp_len);
-	                memcpy(r->certificates[cur_cert].ext_id[cur_ext], y+2, tmp_len);
-	                r->certificates[cur_cert].ext_id_length[cur_ext] = tmp_len;
-
-	                //printf("\text_id: ");
-	                //printf_raw_as_hex_tls(r->certificates[cur_cert].ext_id[cur_ext], tmp_len);
-	                //printf("\n");
-	  
-	                //printf("%i\n",tmp_len);
-	                //printf("%i\n",tmp_len2);
-	                //printf("%i\n",certs_len);
-	                //printf("%i\n",ext_len);
-	                //printf("\n");
-
-	                tmp_len2 = tmp_len2-tmp_len-2;
-	                //if (tmp_len2 > 50) {return;}
-	                r->certificates[cur_cert].ext_data[cur_ext] = malloc(tmp_len2);
-	                //memset(r->certificates[cur_cert].ext_data[cur_ext], 0, tmp_len2);
-	                memcpy(r->certificates[cur_cert].ext_data[cur_ext], y+tmp_len+2, tmp_len2);
-	                r->certificates[cur_cert].ext_data_length[cur_ext] = tmp_len2;
-	                //printf("\text_data: ");
-	                //printf_raw_as_hex_tls(r->certificates[cur_cert].ext_data[cur_ext], tmp_len2);
-	                //printf("\n");
-	  
-	                cur_ext++;
-	                r->certificates[cur_cert].num_ext = cur_ext;
-	                y += tmp_len2+tmp_len+2;
-	                certs_len -= tmp_len2+tmp_len+2;
-	                ext_len -= tmp_len2+tmp_len+2;
-	            }
-            }	    
-        }
-    
-        // parse signature key size
-        tmp_len = *(y+1);
-        y += tmp_len+2;
-        certs_len -= tmp_len+2;
-
-        if (*(y+1) == 129) {
-            tmp_len = *(y+2);
-            //printf("\tsignature_key_size: %i\n", (tmp_len-1)*8);
-            y += tmp_len+3;
-            certs_len -= tmp_len+3;
-        } else if (*(y+1) == 130) {
-            tmp_len = raw_to_unsigned_short(y+2);
-            //r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
-            //printf("\tsignature_key_size: %i\n", (tmp_len-1)*8);
-            y += tmp_len+4;
-            certs_len -= tmp_len+4;	    
-        } else {
-            break ;
-        }
-
-        // still not parsing unique identifiers
-        //if ((tmp_len-1)*8 != 1024 || (tmp_len-1)*8 != 2048 || (tmp_len-1)*8 != 512) {
-              //break;
-        //}
-
-        r->certificates[cur_cert].signature_key_size = (tmp_len-1)*8;
-    
-        //certs_len -= cert_len;
-        //printf("\n");
-        //break;
-#endif
     }
 }
-
-#if 0
-static void tls_san_parse (const void *x, int len, struct tls_certificate *r) {
-    unsigned short num_san = 0;
-    unsigned short tmp_len;
-    const unsigned char *y = x;
-    int i;
-
-    while (len > 0) {
-        if (num_san >= MAX_SAN) {
-            break;
-        }
-        tmp_len = *(y+1);
-
-        if (tmp_len == 0) {
-            break;
-        }
-
-        if (tmp_len > 50) {
-            break;
-        }
-
-        r->san[num_san] = malloc(tmp_len+1);
-        memset((void*)r->san[num_san], '\0', tmp_len+1);
-        //((char *)r->san[num_san])[tmp_len] = '\0';
-        memcpy((void*)r->san[num_san], y+2, tmp_len);
-
-        //printf("%s\n",r->san[num_san]);
-        //printf("%i\n",tmp_len);
-
-        for (i = 0; i < tmp_len; i++) {
-            if (*(char *)(r->san[num_san]+i) < 48 || *(char *)(r->san[num_san]+i) > 126 ||
-	            (*(char *)(r->san[num_san]+i) > 90 && *(char *)(r->san[num_san]+i) < 97) ||
-	            (*(char *)(r->san[num_san]+i) > 57 && *(char *)(r->san[num_san]+i) < 65) ) {
-	            if (*(char *)(r->san[num_san]+i) == 42) {
-	                continue;
-	            }
-	            memset(r->san[num_san]+i, '.', 1);
-            }
-        }
-
-        //printf("%s\n\n",r->san[num_san]);
-
-        num_san += 1;
-        y += tmp_len+2;
-        len -= tmp_len+2;
-    }
-    r->num_san = num_san;
-}
-#endif
 
 /**
  * \fn void tls_server_hello_get_ciphersuite (const void *x,
@@ -2064,28 +1636,6 @@ static int tls_client_fingerprint_match(struct tls_information *tls_info,
     return 0;
 }
 
-#if 0
-static unsigned int packet_is_sslv2_hello (const void *data) {
-    const unsigned char *d = data;
-    unsigned char b[3];
-  
-    b[0] = d[0];
-    b[1] = d[1];
-    b[2] = d[2];
-
-    if (b[0] & 0x80) {
-        b[0] &= 0x7F;
-        if (raw_to_unsigned_short(b) > 9) {
-            if (b[2] == 0x01) {
-	            return tls_sslv2;
-            }
-        }    
-    }
-
-    return tls_unknown;
-}
-#endif
-
 static int tls_version_to_internal(unsigned char major,
                                    unsigned char minor) {
     int internal_version = 0;
@@ -2193,14 +1743,6 @@ void tls_update (struct tls_information *r,
     /* TODO Should have a more robust way to deal with "large" packets */
     if (len > 6000 || len == 0) {
         return;
-    }
-
-    /* Allocate TLS info struct if needed and initialize */
-    if (r == NULL) {
-        r = malloc(sizeof(struct tls_information));
-        if (r != NULL) {
-            tls_init(r);
-        }
     }
 
     /* Cast beginning of payload to a tls_header */
@@ -2511,25 +2053,6 @@ static int tls_header_version_capture (struct tls_information *tls_info,
 
     return 0;
 }
-
-#if 0
-static void printf_raw_as_hex_tls (const void *data, unsigned int len) {
-    const unsigned char *x = data;
-    const unsigned char *end = data + len;
-
-    if (data == NULL) { /* special case for nfv9 TLS export */
-        printf("\"");   /* quotes needed for JSON */
-        printf("\"");
-        return ;
-    }
-  
-    printf("\"");   /* quotes needed for JSON */
-    while (x < end) {
-        printf("%02x", *x++);
-    }
-    printf("\"");
-}
-#endif
 
 static void zprintf_raw_as_hex_tls (zfile f, const unsigned char *data, unsigned int len) {
     const unsigned char *x = data;
@@ -2958,12 +2481,10 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     }
     
     if (data->validity_not_before) {
-        zprintf(f, ",\"validity_not_before\":");
-        zprintf_raw_as_hex_tls(f, data->validity_not_before, data->validity_not_before_length);
+        zprintf(f, ",\"validity_not_before\": \"%s\"", data->validity_not_before);
     }
     if (data->validity_not_after) {
-        zprintf(f, ",\"validity_not_after\":");
-        zprintf_raw_as_hex_tls(f, data->validity_not_after, data->validity_not_after_length);
+        zprintf(f, ",\"validity_not_after\": \"%s\"", data->validity_not_after);
     }
     
     if (*data->subject_public_key_algorithm) {
@@ -2981,41 +2502,41 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
  * \return 0 for success, otherwise number of failures
  */
 static int tls_test_client_fingerprint_match() {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     int num_fails = 0;
 
     tls_init(&record);
 
-    record.num_ciphersuites = 20;
-    record.num_tls_extensions = 1;
+    record->num_ciphersuites = 20;
+    record->num_tls_extensions = 1;
 
     /* Known ciphersuites */
-    record.ciphersuites[0] = 0x0039;
-    record.ciphersuites[1] = 0x0038;
-    record.ciphersuites[2] = 0x0035;
-    record.ciphersuites[3] = 0x0016;
-    record.ciphersuites[4] = 0x0013;
-    record.ciphersuites[5] = 0x000a;
-    record.ciphersuites[6] = 0x0033;
-    record.ciphersuites[7] = 0x0032;
-    record.ciphersuites[8] = 0x002f;
-    record.ciphersuites[9] = 0x0007;
-    record.ciphersuites[10] = 0x0005;
-    record.ciphersuites[11] = 0x0004;
-    record.ciphersuites[12] = 0x0015;
-    record.ciphersuites[13] = 0x0012;
-    record.ciphersuites[14] = 0x0009;
-    record.ciphersuites[15] = 0x0014;
-    record.ciphersuites[16] = 0x0011;
-    record.ciphersuites[17] = 0x0008;
-    record.ciphersuites[18] = 0x0006;
-    record.ciphersuites[19] = 0x0003;
+    record->ciphersuites[0] = 0x0039;
+    record->ciphersuites[1] = 0x0038;
+    record->ciphersuites[2] = 0x0035;
+    record->ciphersuites[3] = 0x0016;
+    record->ciphersuites[4] = 0x0013;
+    record->ciphersuites[5] = 0x000a;
+    record->ciphersuites[6] = 0x0033;
+    record->ciphersuites[7] = 0x0032;
+    record->ciphersuites[8] = 0x002f;
+    record->ciphersuites[9] = 0x0007;
+    record->ciphersuites[10] = 0x0005;
+    record->ciphersuites[11] = 0x0004;
+    record->ciphersuites[12] = 0x0015;
+    record->ciphersuites[13] = 0x0012;
+    record->ciphersuites[14] = 0x0009;
+    record->ciphersuites[15] = 0x0014;
+    record->ciphersuites[16] = 0x0011;
+    record->ciphersuites[17] = 0x0008;
+    record->ciphersuites[18] = 0x0006;
+    record->ciphersuites[19] = 0x0003;
 
     /* Known extensions */
-    record.tls_extensions[0].type = 0x0023;
+    record->tls_extensions[0].type = 0x0023;
 
-    tls_client_fingerprint_match(&record, 100);
-    if (record.tls_fingerprint == NULL) {
+    tls_client_fingerprint_match(record, 100);
+    if (record->tls_fingerprint == NULL) {
         joy_log_err("could not match known fingerprint");
         num_fails++;
     }
@@ -3040,16 +2561,16 @@ static int tls_test_certificate_parsing() {
     for (i = 0; i < num_test_cert_files; i++) {
         FILE *fp = NULL;
         X509 *cert = NULL;
-        struct tls_information tmp_tls_record;
+        struct tls_information *tmp_tls_record = NULL;
         struct tls_certificate *cert_record = NULL;
         const char *filename = test_cert_filenames[i];
 
         /* Preprare the temporary record */
         tls_init(&tmp_tls_record);
-        cert_record = &tmp_tls_record.certificates[0];
-        tmp_tls_record.num_certificates++;
+        cert_record = &tmp_tls_record->certificates[0];
+        tmp_tls_record->num_certificates++;
 
-        fp = joy_utils_open_resource_file(filename);
+        fp = joy_utils_open_test_file(filename);
         if (!fp) {
             joy_log_err("unable to open %s", filename);
             num_fails++;
@@ -3256,26 +2777,21 @@ static int tls_test_certificate_parsing() {
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
-                uint16_t known_not_before_length = 13;
-                uint16_t known_not_after_length = 13;
+                uint16_t known_not_before_length = 24;
+                uint16_t known_not_after_length = 24;
                 int failed = 0;
 
-                unsigned char known_not_before[] = {
-                    0x31, 0x37, 0x30, 0x33, 0x33, 0x31, 0x31, 0x38,
-                    0x32, 0x38, 0x33, 0x35, 0x5a
-                };
+                char *known_not_before = "Mar 31 18:28:35 2017 GMT";
 
-                unsigned char known_not_after[] = {
-                    0x31, 0x38, 0x30, 0x33, 0x33, 0x31, 0x31, 0x38,
-                    0x32, 0x38, 0x33, 0x35, 0x5a
-                };
+                char *known_not_after = "Mar 31 18:28:35 2018 GMT";
 
                 if (cert_record->validity_not_before_length != known_not_before_length) {
                     joy_log_err("not_before length does not match");
                     failed = 1;
                 }
 
-                if (memcmp(cert_record->validity_not_before, known_not_before, known_not_before_length)) {
+                if (strncmp((char*)cert_record->validity_not_before, known_not_before,
+                            known_not_before_length)) {
                     joy_log_err("not_before data does not match");
                     failed = 1;
                 }
@@ -3285,7 +2801,8 @@ static int tls_test_certificate_parsing() {
                     failed = 1;
                 }
 
-                if (memcmp(cert_record->validity_not_after, known_not_after, known_not_after_length)) {
+                if (strncmp((char*)cert_record->validity_not_after, known_not_after,
+                            known_not_after_length)) {
                     joy_log_err("not_after data does not match");
                     failed = 1;
                 }
@@ -3413,31 +2930,6 @@ static int tls_test_certificate_parsing() {
         }
 
         /*************************************
-         * Test signature algorithm
-         ************************************/
-        if (tls_x509_get_signature_algorithm(cert, cert_record)) {
-            joy_log_err("fail, tls_x509_get_signature_algorithm - %s", filename);
-            num_fails++;
-        } else {
-            if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
-                /* We are using the dummy_rsa2048 for this case */
-                char *known_signature_algorithm = "sha256WithRSAEncryption";
-                int failed = 0;
-
-                if (strncmp(cert_record->signature_algorithm, known_signature_algorithm, MAX_OPENSSL_STRING)) {
-                    joy_log_err("signature algorithm does not match");
-                    failed = 1;
-                }
-
-                if (failed){
-                    /* There was at least one case that threw error */
-                    joy_log_err("fail, tls_x509_get_signature_algorithm - %s", filename);
-                    num_fails++;
-                }
-            }
-        }
-
-        /*************************************
          * Test signature
          ************************************/
         if (tls_x509_get_signature(cert, cert_record)) {
@@ -3448,6 +2940,7 @@ static int tls_test_certificate_parsing() {
                 /* We are using the dummy_rsa2048 for this case */
                 uint16_t known_signature_length = 256;
                 uint16_t known_signature_key_size = 2048;
+                char *known_signature_algorithm = "sha256WithRSAEncryption";
                 int failed = 0;
 
                 unsigned char known_signature[] = {
@@ -3500,6 +2993,11 @@ static int tls_test_certificate_parsing() {
                     failed = 1;
                 }
 
+                if (strncmp(cert_record->signature_algorithm, known_signature_algorithm, MAX_OPENSSL_STRING)) {
+                    joy_log_err("signature algorithm does not match");
+                    failed = 1;
+                }
+
                 if (failed){
                     /* There was at least one case that threw error */
                     joy_log_err("fail, tls_x509_get_signature - %s", filename);
@@ -3518,7 +3016,7 @@ static int tls_test_certificate_parsing() {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
                 char *known_public_key_algorithm = "rsaEncryption";
-                uint16_t known_public_key_size = 2160;
+                uint16_t known_public_key_size = 2048;
                 int failed = 0;
 
                 if (cert_record->subject_public_key_size != known_public_key_size) {
@@ -3599,7 +3097,7 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
 static int tls_test_extract_client_hello(const unsigned char *data,
                                          unsigned int data_len,
                                          char *filename) {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     const struct tls_header *tls_hdr = NULL;
     const unsigned char *body = NULL;
     unsigned int body_len = 0;
@@ -3617,9 +3115,9 @@ static int tls_test_extract_client_hello(const unsigned char *data,
         goto end;
     }
 
-    tls_handshake_hello_get_version(&record, body);
-    tls_client_hello_get_ciphersuites(body, body_len, &record);
-    tls_client_hello_get_extensions(body, body_len, &record);
+    tls_handshake_hello_get_version(record, body);
+    tls_client_hello_get_ciphersuites(body, body_len, record);
+    tls_client_hello_get_extensions(body, body_len, record);
 
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         unsigned short known_ciphersuites_count = 15;
@@ -3695,19 +3193,19 @@ static int tls_test_extract_client_hello(const unsigned char *data,
         known_extensions[10].data = calloc(known_extensions[10].length, sizeof(unsigned char));
         memcpy(known_extensions[10].data, kat_data_10, known_extensions[10].length);
 
-        if (record.num_ciphersuites != known_ciphersuites_count) {
+        if (record->num_ciphersuites != known_ciphersuites_count) {
             joy_log_err("ciphersuites count does not match")
             failed = 1;
         } else {
             for (i = 0; i < known_ciphersuites_count; i++) {
-                if (record.ciphersuites[i] != known_ciphersuites[i]) {
+                if (record->ciphersuites[i] != known_ciphersuites[i]) {
                     joy_log_err("ciphersuite[%d] does not match", i)
                     failed = 1;
                 }
             }
         }
 
-        if (record.num_tls_extensions != known_extensions_count) {
+        if (record->num_tls_extensions != known_extensions_count) {
             joy_log_err("extensions count does not match")
             failed = 1;
         } else {
@@ -3715,18 +3213,18 @@ static int tls_test_extract_client_hello(const unsigned char *data,
                 /*
                  * KAT
                  */
-                if (known_extensions[i].type != record.tls_extensions[i].type) {
+                if (known_extensions[i].type != record->tls_extensions[i].type) {
                     joy_log_err("extension[%d] type does not match", i)
                     failed = 1;
                 }
 
-                if (known_extensions[i].length != record.tls_extensions[i].length) {
+                if (known_extensions[i].length != record->tls_extensions[i].length) {
                     joy_log_err("extension[%d] length does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].data) {
-                    if (memcmp(known_extensions[i].data, record.tls_extensions[i].data,
+                    if (memcmp(known_extensions[i].data, record->tls_extensions[i].data,
                                known_extensions[i].length)) {
                         joy_log_err("extension[%d] data does not match", i)
                         failed = 1;
@@ -3754,7 +3252,7 @@ end:
 static int tls_test_extract_server_hello(const unsigned char *data,
                                          unsigned int data_len,
                                          const char *filename) {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     const struct tls_header *tls_hdr = NULL;
     const unsigned char *body = NULL;
     unsigned int body_len = 0;
@@ -3772,9 +3270,9 @@ static int tls_test_extract_server_hello(const unsigned char *data,
         goto end;
     }
 
-    tls_handshake_hello_get_version(&record, body);
-    tls_server_hello_get_ciphersuite(body, body_len, &record);
-    tls_server_hello_get_extensions(body, body_len, &record);
+    tls_handshake_hello_get_version(record, body);
+    tls_server_hello_get_ciphersuite(body, body_len, record);
+    tls_server_hello_get_extensions(body, body_len, record);
 
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         unsigned short known_extensions_count = 5;
@@ -3811,12 +3309,12 @@ static int tls_test_extract_server_hello(const unsigned char *data,
         known_extensions[4].data = calloc(known_extensions[4].length, sizeof(unsigned char));
         memcpy(known_extensions[4].data, kat_data_4, known_extensions[4].length);
 
-        if (record.ciphersuites[0] != known_ciphersuite) {
+        if (record->ciphersuites[0] != known_ciphersuite) {
             joy_log_err("ciphersuite does not match")
             failed = 1;
         }
 
-        if (record.num_server_tls_extensions != known_extensions_count) {
+        if (record->num_server_tls_extensions != known_extensions_count) {
             joy_log_err("extensions count does not match")
             failed = 1;
         } else {
@@ -3824,18 +3322,18 @@ static int tls_test_extract_server_hello(const unsigned char *data,
                 /*
                  * KAT
                  */
-                if (known_extensions[i].type != record.server_tls_extensions[i].type) {
+                if (known_extensions[i].type != record->server_tls_extensions[i].type) {
                     joy_log_err("extension[%d] type does not match", i)
                     failed = 1;
                 }
 
-                if (known_extensions[i].length != record.server_tls_extensions[i].length) {
+                if (known_extensions[i].length != record->server_tls_extensions[i].length) {
                     joy_log_err("extension[%d] length does not match", i)
                     failed = 1;
                 }
 
                 if (known_extensions[i].data) {
-                    if (memcmp(known_extensions[i].data, record.server_tls_extensions[i].data,
+                    if (memcmp(known_extensions[i].data, record->server_tls_extensions[i].data,
                                known_extensions[i].length)) {
                         joy_log_err("extension[%d] data does not match", i)
                         failed = 1;
@@ -3869,7 +3367,7 @@ static int tls_test_initial_handshake() {
     char *filename = "sample_tls12_handshake_0.pcap";
     int num_fails = 0;
 
-    pcap_handle = joy_utils_open_resource_pcap(filename);
+    pcap_handle = joy_utils_open_test_pcap(filename);
     if (!pcap_handle) {
         joy_log_err("fail, unable to open %s", filename);
         num_fails++;
@@ -3904,7 +3402,7 @@ end:
  * \return 0 for success, otherwise number of failures
  */
 static int tls_test_handshake_hello_get_version() {
-    struct tls_information record;
+    struct tls_information *record = NULL;
     unsigned char ssl_v3[] = {0x03, 0x00};
     unsigned char tls_1_0[] = {0x03, 0x01};
     unsigned char tls_1_1[] = {0x03, 0x02};
@@ -3914,32 +3412,32 @@ static int tls_test_handshake_hello_get_version() {
 
     tls_init(&record);
 
-    tls_handshake_hello_get_version(&record, ssl_v3);
-    if (record.tls_v != TLS_VERSION_SSLV3) {
+    tls_handshake_hello_get_version(record, ssl_v3);
+    if (record->tls_v != TLS_VERSION_SSLV3) {
         joy_log_err("fail, sslv3 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_0);
-    if (record.tls_v != TLS_VERSION_1_0) {
+    tls_handshake_hello_get_version(record, tls_1_0);
+    if (record->tls_v != TLS_VERSION_1_0) {
         joy_log_err("fail, tls 1.0 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_1);
-    if (record.tls_v != TLS_VERSION_1_1) {
+    tls_handshake_hello_get_version(record, tls_1_1);
+    if (record->tls_v != TLS_VERSION_1_1) {
         joy_log_err("fail, tls 1.1 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_2);
-    if (record.tls_v != TLS_VERSION_1_2) {
+    tls_handshake_hello_get_version(record, tls_1_2);
+    if (record->tls_v != TLS_VERSION_1_2) {
         joy_log_err("fail, tls 1.2 version capture");
         num_fails++;
     }
 
-    tls_handshake_hello_get_version(&record, tls_1_3);
-    if (record.tls_v != TLS_VERSION_1_3) {
+    tls_handshake_hello_get_version(record, tls_1_3);
+    if (record->tls_v != TLS_VERSION_1_3) {
         joy_log_err("fail, tls 1.3 version capture");
         num_fails++;
     }

@@ -2,7 +2,7 @@
 #
 # Top Level Makefile for the joy open source binaries
 #
-# Copyright (c) 2016 Cisco Systems
+# Copyright (c) 2017 Cisco Systems
 
 ##
 # variables
@@ -98,7 +98,8 @@ man: $(DOCDIR)/joy.1
 ##
 clean:
 	rm -f cscope.out cscope.files
-	rm -f "$(DOCDIR)/joy.txt"
+	rm -f $(DOCDIR)/joy.txt
+	find . -name '*.pyc' -delete
 	@cd src; $(MAKE) clean
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 
@@ -113,5 +114,8 @@ clobber: clean
 ##
 install: $(BINDIR)/joy $(BINDIR)/unit_test test
 	./install/install-sh
+ 
+pkg: $(BINDIR)/joy $(BINDIR)/unit_test test
+	./install/install-sh -r $(BUILDROOT) -p $(DESTDIR)
 
 # EOF

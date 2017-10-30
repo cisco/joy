@@ -266,7 +266,6 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             old_val = tmp_packet_length;
             if (pkt_len_index < MAX_NUM_PKT_LEN) {
 	        nf_record->pkt_len[pkt_len_index] = tmp_packet_length;
-	        nf_record->ob += tmp_packet_length;
 	        pkt_len_index++;
             } else {
 	        break;
@@ -284,7 +283,6 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             for (k = 0; k < repeated_length; k++) {
 	        if (pkt_len_index < MAX_NUM_PKT_LEN) {
 	            nf_record->pkt_len[pkt_len_index] = old_val;
-	            nf_record->ob += old_val;
 	            pkt_len_index++;
 	        } else {
 	            break;
@@ -292,6 +290,44 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
             }
         }
     }
+}
+
+/*
+ * @brief Process the flow's absolute start or ending time in milliseconds.
+ *
+ * @param flow_data Contains the exported start/end flow time.
+ * @param nf_record NFV9 flow record being encoded.
+ * @param flag_end Signals whether the end or start time is being encoded.
+ *        0 for start, 1 for end, anything else is invalid.
+ *
+ * @return 0 for success, 1 for failure
+ */
+static int nfv9_process_flow_time_milli(const void *flow_data,
+                                        struct flow_record *nf_record,
+                                        int flag_end) {
+    struct timeval *time;
+
+    switch (flag_end) {
+        case 0:
+            time = &nf_record->start;
+            break;
+        case 1:
+            time = &nf_record->end;
+            break;
+        default:
+            joy_log_err("invalid value for flag_end, must be 0 or 1");
+            return 1;
+    }
+
+    if (time->tv_sec + time->tv_usec == 0) {
+        time->tv_sec =
+            (time_t)((uint32_t)(ntoh64(*(const uint64_t *)flow_data) / 1000));
+
+        time->tv_usec =
+            (time_t)((uint32_t)ntoh64(*(const uint64_t *)flow_data) % 1000)*1000;
+    }
+
+    return 0;
 }
 
 /**
@@ -440,6 +476,10 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
         switch (htons(cur_template->fields[i].FieldType)) {
+            case IN_BYTES:
+                nf_record->ob += (unsigned int)ntoh64(*(const uint64_t *)flow_data);
+                flow_data += htons(cur_template->fields[i].FieldLength);
+                break;
             case IN_PKTS:
                 if (record_num == 0) {
 	            if (htons(cur_template->fields[i].FieldLength) == 4) {
@@ -468,6 +508,16 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
+            case NFV9_FLOW_START_MILLISECONDS:
+                nfv9_process_flow_time_milli(flow_data, nf_record, 0);
+
+                flow_data += htons(cur_template->fields[i].FieldLength);
+                break;
+            case NFV9_FLOW_END_MILLISECONDS:
+                nfv9_process_flow_time_milli(flow_data, nf_record, 1);
+
+                flow_data += htons(cur_template->fields[i].FieldLength);
+                break;
             case TLS_SRLT:
                 total_ms = 0;
                 for (j = 0; j < 20; j++) {
@@ -475,14 +525,14 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	                break;
 	            }
 
-	            nf_record->tls_info->tls_len[j] = htons(*(const unsigned short *)(flow_data+j*2));
-	            nf_record->tls_info->tls_time[j].tv_sec = (total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)/1000;
-	            nf_record->tls_info->tls_time[j].tv_usec = ((total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)%1000)*1000;
+	            nf_record->tls->tls_len[j] = htons(*(const unsigned short *)(flow_data+j*2));
+	            nf_record->tls->tls_time[j].tv_sec = (total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)/1000;
+	            nf_record->tls->tls_time[j].tv_usec = ((total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)%1000)*1000;
 	            total_ms += htons(*(const unsigned short *)(flow_data+40+j*2));
 
-	            nf_record->tls_info->tls_type[j].content = *(const unsigned char *)(flow_data+80+j);
-	            nf_record->tls_info->tls_type[j].handshake = *(const unsigned char *)(flow_data+100+j);
-	            nf_record->tls_info->tls_op += 1;
+	            nf_record->tls->tls_type[j].content = *(const unsigned char *)(flow_data+80+j);
+	            nf_record->tls->tls_type[j].handshake = *(const unsigned char *)(flow_data+100+j);
+	            nf_record->tls->tls_op += 1;
                 }
       
                 flow_data += htons(cur_template->fields[i].FieldLength);
@@ -492,8 +542,8 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	            if (htons(*(const short *)(flow_data+j*2)) == 65535) {
 	                break;
 	            }
-	            nf_record->tls_info->ciphersuites[j] = htons(*(const unsigned short *)(flow_data+j*2));
-	            nf_record->tls_info->num_ciphersuites += 1;
+	            nf_record->tls->ciphersuites[j] = htons(*(const unsigned short *)(flow_data+j*2));
+	            nf_record->tls->num_ciphersuites += 1;
                 }
       
                 flow_data += htons(cur_template->fields[i].FieldLength);
@@ -503,30 +553,30 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	            if (htons(*(const short *)(flow_data+j*2)) == 0) {
 	                break;
 	            }
-	            nf_record->tls_info->tls_extensions[j].length = htons(*(const unsigned short *)(flow_data+j*2));
-	            nf_record->tls_info->tls_extensions[j].type = htons(*(const unsigned short *)(flow_data+70+j*2));
-	            nf_record->tls_info->tls_extensions[j].data = NULL;
-	            nf_record->tls_info->num_tls_extensions += 1;
+	            nf_record->tls->tls_extensions[j].length = htons(*(const unsigned short *)(flow_data+j*2));
+	            nf_record->tls->tls_extensions[j].type = htons(*(const unsigned short *)(flow_data+70+j*2));
+	            nf_record->tls->tls_extensions[j].data = NULL;
+	            nf_record->tls->num_tls_extensions += 1;
                 }
       
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_VERSION:
-                nf_record->tls_info->tls_v = *(const char *)flow_data;
+                nf_record->tls->tls_v = *(const char *)flow_data;
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_CLIENT_KEY_LENGTH:
-                nf_record->tls_info->tls_client_key_length = htons(*(const short *)flow_data);
+                nf_record->tls->tls_client_key_length = htons(*(const short *)flow_data);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_SESSION_ID:
-                nf_record->tls_info->tls_sid_len = htons(*(const short *)flow_data);
-                nf_record->tls_info->tls_sid_len = min(nf_record->tls_info->tls_sid_len,256);
-                memcpy(nf_record->tls_info->tls_sid, flow_data+2, nf_record->tls_info->tls_sid_len);
+                nf_record->tls->tls_sid_len = htons(*(const short *)flow_data);
+                nf_record->tls->tls_sid_len = min(nf_record->tls->tls_sid_len,256);
+                memcpy(nf_record->tls->tls_sid, flow_data+2, nf_record->tls->tls_sid_len);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_HELLO_RANDOM:
-                memcpy(nf_record->tls_info->tls_random, flow_data, 32);
+                memcpy(nf_record->tls->tls_random, flow_data, 32);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case IDP: 
@@ -546,11 +596,6 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
                     /* Error skipping idp header */
                     flow_data += htons(cur_template->fields[i].FieldLength);
                     break;
-                }
-
-                /* if packet has port 80 and nonzero data length, process it as HTTP */
-                if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
-                    http_update(&nf_record->http_data, payload, size_payload, config.http);
                 }
 
                 /* Update all enabled feature modules */

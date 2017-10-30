@@ -64,7 +64,7 @@ typedef struct dns {
 } dns_t;
 
 /** initialize DNS structure */
-void dns_init(struct dns *dns);
+void dns_init(struct dns **dns_handle);
 
 /** DNS structure update */
 void dns_update(struct dns *dns, 
@@ -77,7 +77,7 @@ void dns_update(struct dns *dns,
 void dns_print_json(const struct dns *dns1, const struct dns *dns2, zfile f);
 
 /** remove a DNS entry */
-void dns_delete(struct dns *dns);
+void dns_delete(struct dns **dns_handle);
 
 /** main entry point for DNS unit testing */
 void dns_unit_test();

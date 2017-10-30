@@ -726,46 +726,51 @@ static void ssh_process(struct ssh *cli,
     }
 }
 
-/*
- * start of ssh feature functions
+/**
+ *
+ * \brief Initialize the memory of SSH struct.
+ *
+ * \param ssh_handle contains ssh structure to initialize
+ *
+ * \return none
  */
-
-inline void ssh_init(struct ssh *ssh) {
+inline void ssh_init(struct ssh **ssh_handle) {
     int i;
 
-    ssh->role = role_unknown;
-    ssh->protocol[0] = 0; /* null terminate string */
-    memset(ssh->cookie, 0, sizeof(ssh->cookie));
-    ssh->kex_algo = NULL;
-    ssh->buffer                 = malloc(sizeof(struct vector)); vector_init(ssh->buffer);
-    ssh->kex_algos              = malloc(sizeof(struct vector)); vector_init(ssh->kex_algos);
-    ssh->s_host_key_algos       = malloc(sizeof(struct vector)); vector_init(ssh->s_host_key_algos);
-    ssh->c_encryption_algos     = malloc(sizeof(struct vector)); vector_init(ssh->c_encryption_algos);
-    ssh->s_encryption_algos     = malloc(sizeof(struct vector)); vector_init(ssh->s_encryption_algos);
-    ssh->c_mac_algos            = malloc(sizeof(struct vector)); vector_init(ssh->c_mac_algos);
-    ssh->s_mac_algos            = malloc(sizeof(struct vector)); vector_init(ssh->s_mac_algos);
-    ssh->c_comp_algos           = malloc(sizeof(struct vector)); vector_init(ssh->c_comp_algos);
-    ssh->s_comp_algos           = malloc(sizeof(struct vector)); vector_init(ssh->s_comp_algos);
-    ssh->c_languages            = malloc(sizeof(struct vector)); vector_init(ssh->c_languages);
-    ssh->s_languages            = malloc(sizeof(struct vector)); vector_init(ssh->s_languages);
-    ssh->s_hostkey_type         = malloc(sizeof(struct vector)); vector_init(ssh->s_hostkey_type);
-    ssh->s_signature_type       = malloc(sizeof(struct vector)); vector_init(ssh->s_signature_type);
-    ssh->c_kex                  = malloc(sizeof(struct vector)); vector_init(ssh->c_kex);
-    ssh->s_kex                  = malloc(sizeof(struct vector)); vector_init(ssh->s_kex);
-    ssh->s_hostkey              = malloc(sizeof(struct vector)); vector_init(ssh->s_hostkey);
-    ssh->s_signature            = malloc(sizeof(struct vector)); vector_init(ssh->s_signature);
-    ssh->s_gex_p                = malloc(sizeof(struct vector)); vector_init(ssh->s_gex_p);
-    ssh->s_gex_g                = malloc(sizeof(struct vector)); vector_init(ssh->s_gex_g);
-    for (i = 0; i < MAX_SSH_KEX_MESSAGES; ++i) {
-        ssh->kex_msgs[i].msg_code = 0;
-        ssh->kex_msgs[i].data   = malloc(sizeof(struct vector)); vector_init(ssh->kex_msgs[i].data);
+    if (*ssh_handle != NULL) {
+        ssh_delete(ssh_handle);
     }
-    ssh->kex_msgs_len = 0;
-    ssh->c_gex_min = 0;
-    ssh->c_gex_n = 0;
-    ssh->c_gex_max = 0;
-    ssh->newkeys = 0;
-    ssh->unencrypted = 0;
+
+    *ssh_handle = malloc(sizeof(struct ssh));
+    if (*ssh_handle == NULL) {
+        /* Allocation failed */
+        joy_log_err("malloc failed");
+        return;
+    }
+    memset(*ssh_handle, 0, sizeof(struct ssh));
+
+    (*ssh_handle)->buffer                 = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->buffer);
+    (*ssh_handle)->kex_algos              = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->kex_algos);
+    (*ssh_handle)->s_host_key_algos       = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_host_key_algos);
+    (*ssh_handle)->c_encryption_algos     = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_encryption_algos);
+    (*ssh_handle)->s_encryption_algos     = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_encryption_algos);
+    (*ssh_handle)->c_mac_algos            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_mac_algos);
+    (*ssh_handle)->s_mac_algos            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_mac_algos);
+    (*ssh_handle)->c_comp_algos           = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_comp_algos);
+    (*ssh_handle)->s_comp_algos           = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_comp_algos);
+    (*ssh_handle)->c_languages            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_languages);
+    (*ssh_handle)->s_languages            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_languages);
+    (*ssh_handle)->s_hostkey_type         = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_hostkey_type);
+    (*ssh_handle)->s_signature_type       = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_signature_type);
+    (*ssh_handle)->c_kex                  = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->c_kex);
+    (*ssh_handle)->s_kex                  = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_kex);
+    (*ssh_handle)->s_hostkey              = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_hostkey);
+    (*ssh_handle)->s_signature            = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_signature);
+    (*ssh_handle)->s_gex_p                = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_gex_p);
+    (*ssh_handle)->s_gex_g                = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->s_gex_g);
+    for (i = 0; i < MAX_SSH_KEX_MESSAGES; ++i) {
+        (*ssh_handle)->kex_msgs[i].data   = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->kex_msgs[i].data);
+    }
 }
 
 void ssh_update(struct ssh *ssh,
@@ -964,8 +969,21 @@ void ssh_print_json(const struct ssh *x1,
     zprintf(f, "}");
 }
 
-void ssh_delete(struct ssh *ssh) {
+/**
+ *
+ * \brief Delete the memory of SSH struct.
+ *
+ * \param ssh_handle contains ssh structure to delete
+ *
+ * \return none
+ */
+void ssh_delete(struct ssh **ssh_handle) {
     int i;
+    struct ssh *ssh = *ssh_handle;
+
+    if (ssh == NULL) {
+        return;
+    }
 
     if (ssh->kex_algo != NULL) {
         free(ssh->kex_algo);
@@ -992,11 +1010,15 @@ void ssh_delete(struct ssh *ssh) {
     for (i = 0; i < MAX_SSH_KEX_MESSAGES; ++i) {
         vector_free(ssh->kex_msgs[i].data); free(ssh->kex_msgs[i].data);
     }
+
+    /* Free the memory and set to NULL */
+    free(ssh);
+    *ssh_handle = NULL;
 }
 
 static int ssh_test_handshake() {
-    struct ssh cli;
-    struct ssh srv;
+    struct ssh *cli = NULL;
+    struct ssh *srv = NULL;
     int num_fails = 0;
 
     char c_protocol[] = { /* Client Protocol */
@@ -1447,43 +1469,43 @@ static int ssh_test_handshake() {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
     ssh_init(&cli);
-    ssh_update(&cli, NULL, c_protocol, sizeof(c_protocol), 1);
-    ssh_update(&cli, NULL, c_kexinit, sizeof(c_kexinit), 1);
-    ssh_update(&cli, NULL, c_dhkex, sizeof(c_dhkex), 1);
-    ssh_update(&cli, NULL, c_newkeys, sizeof(c_newkeys), 1);
+    ssh_update(cli, NULL, c_protocol, sizeof(c_protocol), 1);
+    ssh_update(cli, NULL, c_kexinit, sizeof(c_kexinit), 1);
+    ssh_update(cli, NULL, c_dhkex, sizeof(c_dhkex), 1);
+    ssh_update(cli, NULL, c_newkeys, sizeof(c_newkeys), 1);
 
     ssh_init(&srv);
-    ssh_update(&srv, NULL, s_protocol, sizeof(s_protocol), 1);
-    ssh_update(&srv, NULL, s_kexinit, sizeof(s_kexinit), 1);
-    ssh_update(&srv, NULL, s_dhkex_newkeys, sizeof(s_dhkex_newkeys), 1);
-    ssh_process(&cli, &srv);
+    ssh_update(srv, NULL, s_protocol, sizeof(s_protocol), 1);
+    ssh_update(srv, NULL, s_kexinit, sizeof(s_kexinit), 1);
+    ssh_update(srv, NULL, s_dhkex_newkeys, sizeof(s_dhkex_newkeys), 1);
+    ssh_process(cli, srv);
 
-    if (strcmp(cli.protocol, "SSH-2.0-OpenSSH_7.4p1 Debian-10") != 0) {
+    if (strcmp(cli->protocol, "SSH-2.0-OpenSSH_7.4p1 Debian-10") != 0) {
         joy_log_err("failure: cli protocol");
         num_fails++;
     }
 
-    if (strcmp(srv.protocol, "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2.8") != 0) {
+    if (strcmp(srv->protocol, "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2.8") != 0) {
         joy_log_err("failure: srv protocol");
         num_fails++;
     }
 
-    if (strcmp(cli.kex_algo, "curve25519-sha256@libssh.org") != 0) {
+    if (strcmp(cli->kex_algo, "curve25519-sha256@libssh.org") != 0) {
         joy_log_err("failure: cli kex_algo");
         num_fails++;
     }
 
-    if (strcmp(srv.kex_algo, "curve25519-sha256@libssh.org") != 0) {
+    if (strcmp(srv->kex_algo, "curve25519-sha256@libssh.org") != 0) {
         joy_log_err("failure: srv kex_algo");
         num_fails++;
     }
 
-    if ( ! cli.newkeys) {
+    if ( ! cli->newkeys) {
         joy_log_err("failure: cli newkeys");
         num_fails++;
     }
 
-    if ( ! cli.newkeys) {
+    if ( ! cli->newkeys) {
         joy_log_err("failure: cli newkeys");
         num_fails++;
     }

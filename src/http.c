@@ -40,13 +40,13 @@
  * \brief http data extraction implementation
  */
 #include <ctype.h>
-#include "http.h"
-#include "p2f.h"      
-#include "str_match.h" 
-#include "anon.h"
 #include <string.h> 
 #include <stdlib.h>   
+#include "http.h"
 #include "p2f.h"
+#include "anon.h"
+#include "str_match.h"
+#include "err.h"
 
 /*
  * change this flag is you want hexadecimal output
@@ -77,72 +77,100 @@ static void http_header_print_as_object(zfile f, char *header, char *string, uns
 static void http_header_print_as_hex(zfile f, char *header, char *string, unsigned int len);
 #endif
 
-/*
- * high level HTTP handling functions
- */
-
 /**
- * \fn void http_init (http_data_t *data)
- * \param data http data structure pointer
+ *
+ * \brief Initialize the memory of HTTP struct.
+ *
+ * \param http_handle contains http structure to initialize
+ *
  * \return none
  */
-void http_init (http_data_t *data) {
-    data->header = NULL;
-    data->header_length = 0;
+void http_init (struct http **http_handle) {
+    if (*http_handle != NULL) {
+        http_delete(http_handle);
+    }
+
+    *http_handle = malloc(sizeof(struct http));
+    if (*http_handle == NULL) {
+        /* Allocation failed */
+        joy_log_err("malloc failed");
+        return;
+    }
+    memset(*http_handle, 0, sizeof(struct http));
 }
 
 /**
- * \fn void http_update (http_data_t *data,
-      const void *http_start, 
-      unsigned long bytes_in_msg,
-      unsigned int report_http)
- * \param data pointer to http data structure
- * \param http_start http start pointer
- * \param bytes_in_msg number of bytes
- * \param report_http determine whether or not to examine http packets
+ * \brief Parse, process, and record HTTP \p data.
+ *
+ * \param http HTTP structure pointer
+ * \param header PCAP packet header pointer
+ * \param data Beginning of the HTTP payload data.
+ * \param len Length in bytes of the \p data.
+ * \param report_http Flag indicating whether this feature should run.
+ *                    0 for no, 1 for yes
+ *
  * \return none
  */
-void http_update(http_data_t*data,
-			const void *http_start, 
-			unsigned long bytes_in_msg,
-			unsigned int report_http) {
+void http_update(struct http *http,
+			     const struct pcap_pkthdr *header,
+                 const void *data,
+                 unsigned int data_len,
+                 unsigned int report_http) {
   
-    if (report_http && (data->header == NULL)) {
-        unsigned int len = (bytes_in_msg + MAGIC) < HTTP_LEN ? (bytes_in_msg + MAGIC) : HTTP_LEN;
+    if (report_http && (http->header == NULL)) {
+        unsigned int len = (data_len + MAGIC) < HTTP_LEN ? (data_len + MAGIC) : HTTP_LEN;
         /*
          * note: we leave room for null termination in the data buffer
          */
        
-        data->header = malloc(len);
-        if (data->header == NULL) {
+        http->header = malloc(len);
+        if (http->header == NULL) {
             return; 
         }
-        memset(data->header, 0x0, len);
-        data->header_length = memcpy_up_to_crlfcrlf_plus_magic(data->header, http_start, len);
+        memset(http->header, 0x0, len);
+        http->header_length = memcpy_up_to_crlfcrlf_plus_magic(http->header, data, len);
     }
 } 
 
 /**
- * \fn void http_printf (const http_data_t *data, char *string, zfile f) 
- * \param data pointer to http data structure
- * \param string label to use for output
- * \param f file to send output to
+ * \brief Print the HTTP struct to JSON output file \p f.
+ *
+ * \param h1 pointer to HTTP structure
+ * \param h2 pointer to twin HTTP structure
+ * \param f destination file for the output
+ *
  * \return none
  */
-void http_printf (const http_data_t *data, char *string, zfile f) {
+void http_print_json(const struct http *h1,
+                     const struct http *h2,
+                     zfile f) {
+    if (h1 == NULL) {
+        return;
+    }
 
 #if NO_HEX_OUTPUT
-    if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
-          // fprintf(stdout, "data length: %u\n", data->header_length);
-          fflush(stdout);
-          http_header_print_as_object(f, data->header, string, data->header_length);
+    if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
+          http_header_print_as_object(f, h1->header, "ohttp", h1->header_length);
+    }
+
+    if (h2) {
+        /* Twin */
+        if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
+            http_header_print_as_object(f, h2->header, "ihttp", h2->header_length);
+        }
     }
 
 #else 
 
-    if (data->header && data->header_length && (data->header_length < HTTP_LEN)) {
-          http_header_print_as_hex(f, data->header, string, data->header_length);
-          // fprintf(f, ",\n\t\t\t\"%s\": \"%s\"", string, data->header);
+    if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
+          http_header_print_as_hex(f, h1->header, "ohttp", h1->header_length);
+    }
+
+    if (h2) {
+        /* Twin */
+        if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
+            http_header_print_as_hex(f, h2->header, "ihttp", h2->header_length);
+        }
     }
 
 #endif
@@ -154,8 +182,20 @@ void http_printf (const http_data_t *data, char *string, zfile f) {
  * \param data pointer to the http data structure
  * \return none
  */
-void http_delete (http_data_t *data) {
-    free(data->header);
+void http_delete (struct http **http_handle) {
+    struct http *http = *http_handle;
+
+    if (http == NULL) {
+        return;
+    }
+
+    if (http->header) {
+        free(http->header);
+    }
+
+    /* Free the memory and set to NULL */
+    free(http);
+    *http_handle = NULL;
 }
 
 /*
@@ -610,3 +650,27 @@ static void http_header_print_as_hex (zfile f, char *header, char *string, unsig
 }
 
 #endif
+
+/**
+ * \brief Unit test for HTTP
+ *
+ * \return none
+ */
+void http_unit_test()
+{
+    // NYI
+#if 0
+    int num_fails = 0;
+
+    fprintf(info, "\n******************************\n");
+    fprintf(info, "HTTP Unit Test starting...\n");
+
+    if (num_fails) {
+        fprintf(info, "Finished - # of failures: %d\n", num_fails);
+    } else {
+        fprintf(info, "Finished - success\n");
+    }
+    fprintf(info, "******************************\n\n");
+#endif
+}
+

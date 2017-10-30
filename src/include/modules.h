@@ -47,8 +47,12 @@
 #include "example.h"      /* example feature module        */
 #include "dns.h"          /* DNS response capture          */
 #include "ssh.h"          /* secure shell protocol         */
+#include "ike.h"          /* ike protocol                  */
 #include "ip_id.h"        /* ipv4 identification field     */
 #include "salt.h"         /* seq of app lengths and times  */
 #include "ppi.h"          /* per-packet information        */
+#include "tls.h"          /* tls protocol                  */
+#include "dhcp.h"         /* dhcp protocol                 */
+#include "http.h"         /* http protocol                 */
 
 #endif /* MODULES_H */

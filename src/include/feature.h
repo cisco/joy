@@ -112,7 +112,7 @@
  */
 #define ip_feature_list ip_id
 #define tcp_feature_list salt, ppi
-#define payload_feature_list wht, example, dns, ssh, tls
+#define payload_feature_list wht, example, dns, ssh, tls, dhcp, http, ike
 #define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
 #define define_feature_config_uint(f) unsigned int report_##f = 0;
@@ -133,7 +133,7 @@
  * performing memory allocation as a side effect
  * This function is called in flow_record_init() in p2f.c.
  */
-#define declare_init(F) void F##_init(F##_t *f)
+#define declare_init(F) void F##_init(F##_t **f)
 
 /** \brief \verbatim
  * The function feature_update(feature, header, data, data_len, report_feature)
@@ -182,7 +182,7 @@ void F##_print_json(const F##_t *F,      \
  * This function is called in flow_record_delete(), in the file p2f.c
  * \endverbatim
  */
-#define declare_delete(F) void F##_delete(F##_t *F);
+#define declare_delete(F) void F##_delete(F##_t **F);
 
 
 /** \brief \verbatim
@@ -213,37 +213,49 @@ void F##_print_json(const F##_t *F,      \
 /** The macro define_feature(f) instantiates a structure of type f_t
  * and name f.
  */
-#define define_feature(f) f##_t f;
+#define define_feature(f) f##_t *f;
 
 /** The macro init_feature(f) initializes the element f in the
  * structure record
  */
-#define init_feature(f) f##_init(&(record->f));
+#define init_feature(f) record->f=NULL;
 
 /** The macro update_feature(f) processes a single packet and updates
  * the feature context
  */
-#define update_feature(f) if (f##_filter(key)) f##_update(&((record)->f), header, payload, size_payload, report_##f);
+#define update_feature(f) \
+    if (f##_filter(key) && (report_##f)) { \
+        if (record->f == NULL) f##_init(&record->f); \
+        f##_update(record->f, header, payload, size_payload, report_##f); \
+    }
 
 /** The macro update_ip_feature(f) processes a single packet, given
  * a pointer to the IP header, and updates the feature context
  */
-#define update_ip_feature(f) if (f##_filter(key)) f##_update(&((record)->f), header, ip, ip_hdr_len, report_##f);
+#define update_ip_feature(f) \
+    if (f##_filter(key) && (report_##f)) { \
+        if (record->f == NULL) f##_init(&record->f); \
+        f##_update(record->f, header, ip, ip_hdr_len, report_##f); \
+    }
 
 /** The macro update_tcp_feature(f) processes a single packet, given
  * a pointer to the TCP header, and updates the feature context
  */
-#define update_tcp_feature(f) if (f##_filter(key)) f##_update(&((record)->f), header, transport_start, transport_len, report_##f);
+#define update_tcp_feature(f) \
+    if (f##_filter(key) && (report_##f)) { \
+        if (record->f == NULL) f##_init(&record->f); \
+        f##_update(record->f, header, transport_start, transport_len, report_##f); \
+    }
 
 /** The macro print_feature(f) prints the feature as JSON 
  */
-#define print_feature(f) f##_print_json(&((rec)->f), (rec->twin ? &(rec->twin->f) : NULL), output);
+#define print_feature(f) if (rec->f != NULL) f##_print_json(rec->f, (rec->twin ? rec->twin->f : NULL), output);
 
 
 /** The macro init_feature(f) initializes the element f in the
  * structure record
  */
-#define delete_feature(f) f##_delete(&(r->f));
+#define delete_feature(f) if (r->f != NULL) f##_delete(&r->f);
 
 #define unit_test_feature(F) F##_unit_test();
 

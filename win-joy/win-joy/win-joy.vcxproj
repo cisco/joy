@@ -158,12 +158,14 @@
     <ClCompile Include="..\..\src\anon.c" />
     <ClCompile Include="..\..\src\classify.c" />
     <ClCompile Include="..\..\src\config.c" />
+    <ClCompile Include="..\..\src\dhcp.c" />
     <ClCompile Include="..\..\src\dns.c" />
     <ClCompile Include="..\..\src\example.c" />
     <ClCompile Include="..\..\src\fingerprint.c" />
     <ClCompile Include="..\..\src\getline.c" />
     <ClCompile Include="..\..\src\hdr_dsc.c" />
     <ClCompile Include="..\..\src\http.c" />
+    <ClCompile Include="..\..\src\ike.c" />
     <ClCompile Include="..\..\src\ipfix.c" />
     <ClCompile Include="..\..\src\ip_id.c" />
     <ClCompile Include="..\..\src\joy.c" />
@@ -190,6 +192,7 @@
     <ClInclude Include="..\..\src\include\anon.h" />
     <ClInclude Include="..\..\src\include\classify.h" />
     <ClInclude Include="..\..\src\include\config.h" />
+    <ClInclude Include="..\..\src\include\dhcp.h" />
     <ClInclude Include="..\..\src\include\dns.h" />
     <ClInclude Include="..\..\src\include\err.h" />
     <ClInclude Include="..\..\src\include\example.h" />
@@ -197,6 +200,7 @@
     <ClInclude Include="..\..\src\include\fingerprint.h" />
     <ClInclude Include="..\..\src\include\hdr_dsc.h" />
     <ClInclude Include="..\..\src\include\http.h" />
+    <ClInclude Include="..\..\src\include\ike.h" />
     <ClInclude Include="..\..\src\include\ipfix.h" />
     <ClInclude Include="..\..\src\include\ip_id.h" />
     <ClInclude Include="..\..\src\include\map.h" />

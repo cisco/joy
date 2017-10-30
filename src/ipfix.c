@@ -1489,7 +1489,7 @@ static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info->tls_len[i] = ntohs(*((const uint16_t *)data));
+    ix_record->tls->tls_len[i] = ntohs(*((const uint16_t *)data));
 
     data += element_length;
     data_length -= element_length;
@@ -1520,11 +1520,11 @@ static void ipfix_process_tls_record_times(struct flow_record *ix_record,
 
   while (data_length > 0) {
     uint16_t value_time = ntohs(*((const uint16_t *)data));
-    ix_record->tls_info->tls_time[i].tv_sec =
+    ix_record->tls->tls_time[i].tv_sec =
       ((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
       + (ix_record->start.tv_usec / 1000)) / 1000;
 
-    ix_record->tls_info->tls_time[i].tv_usec =
+    ix_record->tls->tls_time[i].tv_usec =
       (((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
         + (ix_record->start.tv_usec/1000)) % 1000) * 1000;
 
@@ -1557,7 +1557,7 @@ static void ipfix_process_tls_content_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info->tls_type[i].content = *((const uint8_t *)data);
+    ix_record->tls->tls_type[i].content = *((const uint8_t *)data);
 
     data += element_length;
     data_length -= element_length;
@@ -1586,8 +1586,8 @@ static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info->tls_type[i].handshake = *((const uint8_t *)data);
-    ix_record->tls_info->tls_op += 1;
+    ix_record->tls->tls_type[i].handshake = *((const uint8_t *)data);
+    ix_record->tls->tls_op += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1616,8 +1616,8 @@ static void ipfix_process_tls_cipher_suites(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info->ciphersuites[i] = ntohs(*((const uint16_t *)data));
-    ix_record->tls_info->num_ciphersuites += 1;
+    ix_record->tls->ciphersuites[i] = ntohs(*((const uint16_t *)data));
+    ix_record->tls->num_ciphersuites += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1646,7 +1646,7 @@ static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info->tls_extensions[i].length = ntohs(*((const uint16_t *)data));
+    ix_record->tls->tls_extensions[i].length = ntohs(*((const uint16_t *)data));
 
     data += element_length;
     data_length -= element_length;
@@ -1675,9 +1675,9 @@ static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls_info->tls_extensions[i].type = ntohs(*((const uint16_t *)data));
-    ix_record->tls_info->tls_extensions[i].data = NULL;
-    ix_record->tls_info->num_tls_extensions += 1;
+    ix_record->tls->tls_extensions[i].type = ntohs(*((const uint16_t *)data));
+    ix_record->tls->tls_extensions[i].data = NULL;
+    ix_record->tls->num_tls_extensions += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1870,23 +1870,23 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         break;
 
       case IPFIX_TLS_VERSION:
-        ix_record->tls_info->tls_v = *(const uint8_t *)flow_data;
+        ix_record->tls->tls_v = *(const uint8_t *)flow_data;
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_KEY_LENGTH:
-        ix_record->tls_info->tls_client_key_length = ntohs(*(const uint16_t *)flow_data);
+        ix_record->tls->tls_client_key_length = ntohs(*(const uint16_t *)flow_data);
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_SESSION_ID:
-        ix_record->tls_info->tls_sid_len = min(field_length, 256);
-        memcpy(ix_record->tls_info->tls_sid, flow_data, ix_record->tls_info->tls_sid_len);
+        ix_record->tls->tls_sid_len = min(field_length, 256);
+        memcpy(ix_record->tls->tls_sid, flow_data, ix_record->tls->tls_sid_len);
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_RANDOM:
-        memcpy(ix_record->tls_info->tls_random, flow_data, 32);
+        memcpy(ix_record->tls->tls_random, flow_data, 32);
         flow_data += field_length;
         break;
 
@@ -1911,11 +1911,6 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
             /* Error skipping idp header */
             flow_ptr += field_length;
             break;
-          }
-
-          /* If packet has port 80 and nonzero data length, process it as HTTP */
-          if (config.http && size_payload && (key->sp == 80 || key->dp == 80)) {
-            http_update(&record->http_data, payload, size_payload, config.http);
           }
 
           /* Update all enabled feature modules */
@@ -3077,6 +3072,28 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 
 
 /*
+ * @brief Pack a timeval into a uint64_t (8 bytes).
+ *
+ * The 4 most significant bytes of the uint64_t will contain the tv_sec value,
+ * and the 4 least significant bytes will contain the tv_usec value.
+ *
+ * @param timeval The timeval that will be packed.
+ *
+ * @return uint64_t - Packed timeval
+ */
+static uint64_t timeval_pack_uint64_t(const struct timeval *timeval) {
+    uint64_t packed = 0;
+
+    /* Shift to the 4 most significant bytes of the packed uint64_t */
+    packed = (uint64_t)timeval->tv_sec << 32;
+    /* Bit OR into the 4 least significant bytes of the packed uint64_t */
+    packed |= timeval->tv_usec;
+
+    return packed;
+}
+
+
+/*
  * @brief Create a simple 5-tuple data record.
  *
  * Make a basic data record that holds the traditional 5-tuple
@@ -3126,16 +3143,14 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_start_microseconds = fr_record->start.tv_sec << 32;
-    data_record->record.simple.flow_start_microseconds |= fr_record->start.tv_usec;
+    data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
 
     /*
      * IPFIX_FLOW_END_MICROSECONDS
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_end_microseconds = fr_record->end.tv_sec << 32;
-    data_record->record.simple.flow_end_microseconds |= fr_record->end.tv_usec;
+    data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
 
   } else {
     loginfo("error: unable to malloc data record");
@@ -3201,16 +3216,14 @@ static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_start_microseconds = fr_record->start.tv_sec << 32;
-    data_record->record.simple.flow_start_microseconds |= fr_record->start.tv_usec;
+    data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
 
     /*
      * IPFIX_FLOW_END_MICROSECONDS
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_end_microseconds = fr_record->end.tv_sec << 32;
-    data_record->record.simple.flow_end_microseconds |= fr_record->end.tv_usec;
+    data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
 
     /*
      * IPFIX_IDP

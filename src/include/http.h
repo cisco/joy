@@ -42,30 +42,39 @@
 #ifndef HTTP_H
 #define HTTP_H
 
-#include <stdio.h> 
+#include <stdio.h>
+#include <pcap.h>
 #include "output.h"
 
+#define http_usage "  http=1                     report http information\n"
+
+#define http_filter(key) ((key->prot == 6) && (key->sp == 80 || key->dp == 80))
+
 /** http data structure */
-typedef struct {
+typedef struct http {
   char *header;
   unsigned int header_length;
-} http_data_t;
+} http_t;
 
 /** initialize http data structure */
-void http_init(http_data_t *data);
-
+void http_init(struct http **http_handle);
 
 /** update http data structure */
-void http_update(http_data_t *data,
-		 const void *http_start, 
-		 unsigned long bytes_in_msg,
-		 unsigned int report_http);
+void http_update(struct http *http,
+                 const struct pcap_pkthdr *header,
+                 const void *data,
+                 unsigned int data_len,
+                 unsigned int report_http);
 
 /** print out an http data structure */
-void http_printf(const http_data_t *data, char *string, zfile f);
+void  http_print_json(const struct http *h1,
+                      const struct http *h2,
+                      zfile f);
 
 
 /** remove an http data structure */
-void http_delete(http_data_t *data);
+void http_delete(struct http **http_handle);
+
+void http_unit_test();
 
 #endif /* HTTP_H */

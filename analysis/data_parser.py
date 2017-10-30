@@ -569,8 +569,8 @@ class DataParser:
             if 'bd' in flow['flow']:
                 bd = flow['flow']['bd']
             self.advancedInfo[key] = (flow['flow']['sa'],flow['flow']['da'],flow['flow']['sp'],flow['flow']['dp'],flow['flow']['non_norm_stats'],bd)
-            tmp_m.append(flow['flow']['sa']) # source port
-            tmp_m.append(flow['flow']['da']) # destination port
+            tmp_m.append(flow['flow']['sa']) # source address
+            tmp_m.append(flow['flow']['da']) # destination address
             tmp_m.append(flow['flow']['sp']) # source port
             tmp_m.append(flow['flow']['dp']) # destination port
             tmp.append(float(flow['flow']['dp'])) # destination port

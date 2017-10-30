@@ -1,24 +1,24 @@
 /*
- *	
+ *
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -43,23 +43,33 @@
  *
  */
 
-#include <stdio.h>  
+#include <stdio.h>
 #include <string.h>   /* for memset() */
-#include "salt.h"     
+#include <stdlib.h>
+#include "salt.h"
 #include "pkt.h"      /* for tcp macros */
+#include "err.h"
 
 
 /**
-* \fn void salt_init (struct salt *salt)
-* \param salt structure to initialize
-* \return none
-*/
-void salt_init(struct salt *salt) {
-    salt->np = 0;
-    memset(salt->pkt_len, 0, sizeof(salt->pkt_len));
-    memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
-    memset(salt->seq, 0, sizeof(salt->seq));
-    memset(salt->ack, 0, sizeof(salt->ack));
+ * \brief Initialize the memory of SALT struct.
+ *
+ * \param salt_handle contains salt structure to init
+ *
+ * \return none
+ */
+void salt_init(struct salt **salt_handle) {
+    if (*salt_handle != NULL) {
+        salt_delete(salt_handle);
+    }
+
+    *salt_handle = malloc(sizeof(struct salt));
+    if (*salt_handle == NULL) {
+        /* Allocation failed */
+        joy_log_err("malloc failed");
+        return;
+    }
+    memset(*salt_handle, 0, sizeof(struct salt));
 }
 
 /**
@@ -73,22 +83,22 @@ void salt_init(struct salt *salt) {
  * \param data data to use for update
  * \param len length of the data
  * \param report_salt flag to determine if we filter salt
- * 
+ *
  * \return none
  */
-void salt_update (struct salt *salt, 
-		  const struct pcap_pkthdr *header,
-		  const void *tcp_start, 
-		  unsigned int len, 
-		  unsigned int report_salt) {
-    const struct tcp_hdr *tcp = tcp_start;  
+void salt_update (struct salt *salt,
+          const struct pcap_pkthdr *header,
+          const void *tcp_start,
+          unsigned int len,
+          unsigned int report_salt) {
+    const struct tcp_hdr *tcp = tcp_start;
 
     if (report_salt) {
         if (salt->np < MAX_NUM_PKT) {
-	    salt->seq[salt->np] = ntohl(tcp->tcp_seq);
-	    salt->ack[salt->np] = ntohl(tcp->tcp_ack);	
-	    salt->np++;
-	} 
+            salt->seq[salt->np] = ntohl(tcp->tcp_seq);
+            salt->ack[salt->np] = ntohl(tcp->tcp_ack);
+            salt->np++;
+        }
     }
 }
 
@@ -106,77 +116,77 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
 
     if (x1->np) {
         zprintf(f, ",\"oseq\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x1->seq[i] - x1->seq[0]);
-	}
+    for (i=0; i < x1->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x1->seq[i] - x1->seq[0]);
+    }
         zprintf(f, "],oack\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x1->ack[i] - x1->ack[0]);
-	}
+    for (i=0; i < x1->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x1->ack[i] - x1->ack[0]);
+    }
         zprintf(f, "]");
     }
     if (x2 && x2->np) {
         zprintf(f, ",\"iseq\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x2->seq[i] - x2->seq[0]);
-	}
+    for (i=0; i < x2->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x2->seq[i] - x2->seq[0]);
+    }
         zprintf(f, "],iack\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x2->ack[i] - x2->ack[0]);
-	}
+    for (i=0; i < x2->np; i++) {
+        if (i) {
+        zprintf(f, ",");
+        }
+        zprintf(f, "%u", x2->ack[i] - x2->ack[0]);
+    }
         zprintf(f, "]");
     }
 
-#else 
-    
+#else
+
     if (x1->np) {
         zprintf(f, ",\"oseq\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x1->seq[i] - x1->seq[i-1]);
-	    } else {
-		zprintf(f, "%u", x1->seq[i]);
-	    }
-	}
-        zprintf(f, "],oack\":[");
-	for (i=0; i < x1->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x1->ack[i] - x1->ack[i-1]);
-	    } else {
-		zprintf(f, "%u", x1->ack[i]);
-	    }
-	}
+        for (i=0; i < x1->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x1->seq[i] - x1->seq[i-1]);
+            } else {
+                zprintf(f, "%u", x1->seq[i]);
+            }
+        }
+        zprintf(f, "],\"oack\":[");
+        for (i=0; i < x1->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x1->ack[i] - x1->ack[i-1]);
+            } else {
+                zprintf(f, "%u", x1->ack[i]);
+            }
+        }
         zprintf(f, "]");
     }
     if (x2 && x2->np) {
         zprintf(f, ",\"iseq\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x2->seq[i] - x2->seq[i-1]);
-	    } else {
-		zprintf(f, "%u", x2->seq[i]);
-	    }
-	}
-        zprintf(f, "],iack\":[");
-	for (i=0; i < x2->np; i++) {
-	    if (i) {
-		zprintf(f, ",%u", x2->ack[i] - x2->ack[i-1]);
-	    } else {
-		zprintf(f, "%u", x2->ack[i]);
-	    }
-	}
+        for (i=0; i < x2->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x2->seq[i] - x2->seq[i-1]);
+            } else {
+                zprintf(f, "%u", x2->seq[i]);
+            }
+        }
+        zprintf(f, "],\"iack\":[");
+        for (i=0; i < x2->np; i++) {
+            if (i) {
+                zprintf(f, ",%u", x2->ack[i] - x2->ack[i-1]);
+            } else {
+                zprintf(f, "%u", x2->ack[i]);
+            }
+        }
         zprintf(f, "]");
     }
 
@@ -185,12 +195,22 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
 }
 
 /**
- * \fn void salt_delete (struct salt *salt)
- * \param salt pointer to salt stucture
+ * \brief Delete the memory of SALT struct.
+ *
+ * \param salt_handle contains salt structure to delete
+ *
  * \return none
  */
-void salt_delete (struct salt *salt) { 
-    /* no memory needs to be freed */
+void salt_delete (struct salt **salt_handle) {
+    struct salt *salt = *salt_handle;
+
+    if (salt == NULL) {
+        return;
+    }
+
+    /* Free the memory and set to NULL */
+    free(salt);
+    *salt_handle = NULL;
 }
 
 /**
@@ -199,8 +219,7 @@ void salt_delete (struct salt *salt) {
  * \return none
  */
 void salt_unit_test () {
-    
+
     /* no unit test at this time */
 
-} 
-
+}

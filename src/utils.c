@@ -43,114 +43,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "utils.h"
+#include "err.h"
 
 #define JOY_UTILS_MAX_FILEPATH 128
 
 extern char *aux_resource_path;
-
-/*
- * \brief Open a file from the source resources/ directory.
- *        If aux_resource_path option is given on the command line,
- *        then the file will be searched for in that directory instead.
- *
- * \param filename Name of the file to be opened.
- *
- * \return FILE pointer, otherwise NULL
- */
-FILE* joy_utils_open_resource_file(const char *filename) {
-    FILE *fp = NULL;
-    char *filepath = NULL;
-
-    /* Allocate memory to store constructed file path */
-    filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
-
-    if (aux_resource_path) {
-        /*
-         * Use the path that was given in Joy cli
-         */
-        strncpy(filepath, aux_resource_path, JOY_UTILS_MAX_FILEPATH);
-        /* Place "/" before file name in case user left it out */
-        strncat(filepath, "/", JOY_UTILS_MAX_FILEPATH - 1);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
-        fp = fopen(filepath, "r");
-    } else {
-        /* Assume user CWD in root of Joy source package */
-        strncpy(filepath, "./resources/", JOY_UTILS_MAX_FILEPATH);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
-        fp = fopen(filepath, "r");
-        if (!fp) {
-            /* Assume user CWD one-level subdir of Joy source package */
-            memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
-            strncpy(filepath, "../resources/", JOY_UTILS_MAX_FILEPATH);
-            strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
-            fp = fopen(filepath, "r");
-        }
-    }
-
-    if (!fp) {
-        fprintf(stderr, "joy_utils_open_resource_file: error: could not open %s\n", filepath);
-    }
-
-    /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
-
-    return fp;
-}
-
-/*
- *
- * \brief Open a pcap from the source resources/ directory.
- *        If aux_resource_path option is given on the command line,
- *        then the pcap will be searched for in that directory instead.
- *
- * \param filename Name of the pcap to be opened.
- *
- * \return pcap_t pointer, otherwise NULL
- */
-pcap_t* joy_utils_open_resource_pcap(const char *filename) {
-    char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t *handle = NULL;
-    char *filepath = NULL;
-
-    /* Allocate memory to store constructed file path */
-    filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
-
-    if (aux_resource_path) {
-        /*
-         * Use the path that was given in Joy cli
-         */
-        strncpy(filepath, aux_resource_path, JOY_UTILS_MAX_FILEPATH);
-        /* Place "/" before file name in case user left it out */
-        strncat(filepath, "/", JOY_UTILS_MAX_FILEPATH - 1);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
-        handle = pcap_open_offline(filepath, errbuf);
-    } else {
-        /* Assume user CWD in root of Joy source package */
-        strncpy(filepath, "./resources/", JOY_UTILS_MAX_FILEPATH);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
-        handle = pcap_open_offline(filepath, errbuf);
-        if (!handle) {
-            /* Assume user CWD one-level subdir of Joy source package */
-            memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
-            strncpy(filepath, "../resources/", JOY_UTILS_MAX_FILEPATH);
-            strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
-            handle = pcap_open_offline(filepath, errbuf);
-        }
-    }
-
-    if (!handle) {
-        fprintf(stderr, "joy_utils_open_resource_pcap: error: could not open %s\n", filename);
-    }
-
-    /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
-
-    return handle;
-}
 
 /*
  *
@@ -193,7 +90,7 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
     }
 
     if (!value) {
-        fprintf(stderr, "joy_utils_open_resource_parson: error: could not open %s\n", filename);
+        joy_log_err("could not open %s", filename);
     }
 
     /* Cleanup */
@@ -203,3 +100,130 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
 
     return value;
 }
+
+/*
+ * \brief Open a file from the source test/misc/ directory.
+ *
+ * \param filename Name of the file to be opened.
+ *
+ * \return FILE pointer, otherwise NULL
+ */
+FILE* joy_utils_open_test_file(const char *filename) {
+    FILE *fp = NULL;
+    char *filepath = NULL;
+
+    /* Allocate memory to store constructed file path */
+    filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+
+    /* Assume user CWD in root of Joy source package */
+    strncpy(filepath, "./test/misc/", JOY_UTILS_MAX_FILEPATH);
+    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+    fp = fopen(filepath, "r");
+    if (!fp) {
+        /* Assume user CWD one-level subdir of Joy source package */
+        memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
+        strncpy(filepath, "../test/misc/", JOY_UTILS_MAX_FILEPATH);
+        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+        fp = fopen(filepath, "r");
+    }
+
+    if (!fp) {
+        joy_log_err("could not open %s", filepath);
+    }
+
+    /* Cleanup */
+    if (filepath) {
+        free(filepath);
+    }
+
+    return fp;
+}
+
+/*
+ *
+ * \brief Open a pcap from the source test/pcaps/ directory.
+ *
+ * \param filename Name of the pcap to be opened.
+ *
+ * \return pcap_t pointer, otherwise NULL
+ */
+pcap_t* joy_utils_open_test_pcap(const char *filename) {
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *handle = NULL;
+    char *filepath = NULL;
+
+    /* Allocate memory to store constructed file path */
+    filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+
+    /* Assume user CWD in root of Joy source package */
+    strncpy(filepath, "./test/pcaps/", JOY_UTILS_MAX_FILEPATH);
+    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+    handle = pcap_open_offline(filepath, errbuf);
+    if (!handle) {
+        /* Assume user CWD one-level subdir of Joy source package */
+        memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
+        strncpy(filepath, "../test/pcaps/", JOY_UTILS_MAX_FILEPATH);
+        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+        handle = pcap_open_offline(filepath, errbuf);
+    }
+
+    if (!handle) {
+        joy_log_err("could not open %s", filename);
+    }
+
+    /* Cleanup */
+    if (filepath) {
+        free(filepath);
+    }
+
+    return handle;
+}
+
+/**
+ * \brief Converts the character string into a JSON-safe, NULL-terminated printable string.
+ *
+ * Non-alphanumeric characters are converted to "." (a period). This
+ * function is useful only to ensure that strings that one expects to
+ * be printable, such as DNS names, don't cause encoding errors when
+ * they are actually not non-printable, non-JSON-safe strings.
+ *
+ * Stops if a NULL terminator is seen.
+ *
+ * WARNING: This will NULL terminate the end of string \p s.
+ *          i.e. s[len-1] = '0'
+ *
+ * \param s Pointer to the string
+ * \param len Length of the string in bytes
+ * \return none
+ */
+void joy_utils_convert_to_json_string (char *s, unsigned int len) {
+    unsigned int i;
+
+    for (i=0; i < len; i++) {
+        if (s[i] == 0) {
+            /* Encountered termination, no need to go further */
+            return;
+        } else if (!isprint(s[i])) {
+            /* Not a printable character */
+            s[i] = '.';
+            continue;
+        }
+        switch (s[i]) {
+            case '\n':
+            case '\r':
+            case '\b':
+            case '\f':
+            case '\t':
+            case '\\':
+            case '/':
+            case '"':
+                s[i] = '.';
+            default:
+                continue;
+        }
+    }
+
+    /* NULL terminate */
+    s[len-1] = 0;
+}
+
