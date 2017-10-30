@@ -244,6 +244,10 @@ if [ "$sysname" == "Darwin" ]; then
     else
         pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
     fi
+    if [ $? -ne "0" ]; then
+        echo "error: could not run pip install"
+        exit 1
+    fi
 
     # Install the configuration file
     if [ -f ${PREFIX}/etc/joy/options.cfg ]; then
