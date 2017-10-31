@@ -115,6 +115,8 @@ unsigned int ipfix_export_port = 0;
 
 unsigned int ipfix_export_remote_port = 0;
 
+unsigned int preemptive_timeout = 0;
+
 char *ipfix_export_remote_host = NULL;
 
 char *ipfix_export_template = NULL;
@@ -634,8 +636,11 @@ static void flow_record_chrono_list_remove (struct flow_record *record) {
 static int flow_record_is_active_expired(struct flow_record *record,
                                          const struct pcap_pkthdr *header) {
     if (header) {
-        /* Check the new incoming packet to see if it will expire the record */
-        if (header->ts.tv_sec > (record->start.tv_sec + active_max)) {
+        /*
+         * Preemptive Timeout
+         * Check the new incoming packet to see if it will expire the record
+         */
+        if (header->ts.tv_sec > (record->start.tv_sec + active_max) && preemptive_timeout) {
             if ((record->twin == NULL) || (header->ts.tv_sec > (record->twin->start.tv_sec + active_max))) {
                 return 1;
             }
