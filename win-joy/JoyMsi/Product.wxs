@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <!--
+      ====================================================================================
+      JOY PRODUCT/PACKAGE
+      ====================================================================================
+   -->
+	<Product Id="*" Name="Joy" Language="1033" Version="1.73.0.0" Manufacturer="JoyTeam" UpgradeCode="150cd1a4-afe0-4e9a-af16-0088b3b116f5">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+    <!-- IF perUser is needed
+    <Property Id="ALLUSERS" Secure="yes" Value="2"/>
+    <Property Id="MSIINSTALLPERUSER" Secure="yes" Value="1" />
+    -->
+ 
+    <Property Id="ARPHELPLINK" Value="https://github.com/cisco/joy" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes"/>
+
+    <Feature Id="ProductFeature" Title="Joy" Level="1">
+      <ComponentGroupRef Id="ExecutableComponents" />
+      <ComponentRef Id="JoyConfig_comp" />
+      <ComponentRef Id="DeleteAppFolder_comp" />
+    </Feature>
+  </Product>
+
+  <!--
+  ====================================================================================
+  Setting up the directories that contain installed files
+      
+  %LocalAppData% -> %USERPROFILE%\AppData\Local
+  INSTALLFOLDER ->  %ProgramFiles%\Joy (IF perMachine install).
+  INSTALLFOLDER -> %LocalAppData%\Programs\Joy (IF perUser install).
+  JoyAppFolder -> %LocalAppData%\Joy
+  -->
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Joy" />
+      </Directory>
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="JoyAppFolder" Name="Joy" />
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <!--
+  ====================================================================================
+  Upon creation of the JoyAppFolder, record an action to delete on uninstall, and
+  add a registry key for tracking the folder.
+  -->
+  <Fragment>
+    <DirectoryRef Id='JoyAppFolder'>
+      <Component Id="DeleteAppFolder_comp">
+        <RemoveFolder Id="DeleteAppFolder" On="uninstall" />
+        <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]'
+                        Type='integer' Name ='JoyAppDataInstalled' Value='1' KeyPath='yes'/>
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <!--
+  ====================================================================================
+  Application Data Files
+  
+  IMPORTANT: If the location or name of the file is changed, a new Guid MUST be generated and pasted here.
+  Generate Guid using Visual Studio: Tools->Create GUID
+   -->
+  <Fragment>
+    <Component Id="JoyConfig_comp" Directory="JoyAppFolder" Guid="00F58262-1B2F-4736-9040-1200D8FCA14F">
+      <File Name="win-options.cfg" Source="$(var.SolutionDir)\win-options.cfg" />
+      <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]'
+                      Type='string' Name='JoyConfigFile' Value='[JoyAppFolder]\win-options.cfg' KeyPath='yes'/>
+    </Component>
+  </Fragment>
+
+  <!--
+  ====================================================================================
+  Main Binary Files
+   -->
+  <Fragment>
+    <ComponentGroup Id="ExecutableComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable">
+        <File Source="$(var.win-joy.TargetPath)" KeyPath="yes"/>
+      </Component>
+      <Component Id="GetoptLibrary">
+        <File Name="getopt.dll" Source="..\..\windows\64\DLL\getopt.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="CurlLibrary">
+        <File Name="libcurl.dll" Source="..\..\windows\64\DLL\libcurl.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="Eay32Library">
+        <File Name="libeay32.dll" Source="..\..\windows\64\DLL\libeay32.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="Msvcr100Library">
+        <File Name="msvcr100.dll" Source="..\..\windows\64\DLL\msvcr100.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="Msvcr120Library">
+        <File Name="msvcr120.dll" Source="..\..\windows\64\DLL\msvcr120.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PthreadVc2Library">
+        <File Name="pthreadVC2.dll" Source="..\..\windows\64\DLL\pthreadVC2.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="SslEay32Library">
+        <File Name="ssleay32.dll" Source="..\..\windows\64\DLL\ssleay32.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="VcRuntime140Library">
+        <File Name="vcruntime140.dll" Source="..\..\windows\64\DLL\vcruntime140.dll" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
