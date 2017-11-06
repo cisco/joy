@@ -878,7 +878,11 @@ static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
     }
 
     /* Get the key type */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    key_type = EVP_PKEY_type(evp_pubkey->type);
+#else
     key_type = EVP_PKEY_base_id(evp_pubkey);
+#endif
 
     /*
      * Get the key size
@@ -930,7 +934,12 @@ static int tls_x509_get_signature(X509 *cert,
 #endif
 
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    sig = cert->signature;
+    alg = cert->sig_alg;
+#else
     X509_get0_signature(&sig, &alg, cert);
+#endif
 
     if (sig == NULL) {
         joy_log_err("problem getting signature");
