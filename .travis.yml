@@ -1,0 +1,15 @@
+# Travis-CI Build for Joy
+
+language: c
+
+compiler: gcc
+
+before_install:
+    - sudo apt-get -qq update
+
+install:
+    - sudo apt-get install -y build-essential libssl-dev libpcap-dev libcurl4-openssl-dev
+
+script:
+    - ./config -l /usr/lib/x86_64-linux-gnu
+    - make test
