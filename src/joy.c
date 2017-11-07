@@ -1069,7 +1069,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
         /* Print out expired flows */
         flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
     }
