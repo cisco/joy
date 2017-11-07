@@ -87,13 +87,32 @@
  * \brief The supported operating modes that Joy can run in.
  */
 enum operating_mode {
-    mode_none = 0,
-    mode_offline = 1,
-    mode_online = 2,
-    mode_ipfix_collect_online = 3
+    MODE_NONE = 0,
+    MODE_OFFLINE = 1,
+    MODE_ONLINE = 2,
+    MODE_IPFIX_COLLECT_ONLINE = 3
 };
 
-/* some globals defined in p2f.c */
+/*
+ * NOTE: NUM_PACKETS_BETWEEN_STATS_OUTPUT *must* be a multiple of
+ * NUM_PACKETS_IN_LOOP, in order for stats output to periodically take place
+ */
+#define GET_ALL_PACKETS 0
+#define NUM_PACKETS_IN_LOOP 5
+#define NUM_PACKETS_BETWEEN_STATS_OUTPUT 10000
+#define MAX_RECORDS 2147483647
+#define MAX_FILENAME_LEN 1024
+
+/*
+ * Local globals
+ */
+static enum operating_mode joy_mode = MODE_NONE;
+static pcap_t *handle = NULL;
+static char *filter_exp = "ip or vlan";
+
+/* Globals defined in p2f.c */
+
+extern enum operating_mode joy_mode;
 
 extern enum SALT_algorithm salt_algo;
 
@@ -155,14 +174,15 @@ extern unsigned int verbosity;
 
 define_all_features_config_extern_uint(feature_list)
 
-/*
- * config is the global configuration 
- */
+/* config is the global configuration */
 extern struct configuration config;
 
-
-
-/* BEGIN utility functions */
+/*******************************************************************
+ *******************************************************************
+ * BEGIN network utility functions
+ *******************************************************************
+ *******************************************************************
+ */
 #define IFL_MAX 16
 #define INTFACENAMESIZE 64
 
@@ -188,7 +208,6 @@ extern struct configuration config;
 #include <net/if.h>
 #define STRNCASECMP strncasecmp
 #endif
-
 
 struct intrface { 
     unsigned char name [INTFACENAMESIZE];
@@ -246,22 +265,18 @@ static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
 	return num_ifs;
 }
 
-#if 0
-static char *raw_to_string (const void *raw, unsigned int len, char *outstr) {
-    const unsigned char *raw_char = raw;
-    while (len--) {
-        sprintf(outstr, "%02x", *raw_char);
-        raw_char++;
-        outstr++;
-    }
-    return outstr;
-}
-#endif
+/*
+ * Local interface globals
+ */
+static struct intrface ifl[IFL_MAX];
+static unsigned int num_interfaces = 0;
 
-
-/* END utility functions */
-
-pcap_t *handle;		
+/*************************************************************************
+ *************************************************************************
+ * END network utility functions
+ *************************************************************************
+ *************************************************************************
+ */
 
 /*
  * sig_close() causes a graceful shutdown of the program after recieving 
@@ -283,22 +298,13 @@ static void sig_close (int signal_arg) {
     exit(EXIT_SUCCESS);
 }
 
-
-#if 0
-/*
- * sig_reload() 
+/**
+ * \brief Print the "help" usage message.
+ *
+ * \param s The name of binary that is being executed.
+ *
+ * \return -1 Indicates program exit
  */
-static void sig_reload (int signal_arg) {
-
-    if (handle) {
-        pcap_breakloop(handle);
-    }
-    fprintf(info, "got signal %d, printing out stats and configuration\n", signal_arg); 
-    flocap_stats_output(info);
-    config_print(info, &config);
-}
-#endif
-
 static int usage (char *s) {
     printf("usage: %s [OPTIONS] file1 [file2 ... ]\n", s);
     printf("where OPTIONS are as follows:\n"); 
@@ -356,132 +362,103 @@ static int usage (char *s) {
     return -1;
 }
 
-
-/*
- * note: NUM_PACKETS_BETWEEN_STATS_OUTPUT *must* be a multiple of
- * NUM_PACKETS_IN_LOOP, in order for stats output to periodically take
- * place
+/**
+ * \brief Perform basic sanity checks on the config to ensure valid run state.
+ *
+ * \return 0 success, 1 failure
  */
-#define GET_ALL_PACKETS 0
-#define NUM_PACKETS_IN_LOOP 5
-#define NUM_PACKETS_BETWEEN_STATS_OUTPUT 10000
-#define MAX_RECORDS 2147483647
-#define MAX_FILENAME_LEN 1024
+static int config_sanity_check() {
+    if (config.ipfix_collect_port && config.ipfix_export_port) {
+        /*
+         * Simultaneous IPFIX collection and exporting is not allowed
+         */
+        joy_log_crit("ipfix collection and exporting not allowed at same time");
+        return 1;
+    }
+
+    if (config.ipfix_collect_online && !(config.ipfix_collect_port)) {
+        /*
+         * Cannot use online collection when the overall Ipfix collect feature is not enabled.
+         */
+        joy_log_crit("must enable IPFIX collection via ipfix_collect_port to use ipfix_collect_online");
+        return 1;
+    }
+
+    return 0;
+}
 
 /**
- \fn int main (int argc, char **argv)
- \brief main entry point for joy
- \param argc command line argument count
- \param argv command line arguments
- \return 0
+ * \brief Set the operating mode that Joy will run in.
+ *
+ * \return 0 success, 1 failure
  */
-int main (int argc, char **argv) {
-    char errbuf[PCAP_ERRBUF_SIZE]; 
-    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;		
-    char *filter_exp = "ip or vlan";	
-    struct bpf_program fp;	
-    int i;
-    int c;
-    int opt_count = 0;
-    int tmp_ret;
-    char *ifile = NULL;
-    unsigned int file_count = 0;
-    char filename[MAX_FILENAME_LEN];   /* output file */
-    char pcap_filename[MAX_FILENAME_LEN*2];   /* output file */
-    char *config_file = NULL;
-    struct intrface ifl[IFL_MAX];
-    char *capture_if = NULL;
-	unsigned int num_interfaces = 0;
-    unsigned int file_base_len = 0;
-    unsigned int num_cmds = 0;
-    unsigned int done_with_options = 0;
-    struct stat sb;
-    DIR *dir;
-    struct dirent *ent;
-    enum operating_mode mode = mode_none;
-    pthread_t upd_thread;
-    pthread_t uploader_thread;
-    int upd_rc;
-    pthread_t ipfix_cts_monitor_thread;
-    int cts_monitor_thread_rc;
-
-    /* sanity check sizeof() expectations */
-    if (data_sanity_check() != ok) {
-        fprintf(stderr, "error: failed data size sanity check\n");
-    }
-
-    /* sanity check arguments */
-    for (i=1; i<argc; i++) {
-        if (strchr(argv[i], '=')) { 
-            if (done_with_options) {
-	              fprintf(stderr, "error: option (%s) found after filename (%s)\n", argv[i], argv[i-1]);
-	              exit(EXIT_FAILURE);
-            }
-        } else {
-            done_with_options = 1;
+static int set_operating_mode() {
+    if (config.intface != NULL && strcmp(config.intface, NULL_KEYWORD)) {
+        /*
+         * Network interface sniffing using Pcap
+         */
+        if (config.ipfix_collect_port) {
+            /* Ipfix collection does not use interface sniffing */
+            joy_log_crit("ipfix collection and interface monitoring not allowed at same time");
+            return 1;
         }
+
+        joy_mode = MODE_ONLINE;
+    } else if (config.ipfix_collect_online) {
+        /*
+         * Ipfix live collecting process
+         */
+        joy_mode = MODE_IPFIX_COLLECT_ONLINE;
+    } else {
+        /*
+         * Static Pcap file consumption
+         */
+        joy_mode = MODE_OFFLINE;
     }
-  
-    /*
-     * set "info" to stderr; this output stream is used for
-     * debug/info/warnings/errors.  setting it here is actually
-     * defensive coding, just in case some function that writes to
-     * "info" gets invoked before info gets set below (if we are in
-     * online mode, it will be set to a log file)
-     */
-    info = stderr;
 
-    /* in debug mode, turn off output buffering */
-#if P2F_DEBUG
-    setvbuf(stderr, NULL, _IONBF, 0); 
-    setbuf(stdout, NULL);
-#endif
+    return 0;
+}
 
-    /*
-     * set configuration from command line arguments that contain
-     * LHS=RHS commands, then update argv/argc so that those arguments
-     * are not subjected to any further processing
-     */
-    num_cmds = config_set_from_argv(&config, argv, argc);
-    argv += num_cmds;
-    argc -= num_cmds;
-  
-    /* process command line options */
-    while (1) {
-        int option_index = 0;
-        struct option long_options[] = {
-            {"help",  no_argument,         0, 'h' },
-            {"xconfig", required_argument, 0, 'x' },
-            {0,         0,                 0,  0  }
-        };
-
-        c = getopt_long(argc, argv, "hx:",
-		            long_options, &option_index);
-        if (c == -1)
-            break;
-        switch (c) {
-            case 'x':
-                config_file = optarg;
-                opt_count++;
-                break;
-            case 'h':
-            default:
-                return usage(argv[0]);
+/**
+ * \brief Set the logging output to a file if given by user.
+ *
+ * \return 0 success, 1 failure
+ */
+static int set_logfile() {
+    if (config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
+        info = fopen(config.logfile, "a");
+        if (info == NULL) {
+            joy_log_crit("could not open log file %s", config.logfile);
+            return 1;
         }
-        opt_count++;
+        fprintf(stderr, "writing errors/warnings/info/debug output to %s\n", config.logfile);
     }
 
+    return 0;
+}
+
+/**
+ * \brief Read the configuration into program memory, and perform
+ *        some initial startup tasks.
+ *
+ * \param config_file Configuration that will be read into program state.
+ * \param num_cmds The number of commands processed from the console.
+ *
+ * \return 0 success, 1 failure
+ */
+static int initial_setup(char *config_file, unsigned int num_cmds) {
     if (config_file) {
         /*
-         * read in configuration from file; note that if we don't read in
+         * Read in configuration from file; note that if we don't read in
          * a file, then the config structure will use the static defaults
-         * set when it was declared
+         * set when it was declared, and from config_set_defaults().
          */
         config_set_from_file(&config, config_file);
-    } 
+    }
+
     if (config_file || (num_cmds != 0)) {
         /*
-         * set global variables as needed, if we got some configuration
+         * Set global variables as needed, if we got some configuration
          * commands from the config_file or from command line arguments
          */
         bidir = config.bidir;
@@ -511,247 +488,385 @@ int main (int argc, char **argv) {
         }
     }
 
-    if (config.ipfix_collect_port && config.ipfix_export_port) {
-        /*
-         * Simultaneous IPFIX collection and exporting is not allowed
-         */
-        fprintf(info, "error: ipfix collection and exporting not allowed at same time\n");
-        return -1;
-    }
+    /* Make sure the config is valid */
+    if (config_sanity_check()) return 1;
 
-    if (config.ipfix_collect_online && !(config.ipfix_collect_port)) {
-        /*
-         * Cannot use online collection when the overall Ipfix collect feature is not enabled.
-         */
-        fprintf(info, "error: must enable IPFIX collection via ipfix_collect_port "
-                      "to use ipfix_collect_online\n");
-        return -1;
-    }
+    /* Determine the mode that Joy will be running in */
+    if (set_operating_mode()) return 1;
 
-    /*
-     * set the operating mode to online or offline 
-     */
-    if (config.intface != NULL && strcmp(config.intface, NULL_KEYWORD)) {
-        /* Network interface sniffing using Pcap */
-        if (config.ipfix_collect_port) {
-            /* Ipfix collection does not use interface sniffing */
-            fprintf(info, "error: ipfix collection and interface monitoring not allowed at same time\n");
-            return -1;
+    /* Set log to file or console */
+    if (set_logfile()) return 1;
+
+    if (config.report_tls) {
+        /* Load the TLS fingerprints into memory */
+        if (tls_load_fingerprints()) {
+            joy_log_warn("could not load tls_fingerprint.json file");
         }
-        mode = mode_online;
-    } else if (config.ipfix_collect_online) {
-        /* Ipfix live collecting process */
-        mode = mode_ipfix_collect_online;
-    } else {
-        /* Static Pcap file consumption */
-        mode = mode_offline;
     }
-    
-    /*
-     * if we are doing a live capture, get interface list, and set "info"
-     * output stream to log file
-     */
-    if (mode == mode_online) {
 
-        if (config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
-            info = fopen(config.logfile, "a");
-            if (info == NULL) {
-	              fprintf(stderr, "error: could not open log file %s\n", config.logfile);
-	              return -1;
-            }
-            fprintf(stderr, "writing errors/warnings/info/debug output to %s\n", config.logfile);
-        }
-    
-        /*
-         * cheerful message to indicate the start of a new run of the
-         * daemon
-         */
-        fprintf(info, "--- %s initialization ---\n", argv[0]);
-        flocap_stats_output(info);
-
+    if (joy_mode == MODE_ONLINE) {
+        /* Get interface list */
         num_interfaces = interface_list_get(ifl);
+    }
+
+    return 0;
+}
+
+/**
+ * \brief Read in the splt and bd parameters if given.
+ *
+ * \return 0 success, 1 failure
+ */
+static int get_splt_bd_params() {
+    char params_splt[LINEMAX];
+    char params_bd[LINEMAX];
+    int num;
+
+    if (!config.params_file) {
+        return 0;
+    }
+
+    num = sscanf(config.params_file, "%[^=:]:%[^=:\n#]", params_splt, params_bd);
+    if (num != 2) {
+        joy_log_err("could not parse command \"%s\" into form param_splt:param_bd", config.params_file);
+        return 1;
     } else {
-        info = stderr;
+        /*
+         * if no URL specified, then process local files
+         * otherwise, if we have a URL, then the updater process
+         * will handle the model updates.
+         */
+        if (config.params_url == NULL) {
+            fprintf(info, "updating classifiers from supplied model(%s)\n", config.params_file);
+            update_params(SPLT_PARAM_TYPE,params_splt);
+            update_params(BD_PARAM_TYPE,params_bd);
+        }
     }
 
-    /*
-     * report on running configuration (which may depend on the command
-     * line, the config file, or both)
-     */
-    config_print(info, &config);
+    return 0;
+}
 
-    if (config.params_file) {
-        char params_splt[LINEMAX];
-        char params_bd[LINEMAX];
+/**
+ * \brief Read in the compact bd parameters if given.
+ *
+ * \return 0 success, 1 failure
+ */
+static int get_compact_bd() {
+    FILE *fp;
+    int count = 0;
+    unsigned short b_value, map_b_value;
+
+    if (!config.compact_byte_distribution) {
+        return 0;
+    }
+
+    memset(compact_bd_mapping, 0, sizeof(compact_bd_mapping));
+
+    fp = fopen(compact_byte_distribution, "r");
+    if (fp != NULL) {
+        while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
+                compact_bd_mapping[b_value] = map_b_value;
+                count++;
+                if (count >= 256) {
+                    break;
+                }
+        }
+        fclose(fp);
+    } else {
+        joy_log_err("could not open file %s", compact_byte_distribution);
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * \brief Get the labeled subnets.
+ *
+ * Uses a radix trie to identify addresses that match subnets associated with labels.
+ *
+ * \return 0 success, 1 failure
+ */
+static int get_labeled_subnets() {
+    attr_flags subnet_flag;
+    enum status err;
+    int i = 0;
+
+    if (!config.num_subnets) {
+        return 0;
+    }
+
+    rt = radix_trie_alloc();
+    if (rt == NULL) {
+        joy_log_err("could not allocate memory");
+        return 1;
+    }
+
+    err = radix_trie_init(rt);
+    if (err != ok) {
+        joy_log_err("could not initialize subnet labels (radix_trie)");
+        return 1;
+    }
+
+    for (i=0; i<config.num_subnets; i++) {
+        char label[LINEMAX], subnet_file[LINEMAX];
         int num;
-        num = sscanf(config.params_file, "%[^=:]:%[^=:\n#]", params_splt, params_bd);
+
+        num = sscanf(config.subnet[i], "%[^=:]:%[^=:\n#]", label, subnet_file);
         if (num != 2) {
-            fprintf(info, "error: could not parse command \"%s\" into form param_splt:param_bd\n", config.params_file);
-            exit(1);
-        } else {
-            /*
-             * if no URL specified, then process local files 
-             * otherwise, if we have a URL, then the updater process
-             * will handle the model updates.
-             */
-            if (config.params_url == NULL) {
-                fprintf(info, "updating classifiers from supplied model(%s)\n", config.params_file);
-                update_params(SPLT_PARAM_TYPE,params_splt);
-                update_params(BD_PARAM_TYPE,params_bd);
-            }
+              fprintf(info, "error: could not parse command \"%s\" into form label:subnet", config.subnet[i]);
+              return 1;
         }
-    }
 
-    if (config.compact_byte_distribution) {
-        FILE *fp;
-        int count = 0;
-        unsigned short b_value, map_b_value;
-
-        memset(compact_bd_mapping, 0, sizeof(compact_bd_mapping));
-
-        fp = fopen(compact_byte_distribution, "r");
-        if (fp != NULL) {
-            while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
-	                compact_bd_mapping[b_value] = map_b_value;
-	                count++;
-	                if (count >= 256) {
-	                    break;
-	                }
-            }
-            fclose(fp);
-        } else {
-            fprintf(info, "error: could not open file %s\n", compact_byte_distribution);
-            exit(1);
+        subnet_flag = radix_trie_add_attr_label(rt, label);
+        if (subnet_flag == 0) {
+              joy_log_err("could not add subnet label %s to radix_trie", label);
+              return 1;
         }
-    }
 
-    /*
-     * configure labeled subnets (which uses a radix trie to identify
-     * addresses that match subnets associated with labels)
-     */  
-    if (config.num_subnets > 0) {
-        attr_flags subnet_flag;
-        enum status err;
-
-        rt = radix_trie_alloc();
-        if (rt == NULL) {
-            fprintf(info, "could not allocate memory\n");
-        }
-        err = radix_trie_init(rt);
+        err = radix_trie_add_subnets_from_file(rt, subnet_file, subnet_flag, info);
         if (err != ok) {
-            fprintf(stderr, "error: could not initialize subnet labels (radix_trie)\n");
+              joy_log_err("could not add labeled subnets from file %s", subnet_file);
+              return 1;
         }
-        for (i=0; i<config.num_subnets; i++) {
-            char label[LINEMAX], subnet_file[LINEMAX];
-            int num;
-      
-            num = sscanf(config.subnet[i], "%[^=:]:%[^=:\n#]", label, subnet_file);
-            if (num != 2) {
-	              fprintf(info, "error: could not parse command \"%s\" into form label:subnet\n", config.subnet[i]);
-	              exit(1);
-            }
-      
-            subnet_flag = radix_trie_add_attr_label(rt, label);
-            if (subnet_flag == 0) {
-	              fprintf(info, "error: count not add subnet label %s to radix_trie\n", label);
-	              exit(1);
-            }
-      
-            err = radix_trie_add_subnets_from_file(rt, subnet_file, subnet_flag, info);
-            if (err != ok) {
-	              fprintf(info, "error: could not add labeled subnets from file %s\n", subnet_file);
-	              exit(1);
-            }
-        }
-        fprintf(info, "configured labeled subnets (radix_trie)\n");
-    
     }
 
+    joy_log_info("configured labeled subnets (radix_trie)");
+
+    return 0;
+}
+
+static int configure_anonymization() {
     if (config.anon_addrs_file != NULL) {
         if (anon_init(config.anon_addrs_file, info) == failure) {
-            fprintf(info, "error: could not initialize anonymization subnets from file %s\n", 
-	                config.anon_addrs_file); 
-            return -1;
+            joy_log_err("could not initialize anonymization subnets from file %s",
+                        config.anon_addrs_file);
+            return 1;
         }
     }
 
     if (config.anon_http_file != NULL) {
         if (anon_http_init(config.anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == failure) {
-            fprintf(info, "error: could not initialize HTTP anonymization from username file %s\n", 
-	                config.anon_http_file); 
-            return -1;
+            joy_log_err("could not initialize HTTP anonymization from username file %s",
+                        config.anon_http_file);
+            return 1;
         }
     }
 
-    if (config.filename != NULL) {
-        char *outputdir;
-    
-        /*
-         * set output directory 
-         */
-        if (config.outputdir) {
-            outputdir = config.outputdir;
-        } else {
-            outputdir = ".";
-        }
+    return 0;
+}
 
-        /*
-         * generate an "auto" output file name, based on the MAC address
-         * and the current time, if we are "auto" configured
-         */
-        if (strncmp(config.filename, "auto", strlen("auto")) == 0) {
+/**
+ * \brief Set the data output to desired target.
+ *
+ * The output may be stdout, or a file with an auto-generated name,
+ * or a file with the name given by user.
+ *
+ * \return 0 success, 1 failure
+ */
+static int set_data_output_file(char *output_filename,
+                                unsigned int *outfile_base_len,
+                                unsigned int file_count) {
+    char *outputdir;
 
-            if (mode == mode_online || mode == mode_ipfix_collect_online) {
-	               time_t now = time(0);   
-	               struct tm *t = localtime(&now);
-	
-                       snprintf(filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
-                           t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
-           } else {
-	               fprintf(info, "error: cannot use \"output = auto\" with no interface specified; use -o or -l options\n");
-	               return usage(argv[0]);
-           }
-           fprintf(info, "auto generated output filename: %s\n", filename);
-      
-        } else {    
-            /* set output file based on command line or config file */
-
-            if (config.filename[0] == '/') {
-                strncpy(filename, config.filename, MAX_FILENAME_LEN);
-            } else {
-                snprintf(filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
-            }
-        }
-        file_base_len = strlen(filename);
-        if (config.max_records != 0) {
-            snprintf(filename + file_base_len, MAX_FILENAME_LEN - file_base_len, zsuffix("%d"), file_count);
-        }
-        output = zopen(filename, "w");
-        if (output == NULL) {
-            fprintf(info, "error: could not open output file %s (%s)\n", filename, strerror(errno));
-            return -1;
-        }
-    } else {
+    if (!config.filename) {
         output = zattach(stdout, "w");
+        return 0;
     }
-  
+
+    /*
+     * Output directory
+     */
+    if (config.outputdir) {
+        outputdir = config.outputdir;
+    } else {
+        outputdir = ".";
+    }
+
+    if (strncmp(config.filename, "auto", strlen("auto")) == 0) {
+        /*
+         * Generate an "auto" output file name, based on the MAC address
+         * and the current time.
+         */
+        if (joy_mode == MODE_ONLINE || joy_mode == MODE_IPFIX_COLLECT_ONLINE) {
+            time_t now = time(0);
+            struct tm *t = localtime(&now);
+
+            snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
+                     t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+       } else {
+           joy_log_err("cannot use \"output = auto\" with no interface specified; use -o or -l options");
+       }
+
+       joy_log_info("auto generated output filename: %s", output_filename);
+
+    } else {
+        /*
+         * Set output file based on command line or config file
+         */
+        if (config.filename[0] == '/') {
+            strncpy(output_filename, config.filename, MAX_FILENAME_LEN);
+        } else {
+            snprintf(output_filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
+        }
+    }
+
+    (*outfile_base_len) = strlen(output_filename);
+
+    if (config.max_records != 0) {
+        snprintf(output_filename + (*outfile_base_len),
+                 MAX_FILENAME_LEN - (*outfile_base_len),
+                 zsuffix("%d"), file_count);
+    }
+
+    output = zopen(output_filename, "w");
+    if (output == NULL) {
+        joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
+ \fn int main (int argc, char **argv)
+ \brief main entry point for joy
+ \param argc command line argument count
+ \param argv command line arguments
+ \return 0
+ */
+int main (int argc, char **argv) {
+    int opt_count = 0;
+    unsigned int num_cmds = 0;
+    unsigned int done_with_options = 0;
+    char *config_file = NULL;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
+    struct bpf_program fp;
+    int tmp_ret;
+    char *ifile = NULL;
+    unsigned int file_count = 0;
+    char output_filename[MAX_FILENAME_LEN];  /* data output file */
+    unsigned int outfile_base_len = 0;
+    char pcap_filename[MAX_FILENAME_LEN*2];   /* output file */
+    char *capture_if = NULL;
+    struct stat sb;
+    DIR *dir;
+    struct dirent *ent;
+    pthread_t upd_thread;
+    pthread_t uploader_thread;
+    int upd_rc;
+    pthread_t ipfix_cts_monitor_thread;
+    int cts_monitor_thread_rc;
+    int c, i = 0;
+
+    /* Sanity check sizeof() expectations */
+    if (data_sanity_check() != ok) {
+        joy_log_crit("failed data size sanity check");
+    }
+
+    /* Sanity check argument syntax */
+    for (i=1; i<argc; i++) {
+        if (strchr(argv[i], '=')) {
+            if (done_with_options) {
+	              joy_log_crit("option (%s) found after filename (%s)", argv[i], argv[i-1]);
+	              exit(EXIT_FAILURE);
+            }
+        } else {
+            done_with_options = 1;
+        }
+    }
+
+    /*
+     * set "info" to stderr; this output stream is used for
+     * debug/info/warnings/errors.  setting it here is actually
+     * defensive coding, just in case some function that writes to
+     * "info" gets invoked before info gets set below (if we are in
+     * online mode, it will be set to a log file)
+     */
+    info = stderr;
+
+    /* in debug mode, turn off output buffering */
+#if P2F_DEBUG
+    setvbuf(stderr, NULL, _IONBF, 0);
+    setbuf(stdout, NULL);
+#endif
+
+    /*
+     * Set configuration from command line arguments that contain
+     * LHS=RHS commands, then update argv/argc so that those arguments
+     * are not subjected to any further processing
+     */
+    num_cmds = config_set_from_argv(&config, argv, argc);
+    argv += num_cmds;
+    argc -= num_cmds;
+
+    /* Process command line options */
+    while (1) {
+        int option_index = 0;
+        struct option long_options[] = {
+            {"help",  no_argument,         0, 'h' },
+            {"xconfig", required_argument, 0, 'x' },
+            {0,         0,                 0,  0  }
+        };
+
+        c = getopt_long(argc, argv, "hx:", long_options, &option_index);
+
+        if (c == -1) break;
+
+        switch (c) {
+            case 'x':
+                config_file = optarg;
+                opt_count++;
+                break;
+            case 'h':
+            default:
+                return usage(argv[0]);
+        }
+        opt_count++;
+    }
+
+    /*
+     * Configure and prepare the program for execution
+     */
+    if (initial_setup(config_file, num_cmds)) exit(EXIT_FAILURE);
+
+    /*
+     * Cheerful message to indicate the start of a new run of the program
+     */
+    fprintf(info, "--- Joy Initialization ---\n");
+    flocap_stats_output(info);
+
+    /*
+     * Report on running configuration (which may depend on the command
+     * line, the config file, or both)
+     */
+    config_print(info, &config);
+
+    /* 
+     * Retrieve sequence of packet lengths/times and byte distribution
+     * parameters if supplied
+     */
+    if (get_splt_bd_params()) exit(EXIT_FAILURE);
+
+    /* Retrieve the compact byte distribution if supplied */
+    if (get_compact_bd()) exit(EXIT_FAILURE);
+
+    /* Configure labeled subnets */
+    if (get_labeled_subnets()) exit(EXIT_FAILURE);
+
+    /* Configure anonymization */
+    if (configure_anonymization()) exit(EXIT_FAILURE);
+
+    /* Configure data output */
+    set_data_output_file(output_filename, &outfile_base_len, file_count);
+
     if (ifile != NULL) {
         opt_count--;
         argv[1+opt_count] = ifile; 
     }
 
-    if (config.report_tls) {
-        /*
-         * Load the TLS fingerprints into memory
-         * for use in any mode.
-         */
-        if (tls_load_fingerprints()) {
-            fprintf(info, "info: could not load tls_fingerprint.json file\n");
-	    //            return -1;
-        }
-    }
-
-    if (mode == mode_online) {   /* live capture */
+    if (joy_mode == MODE_ONLINE) {   /* live capture */
         int linktype;
 
         /*
@@ -768,9 +883,6 @@ int main (int argc, char **argv) {
     
         signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
         signal(SIGTERM, sig_close);
-        // signal(SIGHUP, sig_reload);
-        // signal(SIGTSTP, sig_reload);
-        //signal(SIGQUIT, sig_reload);   /* Ctl-\ causes an info dump      */
 
         /*
          * set capture interface as needed
@@ -888,7 +1000,7 @@ int main (int argc, char **argv) {
            }
 
            /* print out inactive flows */
-	   gettimeofday(&time_of_day, NULL);
+           gettimeofday(&time_of_day, NULL);
 
            timer_sub(&time_of_day, &time_window, &inactive_flow_cutoff);
 
@@ -904,15 +1016,15 @@ int main (int argc, char **argv) {
 	                   */
 	                  zclose(output);
 	                  if (config.upload_servername) {
-	                      upload_file(filename);
+	                      upload_file(output_filename);
 	                  }
 
 	                  // printf("records: %d\tmax_records: %d\n", records_in_file, config.max_records);
 	                  file_count++;
 	                  if (config.max_records != 0) {
-	                      snprintf(filename + file_base_len, MAX_FILENAME_LEN - file_base_len, zsuffix("%d"), file_count);
+	                      snprintf(output_filename + outfile_base_len, MAX_FILENAME_LEN - outfile_base_len, zsuffix("%d"), file_count);
 	                  }
-	                  output = zopen(filename, "w");
+	                  output = zopen(output_filename, "w");
 	                  if (output == NULL) {
 	                      perror("error: could not open output file");
 	                      return -1;
@@ -935,11 +1047,10 @@ int main (int argc, char **argv) {
         pcap_close(handle);
  
 
-    } else if (mode == mode_ipfix_collect_online) {
+    } else if (joy_mode == MODE_IPFIX_COLLECT_ONLINE) {
         /* IPFIX live collecting process */
         signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
         signal(SIGTERM, sig_close);
-        //signal(SIGQUIT, sig_reload);   /* Ctl-\ causes an info dump      */
 
         /*
          * Start up the IPFIX collector template store (cts) monitor
