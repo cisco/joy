@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-set -e
 
 # Launch agent location
-LAUNCH_AGENT_SRC="/usr/local/joy/etc/joy.plist"
+LAUNCH_AGENT_SRC="/usr/local/etc/joy/joy.plist"
 LAUNCH_AGENT_DEST="/Library/LaunchAgents/com.cisco.joy.plist"
+LOGFILE="/usr/local/var/log/joy-postinstall.log"
+exec >> $LOGFILE 2>&1 
 
 # Uninstall old launch agent
 launchctl unload "$LAUNCH_AGENT_DEST" || true
