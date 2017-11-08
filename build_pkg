@@ -100,10 +100,13 @@ if [ -z "$BUILDTYPE" ]; then
 fi
 if [ "$BUILDTYPE" != "osxpkg" ]; then
     OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
-elif [ -z "$SSL_PATH" ]; then
-    echo "When building joy on OSX, you must specify the -s ssl-path option"
-    echo "with the location of the OpenSSL header files."
-    exit 1
+elif [ "$BUILDTYPE" == "osxpkg" ]; then
+    OSXVER=`sw_vers -productVersion | awk -F. '{print $1"."$2}'`
+    if [ -z "$SSL_PATH" ]; then
+        echo "When building joy on OSX, you must specify the -s ssl-path option"
+        echo "with the location of the OpenSSL header files."
+        exit 1
+    fi
 fi
 if [ -n "$RELEASE" ]; then
     if [ ${RELEASE} -eq ${RELEASE} ] 2>/dev/null; then
@@ -213,6 +216,8 @@ ITERATION="${RELEASE}.${SHORT_COMMIT_ID}"
 if [ "$OSREL" == "debian" -o "$OSREL" == "ubuntu" ]; then
     CODENAME=`lsb_release -cs`
     ITERATION="$ITERATION.$CODENAME"
+elif [ -n "$OSXVER" ]; then
+    ITERATION="$ITERATION.macosx.$OSXVER"
 fi
 FULL_VERSION="${VERSION}-${ITERATION}"
 TAR_FILE=`pwd`/joy-$SHORT_COMMIT_ID.tar
