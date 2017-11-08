@@ -189,7 +189,8 @@ if [ "$sysname" == "Darwin" ]; then
     ##
     # Darwin operating system detected
     ##
-    echo "found $sysname (Mac OS X), installing joy ..."
+    OSXVER=`sw_vers -productVersion | awk -F. '{print $1"."$2}'`
+    echo "found $sysname (Mac OS X $OSXVER), installing joy ..."
 
     if [ -z "$PKGBUILD" ]; then
         echo "stopping flow capture daemon (just in case one is already running)"
@@ -245,13 +246,14 @@ if [ "$sysname" == "Darwin" ]; then
         pip install ${APP_ROOT}/sleuth/
     else
 	cd ${APP_ROOT}/sleuth
+	SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
 	echo "Running python setup.py bdist --format=gztar"
 	python setup.py bdist --format=gztar
         if [ $retval -ne "0" ]; then
             echo "error: could not run python setup.py for sleuth"
             exit 1
         fi
-        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-0.1.macosx-10.12-intel.tar.gz"
+        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-${SLEUTHVER}.macosx-${OSXVER}-intel.tar.gz"
 	if [ -f $SLEUTHFILE ]; then
             tar -xf $SLEUTHFILE -C $BUILDROOT
 	else
@@ -446,13 +448,14 @@ elif [ "$sysname" == "Linux" ]; then
         pip install ${APP_ROOT}/sleuth/
     else
 	cd ${APP_ROOT}/sleuth
+	SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
 	echo "Running python setup.py bdist --format=gztar"
 	python setup.py bdist --format=gztar
         if [ $retval -ne "0" ]; then
             echo "error: could not run python setup.py for sleuth"
             exit 1
         fi
-        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-0.1.linux-${ARCH}.tar.gz"
+        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-${SLEUTHVER}.linux-${ARCH}.tar.gz"
 	if [ -f $SLEUTHFILE ]; then
             tar -xf $SLEUTHFILE -C $BUILDROOT
 	else
