@@ -244,7 +244,20 @@ if [ "$sysname" == "Darwin" ]; then
         echo "Running pip install ${APP_ROOT}/sleuth/"
         pip install ${APP_ROOT}/sleuth/
     else
-        pip install -t $PREFIX/lib/python ${APP_ROOT}/sleuth/
+	cd ${APP_ROOT}/sleuth
+	echo "Running python setup.py bdist --format=gztar"
+	python setup.py bdist --format=gztar
+        if [ $retval -ne "0" ]; then
+            echo "error: could not run python setup.py for sleuth"
+            exit 1
+        fi
+        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-0.1.macosx-10.12-intel.tar.gz"
+	if [ -f $SLEUTHFILE ]; then
+            tar -xf $SLEUTHFILE -C $BUILDROOT
+	else
+            echo "Cannot find sleuth tarball $SLEUTHFILE"
+            exit 1
+	fi
     fi
 
     # Install the configuration file
