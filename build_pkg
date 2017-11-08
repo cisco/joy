@@ -28,7 +28,9 @@ usage() {
 # set defaults
 #
 NAME=joy
-VERSION=`cat VERSION`
+# Subtract .01 from VERSION file in git to build packages since the VERSION file
+# contains the next version number for joy, not the current version.
+VERSION=`echo "scale = 2; \`cat VERSION\` - .01" | bc`
 GITREF=master
 CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP_ROOT=$(dirname "$CWD")
@@ -230,6 +232,7 @@ FPM_LINUX_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION --iteration $ITERATION \
     --url https://github.com/cisco/joy"
 FPM_MAC_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION-$ITERATION \
     --after-install $APP_ROOT/joy/install/postinstall-darwin \
+    --before-install $APP_ROOT/joy/install/preinstall-darwin \
     --vendor Cisco \
     --osxpkg-identifier-prefix com.cisco \
     --osxpkg-dont-obsolete /usr/local/etc/joy/ \
@@ -246,8 +249,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh
-    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh
+    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin 2>/dev/null
+    tar -uf $TAR_FILE -C .. joy/Makefile joy/config joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
