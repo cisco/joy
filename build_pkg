@@ -6,7 +6,7 @@
 usage() { 
     echo "usage:"
     echo ""
-    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ]"
+    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ] [ -s ssl-path ]"
     echo ""
     echo "where the options are as follows"
     echo ""
@@ -19,6 +19,9 @@ usage() {
     echo ""
     echo "   The -R release specifies number preceding the short git commit to allow for"
     echo "   package upgrades on the same joy version."
+    echo ""
+    echo "   The -s ssl-path is required when building osxpkg and specifies the"
+    echo "   location of the OpenSSL header files."
     echo ""
 } 
 
@@ -41,7 +44,6 @@ UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
     openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
-OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
 ARCH=`uname -m`
 
 echo
@@ -51,7 +53,7 @@ echo
 
 # check command line arguments, ovveride defaults as appropriate
 #
-while getopts "ht:r:R:" arg; do
+while getopts "ht:s:r:R:" arg; do
     case $arg in
     h)
         usage
@@ -60,6 +62,10 @@ while getopts "ht:r:R:" arg; do
     t)
         echo "-t was triggered with option ${OPTARG}" 
         BUILDTYPE=${OPTARG}
+        ;;
+    s)
+        echo "-s was triggered with option ${OPTARG}" 
+        SSL_PATH=${OPTARG}
         ;;
     r)
         echo "-r was triggered with option ${OPTARG}" 
@@ -88,6 +94,13 @@ if [ $(($# + 1)) != "${OPTIND}" ]; then
 fi
 if [ -z "$BUILDTYPE" ]; then
     echo "-t deb|osxpkg|rpm must be specified" >&2
+    exit 1
+fi
+if [ "$BUILDTYPE" != "osxpkg" ]; then
+    OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
+elif [ -z "$SSL_PATH" ]; then
+    echo "When building joy on OSX, you must specify the -s ssl-path option"
+    echo "with the location of the OpenSSL header files."
     exit 1
 fi
 if [ -n "$RELEASE" ]; then
@@ -267,7 +280,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
         exit 1
     fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
-    ./config
+    ./config --ssl-path $SSL_PATH
 elif [ "$BUILDTYPE" == "rpm" ]; then
     ./config -l /usr/lib64
 fi
