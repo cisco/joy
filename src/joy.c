@@ -426,25 +426,25 @@ static int set_operating_mode() {
  * \return 0 success, 1 failure
  */
 static int set_logfile() {
-	char logfile[MAX_FILENAME_LEN];
+    char logfile[MAX_FILENAME_LEN];
 #ifdef WIN32
-	PWSTR windir = NULL;
+    PWSTR windir = NULL;
 #endif
 
     if (config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
 #ifdef WIN32
-		if (!strncmp(config.logfile, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
-			/* Use the LocalAppDataFolder */
-			SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
+        if (!strncmp(config.logfile, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
+            /* Use the LocalAppDataFolder */
+            SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
 
-			snprintf(logfile, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, "joy.log");
+            snprintf(logfile, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, "joy.log");
 
-			if (windir != NULL) CoTaskMemFree(windir);
-		} else {
-			strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
-		}
+            if (windir != NULL) CoTaskMemFree(windir);
+        } else {
+            strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
+        }
 #else
-		strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
+        strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
 #endif
 
         info = fopen(logfile, "a");
@@ -689,7 +689,7 @@ static int set_data_output_file(char *output_filename,
                                 unsigned int *outfile_base_len,
                                 unsigned int file_count) {
     char *outputdir = NULL;
-	int rc = 1;
+    int rc = 1;
 #ifdef WIN32
 	PWSTR windir = NULL;
 #endif
@@ -704,15 +704,15 @@ static int set_data_output_file(char *output_filename,
      */
     if (config.outputdir) {
 #ifdef WIN32
-		if (!strncmp(config.outputdir, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
-			/* Use the LocalAppDataFolder */
-			SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
-		}
-		else {
-			outputdir = config.outputdir;
-		}
+        if (!strncmp(config.outputdir, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
+            /* Use the LocalAppDataFolder */
+            SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
+        }
+        else {
+            outputdir = config.outputdir;
+        }
 #else
-		outputdir = config.outputdir;
+        outputdir = config.outputdir;
 #endif
     } else {
         outputdir = ".";
@@ -728,17 +728,17 @@ static int set_data_output_file(char *output_filename,
             struct tm *t = localtime(&now);
 
 #ifdef WIN32
-			if (windir != NULL) {
-				/* Use the Windows install directory */
-				snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", windir,
-						 t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
-			} else {
-				snprintf(output_filename, MAX_FILENAME_LEN, "%s\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
-						 t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
-			}
+            if (windir != NULL) {
+                /* Use the Windows install directory */
+                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", windir,
+                         t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+            } else {
+                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
+                         t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+            }
 #else
-			snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
-					 t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+            snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
+                     t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
 #endif
        } else {
            joy_log_err("cannot use \"output = auto\" with no interface specified; use -o or -l options");
@@ -755,14 +755,14 @@ static int set_data_output_file(char *output_filename,
             strncpy(output_filename, config.filename, MAX_FILENAME_LEN);
         } else {
 #ifdef WIN32
-			if (windir) {
-				/* Use the Windows install directory */
-				snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, config.filename);
-			} else {
-				snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s", outputdir, config.filename);
-			}
+            if (windir) {
+                /* Use the Windows install directory */
+                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, config.filename);
+            } else {
+                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s", outputdir, config.filename);
+            }
 #else
-			snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
+            snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
 #endif
         }
     }
@@ -781,14 +781,14 @@ static int set_data_output_file(char *output_filename,
 		goto end;
     }
 
-	/* Success */
-	rc = 0;
+    /* Success */
+    rc = 0;
 
 end:
 #ifdef WIN32
-	if (windir != NULL) {
-		CoTaskMemFree(windir);
-	}
+    if (windir != NULL) {
+        CoTaskMemFree(windir);
+    }
 #endif
 
     return rc;
