@@ -282,5 +282,6 @@ else
 fi
 echo "export CURLPATH= -I \"$curl_header_path\"" >> config.vars
 
+echo "The following variables were defined:"
+cat config.vars
 echo "All dependencies found. Issue 'make clean;make' to build the code"
-

@@ -6,7 +6,7 @@
 usage() { 
     echo "usage:"
     echo ""
-    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ]"
+    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ] [ -s ssl-path ]"
     echo ""
     echo "where the options are as follows"
     echo ""
@@ -20,12 +20,17 @@ usage() {
     echo "   The -R release specifies number preceding the short git commit to allow for"
     echo "   package upgrades on the same joy version."
     echo ""
+    echo "   The -s ssl-path is required when building osxpkg and specifies the"
+    echo "   location of the OpenSSL header files."
+    echo ""
 } 
 
 # set defaults
 #
 NAME=joy
-VERSION=`cat VERSION`
+# Subtract .01 from VERSION file in git to build packages since the VERSION file
+# contains the next version number for joy, not the current version.
+VERSION=`echo "scale = 2; \`cat VERSION\` - .01" | bc`
 GITREF=master
 CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP_ROOT=$(dirname "$CWD")
@@ -41,7 +46,6 @@ UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
     openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
-OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
 ARCH=`uname -m`
 
 echo
@@ -51,7 +55,7 @@ echo
 
 # check command line arguments, ovveride defaults as appropriate
 #
-while getopts "ht:r:R:" arg; do
+while getopts "ht:s:r:R:" arg; do
     case $arg in
     h)
         usage
@@ -60,6 +64,10 @@ while getopts "ht:r:R:" arg; do
     t)
         echo "-t was triggered with option ${OPTARG}" 
         BUILDTYPE=${OPTARG}
+        ;;
+    s)
+        echo "-s was triggered with option ${OPTARG}" 
+        SSL_PATH=${OPTARG}
         ;;
     r)
         echo "-r was triggered with option ${OPTARG}" 
@@ -89,6 +97,16 @@ fi
 if [ -z "$BUILDTYPE" ]; then
     echo "-t deb|osxpkg|rpm must be specified" >&2
     exit 1
+fi
+if [ "$BUILDTYPE" != "osxpkg" ]; then
+    OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
+elif [ "$BUILDTYPE" == "osxpkg" ]; then
+    OSXVER=`sw_vers -productVersion | awk -F. '{print $1"."$2}'`
+    if [ -z "$SSL_PATH" ]; then
+        echo "When building joy on OSX, you must specify the -s ssl-path option"
+        echo "with the location of the OpenSSL header files."
+        exit 1
+    fi
 fi
 if [ -n "$RELEASE" ]; then
     if [ ${RELEASE} -eq ${RELEASE} ] 2>/dev/null; then
@@ -198,6 +216,8 @@ ITERATION="${RELEASE}.${SHORT_COMMIT_ID}"
 if [ "$OSREL" == "debian" -o "$OSREL" == "ubuntu" ]; then
     CODENAME=`lsb_release -cs`
     ITERATION="$ITERATION.$CODENAME"
+elif [ -n "$OSXVER" ]; then
+    ITERATION="$ITERATION.macosx.$OSXVER"
 fi
 FULL_VERSION="${VERSION}-${ITERATION}"
 TAR_FILE=`pwd`/joy-$SHORT_COMMIT_ID.tar
@@ -217,6 +237,7 @@ FPM_LINUX_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION --iteration $ITERATION \
     --url https://github.com/cisco/joy"
 FPM_MAC_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION-$ITERATION \
     --after-install $APP_ROOT/joy/install/postinstall-darwin \
+    --before-install $APP_ROOT/joy/install/preinstall-darwin \
     --vendor Cisco \
     --osxpkg-identifier-prefix com.cisco \
     --osxpkg-dont-obsolete /usr/local/etc/joy/ \
@@ -233,8 +254,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh
-    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh
+    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin 2>/dev/null
+    tar -uf $TAR_FILE -C .. joy/Makefile joy/config joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
@@ -267,7 +288,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
         exit 1
     fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
-    ./config
+    ./config --ssl-path $SSL_PATH
 elif [ "$BUILDTYPE" == "rpm" ]; then
     ./config -l /usr/lib64
 fi
