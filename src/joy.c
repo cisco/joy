@@ -57,6 +57,7 @@
 #ifdef WIN32
 #include "win_types.h"
 #include "Ws2tcpip.h"
+#include <ShlObj.h>
 #else 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -425,8 +426,28 @@ static int set_operating_mode() {
  * \return 0 success, 1 failure
  */
 static int set_logfile() {
+	char logfile[MAX_FILENAME_LEN];
+#ifdef WIN32
+	PWSTR windir = NULL;
+#endif
+
     if (config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
-        info = fopen(config.logfile, "a");
+#ifdef WIN32
+		if (!strncmp(config.logfile, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
+			/* Use the LocalAppDataFolder */
+			SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
+
+			snprintf(logfile, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, "joy.log");
+
+			if (windir != NULL) CoTaskMemFree(windir);
+		} else {
+			strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
+		}
+#else
+		strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
+#endif
+
+        info = fopen(logfile, "a");
         if (info == NULL) {
             joy_log_crit("could not open log file %s", config.logfile);
             return 1;
@@ -667,7 +688,11 @@ static int configure_anonymization() {
 static int set_data_output_file(char *output_filename,
                                 unsigned int *outfile_base_len,
                                 unsigned int file_count) {
-    char *outputdir;
+    char *outputdir = NULL;
+	int rc = 1;
+#ifdef WIN32
+	PWSTR windir = NULL;
+#endif
 
     if (!config.filename) {
         output = zattach(stdout, "w");
@@ -678,7 +703,17 @@ static int set_data_output_file(char *output_filename,
      * Output directory
      */
     if (config.outputdir) {
-        outputdir = config.outputdir;
+#ifdef WIN32
+		if (!strncmp(config.outputdir, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
+			/* Use the LocalAppDataFolder */
+			SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
+		}
+		else {
+			outputdir = config.outputdir;
+		}
+#else
+		outputdir = config.outputdir;
+#endif
     } else {
         outputdir = ".";
     }
@@ -692,10 +727,22 @@ static int set_data_output_file(char *output_filename,
             time_t now = time(0);
             struct tm *t = localtime(&now);
 
-            snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
-                     t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+#ifdef WIN32
+			if (windir != NULL) {
+				/* Use the Windows install directory */
+				snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", windir,
+						 t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+			} else {
+				snprintf(output_filename, MAX_FILENAME_LEN, "%s\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
+						 t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+			}
+#else
+			snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
+					 t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+#endif
        } else {
            joy_log_err("cannot use \"output = auto\" with no interface specified; use -o or -l options");
+		   goto end;
        }
 
        joy_log_info("auto generated output filename: %s", output_filename);
@@ -707,7 +754,16 @@ static int set_data_output_file(char *output_filename,
         if (config.filename[0] == '/') {
             strncpy(output_filename, config.filename, MAX_FILENAME_LEN);
         } else {
-            snprintf(output_filename,  MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
+#ifdef WIN32
+			if (windir) {
+				/* Use the Windows install directory */
+				snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, config.filename);
+			} else {
+				snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s", outputdir, config.filename);
+			}
+#else
+			snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
+#endif
         }
     }
 
@@ -722,10 +778,20 @@ static int set_data_output_file(char *output_filename,
     output = zopen(output_filename, "w");
     if (output == NULL) {
         joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
-        return 1;
+		goto end;
     }
 
-    return 0;
+	/* Success */
+	rc = 0;
+
+end:
+#ifdef WIN32
+	if (windir != NULL) {
+		CoTaskMemFree(windir);
+	}
+#endif
+
+    return rc;
 }
 
 /**

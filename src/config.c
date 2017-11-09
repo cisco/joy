@@ -49,10 +49,11 @@
 #include "config.h"
 #include "radix_trie.h"
 #include "hdr_dsc.h" 
-#include "p2f.h" 
+#include "p2f.h"
 
 #ifdef WIN32
 #include "unistd.h"
+#include <ShlObj.h>
 
 size_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif
@@ -288,6 +289,46 @@ void config_set_defaults (struct configuration *config) {
     config->verbosity = 4;
 }
 
+#define MAX_FILEPATH 128
+
+static FILE* open_config_file(const char *filename) {
+	FILE *fp = NULL;
+
+	/* Try the filename that was given (it may be whole path needed) */
+	fp = fopen(filename, "r");
+
+#ifdef WIN32
+	if (!fp) {
+		/* In case of Windows install, try looking in the LocalAppData */
+		char *filepath = NULL;
+		PWSTR windir = NULL;
+
+		/* Allocate memory to store constructed file path */
+		filepath = calloc(MAX_FILEPATH, sizeof(char));
+
+		SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
+
+		memset(filepath, 0, MAX_FILEPATH);
+		snprintf(filepath, MAX_FILEPATH, "%ls\\Joy\\%s", windir, filename);
+		fp = fopen(filepath, "r");
+
+		if (windir != NULL) {
+			CoTaskMemFree(windir);
+		}
+
+		if (filepath) {
+			free(filepath);
+		}
+	}
+#endif
+
+	if (!fp) {
+		joy_log_err("could not open %s", filename);
+	}
+
+	return fp;
+}
+
 /**
  * \fn void config_set_from_file (struct configuration *config, const char *fname)
  *
@@ -306,9 +347,9 @@ int config_set_from_file (struct configuration *config, const char *fname) {
     unsigned int linecount = 0;
     char *c;
 
-    f = fopen(fname, "r");
+    f = open_config_file(fname);
     if (f == NULL) {
-        fprintf(info, "error: could not open file %s\n", fname);
+        joy_log_err("could not find config file %s\n", fname);
         return failure;
     } 
 
