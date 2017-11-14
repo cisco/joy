@@ -292,41 +292,41 @@ void config_set_defaults (struct configuration *config) {
 #define MAX_FILEPATH 128
 
 static FILE* open_config_file(const char *filename) {
-	FILE *fp = NULL;
+    FILE *fp = NULL;
 
-	/* Try the filename that was given (it may be whole path needed) */
-	fp = fopen(filename, "r");
+    /* Try the filename that was given (it may be whole path needed) */
+    fp = fopen(filename, "r");
 
 #ifdef WIN32
-	if (!fp) {
-		/* In case of Windows install, try looking in the LocalAppData */
-		char *filepath = NULL;
-		PWSTR windir = NULL;
+    if (!fp) {
+        /* In case of Windows install, try looking in the LocalAppData */
+        char *filepath = NULL;
+        PWSTR windir = NULL;
 
-		/* Allocate memory to store constructed file path */
-		filepath = calloc(MAX_FILEPATH, sizeof(char));
+        /* Allocate memory to store constructed file path */
+        filepath = calloc(MAX_FILEPATH, sizeof(char));
 
-		SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
+        SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
 
-		memset(filepath, 0, MAX_FILEPATH);
-		snprintf(filepath, MAX_FILEPATH, "%ls\\Joy\\%s", windir, filename);
-		fp = fopen(filepath, "r");
+        memset(filepath, 0, MAX_FILEPATH);
+        snprintf(filepath, MAX_FILEPATH, "%ls\\Joy\\%s", windir, filename);
+        fp = fopen(filepath, "r");
 
-		if (windir != NULL) {
-			CoTaskMemFree(windir);
-		}
+        if (windir != NULL) {
+            CoTaskMemFree(windir);
+        }
 
-		if (filepath) {
-			free(filepath);
-		}
-	}
+        if (filepath) {
+            free(filepath);
+        }
+    }
 #endif
 
-	if (!fp) {
-		joy_log_err("could not open %s", filename);
-	}
+    if (!fp) {
+        joy_log_err("could not open %s", filename);
+    }
 
-	return fp;
+    return fp;
 }
 
 /**
