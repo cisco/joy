@@ -1,25 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <?if $(var.Platform) = x64 ?>
+    <?define bitness = "(x64)" ?>
+    <?define Win64 = "yes" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+  <?else ?>
+    <?define bitness = "(x86)" ?>
+    <?define Win64 = "no" ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+  <?endif ?>
+  
   <!--
       ====================================================================================
       JOY PRODUCT/PACKAGE
       ====================================================================================
    -->
-	<Product Id="*" Name="Joy" Language="1033" Version="1.73.0.0" Manufacturer="JoyTeam" UpgradeCode="150cd1a4-afe0-4e9a-af16-0088b3b116f5">
+	<Product Id="*" Name="Joy $(var.bitness)" Language="1033" Version="1.73.0.0" Manufacturer="JoyTeam" UpgradeCode="150cd1a4-afe0-4e9a-af16-0088b3b116f5">
 		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
     <!-- IF perUser is needed
     <Property Id="ALLUSERS" Secure="yes" Value="2"/>
     <Property Id="MSIINSTALLPERUSER" Secure="yes" Value="1" />
     -->
- 
+    
     <Property Id="ARPHELPLINK" Value="https://github.com/cisco/joy" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes"/>
 
     <Feature Id="ProductFeature" Title="Joy" Level="1">
-      <ComponentGroupRef Id="ExecutableComponents" />
+      <ComponentRef Id="MainExecutable"/>
+      <ComponentGroupRef Id="RequiredDlls" />
       <ComponentRef Id="JoyConfig_comp" />
       <ComponentRef Id="DeleteAppFolder_comp" />
     </Feature>
@@ -36,7 +47,7 @@
   -->
   <Fragment>
     <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="ProgramFilesFolder">
+      <Directory Id="$(var.PlatformProgramFilesFolder)">
         <Directory Id="INSTALLFOLDER" Name="Joy" />
       </Directory>
       <Directory Id="LocalAppDataFolder">
@@ -80,32 +91,40 @@
   Main Binary Files
    -->
   <Fragment>
-    <ComponentGroup Id="ExecutableComponents" Directory="INSTALLFOLDER">
-      <Component Id="MainExecutable">
+    <Component Id="MainExecutable" Directory="INSTALLFOLDER" Win64="$(var.Win64)">
         <File Source="$(var.win-joy.TargetPath)" KeyPath="yes"/>
+        <ServiceInstall Id="ServiceInstaller" Type="ownProcess" Name="JoyService"
+                        DisplayName="JoyService" Description="Advanced network flow data capture"
+                        Account="LocalSystem"
+                        Start="demand" ErrorControl="normal" Arguments="-x win-options.cfg" /> 
+        <!--<ServiceControl Id="StartService" Name="JoyService" Start="install" Stop="both" Remove="uninstall" Wait="yes" />-->
       </Component>
-      <Component Id="GetoptLibrary">
+  </Fragment>
+  
+  <Fragment>
+    <ComponentGroup Id="RequiredDlls" Directory="INSTALLFOLDER">
+      <Component Id="GetoptLibrary" Win64="$(var.Win64)">
         <File Name="getopt.dll" Source="..\..\windows\64\DLL\getopt.dll" KeyPath="yes" />
       </Component>
-      <Component Id="CurlLibrary">
+      <Component Id="CurlLibrary" Win64="$(var.Win64)">
         <File Name="libcurl.dll" Source="..\..\windows\64\DLL\libcurl.dll" KeyPath="yes" />
       </Component>
-      <Component Id="Eay32Library">
+      <Component Id="Eay32Library" Win64="$(var.Win64)">
         <File Name="libeay32.dll" Source="..\..\windows\64\DLL\libeay32.dll" KeyPath="yes" />
       </Component>
-      <Component Id="Msvcr100Library">
+      <Component Id="Msvcr100Library" Win64="$(var.Win64)">
         <File Name="msvcr100.dll" Source="..\..\windows\64\DLL\msvcr100.dll" KeyPath="yes" />
       </Component>
-      <Component Id="Msvcr120Library">
+      <Component Id="Msvcr120Library" Win64="$(var.Win64)">
         <File Name="msvcr120.dll" Source="..\..\windows\64\DLL\msvcr120.dll" KeyPath="yes" />
       </Component>
-      <Component Id="PthreadVc2Library">
+      <Component Id="PthreadVc2Library" Win64="$(var.Win64)">
         <File Name="pthreadVC2.dll" Source="..\..\windows\64\DLL\pthreadVC2.dll" KeyPath="yes" />
       </Component>
-      <Component Id="SslEay32Library">
+      <Component Id="SslEay32Library" Win64="$(var.Win64)">
         <File Name="ssleay32.dll" Source="..\..\windows\64\DLL\ssleay32.dll" KeyPath="yes" />
       </Component>
-      <Component Id="VcRuntime140Library">
+      <Component Id="VcRuntime140Library" Win64="$(var.Win64)">
         <File Name="vcruntime140.dll" Source="..\..\windows\64\DLL\vcruntime140.dll" KeyPath="yes" />
       </Component>
     </ComponentGroup>
