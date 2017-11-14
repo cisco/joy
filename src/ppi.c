@@ -249,6 +249,16 @@ void tcp_flags_to_string(unsigned char flags, char *string) {
 #define TS    8
 
 
+static void tcp_opt_malformed_print_json(zfile f,
+                                         unsigned char kind,
+                                         unsigned int len) {
+    zprintf(f, "\"malformed\":{");
+    zprintf(f, "\"kind\":%u", kind);
+    zprintf(f, ",\"len\":%u", len);
+    zprintf(f, "}");
+}
+
+
 /* 
  * tcp_opt_print_json(f, tcp_options, total_len) prints a JSON array
  * containing the type and value of each TCP option
@@ -288,47 +298,57 @@ void tcp_opt_print_json(zfile f, const void *tcp_options, unsigned int total_len
 	  first_line = 0;
 	}
 	if ((optlen > total_len) || (optlen == 0)) {
-  	    zprintf(f, "{\"type\":%u,\"malformed\":%u}", *opt, optlen);
+        zprintf(f, "{");
+        tcp_opt_malformed_print_json(f, *opt, optlen);
+        zprintf(f, "}");
 	    goto finish;    /* incomplete or malformed data */
 	}
 	
 	const void *data = opt + 2;
 	unsigned int datalen = optlen - 2;
 	
-	zprintf(f, "{\"type\":%u", *opt);
+	zprintf(f, "{");
 	switch(*opt) {
 	case EOL:
+        break;
 	case NOP:
+        zprintf(f, "\"noop\":%s", "null");
 	    break;
 	case MSS:
 	    if (datalen != 2) {
-  	        zprintf(f, ",\"malformed\":%u", datalen);
+            tcp_opt_malformed_print_json(f, *opt, datalen);
 	    } else {
-	        const unsigned short int *mss = data; 
-  	        zprintf(f, ",\"mss\":%u", ntohs(*mss));
-                break;
+	        const unsigned short int *mss = data;
+            zprintf(f, "\"mss\":%u", ntohs(*mss));
 	    }
+        break;
 	case WS:
 	    if (datalen != 1) {
-  	        zprintf(f, ",\"malformed\":%u", datalen);
+            tcp_opt_malformed_print_json(f, *opt, datalen);
 	    } else {
-	        const unsigned char *ws = data; 
-  	        zprintf(f, ",\"ws\":%u", *ws);
-                break;
+	        const unsigned char *ws = data;
+            zprintf(f, "\"ws\":%u", *ws);
 	    }
+        break;
+    case SACKP:
+        zprintf(f, "\"sackp\":%s", "null");
+	    break;
 	case TS:
 	    if (datalen != 8) {
-  	        zprintf(f, ",\"malformed\":%u", datalen);
+            tcp_opt_malformed_print_json(f, *opt, datalen);
 	    } else {
 	        const unsigned int *tsval = data; 
 	        const unsigned int *tsecr = tsval + 1; 
-  	        zprintf(f, ",\"tsval\":%u,\"tsecr\":%u", ntohl(*tsval), ntohl(*tsecr));
-                break;
+	        zprintf(f, "\"ts\":{");
+            zprintf(f, "\"val\":%u,\"ecr\":%u", ntohl(*tsval), ntohl(*tsecr));
+	        zprintf(f, "}");
 	    }
+        break;
 	default:
 	    if (datalen > total_len) {
-  	        zprintf(f, ",\"malformed\":%u", datalen);
+            tcp_opt_malformed_print_json(f, *opt, datalen);
 	    } else {
+            zprintf(f, "\"kind\":%u", *opt);
 	        zprintf(f, ",\"data\":");
 	        zprintf_raw_as_hex(f, data, datalen);
 	    }
@@ -339,7 +359,7 @@ void tcp_opt_print_json(zfile f, const void *tcp_options, unsigned int total_len
 	opt += optlen;    
     } 
 
-    finish:
+finish:
     zprintf(f, "]");
 
 }
