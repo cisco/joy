@@ -1523,7 +1523,7 @@ void flow_record_list_print_json (unsigned int print_all) {
     while (record != NULL) {
         if (!print_all) {
             /* Avoid printing flows that might still be active */
-            if (flow_record_is_expired(record)) {
+            if (!flow_record_is_expired(record)) {
                 break;
             }
         }
