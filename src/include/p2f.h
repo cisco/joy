@@ -60,6 +60,9 @@
 #include "modules.h"      
 #include "feature.h"
 
+#define FLOW_LIST_CHECK_EXPIRE 0
+#define FLOW_LIST_PRINT_ALL 1
+
 struct flow_key {
     struct in_addr sa;
     struct in_addr da;
@@ -203,8 +206,9 @@ typedef struct flow_record *flow_record_list;
  * "twin" pointer, and prints out bidirectional information.
  *
  */
-struct flow_record *flow_key_get_record(const struct flow_key *key, 
-					unsigned int create_new_records);
+struct flow_record *flow_key_get_record(const struct flow_key *key,
+                                        unsigned int create_new_records,
+                                        const struct pcap_pkthdr *header);
 
 
 /** update the byte count of the flow record */
@@ -219,12 +223,9 @@ void flow_record_list_init();
 
 void flow_record_list_free(); 
 
-void flow_record_list_print_json(const struct timeval *inactive_cutoff);
+void flow_record_list_print_json(unsigned int print_all);
 
 int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);
-
-void timer_sub(const struct timeval *a, const struct timeval *b, struct timeval *result);
-
 
 /* flocap_stats holds high-level statistics about packets and flow
  * records, for use in accounting and troubleshooting

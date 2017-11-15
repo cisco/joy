@@ -101,12 +101,6 @@ extern radix_trie_t rt;
 
 extern struct flocap_stats stats;
 
-extern struct timeval time_window;
-
-extern struct timeval active_timeout;
-
-extern unsigned int active_max;
-
 extern unsigned short compact_bd_mapping[16];
 
 /* configuration state */
@@ -138,6 +132,8 @@ extern unsigned int ipfix_collect_online;
 extern unsigned int ipfix_export_port;
 
 extern unsigned int ipfix_export_remote_port;
+
+extern unsigned int preemptive_timeout;
 
 extern char *ipfix_export_remote_host;
 
@@ -277,8 +273,16 @@ static void sig_close (int signal_arg) {
      * flush remaining flow records, and print them even though they are
      * not expired
      */
-    flow_record_list_print_json(NULL);
+    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
     zclose(output);  
+
+    if (config.ipfix_export_port) {
+        /* Flush any unsent exporter messages in Ipfix module */
+        ipfix_export_flush_message();
+    }
+    /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
+    ipfix_module_cleanup();
+
     fprintf(info, "got signal %d, shutting down\n", signal_arg); 
     exit(EXIT_SUCCESS);
 }
@@ -313,6 +317,9 @@ static int usage (char *s) {
            "  keyfile=F                  use SSH identity (private key) in file F for upload\n" 
            "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
            "  retain=1                   retain a local copy of file after upload\n" 
+           "  preemptive_timeout=1       For active flows, look at incoming packets timestamp to decide if\n"
+           "                             adding that packet to the flow record will automatically time it out.\n"
+           "                             Default=0\n"
            "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
            "  ipfix_collect_port=N       enable IPFIX collector on port N\n"
            "  ipfix_collect_online=1     use an active UDP socket for IPFIX collector\n"
@@ -501,6 +508,7 @@ int main (int argc, char **argv) {
         ipfix_export_remote_port = config.ipfix_export_remote_port;
         ipfix_export_remote_host = config.ipfix_export_remote_host;
         ipfix_export_template = config.ipfix_export_template;
+        preemptive_timeout = config.preemptive_timeout;
         aux_resource_path = config.aux_resource_path;
         verbosity = config.verbosity;
 
@@ -863,9 +871,9 @@ int main (int argc, char **argv) {
         config_print_json(output, &config);
 
         while(1) {
-            struct timeval time_of_day, inactive_flow_cutoff;
-
-            /* loop over packets captured from interface */
+            /* 
+             * Loop over packets captured from interface.
+             */
             pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
       
             joy_log_info("PCAP processing loop done");
@@ -880,19 +888,13 @@ int main (int argc, char **argv) {
 	              }
            }
 
-           /*
-            * periodically report on progress
-            */
+           /* Periodically report on progress */
            if ((flocap_stats_get_num_packets() % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
 	              flocap_stats_output(info);
            }
 
-           /* print out inactive flows */
-	   gettimeofday(&time_of_day, NULL);
-
-           timer_sub(&time_of_day, &time_window, &inactive_flow_cutoff);
-
-           flow_record_list_print_json(&inactive_flow_cutoff);
+           /* Print out expired flows */
+           flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
 
            if (config.filename) {
 	
@@ -959,7 +961,7 @@ int main (int argc, char **argv) {
 
         ipfix_collect_main();
 
-        flow_record_list_print_json(NULL);
+        flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
         fflush(info);
     } else { /* mode = mode_offline */
 
@@ -1038,6 +1040,7 @@ int main (int argc, char **argv) {
  */
 int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
+    int more = 1;
 
     joy_log_info("reading pcap file %s", file_name);
 
@@ -1064,20 +1067,23 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
         }
     }
   
-    /* loop over all packets in capture file */
-    pcap_loop(handle, GET_ALL_PACKETS, process_packet, NULL);
+    while (more) {
+        /* Loop over all packets in capture file */
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
+        /* Print out expired flows */
+        flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
+    }
 
-    /* cleanup */
-  
     joy_log_info("all flows processed");
   
+    /* Cleanup */
     if (filter_exp) {
         pcap_freecode(fp);
     }
   
     pcap_close(handle);
   
-    flow_record_list_print_json(NULL);
+    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
     flow_record_list_free();
 
     return 0;

@@ -79,6 +79,7 @@ struct configuration {
     unsigned int ipfix_export_port;
     unsigned int ipfix_export_remote_port;
     unsigned int flow_key_match_method;
+    unsigned int preemptive_timeout;
     unsigned int verbosity;
   
     declare_all_features_config_uint(feature_list) 

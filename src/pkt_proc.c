@@ -53,11 +53,13 @@
 #include "nfv9.h"
 #include "ipfix.h"
 #include "config.h"
+#include "utils.h"
 
 /*
  * external variables, defined in joy
  */
 extern FILE *info;
+extern struct timeval global_time;
 extern unsigned int num_pkt_len;
 extern unsigned int include_zeroes;
 extern unsigned int include_retrans;
@@ -503,9 +505,13 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
 	                  // init key
 	                  nfv9_flow_key_init(&key, cur_template, flow_data);
 
-	                  // get a nf record
+                      /*
+                       * Either get an existing record for the netflow data or make a new one.
+                       * Don't include the header because it is the packet that was sent
+                       * by exporter -> collector (not the netflow data).
+                       */
 	                  struct flow_record *nf_record = NULL;
-	                  nf_record = flow_key_get_record(&key, CREATE_RECORDS);
+	                  nf_record = flow_key_get_record(&key, CREATE_RECORDS, NULL);
 
 	                  // fill out record
 	                  if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
@@ -583,7 +589,7 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     key->sp = ntohs(tcp->src_port);
     key->dp = ntohs(tcp->dst_port);
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }
@@ -721,7 +727,7 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
     key->sp = ntohs(udp->src_port);
     key->dp = ntohs(udp->dst_port);
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }
@@ -793,7 +799,7 @@ process_icmp (const struct pcap_pkthdr *header, const char *start, int len, stru
     key->sp = 0;
     key->dp = 0;
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }
@@ -841,7 +847,7 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
     /* signify IP by using zero (reserved) port values */
     key->sp = key->dp = 0;
 
-    record = flow_key_get_record(key, CREATE_RECORDS);
+    record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
     }
@@ -957,6 +963,17 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         key.da = ip->ip_dst;
         key.prot = IPPROTO_IP;
         proto = (unsigned char)key.prot;
+    }
+
+    /*
+     * Keep track of the most recent packet time.
+     * For all intents and purposes, this should be used as the "current" time in Joy.
+     * In addition to being usable in real-time (online) scenarios, it also works
+     * in situations where we can't use the real time, such as offline PCAP processing
+     * because the time is contextual based.
+     */
+    if (joy_timer_lt(&global_time, &header->ts)) {
+        global_time = header->ts;
     }
 
     /* determine transport protocol and handle appropriately */
