@@ -6,7 +6,7 @@
 usage() { 
     echo "usage:"
     echo ""
-    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] ]"
+    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ] [ -s ssl-path ]"
     echo ""
     echo "where the options are as follows"
     echo ""
@@ -17,29 +17,36 @@ usage() {
     echo ""
     echo "   The -r git-reference pulls from the specified git-reference instead of master."
     echo ""
+    echo "   The -R release specifies number preceding the short git commit to allow for"
+    echo "   package upgrades on the same joy version."
+    echo ""
+    echo "   The -s ssl-path is required when building osxpkg and specifies the"
+    echo "   location of the OpenSSL header files."
+    echo ""
 } 
 
 # set defaults
 #
 NAME=joy
-VERSION=`cat VERSION`
+# Subtract .01 from VERSION file in git to build packages since the VERSION file
+# contains the next version number for joy, not the current version.
+VERSION=`echo "scale = 2; \`cat VERSION\` - .01" | bc`
 GITREF=master
 CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP_ROOT=$(dirname "$CWD")
 PROGNAME=`basename $0`
 DEBIAN_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     libssl1.0.2 libssl-dev make python python-pip ruby \
-    ruby-ffi zlib1g"
+    ruby-ffi zlib1g zlib1g-dev"
 DEBIAN_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.2"
 UBUNTU_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     libssl1.0.0 libssl-dev make python python-pip ruby \
-    ruby-ffi zlib1g"
+    ruby-ffi zlib1g zlib1g-dev"
 UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
     openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
-OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
-ARCH=`uname -i`
+ARCH=`uname -m`
 
 echo
 echo BUILD_PKGS
@@ -48,7 +55,7 @@ echo
 
 # check command line arguments, ovveride defaults as appropriate
 #
-while getopts "ht:r:" arg; do
+while getopts "ht:s:r:R:" arg; do
     case $arg in
     h)
         usage
@@ -58,9 +65,17 @@ while getopts "ht:r:" arg; do
         echo "-t was triggered with option ${OPTARG}" 
         BUILDTYPE=${OPTARG}
         ;;
+    s)
+        echo "-s was triggered with option ${OPTARG}" 
+        SSL_PATH=${OPTARG}
+        ;;
     r)
         echo "-r was triggered with option ${OPTARG}" 
         GITREF=${OPTARG}
+        ;;
+    R)
+        echo "-R was triggered with option ${OPTARG}" 
+        RELEASE=${OPTARG}
         ;;
     \?)
         echo "error: invalid option -${OPTARG}" 
@@ -83,12 +98,36 @@ if [ -z "$BUILDTYPE" ]; then
     echo "-t deb|osxpkg|rpm must be specified" >&2
     exit 1
 fi
+if [ "$BUILDTYPE" != "osxpkg" ]; then
+    OSREL=`lsb_release -is | tr '[:upper:]' '[:lower:]'`
+elif [ "$BUILDTYPE" == "osxpkg" ]; then
+    OSXVER=`sw_vers -productVersion | awk -F. '{print $1"."$2}'`
+    if [ -z "$SSL_PATH" ]; then
+        echo "When building joy on OSX, you must specify the -s ssl-path option"
+        echo "with the location of the OpenSSL header files."
+        exit 1
+    fi
+fi
+if [ -n "$RELEASE" ]; then
+    if [ ${RELEASE} -eq ${RELEASE} ] 2>/dev/null; then
+        :
+    else
+        echo "-R release must be a non-zero integer"
+        exit 1
+    fi
+else
+    if [ "$GITREF" != "master" ]; then
+        RELEASE=0
+    else
+        RELEASE=1
+    fi
+fi
 
 # Check for build dependencies
 #
 if [ "$BUILDTYPE" == "deb" ]; then
-    if [ "$OSREL" != "ubuntu" -a "$OSREL" != "debian" ]; then
-        echo "You must build a deb on a Debian or Ubuntu system."
+    if [ "$OSREL" != "ubuntu" -a "$OSREL" != "debian" -a "$OSREL" != "raspbian" ]; then
+        echo "You must build a deb on a Debian, Raspbian or Ubuntu system."
         exit 1
     fi
     PKGMISSING=0
@@ -105,7 +144,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
             echo "apt-get install $UBUNTU_PKGS"
             exit 1
         fi
-    elif [ "$OSREL" == "debian" ]; then
+    elif [ "$OSREL" == "debian" -o "$OSREL" == "raspbian" ]; then
         for pkg in $DEBIAN_PKGS; do
             STATUS=`/usr/bin/dpkg-query --show --showformat='${db:Status-Status}\n' ${pkg}`
             if [ "$STATUS" != "installed" ]; then
@@ -173,14 +212,12 @@ if [ -z "$COMMIT_ID" ]; then
     exit 1
 fi
 SHORT_COMMIT_ID=$(git show-ref --hash=7 refs/heads/$GITREF)
-ITERATION=""
-if [ "$GITREF" != "master" ]; then
-    ITERATION="0.${SHORT_COMMIT_ID}"
-else
-    ITERATION="1.${SHORT_COMMIT_ID}"
-fi
+ITERATION="${RELEASE}.${SHORT_COMMIT_ID}"
 if [ "$OSREL" == "debian" -o "$OSREL" == "ubuntu" ]; then
-    ITERATION="$ITERATION.$OSREL"
+    CODENAME=`lsb_release -cs`
+    ITERATION="$ITERATION.$CODENAME"
+elif [ -n "$OSXVER" ]; then
+    ITERATION="$ITERATION.macosx.$OSXVER"
 fi
 FULL_VERSION="${VERSION}-${ITERATION}"
 TAR_FILE=`pwd`/joy-$SHORT_COMMIT_ID.tar
@@ -200,6 +237,7 @@ FPM_LINUX_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION --iteration $ITERATION \
     --url https://github.com/cisco/joy"
 FPM_MAC_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION-$ITERATION \
     --after-install $APP_ROOT/joy/install/postinstall-darwin \
+    --before-install $APP_ROOT/joy/install/preinstall-darwin \
     --vendor Cisco \
     --osxpkg-identifier-prefix com.cisco \
     --osxpkg-dont-obsolete /usr/local/etc/joy/ \
@@ -216,8 +254,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux 2>/dev/null
-    tar -uf $TAR_FILE -C .. joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/postinstall-linux joy/install/preuninstall-linux
+    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin 2>/dev/null
+    tar -uf $TAR_FILE -C .. joy/Makefile joy/config joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
@@ -241,9 +279,16 @@ if [ "$?" != 0 ]; then
     exit 1
 fi
 if [ "$BUILDTYPE" == "deb" ]; then
-    ./config -l /usr/lib/x86_64-linux-gnu
+    if [ "$ARCH" == "x86_64" ]; then
+        ./config -l /usr/lib/x86_64-linux-gnu
+    elif [ "$ARCH" == "armv7l" ]; then
+        ./config -l /usr/lib/arm-linux-gnueabihf
+    else
+        echo "Arch $ARCH not supported"
+        exit 1
+    fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
-    ./config
+    ./config --ssl-path $SSL_PATH
 elif [ "$BUILDTYPE" == "rpm" ]; then
     ./config -l /usr/lib64
 fi

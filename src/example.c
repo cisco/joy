@@ -138,12 +138,7 @@ void example_delete (struct example **example_handle) {
 void example_unit_test () {
     struct example *example = NULL;
     const struct pcap_pkthdr *header = NULL; 
-    zfile output;
 
-    output = zattach(stdout, "w");
-    if (output == NULL) {
-        fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
-    }
     example_init(&example);
     example_update(example, header, NULL, 1, 1);
     example_update(example, header, NULL, 2, 1);
@@ -154,7 +149,6 @@ void example_unit_test () {
     example_update(example, header, NULL, 7, 1);
     example_update(example, header, NULL, 8, 1);
     example_update(example, header, NULL, 9, 1);
-    example_print_json(example, NULL, output);
 
     example_delete(&example);
 } 

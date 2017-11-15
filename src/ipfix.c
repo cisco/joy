@@ -3073,6 +3073,28 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 
 
 /*
+ * @brief Pack a timeval into a uint64_t (8 bytes).
+ *
+ * The 4 most significant bytes of the uint64_t will contain the tv_sec value,
+ * and the 4 least significant bytes will contain the tv_usec value.
+ *
+ * @param timeval The timeval that will be packed.
+ *
+ * @return uint64_t - Packed timeval
+ */
+static uint64_t timeval_pack_uint64_t(const struct timeval *timeval) {
+    uint64_t packed = 0;
+
+    /* Shift to the 4 most significant bytes of the packed uint64_t */
+    packed = (uint64_t)timeval->tv_sec << 32;
+    /* Bit OR into the 4 least significant bytes of the packed uint64_t */
+    packed |= timeval->tv_usec;
+
+    return packed;
+}
+
+
+/*
  * @brief Create a simple 5-tuple data record.
  *
  * Make a basic data record that holds the traditional 5-tuple
@@ -3122,16 +3144,14 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_start_microseconds = fr_record->start.tv_sec << 32;
-    data_record->record.simple.flow_start_microseconds |= fr_record->start.tv_usec;
+    data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
 
     /*
      * IPFIX_FLOW_END_MICROSECONDS
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_end_microseconds = fr_record->end.tv_sec << 32;
-    data_record->record.simple.flow_end_microseconds |= fr_record->end.tv_usec;
+    data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
 
   } else {
     loginfo("error: unable to malloc data record");
@@ -3197,16 +3217,14 @@ static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_start_microseconds = fr_record->start.tv_sec << 32;
-    data_record->record.simple.flow_start_microseconds |= fr_record->start.tv_usec;
+    data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
 
     /*
      * IPFIX_FLOW_END_MICROSECONDS
      * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
      * and pack the fractional microseconds into the least-significant 32 bits.
      */
-    data_record->record.simple.flow_end_microseconds = fr_record->end.tv_sec << 32;
-    data_record->record.simple.flow_end_microseconds |= fr_record->end.tv_usec;
+    data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
 
     /*
      * IPFIX_IDP

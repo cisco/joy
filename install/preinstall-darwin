@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# Launch agent location
+LAUNCH_AGENT_SRC="/usr/local/etc/joy/joy.plist"
+LAUNCH_AGENT_DEST="/Library/LaunchAgents/com.cisco.joy.plist"
+LOGFILE="/usr/local/var/log/joy-preinstall.log"
+exec >> $LOGFILE 2>&1 
+
+# Uninstall old launch agent
+#launchctl unload "$LAUNCH_AGENT_DEST" || true
+#rm -f "$LAUNCH_AGENT_DEST" || true
+
+# Backup key configuration files
+for file in /usr/local/etc/joy/upload-key /usr/local/etc/joy/upload-key.pub \
+	/usr/local/etc/joy/options.cfg /usr/local/etc/joy/internal.net; do
+	if [ -f $file ]; then
+		echo "Backing up $file to ${file}.previous-install"
+    		cp -a $file ${file}.previous-install
+	fi
+done
+
+exit 0

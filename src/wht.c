@@ -232,31 +232,21 @@ void wht_unit_test() {
     uint8_t buffer4[4] = {
           255, 254, 253, 252
     };
-    zfile output;
-
-    output = zattach(stdout, "w");
-    if (output == NULL) {
-        fprintf(stderr, "%s: error: could not initialize (possibly compressed) stdout for writing\n", __FUNCTION__);
-    }
 
     wht_init(&wht);
     wht_update(wht, header, buffer1, sizeof(buffer1), 1);
-    wht_printf_scaled(wht, output);
 
     wht_init(&wht);
     wht_update(wht, header, buffer2, sizeof(buffer2), 1);
-    wht_printf_scaled(wht, output);
 
     wht_init(&wht);
     wht_update(wht, header, buffer3, sizeof(buffer3), 1);
-    wht_printf_scaled(wht, output);
 
     wht_init(&wht);
     wht_init(&wht2);
     wht_update(wht, header, buffer4, 1, 1); /* note: only reading first byte */
     wht_update(wht, header, buffer4, 1, 1); /* note: only reading first byte */
     wht_update(wht, header, buffer4, 1, 1); /* note: only reading first byte */
-    wht_print_json(wht, wht2, output);
 
     wht_delete(&wht);
     wht_delete(&wht2);
