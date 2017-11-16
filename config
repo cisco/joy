@@ -250,7 +250,7 @@ echo "Checking for required dependencies"
 # check for required libraries
 ##
 library_path=""
-for ck_lib in libpcap libcrypto libz libcurl libpthread
+for ck_lib in libpcap libcrypto libz libbz2 libcurl libpthread
 do
    if [ "$LIBPATH" != ""  ]; then
        check_libraries $ck_lib $LIBPATH

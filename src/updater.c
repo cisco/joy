@@ -43,6 +43,7 @@
  *  functions required to handle the updating of the labeled subnets
  *  and the classifiers for joy.
  */
+#include <unistd.h>
 #include "updater.h"
 #include "string.h"
 #include "classify.h"

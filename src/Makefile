@@ -22,7 +22,12 @@ LIBS += -lm       # math library; logf() used in entropy computation
 LIBS += -lcrypto  # openSSL crypto library; used in anonymization
 LIBS += -lcurl    # curl library; used in updater thread
 LIBS += -lpthread # thread library; used in updater thread
-LIBS += -lz
+
+ifdef COMPDEF
+LIBS += -lbz2     # bzip2 library
+else
+LIBS += -lz       # gzip library
+endif
 
 ##
 # check for additional paths to use searching for header files
@@ -90,21 +95,21 @@ print:
 	@echo "cwd="$(CWD)
 
 joy: joy.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/joy" $(INCLUDEDIR) joy.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS)  
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/joy" $(INCLUDEDIR) joy.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS)  
 #	strip joy
 
 jfd-anon: jfd-anon.c $(JFDANON_SRC)
-	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
 joy-anon: joy-anon.c $(JFDANON_SRC)
-	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
 unit_test: unit_test.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 	ln -sf "$(BINDIR)/unit_test" "$(TESTDIR)/unit_test"
 
 str_match_test: str_match_test.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 
 
 ##
