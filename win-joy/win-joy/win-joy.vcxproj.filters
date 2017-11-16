@@ -227,5 +227,8 @@
     <ClInclude Include="..\..\src\include\ike.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\windows\include\bzlib.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
