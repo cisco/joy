@@ -49,6 +49,37 @@
 
 extern char *aux_resource_path;
 
+#ifdef USE_BZIP2
+
+#include <stdarg.h>
+#include <bzlib.h>
+
+/* This function is an API glue between zprintf and
+ * the subsequent bzwrite to a compressed file. BZ2
+ * doesn't have a printf interface, so an equivalent
+ * interface needed to be written.
+ * Note: this function can only output 512 chars at a time.
+ *   if a string comes through bigger than 512, it will be
+ *   truncated. Perhaps this can be optimized in the future.
+ *
+ */
+#define BZ_MAX_SIZE 512
+int BZ2_bzprintf(BZFILE *b, const char * format, ...)
+{
+    int BZ_sz; 
+    int BZ_errnum;
+    va_list arg;
+    char BZ_buff[BZ_MAX_SIZE]; 
+
+    va_start(arg, format);
+    BZ_sz = vsnprintf(BZ_buff, BZ_MAX_SIZE, format, arg); 
+    va_end(arg);
+    BZ2_bzwrite(b, BZ_buff, BZ_sz); 
+    BZ2_bzerror(b, &BZ_errnum);
+    return BZ_errnum;      
+}
+#endif
+
 /*
  *
  * \brief Use Parson to open a json file from the source resources/ directory.

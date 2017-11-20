@@ -39,7 +39,7 @@
  *
  * @brief Source code to perform IPFIX protocol operations.
  **********************************************************/
-
+#include <unistd.h>
 #include <string.h>   /* for memcpy() */
 #include <stdlib.h>
 #include <time.h>

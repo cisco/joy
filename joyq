@@ -40,6 +40,7 @@ joyq performs query operations on JSON-formatted flow objects; see joyq --help f
 
 import sys
 import gzip
+import bz2
 import copy
 import collections
 import os
@@ -104,12 +105,16 @@ class FlowIteratorFromFile(DictStreamIteratorFromFile):
                 ft = SleuthFileType(self.pcap_loader.temp_json['file'])
                 if ft.is_gz():
                     self.f = gzip.open(self.pcap_loader.temp_json['file'], 'r')
+                elif ft.is_bz2():
+                    self.f = bz2.BZ2File(self.pcap_loader.temp_json['file'], 'r')
                 else:
                     self.f = open(self.pcap_loader.temp_json['file'], 'r')
             else:
                 ft = SleuthFileType(self.file_name)
                 if ft.is_gz():
                     self.f = gzip.open(self.file_name, 'r')
+                elif ft.is_bz2():
+                    self.f = bz2.BZ2File(self.file_name, 'r')
                 else:
                     self.f = open(self.file_name, 'r')
 

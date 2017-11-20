@@ -42,6 +42,9 @@ endif
 ifndef CURLPATH
 $(error error is "Please run ./config first.")
 endif
+ifndef COMPDEF
+$(error error is "Please run ./config first.")
+endif
 
 export BINDIR = $(ROOT_PATH)/bin
 export TESTDIR = $(ROOT_PATH)/test

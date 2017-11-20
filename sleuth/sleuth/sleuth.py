@@ -35,6 +35,7 @@
 """
 import sys
 import gzip
+import bz2
 import json
 import pickle
 import copy
@@ -84,10 +85,13 @@ class DictStreamIteratorFromFile(DictStreamIterator):
         if self.file_name is sys.stdin:
             self.f = self.file_name
         else:
-            if '.gz' in self.file_name:
-                self.f = gzip.open(self.file_name,'r')
+            ft = SleuthFileType(self.file_name)
+            if ft.is_gz():
+                self.f = gzip.open(self.file_name, 'r')
+            elif ft.is_bz2():
+                self.f = bz2.BZ2File(self.file_name, 'r')
             else:
-                self.f = open(self.file_name,'r')
+                self.f = open(self.file_name, 'r')
 
     def next(self):
         while True:
@@ -549,6 +553,17 @@ class SleuthFileType(object):
 
     def is_gz(self):
         magic = "\x1f\x8b\x08"
+
+        with open(self.filename) as f:
+            data = f.read(len(magic))
+
+            if data.startswith(magic):
+                return True
+
+        return False
+
+    def is_bz2(self):
+        magic = "\x42\x5a\x68"
 
         with open(self.filename) as f:
             data = f.read(len(magic))

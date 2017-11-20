@@ -2398,7 +2398,7 @@ void tls_print_json (const struct tls_information *data,
  *
  */
 static void tls_certificate_printf (const struct tls_certificate *data, zfile f) {
-  int j, ret;
+    int j = 0;
 
     zprintf(f, "{\"length\":%i", data->length);
     if (data->serial_number) {
@@ -2450,11 +2450,9 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     if (data->num_extension_items) {
         zprintf(f, ",\"extensions\":[");
         for (j = 0; j < data->num_extension_items; j++) {
-	    zprintf(f, "{\"entry_id\": \"%s\", ", data->extensions[j].id);
-	    ret = zprintf(f, "\"entry_data\": \"%s\"}", (char *)data->extensions[j].data);
-	    if (ret < 1) {
-	        zprintf(f, "\"entry_data\": \"failure\"}");
-	    }
+	        zprintf(f, "{\"entry_id\": \"%s\", ", data->extensions[j].id);
+            /* Print the data as a string */
+	        zprintf(f, "\"entry_data\": \"%s\"}", (char *)data->extensions[j].data);
             if (j == (data->num_extension_items - 1)) {
                 zprintf(f, "]");
             } else {

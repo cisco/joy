@@ -42,6 +42,7 @@ import time
 import logging
 import json
 import gzip
+import bz2
 from .utils import end_process
 from .utils import FileType
 
@@ -57,9 +58,9 @@ class ValidateExporter(object):
         self.ipfix_flows = list()
         self.sniff_flows = list()
         self.corrupt_flows = list()
-        self.tmp_outputs = {'sniff': 'tmp-ipfix-sniff.json.gz',
-                            'export': 'tmp-ipfix-export.json.gz',
-                            'collect': 'tmp-ipfix-collect.json.gz',
+        self.tmp_outputs = {'sniff': 'tmp-ipfix-sniff.json',
+                            'export': 'tmp-ipfix-export.json',
+                            'collect': 'tmp-ipfix-collect.json',
                             }
 
     def _cleanup_tmp_files(self):
@@ -114,6 +115,14 @@ class ValidateExporter(object):
                         self.ipfix_flows.append(flow)
                     except:
                         continue
+        elif ft.is_bz2():
+            with bz2.BZ2File(self.tmp_outputs['collect'], 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        self.ipfix_flows.append(flow)
+                    except:
+                        continue
         else:
             with open(self.tmp_outputs['collect'], 'r') as f:
                 for line in f:
@@ -145,6 +154,14 @@ class ValidateExporter(object):
         ft = FileType(self.tmp_outputs['sniff'])
         if ft.is_gz():
             with gzip.open(self.tmp_outputs['sniff'], 'r') as f:
+                for line in f:
+                    try:
+                        flow = json.loads(line)
+                        self.sniff_flows.append(flow)
+                    except:
+                        continue
+        elif ft.is_bz2():
+            with bz2.BZ2File(self.tmp_outputs['sniff'], 'r') as f:
                 for line in f:
                     try:
                         flow = json.loads(line)
