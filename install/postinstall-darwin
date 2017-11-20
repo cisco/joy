@@ -1,20 +1,33 @@
 #!/usr/bin/env bash
-set -e
 
 # Launch agent location
-LAUNCH_AGENT_SRC="/usr/local/joy/etc/joy.plist"
+LAUNCH_AGENT_SRC="/usr/local/etc/joy/joy.plist"
 LAUNCH_AGENT_DEST="/Library/LaunchAgents/com.cisco.joy.plist"
+LOGFILE="/usr/local/var/log/joy-postinstall.log"
+exec >> $LOGFILE 2>&1 
 
 # Uninstall old launch agent
 launchctl unload "$LAUNCH_AGENT_DEST" || true
 rm -f "$LAUNCH_AGENT_DEST" || true
 
+# Restore key configuration files
+for file in /usr/local/etc/joy/upload-key /usr/local/etc/joy/upload-key.pub \
+	/usr/local/etc/joy/options.cfg /usr/local/etc/joy/internal.net; do
+	if [ -f ${file}.previous-install ]; then
+		echo "Restoring ${file}.previous-install to $file"
+    		mv -f ${file}.previous-install $file
+	else
+		echo "Unable to find $file for backup"
+	fi
+done
+
+if [ ! -f /usr/local/etc/joy/upload-key ]; then
+	echo "Generating new upload-key"
+        ssh-keygen -f /usr/local/etc/joy/upload-key -P "" -t rsa -b 2048 || true
+fi
+
 # Install launch agent
 cp "$LAUNCH_AGENT_SRC" "$LAUNCH_AGENT_DEST" || true
 launchctl load "$LAUNCH_AGENT_DEST" || true
-
-if [ ! -f /usr/local/etc/joy/upload-key ]; then
-        ssh-keygen -f /usr/local/etc/joy/upload-key -P "" -t rsa -b 2048 || true
-fi
 
 exit 0

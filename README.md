@@ -8,6 +8,7 @@
             A package for capturing and analyzing network
          flow data and intraflow data, for network research,
               forensics, and security monitoring.
+[![Build Status](https://travis-ci.org/cisco/joy.svg?branch=master)](https://travis-ci.org/cisco/joy)
 
 ## Overview
 

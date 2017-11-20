@@ -305,5 +305,7 @@ else
 echo "export COMPDEF= -DUSE_GZIP" >> config.vars
 fi
 
-echo "All dependencies found. Issue 'make clean;make' to build the code"
+echo "The following variables were defined:"
+cat config.vars
 
+echo "All dependencies found. Issue 'make clean;make' to build the code"

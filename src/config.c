@@ -264,6 +264,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "aux_resource_path")) {
         parse_check(parse_string(&config->aux_resource_path, arg, num));
 
+    } else if (match(command, "preemptive_timeout")) {
+        parse_check(parse_bool(&config->preemptive_timeout, arg, num));
+
     } else if (match(command, "exe")) {
         parse_check(parse_bool(&config->report_exe, arg, num));
 

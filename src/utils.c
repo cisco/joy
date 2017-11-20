@@ -258,3 +258,80 @@ void joy_utils_convert_to_json_string (char *s, unsigned int len) {
     s[len-1] = 0;
 }
 
+/* *********************************************************************
+ * ---------------------------------------------------------------------
+ *                      Time functions
+ * For portability and static analysis, we define our own timer
+ * comparison functions (rather than use non-standard
+ * timercmp/timersub macros)
+ * ---------------------------------------------------------------------
+ * *********************************************************************
+ */
+
+unsigned int joy_timer_lt(const struct timeval *a,
+                      const struct timeval *b) {
+    return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
+}
+
+/**
+ * \brief Calculate the difference betwen two times (result = a - b)
+ * \param a First time value
+ * \param b Second time value
+ * \param result The difference between the two time values
+ * \return none
+ */
+void joy_timer_sub(const struct timeval *a,
+               const struct timeval *b,
+               struct timeval *result) {
+    result->tv_sec = a->tv_sec - b->tv_sec;
+    result->tv_usec = a->tv_usec - b->tv_usec;
+    if (result->tv_usec < 0) {
+        --result->tv_sec;
+        result->tv_usec += 1000000;
+    }
+}
+
+/**
+ * \brief Zeroize a timeval.
+ * \param a Timeval to zero out
+ * \return none
+ */
+void joy_timer_clear(struct timeval *a) {
+    a->tv_sec = a->tv_usec = 0;
+}
+
+/**
+ * \brief Calculate the milliseconds representation of a timeval.
+ * \param ts Timeval
+ * \return unsigned int - Milliseconds
+ */
+unsigned int joy_timeval_to_milliseconds(struct timeval ts) {
+    unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
+    return result;
+}
+
+#ifdef WIN32
+int gettimeofday(struct timeval *tp,
+                 struct timezone *tzp)
+{
+	/*
+     * NOTE: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
+	 * This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
+	 * until 00:00:00 January 1, 1970
+     */
+	static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
+
+	SYSTEMTIME  system_time;
+	FILETIME    file_time;
+	uint64_t    time;
+
+	GetSystemTime(&system_time);
+	SystemTimeToFileTime(&system_time, &file_time);
+	time = ((uint64_t)file_time.dwLowDateTime);
+	time += ((uint64_t)file_time.dwHighDateTime) << 32;
+
+	tp->tv_sec = (long)((time - EPOCH) / 10000000L);
+	tp->tv_usec = (long)(system_time.wMilliseconds * 1000);
+	return 0;
+}
+#endif
