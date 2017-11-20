@@ -23,7 +23,7 @@ LIBS += -lcrypto  # openSSL crypto library; used in anonymization
 LIBS += -lcurl    # curl library; used in updater thread
 LIBS += -lpthread # thread library; used in updater thread
 
-ifdef COMPDEF
+ifeq ($(COMPDEF),-DUSE_BZIP2)
 LIBS += -lbz2     # bzip2 library
 else
 LIBS += -lz       # gzip library

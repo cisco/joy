@@ -7,15 +7,17 @@
 #         -l | --lib-path       - specify the library path
 #         -s | --ssl-path       - specify the OpenSSL header path
 #         -c | --curl-path      - specify the Curl header path
+#         -z | --zip-lib        - specify the compression library to use (gzip default)
 ##
 print_usage ()
 {
-   echo "$0 [-h | --help] [-l <path> | --lib-path <path>] [-s <path> | --ssl-path <path>] [-c <path> | --curl-path <path>]"
+   echo "$0 [-h | --help] [-l <path> | --lib-path <path>] [-s <path> | --ssl-path <path>] [-c <path> | --curl-path <path>] [-z <gzip | bzip2> | --zip-lib <gzip | bzip2>]"
    echo "examples:"
    echo "	$0 --help"
    echo "	$0 --lib-path /usr/local/lib/x86_64-linux-gnu"
    echo "	$0 --ssl-path /var/ssl/openssl/include"
    echo "	$0 --curl-path /var/include"
+   echo "	$0 --zip-lib  gzip"
 }
 
 ##
@@ -210,6 +212,7 @@ rm -f config.vars
 LIBPATH=""
 SSLPATH=""
 CURLPATH=""
+ZIPLIB="gzip"
 if [ $# -eq 1 ]; then
     print_usage
     exit 2
@@ -231,6 +234,10 @@ case $key in
     CURLPATH="$2"
     shift # past argument
     ;;
+    -z|--zip-lib)
+    ZIPLIB="$2"
+    shift # past argument
+    ;;
     -h|--help)
     print_usage
     shift # past argument
@@ -249,8 +256,18 @@ echo "Checking for required dependencies"
 ##
 # check for required libraries
 ##
+
+##
+# figure out which compression library to look for
+##
+if [ "$ZIPLIB" == "bzip2" ]; then
+   c_lib="libbz2"
+else
+   c_lib="libz"
+fi
+
 library_path=""
-for ck_lib in libpcap libcrypto libz libbz2 libcurl libpthread
+for ck_lib in libpcap libcrypto libcurl libpthread $c_lib
 do
    if [ "$LIBPATH" != ""  ]; then
        check_libraries $ck_lib $LIBPATH
@@ -281,6 +298,12 @@ else
     find_curl_headers 
 fi
 echo "export CURLPATH= -I \"$curl_header_path\"" >> config.vars
+
+if [ $ZIPLIB == "bzip2" ]; then
+echo "export COMPDEF= -DUSE_BZIP2" >> config.vars
+else
+echo "export COMPDEF= -DUSE_GZIP" >> config.vars
+fi
 
 echo "All dependencies found. Issue 'make clean;make' to build the code"
 
