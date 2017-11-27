@@ -39,7 +39,7 @@
  *
  * @brief Source code to perform IPFIX protocol operations.
  **********************************************************/
-
+#include <unistd.h>
 #include <string.h>   /* for memcpy() */
 #include <stdlib.h>
 #include <time.h>
@@ -263,7 +263,7 @@ static int ipfix_collect_process_socket(unsigned char *data,
   key.dp = ntohs(gateway_collect.clctr_addr.sin_port);
   key.prot = IPPROTO_UDP;
 
-  record = flow_key_get_record(&key, CREATE_RECORDS);
+  record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
 
   process_ipfix((char*)data, data_len, record);
 
@@ -1048,7 +1048,8 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       ipfix_flow_key_init(&key, cur_template, (const char*)data_ptr);
 
       /* Get a flow record related to ipfix data */
-      ix_record = flow_key_get_record(&key, CREATE_RECORDS);
+      ix_record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
+
 
       /* Fill out record */
       if (memcmp(&key, prev_data_key, sizeof(struct flow_key)) != 0) {

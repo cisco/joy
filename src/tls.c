@@ -86,32 +86,6 @@ static int tls_certificate_process(const char *data, int data_len, struct tls_in
 static int tls_header_version_capture(struct tls_information *tls_info, const struct tls_header *tls_hdr);
 static void tls_certificate_printf(const struct tls_certificate *data, zfile f);
 
-
-/*
- * Inline functions
- */
-static inline unsigned int timer_lt_tls (const struct timeval *a, const struct timeval *b) {
-    return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
-}
-
-static inline void timer_sub_tls (const struct timeval *a, const struct timeval *b, struct timeval *result)  {
-    result->tv_sec = a->tv_sec - b->tv_sec;        
-    result->tv_usec = a->tv_usec - b->tv_usec;     
-    if (result->tv_usec < 0) {                         
-        --result->tv_sec;                                
-        result->tv_usec += 1000000;                      
-    }                                                    
-}
-
-static inline void timer_clear_tls (struct timeval *a) {
-    a->tv_sec = a->tv_usec = 0; 
-}
-
-static unsigned int timeval_to_milliseconds_tls (struct timeval ts) {
-    unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
-    return result;
-}
-
 /**
  * \fn void tls_init (struct tls_information *r)
  *
@@ -2091,7 +2065,7 @@ static void print_bytes_dir_time_tls (unsigned short int pkt_len,
     char *term, zfile f) {
 
     zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:%u\"}%s", 
-	      pkt_len, dir, timeval_to_milliseconds_tls(ts), type.content,
+	      pkt_len, dir, joy_timeval_to_milliseconds(ts), type.content,
           type.handshake, term);
 }
 
@@ -2118,23 +2092,23 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
         } else {
             for (i = 0; i < imax-1; i++) {
 	            if (i > 0) {
-	                timer_sub_tls(&time[i], &time[i-1], &ts);
+	                joy_timer_sub(&time[i], &time[i-1], &ts);
 	            } else {
-	                timer_clear_tls(&ts);
+	                joy_timer_clear(&ts);
 	            }
 	            print_bytes_dir_time_tls(len[i], OUT, ts, type[i], ",", f);
             }
             if (i == 0) {        /* this code could be simplified */ 	
-	            timer_clear_tls(&ts);  
+	            joy_timer_clear(&ts);  
             } else {
-	            timer_sub_tls(&time[i], &time[i-1], &ts);
+	            joy_timer_sub(&time[i], &time[i-1], &ts);
             }
             print_bytes_dir_time_tls(len[i], OUT, ts, type[i], "", f);
         }
         zprintf(f, "]"); 
     } else {
 
-        if (timer_lt_tls(time, time2)) {
+        if (joy_timer_lt(time, time2)) {
             ts_start = *time;
         } else {
             ts_start = *time2;
@@ -2160,7 +2134,7 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 	            i++;
             } else { /* neither list is exhausted, so use list with lowest time */     
 
-	            if (timer_lt_tls(&time[i], &time2[j])) {
+	            if (joy_timer_lt(&time[i], &time2[j])) {
 	                ts = time[i];
 	                pkt_len = len[i];
 	                typecode = type[i];
@@ -2178,7 +2152,7 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 	                }
 	            }
             }
-            timer_sub_tls(&ts, &ts_last, &tmp);
+            joy_timer_sub(&ts, &ts_last, &tmp);
             print_bytes_dir_time_tls(pkt_len, dir, tmp, typecode, "", f);
             ts_last = ts;
             if (!((i == imax) & (j == jmax))) { /* we are done */
@@ -2424,7 +2398,7 @@ void tls_print_json (const struct tls_information *data,
  *
  */
 static void tls_certificate_printf (const struct tls_certificate *data, zfile f) {
-  int j, ret;
+    int j = 0;
 
     zprintf(f, "{\"length\":%i", data->length);
     if (data->serial_number) {
@@ -2476,11 +2450,9 @@ static void tls_certificate_printf (const struct tls_certificate *data, zfile f)
     if (data->num_extension_items) {
         zprintf(f, ",\"extensions\":[");
         for (j = 0; j < data->num_extension_items; j++) {
-	    zprintf(f, "{\"entry_id\": \"%s\", ", data->extensions[j].id);
-	    ret = zprintf(f, "\"entry_data\": \"%s\"}", (char *)data->extensions[j].data);
-	    if (ret < 1) {
-	        zprintf(f, "\"entry_data\": \"failure\"}");
-	    }
+	        zprintf(f, "{\"entry_id\": \"%s\", ", data->extensions[j].id);
+            /* Print the data as a string */
+	        zprintf(f, "\"entry_data\": \"%s\"}", (char *)data->extensions[j].data);
             if (j == (data->num_extension_items - 1)) {
                 zprintf(f, "]");
             } else {

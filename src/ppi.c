@@ -190,21 +190,6 @@ unsigned int num_pkts = NUM_PKT_LEN;
 #define OUT "<"
 #define IN  ">"
 
-static inline unsigned int timer_lt (const struct timeval *a, const struct timeval *b) {
-    return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
-}
-
-#if 0
-static inline void timer_clear (struct timeval *a) { 
-    a->tv_sec = a->tv_usec = 0; 
-}
-#endif
-
-static unsigned int timeval_to_milliseconds (struct timeval ts) {
-    unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
-    return result;
-}
-
 void tcp_flags_to_string(unsigned char flags, char *string) {
     if (TCP_FIN & flags) {
 	*string++ = 'F';   
@@ -427,7 +412,7 @@ static void pkt_info_process(zfile f,
 	dir = ">";
     }
 
-    timer_sub(&pkt_info->time, &ts, &tmp); 
+    joy_timer_sub(&pkt_info->time, &ts, &tmp); 
     tcp_flags_to_string(pkt_info->flags, flags_string);
     zprintf(f, 
 	    "{\"seq\":%u,\"ack\":%u,\"rseq\":%ld,\"rack\":%ld,\"b\":%u,\"olen\":%u,\"dir\":\"%s\",\"t\":%u,\"flags\":\"%s\"", 
@@ -438,7 +423,7 @@ static void pkt_info_process(zfile f,
 	    pkt_info->len, 
 	    pkt_info->opt_len, 
 	    dir, 
-	    timeval_to_milliseconds(tmp), // note: not pkt_info->time 
+	    joy_timeval_to_milliseconds(tmp), // note: not pkt_info->time 
 	    flags_string);
     tcp_opt_print_json(f, pkt_info->opts, pkt_info->opt_len);
     zprintf(f, "}");
@@ -478,7 +463,7 @@ static void pkt_info_print_interleaved(zfile f,
 
     } else { /*  bidirectional tcp flow in (pkt_info, pkt_info2), interleaving needed */
 
-        if (timer_lt(&pkt_info[0].time, &pkt_info2[0].time)) {
+        if (joy_timer_lt(&pkt_info[0].time, &pkt_info2[0].time)) {
             ts_last = pkt_info[0].time;
         } else {
             ts_last = pkt_info2[0].time;
@@ -500,7 +485,7 @@ static void pkt_info_print_interleaved(zfile f,
 		i++;
 	    } else { /* neither list is exhausted, so use list with lowest time */     
 
-	            if (timer_lt(&pkt_info[i].time, &pkt_info2[j].time)) {
+	            if (joy_timer_lt(&pkt_info[i].time, &pkt_info2[j].time)) {
 			pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
 	                if (i < imax) {
 	                    i++;

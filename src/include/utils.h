@@ -62,6 +62,22 @@
 # endif
 #endif
 
+#ifdef WIN32
+int gettimeofday(struct timeval *tp,
+                 struct timezone *tzp);
+#endif
+
+unsigned int joy_timer_lt(const struct timeval *a,
+                      const struct timeval *b);
+
+void joy_timer_sub(const struct timeval *a,
+               const struct timeval *b,
+               struct timeval *result);
+
+void joy_timer_clear(struct timeval *a);
+
+unsigned int joy_timeval_to_milliseconds(struct timeval ts);
+
 FILE* joy_utils_open_test_file(const char *filename);
 
 pcap_t* joy_utils_open_test_pcap(const char *filename);

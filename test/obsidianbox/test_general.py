@@ -40,6 +40,7 @@ import time
 import logging
 import subprocess
 import gzip
+import bz2
 import json
 from .utils import end_process
 from .utils import FileType
@@ -66,7 +67,7 @@ test_params = [[''],
 class ValidateGeneral(object):
     def __init__(self, paths):
         self.paths = paths
-        self.tmp_output = "tmp-general.json.gz"
+        self.tmp_output = "tmp-general.json"
 
     def _cleanup_tmp_files(self):
         """
@@ -92,6 +93,14 @@ class ValidateGeneral(object):
             ft = FileType(self.tmp_output)
             if ft.is_gz():
                 with gzip.open(self.tmp_output, 'r') as f:
+                    for line in f:
+                        try:
+                            json.loads(line)
+                        except ValueError as e:
+                            logger.error("Invalid JSON object, see file %s", self.tmp_output)
+                            raise e
+            elif ft.is_bz2():
+                with bz2.BZ2File(self.tmp_output, 'r') as f:
                     for line in f:
                         try:
                             json.loads(line)

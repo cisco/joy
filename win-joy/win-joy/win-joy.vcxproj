@@ -104,13 +104,13 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\include;$(ProjectDir)\..\..\windows\include\pcap;$(ProjectDir)..\..\windows\include;$(ProjectDir)..\..\windows\include\zlib;$(ProjectDir)..\..\windows\include\pthread;</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);WIN32;PSAPI_VERSION=1;_CRT_SECURE_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;__STDC_WANT_SECURE_LIB__=1;</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);WIN32;PSAPI_VERSION=1;_CRT_SECURE_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;__STDC_WANT_SECURE_LIB__=1</PreprocessorDefinitions>
       <PreprocessToFile>false</PreprocessToFile>
       <CompileAs>Default</CompileAs>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\windows\64;</AdditionalLibraryDirectories>
-      <AdditionalDependencies>version.lib;psapi.lib;getopt.lib;iphlpapi.lib;ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;psapi.lib;getopt.lib;iphlpapi.lib;ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libbz2.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ShowProgress>NotSet</ShowProgress>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
       <AdditionalOptions>/NODEFAULTLIB:MSVCRT %(AdditionalOptions)</AdditionalOptions>
@@ -139,7 +139,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\src\include;$(ProjectDir)\..\..\windows\include\pcap;$(ProjectDir)..\..\windows\include;$(ProjectDir)..\..\windows\include\zlib;$(ProjectDir)..\..\windows\include\pthread;</AdditionalIncludeDirectories>
       <WholeProgramOptimization>false</WholeProgramOptimization>
-      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);WIN32;PSAPI_VERSION=1;_CRT_SECURE_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;__STDC_WANT_SECURE_LIB__=1;</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);WIN32;PSAPI_VERSION=1;_CRT_SECURE_NO_DEPRECATE;_WINSOCK_DEPRECATED_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;__STDC_WANT_SECURE_LIB__=1</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
@@ -147,7 +147,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\windows\64;</AdditionalLibraryDirectories>
-      <AdditionalDependencies>version.lib;psapi.lib;getopt.lib;iphlpapi.lib;ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;psapi.lib;getopt.lib;iphlpapi.lib;ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libbz2.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
@@ -222,6 +222,7 @@
     <ClInclude Include="..\..\src\include\updater.h" />
     <ClInclude Include="..\..\src\include\utils.h" />
     <ClInclude Include="..\..\src\include\wht.h" />
+    <ClInclude Include="..\..\windows\include\bzlib.h" />
     <ClInclude Include="..\..\windows\include\getopt.h" />
     <ClInclude Include="..\..\windows\include\win_types.h" />
   </ItemGroup>
