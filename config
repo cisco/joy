@@ -11,7 +11,7 @@
 ##
 print_usage ()
 {
-   echo "$0 [-h | --help] [-l <path> | --lib-path <path>] [-s <path> | --ssl-path <path>] [-c <path> | --curl-path <path>] [-z <gzip | bzip2> | --zip-lib <gzip | bzip2>]"
+   echo "$0 [-h | --help] [-l <path> | --lib-path <path>] [-s <path> | --ssl-path <path>] [-c <path> | --curl-path <path>] [-z <gzip | bzip2 | none> | --zip-lib <gzip | bzip2 | none>]"
    echo "examples:"
    echo "	$0 --help"
    echo "	$0 --lib-path /usr/local/lib/x86_64-linux-gnu"
@@ -262,6 +262,8 @@ echo "Checking for required dependencies"
 ##
 if [ "$ZIPLIB" == "bzip2" ]; then
    c_lib="libbz2"
+elif [ "$ZIPLIB" == "none" ]; then
+   c_lib=""
 else
    c_lib="libz"
 fi
@@ -301,8 +303,13 @@ echo "export CURLPATH= -I \"$curl_header_path\"" >> config.vars
 
 if [ $ZIPLIB == "bzip2" ]; then
 echo "export COMPDEF= -DUSE_BZIP2" >> config.vars
+echo "export COMPRESSED= -DCOMPRESSED_OUTPUT=1" >> config.vars
+elif [ $ZIPLIB == "none" ]; then
+echo "export COMPDEF= -DUSE_NONE" >> config.vars
+echo "export COMPRESSED= -DCOMPRESSED_OUTPUT=0" >> config.vars
 else
 echo "export COMPDEF= -DUSE_GZIP" >> config.vars
+echo "export COMPRESSED= -DCOMPRESSED_OUTPUT=1" >> config.vars
 fi
 
 echo "The following variables were defined:"
