@@ -25,7 +25,7 @@ LIBS += -lpthread # thread library; used in updater thread
 
 ifeq ($(COMPDEF),-DUSE_BZIP2)
 LIBS += -lbz2     # bzip2 library
-else
+else if ($(COMPDEF),-DUSE_GZIP)
 LIBS += -lz       # gzip library
 endif
 
@@ -95,21 +95,21 @@ print:
 	@echo "cwd="$(CWD)
 
 joy: joy.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/joy" $(INCLUDEDIR) joy.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS)  
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) $(COMPRESSED) -o "$(BINDIR)/joy" $(INCLUDEDIR) joy.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS)
 #	strip joy
 
 jfd-anon: jfd-anon.c $(JFDANON_SRC)
-	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
 joy-anon: joy-anon.c $(JFDANON_SRC)
-	gcc -DCOMPRESSED_OUTPUT=0 $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 
 unit_test: unit_test.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) $(COMPRESSED) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 	ln -sf "$(BINDIR)/unit_test" "$(TESTDIR)/unit_test"
 
 str_match_test: str_match_test.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) $(INCLUDEDIR) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 
 
 ##
