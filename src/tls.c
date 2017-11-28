@@ -2189,7 +2189,7 @@ static const char *tls_extension_types[] = {
  *
  * \return pointer to string from lookup table
  */
-static const char *tls_extension_type_lookup(const unsigned short int type)
+static const char *tls_extension_lookup(const unsigned short int type)
 {
     if ((type >= 0 && type <= 25) || type == 35 || type == 65281) {
         /* Make sure the type is within accepted bounds */
@@ -2218,7 +2218,7 @@ static void tls_print_extensions(const struct tls_extension *extensions,
     for (i = 0; i < count; i++) {
         const char *type_str = NULL;
 
-        type_str = tls_extension_type_lookup(extensions[i].type);
+        type_str = tls_extension_lookup(extensions[i].type);
         if (type_str) {
             zprintf(f, "{\"%s\":", type_str);
             zprintf_raw_as_hex_tls(f, extensions[i].data, extensions[i].length);
@@ -2234,7 +2234,7 @@ static void tls_print_extensions(const struct tls_extension *extensions,
         if (i == (count - 1)) {
             zprintf(f, "]");
         } else {
-            zprintf(f, ", ");
+            zprintf(f, ",");
         }
     }
 }
