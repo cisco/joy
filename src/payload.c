@@ -153,12 +153,28 @@ void payload_delete (struct payload **payload_handle) {
  * \return none
  */
 void payload_unit_test () {
-    struct payload *payload = NULL;
+    struct payload *payload1 = NULL;
+    struct payload *payload2 = NULL;
     const struct pcap_pkthdr *header = NULL; 
+    unsigned char data1[16] = {
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 
+	0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f 
+    };
+    unsigned char data2[24] = {
+	0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef, 
+	0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 
+	0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
+    };
 
-    payload_init(&payload);
-    payload_update(payload, header, NULL, 1, 1);
-
-    payload_delete(&payload);
+    fprintf(stdout, "running unit test for payload feature...");
+    payload_init(&payload1);
+    payload_init(&payload2);
+    payload_update(payload1, header, data1, sizeof(data1), 1);
+    payload_update(payload2, header, data2, sizeof(data2), 1);
+    // no print test yet 
+    // payload_print_json (payload1, NULL, f);    
+    payload_delete(&payload1);
+    payload_delete(&payload2);
+    fprintf(stdout, "done (success)\n");
 } 
 
