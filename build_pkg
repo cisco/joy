@@ -37,7 +37,7 @@ APP_ROOT=$(dirname "$CWD")
 PROGNAME=`basename $0`
 DEBIAN_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     libssl1.0.2 libssl-dev make python python-pip ruby \
-    ruby-ffi zlib1g zlib1g-dev"
+    ruby-ffi zlib1g zlib1g-dev libbz2-1.0 libbz2-dev"
 DEBIAN_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.2"
 UBUNTU_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     libssl1.0.0 libssl-dev make python python-pip ruby \
@@ -45,7 +45,8 @@ UBUNTU_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
 UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
-    openssl-devel python python2-pip ruby rubygems zlib zlib-devel"
+    openssl-devel python python2-pip ruby rubygems zlib zlib-devel \
+    bzip2-libs bzip2-devel"
 ARCH=`uname -m`
 
 echo
@@ -280,17 +281,17 @@ if [ "$?" != 0 ]; then
 fi
 if [ "$BUILDTYPE" == "deb" ]; then
     if [ "$ARCH" == "x86_64" ]; then
-        ./config -l /usr/lib/x86_64-linux-gnu
+        ./config -l /usr/lib/x86_64-linux-gnu -z bzip2
     elif [ "$ARCH" == "armv7l" ]; then
-        ./config -l /usr/lib/arm-linux-gnueabihf
+        ./config -l /usr/lib/arm-linux-gnueabihf -z bzip2
     else
         echo "Arch $ARCH not supported"
         exit 1
     fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
-    ./config --ssl-path $SSL_PATH
+    ./config --ssl-path $SSL_PATH -z bzip2
 elif [ "$BUILDTYPE" == "rpm" ]; then
-    ./config -l /usr/lib64
+    ./config -l /usr/lib64 -z bzip2
 fi
 if [ "$?" != 0 ]; then
     echo Failed to run ./config
@@ -317,7 +318,7 @@ if [ "$BUILDTYPE" == "deb" ]; then
         FPM_REQS="$DEBIAN_REQS"
     fi
     fpm -s dir -t deb $FPM_LINUX_OPTIONS $FPM_REQS \
-        -d "python >= 2.7" -d zlib1g \
+        -d "python >= 2.7" -d zlib1g -d libbz2-1.0 \
         --deb-no-default-config-files \
         --description 'Joy is a libpcap-based software package for extracting data features from live
 network traffic or packet capture \(pcap\) files, using a flow-oriented model
@@ -346,7 +347,7 @@ threat-relevant data.' \
 elif [ "$BUILDTYPE" == "rpm" ]; then
     fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
         -d libcurl -d libpcap -d "kernel >= 3.10" -d openssl \
-        -d openssl-libs -d "python >= 2.7" -d zlib \
+        -d openssl-libs -d "python >= 2.7" -d zlib -d bzip2-libs \
         --config-files /etc/systemd/system/joy.service.d/20-accounting.conf \
         --description 'Joy is a libpcap-based software package for extracting data features from live
 network traffic or packet capture \(pcap\) files, using a flow-oriented model

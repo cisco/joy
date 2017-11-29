@@ -354,7 +354,6 @@ if [ "$sysname" == "Darwin" ]; then
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/etc/joy/*
-        #ls -l ${PREFIX}/share/joy/data/*
         ls -l ${PREFIX}/share/man/man1/joy.1
         ls -l /Library/LaunchDaemons/joy.plist
         echo "starting flow capture daemon"
@@ -623,7 +622,6 @@ elif [ "$sysname" == "Linux" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/bin/joyq
         ls -l ${PREFIX}/etc/joy/*
-        #ls -l ${PREFIX}/share/joy/data/*
         ls -l ${PREFIX}/share/man/man1/joy.1
 
         if [ "$daemon_system" == "sysv" ]; then
