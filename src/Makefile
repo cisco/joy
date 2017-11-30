@@ -25,8 +25,10 @@ LIBS += -lpthread # thread library; used in updater thread
 
 ifeq ($(COMPDEF),-DUSE_BZIP2)
 LIBS += -lbz2     # bzip2 library
-else if ($(COMPDEF),-DUSE_GZIP)
-LIBS += -lz       # gzip library
+else
+  ifeq ($(COMPDEF),-DUSE_GZIP)
+    LIBS += -lz       # gzip library
+  endif
 endif
 
 ##
