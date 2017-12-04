@@ -112,27 +112,48 @@ void ip_id_update (struct ip_id *ip_id,
  * \return none
  */
 void ip_id_print_json (const struct ip_id *x1, const struct ip_id *x2, zfile f) {
+    int empty = 1;
+    int comma = 0;
     unsigned int i;
 
+    if (x1->num_ip_id || (x2 && x2->num_ip_id)) {
+        zprintf(f, ",\"ip_id\":{");
+        empty = 0;
+    }
+
     if (x1->num_ip_id) {
-        zprintf(f, ",\"oip_id\":[");
-	for (i=0; i < x1->num_ip_id; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x1->id[i]);
-	}
-        zprintf(f, "]");
+        comma = 1;
+        zprintf(f, "\"out\":[");
+
+        for (i=0; i < x1->num_ip_id; i++) {
+            zprintf(f, "%u", x1->id[i]);
+            if (i == (x1->num_ip_id - 1)) {
+                zprintf(f, "]");
+            } else {
+                zprintf(f, ",");
+            }
+        }
     }
     if (x2 && x2->num_ip_id) {
-        zprintf(f, ",\"iip_id\":[");
-	for (i=0; i < x2->num_ip_id; i++) {
-	    if (i) {
-		zprintf(f, ",");
-	    }
-	    zprintf(f, "%u", x2->id[i]);
-	}
+        if (comma) {
+            zprintf(f, ",\"in\":[");
+        } else {
+            zprintf(f, "\"in\":[");
+        }
+
+        for (i=0; i < x2->num_ip_id; i++) {
+            zprintf(f, "%u", x2->id[i]);
+            if (i == (x2->num_ip_id - 1)) {
+                zprintf(f, "]");
+            } else {
+                zprintf(f, ",");
+            }
+        }
         zprintf(f, "]");
+    }
+
+    if (! empty) {
+        zprintf(f, "}");
     }
 }
 
