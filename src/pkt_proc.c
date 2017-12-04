@@ -546,7 +546,6 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     unsigned int size_payload;
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
     struct flow_record *record = NULL;
-    unsigned int cur_itr = 0;
 
     joy_log_info("Protocol: TCP");
 
@@ -619,7 +618,6 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     }
 
     // if initial SYN/ACK packet, parse TCP options
-    int offset = 20;
     if (tcp->tcp_flags == 2 || tcp->tcp_flags == 18) { // SYN==2, SYN/ACK==18
         // get initial window size
         if (!record->tcp_initial_window_size) {
@@ -629,45 +627,6 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
         // get SYN packet size
         if (tcp->tcp_flags == 2) {
             record->tcp_syn_size = tcp_len;
-        }
-
-        // parse TCP options
-        cur_itr = 0;
-        while (offset < tcp_hdr_len) { // while there are TCP options present
-            cur_itr += 1;
-            if (cur_itr > 20) {
-	              break;
-            }
-            if ((unsigned int)*(const unsigned char *)(tcp_start+offset) <= 0) { // EOL
-	              break ;
-            }
-            if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 1) { // NOP
-	              record->tcp_option_nop += 1;
-	              offset += 1;
-            } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 2) { // MSS
-	              if ((unsigned int)*(const unsigned char *)(tcp_start+offset+1) == 4) {
-	                  record->tcp_option_mss = htons(*(const unsigned short *)(tcp_start+offset+2));
-	              }
-	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
-            } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 3) { // WSCALE
-	              record->tcp_option_wscale = (unsigned int)*(const unsigned char *)(tcp_start+offset+2);
-
-	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
-            } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 4) { // SACK
-	              record->tcp_option_sack = 1;
-
-	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
-            } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 8) { // TSTAMP
-	              record->tcp_option_tstamp = 1;
-
-	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
-            } else if ((unsigned int)*(const unsigned char *)(tcp_start+offset) == 34) { // TCP FAST OPEN
-	              record->tcp_option_fastopen = 1;
-
-	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
-            } else { // if all TCP options are being correctly parsed, this else should not be called
-	              offset += (unsigned int)*(const unsigned char *)(tcp_start+offset+1);
-            }
         }
     }
 

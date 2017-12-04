@@ -113,12 +113,6 @@ struct flow_record {
 	char *full_path;                      /*!< executable path associated with flow    */
 	char *file_version;                   /*!< executable version associated with flow    */
 	char *file_hash;                      /*!< executable file hash associated with flow    */
-	unsigned char tcp_option_nop;
-    unsigned int tcp_option_mss;
-    unsigned int tcp_option_wscale;
-    unsigned char tcp_option_sack;
-    unsigned char tcp_option_fastopen;
-    unsigned char tcp_option_tstamp;
     unsigned short tcp_initial_window_size;
     unsigned int tcp_syn_size;
     unsigned char exp_type;

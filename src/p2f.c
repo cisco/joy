@@ -1147,62 +1147,9 @@ static void flow_record_print_json (const struct flow_record *record) {
         }
     }
 
-    if (rec->tcp_option_nop) {
-        zprintf(output, "\"otcp_nop\":%u,", rec->tcp_option_nop);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_nop) {
-            zprintf(output, "\"itcp_nop\":%u,", rec->twin->tcp_option_nop);
-        }
-    }
-
-    if (rec->tcp_option_mss) {
-        zprintf(output, "\"otcp_mss\":%u,", rec->tcp_option_mss);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_mss) {
-            zprintf(output, "\"itcp_mss\":%u,", rec->twin->tcp_option_mss);
-        }
-    }
-
-    if (rec->tcp_option_wscale) {
-        zprintf(output, "\"otcp_wscale\":%u,", rec->tcp_option_wscale);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_wscale) {
-            zprintf(output, "\"itcp_wscale\":%u,", rec->twin->tcp_option_wscale);
-        }
-    }
-
-    if (rec->tcp_option_sack) {
-        zprintf(output, "\"otcp_sack\":%u,", rec->tcp_option_sack);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_sack) {
-            zprintf(output, "\"itcp_sack\":%u,", rec->twin->tcp_option_sack);
-        }
-    }
-
-    if (rec->tcp_option_fastopen) {
-        zprintf(output, "\"otcp_fastopen\":%u,", rec->tcp_option_fastopen);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_fastopen) {
-            zprintf(output, "\"itcp_fastopen\":%u,", rec->twin->tcp_option_fastopen);
-        }
-    }
-
-    if (rec->tcp_option_tstamp) {
-        zprintf(output, "\"otcp_tstamp\":%u,", rec->tcp_option_tstamp);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_tstamp) {
-            zprintf(output, "\"itcp_tstamp\":%u,", rec->twin->tcp_option_tstamp);
-        }
-    }
-
-    /*
-     * Print length and time arrays
+    /*****************************************************************
+     * Packet length and time array
+     *****************************************************************
      */
     zprintf(output, "\"packets\":[");
 
