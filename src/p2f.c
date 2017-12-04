@@ -1054,26 +1054,37 @@ static void flow_record_print_json (const struct flow_record *record) {
         rec = record;
     }
 
+    /*****************************************************************
+     * ---------------------------------------------------------------
+     * Flow Record object start
+     * ---------------------------------------------------------------
+     *****************************************************************
+     */
     zprintf(output, "{");
 
-    /*
-     * Flow key
+    /*****************************************************************
+     * IP object start
+     *****************************************************************
      */
+    zprintf(output, "\"ip\":{");
     if (ipv4_addr_needs_anonymization(&rec->key.sa)) {
-        zprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->key.sa));
+        zprintf(output, "\"sa\":\"%s\"", addr_get_anon_hexstring(&rec->key.sa));
     } else {
-        zprintf(output, "\"sa\":\"%s\",", inet_ntoa(rec->key.sa));
+        zprintf(output, "\"sa\":\"%s\"", inet_ntoa(rec->key.sa));
     }
     if (ipv4_addr_needs_anonymization(&rec->key.da)) {
-        zprintf(output, "\"da\":\"%s\",", addr_get_anon_hexstring(&rec->key.da));
+        zprintf(output, ",\"da\":\"%s\"", addr_get_anon_hexstring(&rec->key.da));
     } else {
-        zprintf(output, "\"da\":\"%s\",", inet_ntoa(rec->key.da));
+        zprintf(output, ",\"da\":\"%s\"", inet_ntoa(rec->key.da));
     }
-    zprintf(output, "\"pr\":%u,", rec->key.prot);
-    if (1 || rec->key.prot == 6 || rec->key.prot == 17) {
-        zprintf(output, "\"sp\":%u,", rec->key.sp);
-        zprintf(output, "\"dp\":%u,", rec->key.dp);
-    }
+    zprintf(output, ",\"pr\":%u", rec->key.prot);
+    zprintf(output, ",\"sp\":%u", rec->key.sp);
+    zprintf(output, ",\"dp\":%u", rec->key.dp);
+    zprintf(output, "},");
+    /*****************************************************************
+     * IP object end
+     *****************************************************************
+     */
 
     /*
      * if src or dst address matches a subnets associated with labels,
@@ -1092,10 +1103,10 @@ static void flow_record_print_json (const struct flow_record *record) {
      * Flow stats
      */
     zprintf(output, "\"ob\":%u,", rec->ob);
-    zprintf(output, "\"op\":%u,", rec->np); /* not just packets with data */
+    zprintf(output, "\"opk\":%u,", rec->np); /* not just packets with data */
     if (rec->twin != NULL) {
         zprintf(output, "\"ib\":%u,", rec->twin->ob);
-        zprintf(output, "\"ip\":%u,", rec->twin->np);
+        zprintf(output, "\"ipk\":%u,", rec->twin->np);
     }
 #ifdef WIN32
 	zprintf(output, "\"ts\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
@@ -1463,6 +1474,10 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, ",\"x\":\"%c\"", rec->exp_type);
     }
 
+    /*****************************************************************
+     * Flow Record object end
+     *****************************************************************
+     */
     zprintf(output, "}\n");
 }
 

@@ -53,16 +53,27 @@
  */
 void os_printf (zfile f, int ttl, int iws, int ttl_twin, int iws_twin) {
     char os_name[32];
+    int empty = 1;
     detect_os(ttl, iws, os_name, sizeof(os_name));
 
     if (*os_name) {
-        zprintf(f, ",\"o_probable_os\":\"%s\"", os_name);
+        zprintf(f, "probable_os:{\"out\":\"%s\"", os_name);
+        empty = 0;
     }
     if (ttl_twin) {
         detect_os(ttl_twin, iws_twin, os_name, sizeof(os_name));
         if (*os_name) {
-            zprintf(f, ",\"i_probable_os\":\"%s\"", os_name);
+            if (empty) {
+                zprintf(f, "probable_os:{\"in\":\"%s\"");
+                empty = 0;
+            } else {
+                zprintf(f, ",\"in\":\"%s\"", os_name);
+            }
         }
+    }
+
+    if (! empty) {
+        zprintf(f, "}");
     }
 }
 
