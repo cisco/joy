@@ -207,6 +207,7 @@ typedef struct tls {
     unsigned char *handshake_buffer; /**< Handshake message(s) data */
     uint16_t handshake_length; /**< Length of data in handshake buffer */
     unsigned char done_handshake; /**< Flag indicating the hanshake phase has completed */
+    uint16_t seg_offset;
     fingerprint_t *tls_fingerprint;
 } tls_t;
 

@@ -1890,9 +1890,25 @@ void tls_update (struct tls *r,
         r->handshake_length += len;
     }
 
+    if (r->seg_offset) {
+        /*
+         * Increment past the remaining data segment from previous message.
+         */
+        data += r->seg_offset;
+        /* Decrement the remaining length by the amount we fast-forwarded */
+        rem_len -= r->seg_offset;
+        /* Reset the segmentation offset */
+        r->seg_offset = 0;
+    }
+
     while (rem_len > 0) {
         hdr = (const struct tls_header *)data;
         msg_len = tls_header_get_length(hdr);
+
+        if (msg_len > rem_len && !ipfix_collect_port) {
+            /* The message has been split into segments */
+            r->seg_offset = msg_len - (rem_len - TLS_HDR_LEN);
+        }
 
         if (r->done_handshake == 0 &&
             (hdr->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC ||
