@@ -1711,11 +1711,11 @@ static int uploader_send_file (char *filename, char *servername,
        joy_log_info("transfer of file [%s] successful!", filename);
        /* see if we are allowed to delete the file after upload */
        if (retain == 0) {
-            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", "config.vars");
-            joy_log_info("removing file [%s]", "config.vars");
+            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", filename);
+            joy_log_info("removing file [%s]", filename);
             rc = system(cmd);
             if (rc != 0) {
-                fprintf(info,"uploader: removing file [%s] failed!", "config.vars");
+                joy_log_err("removing file [%s] failed!", filename);
             }
         }
     } else {
@@ -1751,22 +1751,14 @@ void *uploader_main(void *ptr)
             pthread_cond_wait(&upload_run_cond, &upload_in_process);
         }
 
-        /* close the output file handle
-         * if configure for gzip or bzip2, final comrpession
-         * occurs on the close.
-         */
-        zclose(config->output_fd);
-
-        /* upload file now if configured to do so */
-        if (config->upload_servername) {
-            if (strlen(upload_filename) > 0) {
-                joy_log_info("uploading file [%s] ...", upload_filename);
-                uploader_send_file(upload_filename, config->upload_servername,
-                                   config->upload_key, config->retain_local);
-            }
+        /* upload file now */
+        if (strlen(upload_filename) > 0) {
+            joy_log_info("uploading file [%s] ...", upload_filename);
+            uploader_send_file(upload_filename, config->upload_servername,
+                               config->upload_key, config->retain_local);
         }
 
-        /* we are done with the file, go back to sleep */
+        /* we are done uploading the file, go back to sleep */
         memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
         upload_can_run = 0;
         pthread_mutex_unlock(&upload_in_process);
@@ -1775,16 +1767,16 @@ void *uploader_main(void *ptr)
 }
 
 /*
- * close file and upload after rotation
+ * file uploading after rotation
  */
 /**
- * \fn int close_and_upload_file (char *filename
+ * \fn int upload_file (char *filename
  * \brief upload file to the storage server
  * \param filename file to upload
  * \return failure/EXIT_FAILURE
  * \return 0 success
  */
-int close_and_upload_file (char *filename) {
+int upload_file (char *filename) {
 
     /* sanity check we were passed in a file to upload */
     if (filename == NULL) {
@@ -1792,11 +1784,7 @@ int close_and_upload_file (char *filename) {
         return failure;
     }
 
-    /* wake up the uploader thread so it can do its work
-     * the file will be closed in the uploader thread to
-     * to allow for a seperate thread to perform compression
-     * if joy is configure for compressed output.
-     */
+    /* wake up the uploader thread so it can do its work */
     pthread_mutex_lock(&upload_in_process);
     memcpy(upload_filename, filename, (MAX_FILENAME_LENGTH-1));
     upload_can_run = 1;

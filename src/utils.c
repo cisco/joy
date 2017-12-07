@@ -58,13 +58,13 @@ extern char *aux_resource_path;
  * the subsequent bzwrite to a compressed file. BZ2
  * doesn't have a printf interface, so an equivalent
  * interface needed to be written.
- * Note: this function can only output 512 chars at a time.
- *   if a string comes through bigger than 512, it will
+ * Note: this function can only output 4k chars at a time.
+ *   if a string comes through bigger than 4k, it will
  *   dynamically allocate a buffer to hold the output and then
  *   print out the data.
  *
  */
-#define BZ_MAX_SIZE 512
+#define BZ_MAX_SIZE 4096
 char BZ_buff[BZ_MAX_SIZE];
 int BZ2_bzprintf(BZFILE *b, const char * format, ...)
 {

@@ -852,12 +852,13 @@ int main (int argc, char **argv) {
          * start up the uploader thread
          *   uploader is only active during live capture runs
          */
-        config.output_fd = output; 
-        upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&config);
-        if (upd_rc) {
-	    fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
-	    return -7;
-        }
+         if (config.upload_servername) {
+             upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&config);
+             if (upd_rc) {
+	         fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
+	         return -7;
+             }
+         }
 
         /*
          * flush "info" output stream to ensure log file accuracy
@@ -901,11 +902,12 @@ int main (int argc, char **argv) {
 	              if (config.max_records && (records_in_file > config.max_records)) {
 
 	                  /*
-	                   * write JSON postamble, close file and
-	                   * potentially upload it if configured to do so
+	                   * write JSON postamble
 	                   */
-	                  config.output_fd = output;
-	                  close_and_upload_file(filename);
+	                  zclose(output);
+	                  if (config.upload_servername) {
+	                      upload_file(filename);
+	                  }
 
 	                  // printf("records: %d\tmax_records: %d\n", records_in_file, config.max_records);
 	                  file_count++;

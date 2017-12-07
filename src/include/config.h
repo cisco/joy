@@ -102,7 +102,6 @@ struct configuration {
     char *ipfix_export_template;
     char *aux_resource_path;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
-    void *output_fd;
 };
 
 
