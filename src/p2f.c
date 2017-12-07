@@ -1078,13 +1078,19 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, ",\"da\":\"%s\"", inet_ntoa(rec->key.da));
     }
     zprintf(output, ",\"pr\":%u", rec->key.prot);
-    zprintf(output, ",\"sp\":%u", rec->key.sp);
-    zprintf(output, ",\"dp\":%u", rec->key.dp);
     zprintf(output, "},");
     /*****************************************************************
      * IP object end
      *****************************************************************
      */
+
+    if (rec->key.prot == 6) {
+        /* TCP ports */
+        zprintf(output, "\"tcp\":{\"sp\":%u,\"dp\":%u},", rec->key.sp, rec->key.dp);
+    } else if (rec->key.prot == 17) {
+        /* UDP ports */
+        zprintf(output, "\"udp\":{\"sp\":%u,\"dp\":%u},", rec->key.sp, rec->key.dp);
+    }
 
     /*
      * if src or dst address matches a subnets associated with labels,
