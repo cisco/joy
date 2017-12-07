@@ -78,7 +78,7 @@ int BZ2_bzprintf(BZFILE *b, const char * format, ...)
 
     /* check resulting size and perform output accordingly */
     if (BZ_sz >= BZ_MAX_SIZE) {
-        fprintf(info, "bzip2: large printf case...");
+        fprintf(info, "BZIP2: large printf case...");
         char *BZ_dyn_buff = malloc(BZ_sz + 1);
         if (BZ_dyn_buff != NULL) {
             va_start(arg, format);
