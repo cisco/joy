@@ -116,7 +116,7 @@ class DictStreamIteratorFromFile(DictStreamIterator):
                 self._cleanup()
                 raise
             except:
-                pass
+                # sys.stderr.write(line)
                 self.badLineCount += 1
 
 
@@ -137,7 +137,32 @@ class DictStreamFilterIterator(DictStreamIterator):
 
         return tmp
 
+    
+class DictStreamSelectIterator(DictStreamIterator):
+    def __init__(self, source, elements):
+        self.source = source
+        self.template = SleuthTemplateDict(elements)
 
+    def next(self):
+        while True:
+            tmp = self.source.next()
+            output = self.template.copy_selected_elements(self.template.template, tmp)
+            if output:
+                return output
+
+
+class DictStreamNormalizeIterator(DictStreamIterator):
+    def __init__(self, source, elements):
+        self.source = source
+        self.template = SleuthTemplateDict(elements)
+
+    def next(self):
+        tmp = self.source.next()
+        output = self.template.normalize_selected_elements(self.template.template, tmp)
+
+        return output
+
+    
 class DictStreamEnrichIterator(DictStreamIterator):
     def __init__(self, source, name, function, **kwargs):
         self.source = source
@@ -152,6 +177,45 @@ class DictStreamEnrichIterator(DictStreamIterator):
             nextval[self.name] = tmp
         return nextval
 
+class DictStreamDistributionIterator(DictStreamIterator):
+    def __init__(self, source, indent=None):
+        self.source = source
+        self.dist = dict()
+        self.total = 0
+        self.indent = indent
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        try:
+            obj = self.source.next()
+            value = pickle.dumps(obj)
+            self.key = tuple(obj.keys())
+            if value in self.dist:
+                self.dist[value] += 1
+            else:
+                self.dist[value] = 1
+            self.total += 1
+        except StopIteration:
+            output = list()
+        
+            for k, v in self.dist.iteritems():
+                d = pickle.loads(k)
+                d["count"] = v
+                d["total"] = self.total
+                # d["fraction"] = v/self.total
+                output.append(d)
+            output.sort(key=lambda x: x["count"], reverse=True)
+
+            for d in output:
+                json.dump(d, sys.stdout, indent=self.indent)
+                print ""
+
+            raise StopIteration
+
+
+        
 
 """
 Dictionary Processor Classes
@@ -170,9 +234,15 @@ class DictStreamProcessor(object):
          self.context = context
 
     def post_process(self, proc=None):
-        for obj in self.obj_set:
-            json.dump(obj, sys.stdout, indent=self.indent)
-            print ""
+        if proc:
+            proc.pre_process(self.context)
+            for obj in self.obj_set:
+                proc.main_process(obj)
+            proc.post_process()
+        else:
+            for obj in self.obj_set:
+                json.dump(obj, sys.stdout, indent=self.indent)
+                print ""
 
 
 class DictStreamElementSelectProcessor(DictStreamProcessor):
@@ -258,10 +328,11 @@ class DictStreamSumProcessor(DictStreamProcessor):
 
 
 class DictStreamDistributionProcessor(DictStreamProcessor):
-    def __init__(self):
+    def __init__(self, indent=None):
         self.dist = dict()
         self.total = 0
-
+        self.indent = indent
+        
     def main_process(self, obj):
         value = pickle.dumps(obj)
         self.key = tuple(obj.keys())
@@ -273,7 +344,7 @@ class DictStreamDistributionProcessor(DictStreamProcessor):
 
     def post_process(self):
         output = list()
-
+        
         for k, v in self.dist.iteritems():
             d = pickle.loads(k)
             d["count"] = v
@@ -283,7 +354,7 @@ class DictStreamDistributionProcessor(DictStreamProcessor):
         output.sort(key=lambda x: x["count"], reverse=True)
 
         for d in output:
-            json.dump(d, sys.stdout)
+            json.dump(d, sys.stdout, indent=self.indent)
             print ""
 
 
@@ -381,7 +452,24 @@ class SleuthTemplateDict(object):
         else:
             return None
 
+    def normalize_selected_elements(self, tmplDict, obj):
+        if not obj:
+            return {}
+        for k, v in tmplDict.items():
+            if k in obj:
+                if isinstance(v, list):
+                    obj_list = obj[k]
+                    if obj_list:
+                        for x in obj_list:
+                            for y in v:
+                                self.normalize_selected_elements(y, x)
+                elif isinstance(v, dict):
+                    self.normalize_selected_elements(v, obj[k])
+                else:
+                    obj[k] = None
+        return obj
 
+        
 # fnmatch
 # *	  matches everything
 # ?       matches any single character

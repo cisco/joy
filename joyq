@@ -46,6 +46,7 @@ import collections
 import os
 import subprocess
 import argparse
+import json
 sys.path.append("/usr/local/lib/python")
 from sleuth import DictStreamIterator
 from sleuth import DictStreamIteratorFromFile
@@ -56,6 +57,8 @@ from sleuth import DictStreamSumProcessor
 from sleuth import DictStreamDistributionProcessor
 from sleuth import DictStreamSplitProcessor
 from sleuth import DictStreamElementSelectProcessor
+from sleuth import DictStreamSelectIterator
+from sleuth import DictStreamNormalizeIterator
 from sleuth import SleuthPredicate
 from sleuth import SleuthFileType
 from sleuth import enrich_tls
@@ -117,7 +120,7 @@ class FlowIteratorFromFile(DictStreamIteratorFromFile):
                     self.f = bz2.BZ2File(self.file_name, 'r')
                 else:
                     self.f = open(self.file_name, 'r')
-
+        
 
 class FlowStitchIterator(DictStreamIterator):
     def __init__(self, source):
@@ -125,16 +128,18 @@ class FlowStitchIterator(DictStreamIterator):
         self.active_flows = collections.OrderedDict()
 
         for f in source:
-            key = (f['sa'], f['da'], f['sp'], f['dp'], f['pr'])
-            revkey = (f['da'], f['sa'], f['dp'], f['sp'], f['pr'])
-            if key in self.active_flows:
-                self.active_flows[key] = self.merge(self.active_flows[key], f)
-                pass
-            elif revkey in self.active_flows:
-                self.active_flows[revkey] = self.merge_reverse(self.active_flows[revkey], f)
-                pass
+            if 'ip' in f:
+                ip = f['ip']
+                key = (ip['sa'], ip['da'], ip['sp'], ip['dp'], ip['pr'])
+                revkey = (ip['da'], ip['sa'], ip['dp'], ip['sp'], ip['pr'])
+                if key in self.active_flows:
+                    self.active_flows[key] = self.merge(self.active_flows[key], f)
+                elif revkey in self.active_flows:
+                    self.active_flows[revkey] = self.merge_reverse(self.active_flows[revkey], f)
+                else:
+                    self.active_flows[key] = f
             else:
-                self.active_flows[key] = f
+                pass # what to do with non-ip flows?
 
         self.flows = iter(self.active_flows.values())
 
@@ -151,9 +156,9 @@ class FlowStitchIterator(DictStreamIterator):
             else:
                 if k == 'te':
                     f1[k] = max(f1[k], f2[k])
-                elif k == 'ip' or k == 'ib':
+                elif k == 'ipk' or k == 'ib':
                     f1[k] += f2[k]
-                elif k == 'op' or k == 'ob':
+                elif k == 'opk' or k == 'ob':
                     f1[k] += f2[k]
                 elif k == 'bd':
                     for i, e in enumerate(f2[k]):
@@ -169,7 +174,7 @@ class FlowStitchIterator(DictStreamIterator):
         for k, v in f2.items():
             if k not in f1:
                 if k == 'op':
-                    f1['ip'] += f2[k]
+                    f1['ipk'] += f2[k]
                 elif k == 'ob':
                     f1['ib'] += f2[k]
                 else:
@@ -177,9 +182,9 @@ class FlowStitchIterator(DictStreamIterator):
             else:
                 if k == 'te':
                     f1[k] = max(f1[k], f2[k])
-                elif k == 'ip':
+                elif k == 'ipk':
                     f1[k] += f2['ob']
-                elif k == 'op':
+                elif k == 'opk':
                     f1[k] += f2['ib']
                 elif k == 'bd':
                     for i, e in enumerate(f2[k]):
@@ -294,6 +299,8 @@ def pipeline():
                       help="Select key(s) to output.")
     parser.add_argument("--where", dest="filter",
                       help="Filter flows according to the provided key/value.")
+    parser.add_argument("--normalize", dest="normalize",
+                      help="Set values of selected key(s) to Null.")
     parser.add_argument("--stitch", dest='stitch', action="store_true",
                       help="Stitch together successive flows separated by active timeouts.")
     parser.add_argument("--split", dest="splitfield",
@@ -326,18 +333,21 @@ def pipeline():
 
     # Set flow processor
     #
-    if args.selection is not None:
-        fp = DictStreamElementSelectProcessor(args.selection)
-    else:
-        fp = DictStreamProcessor(indent=json_indent)
+    #if args.selection is not None:
+        # fp = DictStreamElementSelectProcessor(args.selection)
+    #else:
+    fp = DictStreamProcessor(indent=json_indent)
 
+    #if args.normalize is not None:
+    #    fp = DictStreamElementNormalizeProcessor(fp, args.normalize)
+        
     if args.splitfield:
         fp = DictStreamSplitProcessor(fp, args.splitfield)
 
     # Set post-processor
     #
     if args.dist:
-        postproc = DictStreamDistributionProcessor()
+        postproc = DictStreamDistributionProcessor(indent=json_indent)
     elif args.sumvars:
         postproc = DictStreamSumProcessor(args.sumvars, indent=json_indent)
     else:
@@ -353,6 +363,11 @@ def pipeline():
 
         if args.stitch:
             flow_source = FlowStitchIterator(flow_source)
+        if args.selection:
+            flow_source = DictStreamSelectIterator(flow_source, args.selection)
+        if args.normalize:
+            flow_source = DictStreamNormalizeIterator(flow_source, args.normalize)
+        
         if args.filter:
             flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
         if args.tls_sec:
@@ -361,6 +376,8 @@ def pipeline():
         # process all flows from source
         try:
             for flow in flow_source:
+                #json.dump(flow, sys.stdout, json_indent)
+                #print
                 fp.main_process(flow)
         except KeyboardInterrupt:
             sys.exit()
