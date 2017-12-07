@@ -60,6 +60,9 @@
 #define MAX_SID_LEN 256
 #define MAX_NUM_RCD_LEN 200
 
+/* Maxiumum handshakes we should see under a single content message */
+#define MAX_TLS_HANDSHAKES 5
+
 #ifdef OUT
 #undef OUT
 #endif
@@ -142,7 +145,8 @@
 
 struct tls_type_code {
     unsigned char content;
-    unsigned char handshake;
+    unsigned char handshakes[MAX_TLS_HANDSHAKES];
+    unsigned char num_handshakes;
 };
 
 struct tls_extension {

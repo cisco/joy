@@ -1681,6 +1681,7 @@ static int tls_handshake_hello_get_version(struct tls *tls_info,
 static void tls_handshake_buffer_parse(struct tls *r) {
     unsigned char *data = NULL;
 	uint16_t data_len = 0;
+    unsigned int msg_count = 0;
 
 	if (r == NULL) {
         return;
@@ -1695,15 +1696,20 @@ static void tls_handshake_buffer_parse(struct tls *r) {
         unsigned int tls_len = 0;
 
         tls_hdr = (const struct tls_header*)data;
+        tls_len = tls_header_get_length(tls_hdr);
+        msg_count += 1;
 
         if (tls_hdr->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC ||
             tls_hdr->content_type == TLS_CONTENT_ALERT ||
             tls_hdr->content_type == TLS_CONTENT_APPLICATION_DATA) {
-            /* TODO skip and continue looping? */
-            return;
+            /*
+             * Not a Handshake message.
+             * Skip and continue looping.
+             */
+            data += tls_len + TLS_HDR_LEN;
+            data_len -= tls_len + TLS_HDR_LEN;
+            continue;
         }
-
-        tls_len = tls_header_get_length(tls_hdr);
 
         /* Adjust for the length of tls_hdr metadata */
         data += TLS_HDR_LEN;
@@ -1792,12 +1798,13 @@ static void tls_handshake_buffer_parse(struct tls *r) {
                 tls_certificate_parse(&handshake->body, body_len, r);
             }
 
-#if 0
-            if (r->op < MAX_NUM_RCD_LEN) {
+            if (msg_count < MAX_NUM_RCD_LEN &&
+                r->types[msg_count].num_handshakes < MAX_TLS_HANDSHAKES) {
                 /* Record the handshake message type for this packet */
-	            r->types[r->op].handshake = handshake->msg_type;
+                struct tls_type_code *type = &r->types[msg_count];
+                type->handshakes[type->num_handshakes] = handshake->msg_type;
+                type->num_handshakes += 1;
             }
-#endif
 
             data += body_len;
             data_len -= body_len;
@@ -1808,15 +1815,11 @@ static void tls_handshake_buffer_parse(struct tls *r) {
     return;
 }
 
-#if 0
-static void tls_write_generic_stats(struct tls *r,
+static void tls_write_message_stats(struct tls *r,
                                     const struct tls_header *tls_hdr,
                                     const struct pcap_pkthdr *pkt_hdr)
 {
     uint16_t tls_len = tls_header_get_length(tls_hdr);
-
-    /* Increment TLS record count */
-    r->op++;
 
     /*
      * Record TLS record lengths and arrival times
@@ -1832,8 +1835,10 @@ static void tls_write_generic_stats(struct tls *r,
             r->times[r->op] = pkt_hdr->ts;
         }
     }
+
+    /* Increment TLS record count */
+    r->op++;
 }
-#endif
 
 /**
  * \brief Parse, process, and record TLS payload data.
@@ -1936,19 +1941,17 @@ void tls_update (struct tls *r,
             }
         }
 
-        /* Skip to the next message */
-        rem_len -= msg_len + TLS_HDR_LEN;
-        data += msg_len + TLS_HDR_LEN;
-
-#if 0
-        if (tls->content_type >= TLS_CONTENT_CHANGE_CIPHER_SPEC &&
-            tls->content_type <= TLS_CONTENT_APPLICATION_DATA) {
+        if (hdr->content_type >= TLS_CONTENT_CHANGE_CIPHER_SPEC &&
+            hdr->content_type <= TLS_CONTENT_APPLICATION_DATA) {
             /*
              * Write the stats for this content message
              */
-            tls_write_generic_stats(r, tls, header);
+            tls_write_message_stats(r, hdr, header);
         }
-#endif
+
+        /* Skip to the next message */
+        rem_len -= msg_len + TLS_HDR_LEN;
+        data += msg_len + TLS_HDR_LEN;
     }
 
     return;
@@ -2002,13 +2005,25 @@ static void zprintf_raw_as_hex_tls (zfile f, const unsigned char *data, unsigned
     zprintf(f, "\"");
 }
 
-static void print_bytes_dir_time_tls (unsigned short int pkt_len, 
-    char *dir, struct timeval ts, struct tls_type_code type, 
-    char *term, zfile f) {
+static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
+                                     struct timeval ts, struct tls_type_code type,
+                                     char *term, zfile f) {
+    int i = 0;
 
-    zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:%u\"}%s", 
-	      pkt_len, dir, joy_timeval_to_milliseconds(ts), type.content,
-          type.handshake, term);
+    zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:",
+            pkt_len, dir, joy_timeval_to_milliseconds(ts), type.content);
+
+    if (type.num_handshakes) {
+        for (i = 0; i < type.num_handshakes; i++) {
+            if (i == (type.num_handshakes - 1)) {
+                zprintf(f, "%u\"}%s", type.handshakes[i], term);
+            } else {
+                zprintf(f, "%u,", type.handshakes[i]);
+            }
+        }
+    } else {
+        zprintf(f, "0\"}%s", term);
+    }
 }
 
 static void len_time_print_interleaved_tls (unsigned int op, const unsigned short *len, 

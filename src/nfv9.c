@@ -531,7 +531,8 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	            total_ms += htons(*(const unsigned short *)(flow_data+40+j*2));
 
 	            nf_record->tls->types[j].content = *(const unsigned char *)(flow_data+80+j);
-	            nf_record->tls->types[j].handshake = *(const unsigned char *)(flow_data+100+j);
+	            nf_record->tls->types[j].handshakes[0] = *(const unsigned char *)(flow_data+100+j);
+	            nf_record->tls->types[j].num_handshakes = 1;
 	            nf_record->tls->op += 1;
                 }
       

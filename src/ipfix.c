@@ -1587,7 +1587,8 @@ static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->types[i].handshake = *((const uint8_t *)data);
+    ix_record->tls->types[i].handshakes[0] = *((const uint8_t *)data);
+    ix_record->tls->types[i].num_handshakes = 1;
     ix_record->tls->op += 1;
 
     data += element_length;
