@@ -1888,16 +1888,12 @@ void tls_update (struct tls *r,
             r->handshake_buffer = calloc(len, sizeof(unsigned char));
         } else {
             /* Reallocate memory to fit more */
-            unsigned char *tmp_ptr = NULL;
+            r->handshake_buffer = realloc(r->handshake_buffer,
+                                          r->handshake_length + (len*sizeof(unsigned char)));
 
-            tmp_ptr = realloc(r->handshake_buffer,
-                              r->handshake_length + (len*sizeof(unsigned char)));
-
-            if (!tmp_ptr) {
+            if (!r->handshake_buffer) {
                 joy_log_err("realloc for handshake data failed");
                 return;
-            } else {
-                r->handshake_buffer = tmp_ptr;
             }
         }
 
