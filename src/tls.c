@@ -1879,12 +1879,26 @@ void tls_update (struct tls *r,
          */
         if (len >= (MAX_HANDSHAKE_LENGTH - r->handshake_length)) {
             /* Not enough space for the handshake data */
+            joy_log_warn("not enough space for handshake data");
             return;
         }
 
         if (r->handshake_buffer == NULL) {
             /* Allocate memory */
-            r->handshake_buffer = calloc(MAX_HANDSHAKE_LENGTH, sizeof(unsigned char));
+            r->handshake_buffer = calloc(len, sizeof(unsigned char));
+        } else {
+            /* Reallocate memory to fit more */
+            unsigned char *tmp_ptr = NULL;
+
+            tmp_ptr = realloc(r->handshake_buffer,
+                              r->handshake_length + (len*sizeof(unsigned char)));
+
+            if (!tmp_ptr) {
+                joy_log_err("realloc for handshake data failed");
+                return;
+            } else {
+                r->handshake_buffer = tmp_ptr;
+            }
         }
 
         /* Copy the Handshake data, using length as offset (if non-zero) */

@@ -58,7 +58,7 @@
 #define MAX_CS 256
 #define MAX_EXTENSIONS 256
 #define MAX_SID_LEN 256
-#define MAX_NUM_RCD_LEN 200
+#define MAX_NUM_RCD_LEN 32
 
 /* Maxiumum handshakes we should see under a single content message */
 #define MAX_TLS_HANDSHAKES 5
@@ -188,7 +188,7 @@ struct tls_certificate {
 
 typedef struct tls {
     enum role role; /**< client, server, or unknown */
-    unsigned int op;
+    uint16_t op;
     uint16_t lengths[MAX_NUM_RCD_LEN]; /**< TLS record lengths */
     struct timeval times[MAX_NUM_RCD_LEN]; /**< Arrival times */
     struct tls_type_code types[MAX_NUM_RCD_LEN]; /**< Record type codes */
