@@ -1681,7 +1681,7 @@ static int tls_handshake_hello_get_version(struct tls *tls_info,
 static void tls_handshake_buffer_parse(struct tls *r) {
     unsigned char *data = NULL;
 	uint16_t data_len = 0;
-    unsigned int msg_count = 0;
+    unsigned int hs_msg_count = 0;
 
 	if (r == NULL) {
         return;
@@ -1697,7 +1697,6 @@ static void tls_handshake_buffer_parse(struct tls *r) {
 
         tls_hdr = (const struct tls_header*)data;
         tls_len = tls_header_get_length(tls_hdr);
-        msg_count += 1;
 
         if (tls_hdr->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC ||
             tls_hdr->content_type == TLS_CONTENT_ALERT ||
@@ -1798,10 +1797,10 @@ static void tls_handshake_buffer_parse(struct tls *r) {
                 tls_certificate_parse(&handshake->body, body_len, r);
             }
 
-            if (msg_count < MAX_NUM_RCD_LEN &&
-                r->types[msg_count].num_handshakes < MAX_TLS_HANDSHAKES) {
+            if (hs_msg_count < MAX_NUM_RCD_LEN &&
+                r->types[hs_msg_count].num_handshakes < MAX_TLS_HANDSHAKES) {
                 /* Record the handshake message type for this packet */
-                struct tls_type_code *type = &r->types[msg_count];
+                struct tls_type_code *type = &r->types[hs_msg_count];
                 type->handshakes[type->num_handshakes] = handshake->msg_type;
                 type->num_handshakes += 1;
             }
@@ -1810,6 +1809,9 @@ static void tls_handshake_buffer_parse(struct tls *r) {
             data_len -= body_len;
             tls_len -= body_len + TLS_HANDSHAKE_HDR_LEN;
         }
+
+        /* Increment the number of handshake messages seen */
+        hs_msg_count += 1;
     }
 
     return;
@@ -1941,10 +1943,9 @@ void tls_update (struct tls *r,
             }
         }
 
-        if (hdr->content_type >= TLS_CONTENT_CHANGE_CIPHER_SPEC &&
-            hdr->content_type <= TLS_CONTENT_APPLICATION_DATA) {
+        if (hdr->content_type == TLS_CONTENT_HANDSHAKE) {
             /*
-             * Write the stats for this content message
+             * Write the stats for this Handshake message
              */
             tls_write_message_stats(r, hdr, header);
         }
