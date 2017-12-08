@@ -245,18 +245,17 @@ static unsigned int tls_handshake_get_length (const struct tls_handshake *hand) 
 /**
  * \brief Extract the client offered ciphersuites.
  *
- * \param x Pointer to the hello message body data.
+ * \param y Pointer to the hello message body data.
  * \param len Length of the data in bytes.
  * \param r tls structure that will be written into.
  *
  * \return
  *
  */
-static void tls_client_hello_get_ciphersuites (const void *x,
+static void tls_client_hello_get_ciphersuites (const unsigned char *y,
                                                int len,
                                                struct tls *r) {
     unsigned int session_id_len;
-    const unsigned char *y = x;
     uint16_t cipher_suites_len;
     unsigned int i = 0;
 
@@ -315,18 +314,17 @@ static void tls_client_hello_get_ciphersuites (const void *x,
 /**
  * \brief Extract the client hello extensions.
  *
- * \param x Pointer to the hello message body data.
+ * \param y Pointer to the hello message body data.
  * \param len Length of the data in bytes.
  * \param r tls structure that will be written into.
  *
  * \return
  *
  */
-static void tls_client_hello_get_extensions (const void *x,
+static void tls_client_hello_get_extensions (const unsigned char *y,
                                              int len,
                                              struct tls *r) {
     unsigned int session_id_len, compression_method_len;
-    const unsigned char *y = x;
     uint16_t cipher_suites_len, extensions_len;
     unsigned int i = 0;
 
@@ -1213,18 +1211,17 @@ static void tls_certificate_parse(const unsigned char *data,
 /**
  * \brief Extract the server selected ciphersuite (scs).
  *
- * \param x Pointer to the hello message body data.
+ * \param y Pointer to the hello message body data.
  * \param len Length of the data in bytes.
  * \param r tls structure that will be written into.
  *
  * \return
  *
  */
-static void tls_server_hello_get_ciphersuite (const void *x,
+static void tls_server_hello_get_ciphersuite (const unsigned char *y,
                                               unsigned int len,
                                               struct tls *r) {
     unsigned int session_id_len;
-    const unsigned char *y = x;
     uint16_t cs; 
     unsigned char flag_tls13 = 0;
 
@@ -1278,17 +1275,17 @@ static void tls_server_hello_get_ciphersuite (const void *x,
 /**
  * \brief Extract the server hello extensions.
  *
- * \param x Pointer to the hello message body data.
+ * \param y Pointer to the hello message body data.
  * \param len Length of the data in bytes.
  * \param r tls structure that will be written into.
  *
  * \return
  *
  */
-static void tls_server_hello_get_extensions (const void *x, int len,
-    struct tls *r) {
+static void tls_server_hello_get_extensions (const unsigned char *y,
+                                             int len,
+                                             struct tls *r) {
     unsigned int session_id_len, compression_method_len;
-    const unsigned char *y = x;
     uint16_t extensions_len;
     unsigned int i = 0;
     unsigned char flag_tls13 = 0;

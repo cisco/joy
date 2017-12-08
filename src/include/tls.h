@@ -152,7 +152,7 @@ struct tls_type_code {
 struct tls_extension {
     uint16_t type;
     uint16_t length;
-    void *data;
+    unsigned char *data;
 };
 
 struct tls_item_entry {
