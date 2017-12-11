@@ -58,7 +58,10 @@
 #define MAX_CS 256
 #define MAX_EXTENSIONS 256
 #define MAX_SID_LEN 256
-#define MAX_NUM_RCD_LEN 200
+#define MAX_NUM_RCD_LEN 32
+
+/* Maxiumum handshakes we should see under a single content message */
+#define MAX_TLS_HANDSHAKES 5
 
 #ifdef OUT
 #undef OUT
@@ -75,7 +78,6 @@
 #define MAX_RDN 12
 #define MAX_SAN 12
 #define MAX_CERT_EXTENSIONS 12
-#define MAX_CERTIFICATE_BUFFER 11000
 #define MAX_CKE_LEN 1024
 /* The maimum size of string that we allow from OpenSSL */
 #define MAX_OPENSSL_STRING 32
@@ -143,13 +145,14 @@
 
 struct tls_type_code {
     unsigned char content;
-    unsigned char handshake;
+    unsigned char handshakes[MAX_TLS_HANDSHAKES];
+    unsigned char num_handshakes;
 };
 
 struct tls_extension {
-    unsigned short int type;
-    unsigned short int length;
-    void *data;
+    uint16_t type;
+    uint16_t length;
+    unsigned char *data;
 };
 
 struct tls_item_entry {
@@ -159,7 +162,7 @@ struct tls_item_entry {
 };
 
 struct tls_certificate {
-    unsigned short length;
+    uint16_t length;
     unsigned char *serial_number; /**< Serial Number */
     uint8_t serial_number_length; /**< Length of the serial number in bytes */
     unsigned char *signature; /**< Signature */
@@ -183,31 +186,32 @@ struct tls_certificate {
     uint16_t subject_public_key_size; /**< Length of the subject public key in bits */
 };
 
-typedef struct tls_information {
+typedef struct tls {
     enum role role; /**< client, server, or unknown */
-    unsigned int   tls_op;
-    unsigned short tls_len[MAX_NUM_RCD_LEN]; /**< TLS record lengths */
-    struct timeval tls_time[MAX_NUM_RCD_LEN]; /**< Arrival times */
-    struct tls_type_code tls_type[MAX_NUM_RCD_LEN]; /**< Record type codes */
-    unsigned short int num_ciphersuites; /**< Number of ciphersuites */
-    unsigned short int ciphersuites[MAX_CS]; /**< Ciphersuites */
-    unsigned short int num_tls_extensions; /**< Number of extensions */
-    unsigned short int num_server_tls_extensions; /**< Number of server extensions */
-    struct tls_extension tls_extensions[MAX_EXTENSIONS]; /**< Extensions */
-    struct tls_extension server_tls_extensions[MAX_EXTENSIONS]; /**< Extensions of server */
-    unsigned char tls_v; /**< TLS version */
-    unsigned int tls_client_key_length; /**< clientKeyExchange key length */
+    uint16_t op;
+    uint16_t lengths[MAX_NUM_RCD_LEN]; /**< TLS record lengths */
+    struct timeval times[MAX_NUM_RCD_LEN]; /**< Arrival times */
+    struct tls_type_code types[MAX_NUM_RCD_LEN]; /**< Record type codes */
+    uint16_t num_ciphersuites; /**< Number of ciphersuites */
+    uint16_t ciphersuites[MAX_CS]; /**< Ciphersuites */
+    uint16_t num_extensions; /**< Number of extensions */
+    uint16_t num_server_extensions; /**< Number of server extensions */
+    struct tls_extension extensions[MAX_EXTENSIONS]; /**< Extensions */
+    struct tls_extension server_extensions[MAX_EXTENSIONS]; /**< Extensions of server */
+    unsigned char version; /**< TLS version */
+    unsigned int client_key_length; /**< clientKeyExchange key length */
     unsigned char clientKeyExchange[MAX_CKE_LEN]; /**< clientKeyExchange data */
-    unsigned char tls_sid_len; /**< Session ID length */
-    unsigned char tls_sid[MAX_SID_LEN]; /**< Session ID */
-    unsigned char tls_random[32]; /**< Random field from hello */
+    unsigned char sid_len; /**< Session ID length */
+    unsigned char sid[MAX_SID_LEN]; /**< Session ID */
+    unsigned char random[32]; /**< Random field from hello */
     struct tls_certificate certificates[MAX_CERTIFICATES]; /**< X.509 certificates */
     unsigned char num_certificates; /**< Number of certificates */
-    unsigned char start_cert;
-    void *sni; /**< SNI a.k.a Server name indication */
-    unsigned short int sni_length; /**< Length of SNI */
-    char *certificate_buffer; /**< Certificate(s) data */
-    unsigned short certificate_offset;
+    unsigned char *sni; /**< SNI a.k.a Server name indication */
+    uint16_t sni_length; /**< Length of SNI */
+    unsigned char *handshake_buffer; /**< Handshake message(s) data */
+    uint16_t handshake_length; /**< Length of data in handshake buffer */
+    unsigned char done_handshake; /**< Flag indicating the hanshake phase has completed */
+    uint16_t seg_offset;
     fingerprint_t *tls_fingerprint;
 } tls_t;
 
@@ -303,20 +307,20 @@ enum tls_content_type {
  */
 
 /** initialize TLS structure */
-void tls_init(struct tls_information **tls_handle);
+void tls_init(struct tls **tls_handle);
 
 /** free data associated with TLS record */
-void tls_delete(struct tls_information **tls_handle);
+void tls_delete(struct tls **tls_handle);
 
 /** process TLS packet for consumption */
-void tls_update(struct tls_information *r,
+void tls_update(struct tls *r,
                 const struct pcap_pkthdr *header,
                 const void *data,
                 unsigned int data_len,
                 unsigned int report_tls);
 
 /** print out the TLS information to the destination file */
-void tls_print_json(const struct tls_information *data, const struct tls_information *data_twin, zfile f);
+void tls_print_json(const struct tls *data, const struct tls *data_twin, zfile f);
 
 void tls_unit_test();
 

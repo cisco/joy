@@ -525,14 +525,15 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	                break;
 	            }
 
-	            nf_record->tls->tls_len[j] = htons(*(const unsigned short *)(flow_data+j*2));
-	            nf_record->tls->tls_time[j].tv_sec = (total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)/1000;
-	            nf_record->tls->tls_time[j].tv_usec = ((total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)%1000)*1000;
+	            nf_record->tls->lengths[j] = htons(*(const unsigned short *)(flow_data+j*2));
+	            nf_record->tls->times[j].tv_sec = (total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)/1000;
+	            nf_record->tls->times[j].tv_usec = ((total_ms+htons(*(const unsigned short *)(flow_data+40+j*2))+nf_record->start.tv_sec*1000+nf_record->start.tv_usec/1000)%1000)*1000;
 	            total_ms += htons(*(const unsigned short *)(flow_data+40+j*2));
 
-	            nf_record->tls->tls_type[j].content = *(const unsigned char *)(flow_data+80+j);
-	            nf_record->tls->tls_type[j].handshake = *(const unsigned char *)(flow_data+100+j);
-	            nf_record->tls->tls_op += 1;
+	            nf_record->tls->types[j].content = *(const unsigned char *)(flow_data+80+j);
+	            nf_record->tls->types[j].handshakes[0] = *(const unsigned char *)(flow_data+100+j);
+	            nf_record->tls->types[j].num_handshakes = 1;
+	            nf_record->tls->op += 1;
                 }
       
                 flow_data += htons(cur_template->fields[i].FieldLength);
@@ -553,30 +554,30 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
 	            if (htons(*(const short *)(flow_data+j*2)) == 0) {
 	                break;
 	            }
-	            nf_record->tls->tls_extensions[j].length = htons(*(const unsigned short *)(flow_data+j*2));
-	            nf_record->tls->tls_extensions[j].type = htons(*(const unsigned short *)(flow_data+70+j*2));
-	            nf_record->tls->tls_extensions[j].data = NULL;
-	            nf_record->tls->num_tls_extensions += 1;
+	            nf_record->tls->extensions[j].length = htons(*(const unsigned short *)(flow_data+j*2));
+	            nf_record->tls->extensions[j].type = htons(*(const unsigned short *)(flow_data+70+j*2));
+	            nf_record->tls->extensions[j].data = NULL;
+	            nf_record->tls->num_extensions += 1;
                 }
       
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_VERSION:
-                nf_record->tls->tls_v = *(const char *)flow_data;
+                nf_record->tls->version = *(const char *)flow_data;
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_CLIENT_KEY_LENGTH:
-                nf_record->tls->tls_client_key_length = htons(*(const short *)flow_data);
+                nf_record->tls->client_key_length = htons(*(const short *)flow_data);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_SESSION_ID:
-                nf_record->tls->tls_sid_len = htons(*(const short *)flow_data);
-                nf_record->tls->tls_sid_len = min(nf_record->tls->tls_sid_len,256);
-                memcpy(nf_record->tls->tls_sid, flow_data+2, nf_record->tls->tls_sid_len);
+                nf_record->tls->sid_len = htons(*(const short *)flow_data);
+                nf_record->tls->sid_len = min(nf_record->tls->sid_len,256);
+                memcpy(nf_record->tls->sid, flow_data+2, nf_record->tls->sid_len);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_HELLO_RANDOM:
-                memcpy(nf_record->tls->tls_random, flow_data, 32);
+                memcpy(nf_record->tls->random, flow_data, 32);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case IDP: 
