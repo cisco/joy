@@ -58,8 +58,8 @@ extern char *aux_resource_path;
  * the subsequent bzwrite to a compressed file. BZ2
  * doesn't have a printf interface, so an equivalent
  * interface needed to be written.
- * Note: this function can only output 4k chars at a time.
- *   if a string comes through bigger than 4k, it will
+ * Note: this function can only output 4K chars at a time.
+ *   if a string comes through bigger than 4K, it will
  *   dynamically allocate a buffer to hold the output and then
  *   print out the data.
  *
@@ -78,7 +78,6 @@ int BZ2_bzprintf(BZFILE *b, const char * format, ...)
 
     /* check resulting size and perform output accordingly */
     if (BZ_sz >= BZ_MAX_SIZE) {
-        fprintf(info, "BZIP2: large printf case...");
         char *BZ_dyn_buff = malloc(BZ_sz + 1);
         if (BZ_dyn_buff != NULL) {
             va_start(arg, format);

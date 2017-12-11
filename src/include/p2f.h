@@ -291,7 +291,7 @@ enum SALT_algorithm {
 };
 
 
-int close_and_upload_file(char *filename);
+int upload_file(char *filename);
 
 void p2f_unit_test();
 
