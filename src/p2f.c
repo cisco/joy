@@ -1715,7 +1715,7 @@ static int uploader_send_file (char *filename, char *servername,
             joy_log_info("removing file [%s]", filename);
             rc = system(cmd);
             if (rc != 0) {
-                fprintf(info,"uploader: removing file [%s] failed!", filename);
+                joy_log_err("removing file [%s] failed!", filename);
             }
         }
     } else {
