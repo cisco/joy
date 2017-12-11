@@ -1711,11 +1711,11 @@ static int uploader_send_file (char *filename, char *servername,
        joy_log_info("transfer of file [%s] successful!", filename);
        /* see if we are allowed to delete the file after upload */
        if (retain == 0) {
-            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", "config.vars");
-            joy_log_info("removing file [%s]", "config.vars");
+            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", filename);
+            joy_log_info("removing file [%s]", filename);
             rc = system(cmd);
             if (rc != 0) {
-                fprintf(info,"uploader: removing file [%s] failed!", "config.vars");
+                fprintf(info,"uploader: removing file [%s] failed!", filename);
             }
         }
     } else {
