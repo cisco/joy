@@ -58,7 +58,7 @@
 #define MAX_CS 256
 #define MAX_EXTENSIONS 256
 #define MAX_SID_LEN 256
-#define MAX_NUM_RCD_LEN 200
+#define MAX_NUM_RCD_LEN 100
 
 /* Maxiumum handshakes we should see under a single content message */
 #define MAX_TLS_HANDSHAKES 5
