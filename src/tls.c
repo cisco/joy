@@ -1678,7 +1678,7 @@ static int tls_handshake_hello_get_version(struct tls *tls_info,
 static void tls_handshake_buffer_parse(struct tls *r) {
     unsigned char *data = NULL;
 	uint16_t data_len = 0;
-    unsigned int hs_msg_count = 0;
+    unsigned int msg_count = 0;
 
 	if (r == NULL) {
         return;
@@ -1704,6 +1704,7 @@ static void tls_handshake_buffer_parse(struct tls *r) {
              */
             data += tls_len + TLS_HDR_LEN;
             data_len -= tls_len + TLS_HDR_LEN;
+            msg_count += 1;
             continue;
         }
 
@@ -1794,12 +1795,13 @@ static void tls_handshake_buffer_parse(struct tls *r) {
                 tls_certificate_parse(&handshake->body, body_len, r);
             }
 
-            if (hs_msg_count < MAX_NUM_RCD_LEN &&
-                r->types[hs_msg_count].num_handshakes < MAX_TLS_HANDSHAKES) {
-                /* Record the handshake message type for this packet */
-                struct tls_type_code *type = &r->types[hs_msg_count];
-                type->handshakes[type->num_handshakes] = handshake->msg_type;
-                type->num_handshakes += 1;
+            if (msg_count < MAX_NUM_RCD_LEN &&
+                r->msg_stats[msg_count].num_handshakes < MAX_TLS_HANDSHAKES) {
+                /* Record the handshake message type */
+                struct tls_message_stat *t = &r->msg_stats[msg_count];
+                t->handshake_types[t->num_handshakes] = handshake->msg_type;
+                t->handshake_lens[t->num_handshakes] = body_len;
+                t->num_handshakes += 1;
             }
 
             data += body_len;
@@ -1807,8 +1809,8 @@ static void tls_handshake_buffer_parse(struct tls *r) {
             tls_len -= body_len + TLS_HANDSHAKE_HDR_LEN;
         }
 
-        /* Increment the number of handshake messages seen */
-        hs_msg_count += 1;
+        /* Increment the number of messages seen */
+        msg_count += 1;
     }
 
     return;
@@ -1824,7 +1826,7 @@ static void tls_write_message_stats(struct tls *r,
      * Record TLS record lengths and arrival times
      */
     if (r->op < MAX_NUM_RCD_LEN) {
-        r->types[r->op].content = tls_hdr->content_type;
+        r->msg_stats[r->op].content_type = tls_hdr->content_type;
         r->lengths[r->op] = tls_len;
         if (pkt_hdr == NULL) {
             /* The pcap_pkthdr is not available, cannot get timestamp */
@@ -1950,12 +1952,8 @@ void tls_update (struct tls *r,
             }
         }
 
-        if (hdr->content_type == TLS_CONTENT_HANDSHAKE) {
-            /*
-             * Write the stats for this Handshake message
-             */
-            tls_write_message_stats(r, hdr, header);
-        }
+        /* Write the stats for this message */
+        tls_write_message_stats(r, hdr, header);
 
         /* Skip to the next message */
         rem_len -= msg_len + TLS_HDR_LEN;
@@ -2014,35 +2012,44 @@ static void zprintf_raw_as_hex_tls (zfile f, const unsigned char *data, unsigned
 }
 
 static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
-                                     struct timeval ts, struct tls_type_code type,
+                                     struct timeval ts, struct tls_message_stat m,
                                      char *term, zfile f) {
     int i = 0;
 
     zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:",
-            pkt_len, dir, joy_timeval_to_milliseconds(ts), type.content);
+            pkt_len, dir, joy_timeval_to_milliseconds(ts), m.content_type);
 
-    if (type.num_handshakes) {
-        for (i = 0; i < type.num_handshakes; i++) {
-            if (i == (type.num_handshakes - 1)) {
-                zprintf(f, "%u\"}%s", type.handshakes[i], term);
+    if (m.num_handshakes) {
+        for (i = 0; i < m.num_handshakes; i++) {
+            if (i == (m.num_handshakes - 1)) {
+                zprintf(f, "%u\",", m.handshake_types[i], term);
             } else {
-                zprintf(f, "%u,", type.handshakes[i]);
+                zprintf(f, "%u,", m.handshake_types[i]);
             }
         }
+        zprintf(f, "\"hs_lens\":[");
+        for (i = 0; i < m.num_handshakes; i++) {
+            if (i == (m.num_handshakes - 1)) {
+                zprintf(f, "%u]", m.handshake_lens[i], term);
+            } else {
+                zprintf(f, "%u,", m.handshake_lens[i]);
+            }
+        }
+        zprintf(f, "}%s", term);
     } else {
         zprintf(f, "0\"}%s", term);
     }
 }
 
 static void len_time_print_interleaved_tls (unsigned int op, const unsigned short *len, 
-    const struct timeval *time, const struct tls_type_code *type,
+    const struct timeval *time, const struct tls_message_stat *msg_stat,
     unsigned int op2, const unsigned short *len2, 
-    const struct timeval *time2, const struct tls_type_code *type2, zfile f) {
+    const struct timeval *time2, const struct tls_message_stat *msg_stat2, zfile f) {
     unsigned int i, j, imax, jmax;
     struct timeval ts, ts_last, ts_start, tmp;
     unsigned int pkt_len;
     char *dir;
-    struct tls_type_code typecode;
+    struct tls_message_stat stat;
     unsigned int num_pkt_len_tls = NUM_PKT_LEN_TLS;
 
     zprintf(f, ",\"srlt\":[");
@@ -2061,14 +2068,14 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 	            } else {
 	                joy_timer_clear(&ts);
 	            }
-	            print_bytes_dir_time_tls(len[i], OUT, ts, type[i], ",", f);
+	            print_bytes_dir_time_tls(len[i], OUT, ts, msg_stat[i], ",", f);
             }
             if (i == 0) {        /* this code could be simplified */ 	
 	            joy_timer_clear(&ts);  
             } else {
 	            joy_timer_sub(&time[i], &time[i-1], &ts);
             }
-            print_bytes_dir_time_tls(len[i], OUT, ts, type[i], "", f);
+            print_bytes_dir_time_tls(len[i], OUT, ts, msg_stat[i], "", f);
         }
         zprintf(f, "]"); 
     } else {
@@ -2089,20 +2096,20 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 	            dir = OUT;
 	            ts = time2[j];
 	            pkt_len = len2[j];
-	            typecode = type2[j];
+	            stat = msg_stat2[j];
 	            j++;
             } else if (j >= jmax) {  /* twin list is exhausted, so use record */
 	            dir = IN;
 	            ts = time[i];
 	            pkt_len = len[i];
-	            typecode = type[i];
+	            stat = msg_stat[i];
 	            i++;
             } else { /* neither list is exhausted, so use list with lowest time */     
 
 	            if (joy_timer_lt(&time[i], &time2[j])) {
 	                ts = time[i];
 	                pkt_len = len[i];
-	                typecode = type[i];
+	                stat = msg_stat[i];
 	                dir = IN;
 	                if (i < imax) {
 	                    i++;
@@ -2110,7 +2117,7 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 	            } else {
 	                ts = time2[j];
 	                pkt_len = len2[j];
-	                typecode = type2[j];
+	                stat = msg_stat2[j];
 	                dir = OUT;
 	                if (j < jmax) {
 	                    j++;
@@ -2118,7 +2125,7 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 	            }
             }
             joy_timer_sub(&ts, &ts_last, &tmp);
-            print_bytes_dir_time_tls(pkt_len, dir, tmp, typecode, "", f);
+            print_bytes_dir_time_tls(pkt_len, dir, tmp, stat, "", f);
             ts_last = ts;
             if (!((i == imax) & (j == jmax))) { /* we are done */
 	            zprintf(f, ",");
@@ -2353,14 +2360,14 @@ void tls_print_json (const struct tls *data,
     /* Print out TLS application data lengths and times, if any */
     if (data->op) {
         if (data_twin) {
-	        len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->types,
-				       data_twin->op, data_twin->lengths, data_twin->times, data_twin->types, f);
+	        len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->msg_stats,
+				       data_twin->op, data_twin->lengths, data_twin->times, data_twin->msg_stats, f);
         } else {
 	    /*
 	     * unidirectional TLS does not typically happen, but if it
 	     * does, we need to pass in zero/NULLs, since there is no twin
 	     */
-	        len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->types, 0, NULL, NULL, NULL, f);
+	        len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->msg_stats, 0, NULL, NULL, NULL, f);
         }
     }
 
