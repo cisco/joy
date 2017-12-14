@@ -143,9 +143,10 @@
  * Structures for storing relevant TLS information
  */
 
-struct tls_type_code {
-    unsigned char content;
-    unsigned char handshakes[MAX_TLS_HANDSHAKES];
+struct tls_message_stat {
+    unsigned char content_type;
+    unsigned char handshake_types[MAX_TLS_HANDSHAKES];
+    uint16_t handshake_lens[MAX_TLS_HANDSHAKES];
     unsigned char num_handshakes;
 };
 
@@ -191,7 +192,7 @@ typedef struct tls {
     uint16_t op;
     uint16_t lengths[MAX_NUM_RCD_LEN]; /**< TLS record lengths */
     struct timeval times[MAX_NUM_RCD_LEN]; /**< Arrival times */
-    struct tls_type_code types[MAX_NUM_RCD_LEN]; /**< Record type codes */
+    struct tls_message_stat msg_stats[MAX_NUM_RCD_LEN]; /**< Message generic stats */
     uint16_t num_ciphersuites; /**< Number of ciphersuites */
     uint16_t ciphersuites[MAX_CS]; /**< Ciphersuites */
     uint16_t num_extensions; /**< Number of extensions */

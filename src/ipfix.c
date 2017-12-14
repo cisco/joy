@@ -1558,7 +1558,7 @@ static void ipfix_process_tls_content_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->types[i].content = *((const uint8_t *)data);
+    ix_record->tls->msg_stats[i].content_type = *((const uint8_t *)data);
 
     data += element_length;
     data_length -= element_length;
@@ -1587,8 +1587,8 @@ static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->types[i].handshakes[0] = *((const uint8_t *)data);
-    ix_record->tls->types[i].num_handshakes = 1;
+    ix_record->tls->msg_stats[i].handshake_types[0] = *((const uint8_t *)data);
+    ix_record->tls->msg_stats[i].num_handshakes = 1;
     ix_record->tls->op += 1;
 
     data += element_length;
