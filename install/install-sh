@@ -232,28 +232,28 @@ if [ "$sysname" == "Darwin" ]; then
         exit 1
     fi
 
-    # Install joyq
-    cp ${APP_ROOT}/joyq ${PREFIX}/bin/
+    # Install sleuth script
+    cp ${APP_ROOT}/sleuth ${PREFIX}/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy joyq to ${PREFIX}/bin/"
+        echo "error: could not copy sleuth to ${PREFIX}/bin/"
         exit 1
     fi
 
-    # Install the sleuth python module (dependency of joyq)
+    # Install the sleuth python module
     if [ -z "$PKGBUILD" ]; then
-        echo "Running pip install ${APP_ROOT}/sleuth/"
-        pip install ${APP_ROOT}/sleuth/
+        echo "Running pip install ${APP_ROOT}/sleuth_pkg/"
+        pip install ${APP_ROOT}/sleuth_pkg/
     else
-	cd ${APP_ROOT}/sleuth
+	cd ${APP_ROOT}/sleuth_pkg
 	SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
 	echo "Running python setup.py bdist --format=gztar"
 	python setup.py bdist --format=gztar
         if [ $retval -ne "0" ]; then
-            echo "error: could not run python setup.py for sleuth"
+            echo "error: could not run python setup.py for sleuth_pkg"
             exit 1
         fi
-        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-${SLEUTHVER}.macosx-${OSXVER}-intel.tar.gz"
+        SLEUTHFILE="${APP_ROOT}/sleuth_pkg/dist/sleuth-${SLEUTHVER}.macosx-${OSXVER}-intel.tar.gz"
 	if [ -f $SLEUTHFILE ]; then
             tar -xf $SLEUTHFILE -C $BUILDROOT
 	else
@@ -354,7 +354,6 @@ if [ "$sysname" == "Darwin" ]; then
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/etc/joy/*
-        #ls -l ${PREFIX}/share/joy/data/*
         ls -l ${PREFIX}/share/man/man1/joy.1
         ls -l /Library/LaunchDaemons/joy.plist
         echo "starting flow capture daemon"
@@ -435,27 +434,27 @@ elif [ "$sysname" == "Linux" ]; then
         exit 1
     fi
 
-    # Install joyq
-    cp ${APP_ROOT}/joyq ${PREFIX}/bin/
+    # Install sleuth script
+    cp ${APP_ROOT}/sleuth ${PREFIX}/bin/
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy joyq to ${PREFIX}/bin/"
+        echo "error: could not copy sleuth to ${PREFIX}/bin/"
         exit 1
     fi
 
-    # Install the sleuth python module (dependency of joyq)
+    # Install the sleuth python module
     if [ -z "$PKGBUILD" ]; then
-        pip install ${APP_ROOT}/sleuth/
+        pip install ${APP_ROOT}/sleuth_pkg/
     else
-	cd ${APP_ROOT}/sleuth
+	cd ${APP_ROOT}/sleuth_pkg
 	SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
 	echo "Running python setup.py bdist --format=gztar"
 	python setup.py bdist --format=gztar
         if [ $retval -ne "0" ]; then
-            echo "error: could not run python setup.py for sleuth"
+            echo "error: could not run python setup.py for sleuth_pkg"
             exit 1
         fi
-        SLEUTHFILE="${APP_ROOT}/sleuth/dist/sleuth-${SLEUTHVER}.linux-${ARCH}.tar.gz"
+        SLEUTHFILE="${APP_ROOT}/sleuth_pkg/dist/sleuth-${SLEUTHVER}.linux-${ARCH}.tar.gz"
 	if [ -f $SLEUTHFILE ]; then
             tar -xf $SLEUTHFILE -C $BUILDROOT
 	else
@@ -621,9 +620,8 @@ elif [ "$sysname" == "Linux" ]; then
     
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
-        ls -l ${PREFIX}/bin/joyq
+        ls -l ${PREFIX}/bin/sleuth
         ls -l ${PREFIX}/etc/joy/*
-        #ls -l ${PREFIX}/share/joy/data/*
         ls -l ${PREFIX}/share/man/man1/joy.1
 
         if [ "$daemon_system" == "sysv" ]; then

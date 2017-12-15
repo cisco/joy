@@ -50,7 +50,7 @@ if [ "$sysname" == "Darwin" ]; then
     # Delete the application files
     delete_file /usr/local/bin/joy
 
-    delete_file /usr/local/bin/query.py
+    delete_file /usr/local/bin/sleuth
 
     delete_directory /usr/local/etc/joy
 
@@ -96,7 +96,7 @@ elif [ "$sysname" == "Linux" ]; then
     # Delete the application files
     delete_file /usr/local/bin/joy
 
-    delete_file /usr/local/bin/joyq
+    delete_file /usr/local/bin/sleuth
 
     delete_directory /usr/local/etc/joy
 

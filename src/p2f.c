@@ -446,7 +446,14 @@ static void flow_record_init (struct flow_record *record,
  * \return Valid pointer if in list, NULL otherwise
  */
 static inline unsigned int flow_record_is_in_chrono_list (const struct flow_record *record) {
-    return record->time_next || record->time_prev;
+    if (record->time_next || record->time_prev) {
+        return 1;
+    }
+    if (record == flow_record_chrono_first) {
+        /* Corner case when there is a single record in the list */
+        return 1;
+    }
+    return 0;
 }
 
 /**
@@ -577,9 +584,6 @@ static unsigned int flow_record_list_remove (flow_record_list *head,
  * \return none
  */
 static void flow_record_chrono_list_append (struct flow_record *record) {
-    extern struct flow_record *flow_record_chrono_first;
-    extern struct flow_record *flow_record_chrono_last;
-
     if (flow_record_chrono_first == NULL) {
         flow_record_chrono_first = record;
         flow_record_chrono_last = record;
@@ -596,9 +600,6 @@ static void flow_record_chrono_list_append (struct flow_record *record) {
  * \return none
  */
 static void flow_record_chrono_list_remove (struct flow_record *record) {
-    extern struct flow_record *flow_record_chrono_first;
-    extern struct flow_record *flow_record_chrono_last;
-
     if (record == NULL) {
         return;
     }
@@ -1678,11 +1679,11 @@ static int uploader_send_file (char *filename, char *servername,
        joy_log_info("transfer of file [%s] successful!", filename);
        /* see if we are allowed to delete the file after upload */
        if (retain == 0) {
-            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", "config.vars");
-            joy_log_info("removing file [%s]", "config.vars");
+            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", filename);
+            joy_log_info("removing file [%s]", filename);
             rc = system(cmd);
             if (rc != 0) {
-                fprintf(info,"uploader: removing file [%s] failed!", "config.vars");
+                joy_log_err("removing file [%s] failed!", filename);
             }
         }
     } else {

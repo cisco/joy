@@ -58,25 +58,44 @@ extern char *aux_resource_path;
  * the subsequent bzwrite to a compressed file. BZ2
  * doesn't have a printf interface, so an equivalent
  * interface needed to be written.
- * Note: this function can only output 512 chars at a time.
- *   if a string comes through bigger than 512, it will be
- *   truncated. Perhaps this can be optimized in the future.
+ * Note: this function can only output 4K chars at a time.
+ *   if a string comes through bigger than 4K, it will
+ *   dynamically allocate a buffer to hold the output and then
+ *   print out the data.
  *
  */
-#define BZ_MAX_SIZE 512
+#define BZ_MAX_SIZE 4096
+char BZ_buff[BZ_MAX_SIZE];
 int BZ2_bzprintf(BZFILE *b, const char * format, ...)
 {
     int BZ_sz; 
     int BZ_errnum;
     va_list arg;
-    char BZ_buff[BZ_MAX_SIZE]; 
 
     va_start(arg, format);
-    BZ_sz = vsnprintf(BZ_buff, BZ_MAX_SIZE, format, arg); 
+    BZ_sz = vsnprintf(BZ_buff, BZ_MAX_SIZE, format, arg);
     va_end(arg);
-    BZ2_bzwrite(b, BZ_buff, BZ_sz); 
+
+    /* check resulting size and perform output accordingly */
+    if (BZ_sz >= BZ_MAX_SIZE) {
+        char *BZ_dyn_buff = malloc(BZ_sz + 1);
+        if (BZ_dyn_buff != NULL) {
+            va_start(arg, format);
+            BZ_sz = vsnprintf(BZ_dyn_buff, (BZ_sz + 1), format, arg);
+            va_end(arg);
+            BZ2_bzwrite(b, BZ_dyn_buff, BZ_sz);
+            free(BZ_dyn_buff);
+        } else {
+            /* error scenario, can't print out all the data,
+             * let's just print what we can
+             */
+            BZ2_bzwrite(b, BZ_buff, (BZ_MAX_SIZE-1));
+        }
+    } else {
+        BZ2_bzwrite(b, BZ_buff, BZ_sz);
+    }
     BZ2_bzerror(b, &BZ_errnum);
-    return BZ_errnum;      
+    return BZ_errnum;
 }
 #endif
 

@@ -48,20 +48,12 @@ import subprocess
 import argparse
 import json
 sys.path.append("/usr/local/lib/python")
-from sleuth import DictStreamIterator
-from sleuth import DictStreamIteratorFromFile
-from sleuth import DictStreamFilterIterator
-from sleuth import DictStreamEnrichIterator
-from sleuth import DictStreamProcessor
-from sleuth import DictStreamSumProcessor
-from sleuth import DictStreamDistributionProcessor
-from sleuth import DictStreamSplitProcessor
-from sleuth import DictStreamElementSelectProcessor
-from sleuth import DictStreamSelectIterator
-from sleuth import DictStreamNormalizeIterator
-from sleuth import SleuthPredicate
-from sleuth import SleuthFileType
-from sleuth import enrich_tls
+
+try:
+    from sleuth import *
+except ImportError:
+    # If in source code directory
+    from sleuth_pkg import *
 
 """
 Flow Iterator Classes
