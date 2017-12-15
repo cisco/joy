@@ -1690,7 +1690,7 @@ static void tls_handshake_buffer_parse(struct tls *r) {
     while (data_len > 0 && data_len <= MAX_HANDSHAKE_LENGTH) {
         const struct tls_header *tls_hdr = NULL;
         const struct tls_handshake *handshake = NULL;
-        unsigned int tls_len = 0;
+        int tls_len = 0;
 
         tls_hdr = (const struct tls_header*)data;
         tls_len = tls_header_get_length(tls_hdr);
@@ -1907,6 +1907,11 @@ void tls_update (struct tls *r,
     }
 
     if (r->seg_offset) {
+        if (r->seg_offset > len) {
+            /* The original message spans at least one more packet */
+            r->seg_offset -= len;
+            return;
+        }
         /*
          * Increment past the remaining data segment from previous message.
          */
