@@ -1014,6 +1014,53 @@ static void reduce_bd_bits (unsigned int *bd,
     }
 }
 
+/**
+ * \brief Print the host executable information tied to this flow.
+ *
+ * \param f Output file
+ * \param rec Flow record
+ *
+ * \return none
+ */
+static void print_host_executable_json (zfile f, const struct flow_record *rec) {
+    uint8_t comma = 0;
+
+    if (rec->exe_name || rec->full_path ||
+        rec->file_version || rec->file_hash) {
+
+        zprintf(output, ",\"host_exe\"{");
+        if (rec->exe_name) {
+            zprintf(output, "\"name\":\"%s\"", rec->exe_name);
+            comma = 1;
+        }
+        if (rec->full_path) {
+            if (comma) {
+                zprintf(output, ",\"path\":\"%s\"", rec->full_path);
+            } else {
+                zprintf(output, "\"path\":\"%s\"", rec->full_path);
+                comma = 1;
+            }
+        }
+        if (rec->file_version) {
+            if (comma) {
+                zprintf(output, ",\"file_ver\":\"%s\"", rec->file_version);
+            } else {
+                zprintf(output, "\"file_ver\":\"%s\"", rec->file_version);
+                comma = 1;
+            }
+        }
+        if (rec->file_hash) {
+            if (comma) {
+                zprintf(output, ",\"file_hash\":\"%s\"", rec->file_hash);
+            } else {
+                zprintf(output, "\"file_hash\":\"%s\"", rec->file_hash);
+                comma = 1;
+            }
+        }
+        zprintf(output, "}");
+    }
+}
+
 #define OUT "<"
 #define IN  ">"
 
@@ -1109,22 +1156,22 @@ static void flow_record_print_json (const struct flow_record *record) {
     /*
      * Flow stats
      */
-    zprintf(output, "\"ob\":%u,", rec->ob);
-    zprintf(output, "\"opk\":%u,", rec->np); /* not just packets with data */
+    zprintf(output, "\"bytes_out\":%u,", rec->ob);
+    zprintf(output, "\"num_pkts_out\":%u,", rec->np); /* not just packets with data */
     if (rec->twin != NULL) {
-        zprintf(output, "\"ib\":%u,", rec->twin->ob);
-        zprintf(output, "\"ipk\":%u,", rec->twin->np);
+        zprintf(output, "\"bytes_in\":%u,", rec->twin->ob);
+        zprintf(output, "\"num_pkts_in\":%u,", rec->twin->np);
     }
 #ifdef WIN32
-	zprintf(output, "\"ts\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
-	zprintf(output, "\"te\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
+	zprintf(output, "\"time_start\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
+	zprintf(output, "\"time_end\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
 #else
-    zprintf(output, "\"ts\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
-    zprintf(output, "\"te\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
+    zprintf(output, "\"time_start\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
+    zprintf(output, "\"time_end\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
 #endif
-	zprintf(output, "\"ottl\":%u,", rec->ttl);
+	zprintf(output, "\"ttl_out\":%u,", rec->ttl);
     if (rec->twin != NULL) {
-        zprintf(output, "\"ittl\":%u,", rec->twin->ttl);
+        zprintf(output, "\"ttl_in\":%u,", rec->twin->ttl);
     }
 
     if (rec->initial_seq) {
@@ -1291,7 +1338,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             reduce_bd_bits(tmp, 256);
             array = tmp;
 
-            zprintf(output, ",\"bd\":[");
+            zprintf(output, ",\"byte_dist\":[");
             for (i = 0; i < 255; i++) {
                 zprintf(output, "%u,", (unsigned char)array[i]);
             }
@@ -1299,8 +1346,8 @@ static void flow_record_print_json (const struct flow_record *record) {
 
             /* Output the mean */
             if (num_bytes != 0) {
-                zprintf(output, ",\"bd_mean\":%f", mean);
-                zprintf(output, ",\"bd_std\":%f", variance);
+                zprintf(output, ",\"byte_dist_mean\":%f", mean);
+                zprintf(output, ",\"byte_dist_std\":%f", variance);
             }
 
         }
@@ -1309,7 +1356,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             reduce_bd_bits(compact_tmp, 16);
             compact_array = compact_tmp;
 
-            zprintf(output, ",\"compact_bd\":[");
+            zprintf(output, ",\"compact_byte_dist\":[");
             for (i = 0; i < 15; i++) {
                 zprintf(output, "%u,", (unsigned char)compact_array[i]);
             }
@@ -1320,8 +1367,8 @@ static void flow_record_print_json (const struct flow_record *record) {
             if (num_bytes != 0) {
                 double entropy = flow_record_get_byte_count_entropy(array, num_bytes);
 
-                zprintf(output, ",\"be\":%f", entropy);
-                zprintf(output, ",\"tbe\":%f", entropy * num_bytes);
+                zprintf(output, ",\"entropy\":%f", entropy);
+                zprintf(output, ",\"total_entropy\":%f", entropy * num_bytes);
             }
         }
     }
@@ -1379,14 +1426,14 @@ static void flow_record_print_json (const struct flow_record *record) {
      */
     if (report_idp) {
         if (rec->idp != NULL) {
-            zprintf(output, ",\"oidp\":");
+            zprintf(output, ",\"idp_out\":");
             zprintf_raw_as_hex(output, rec->idp, rec->idp_len);
-            zprintf(output, ",\"oidp_len\":%u", rec->idp_len);
+            zprintf(output, ",\"idp_len_out\":%u", rec->idp_len);
         }
         if (rec->twin && (rec->twin->idp != NULL)) {
-            zprintf(output, ",\"iidp\":");
+            zprintf(output, ",\"idp_in\":");
             zprintf_raw_as_hex(output, rec->twin->idp, rec->twin->idp_len);
-            zprintf(output, ",\"iidp_len\":%u", rec->twin->idp_len);
+            zprintf(output, ",\"idp_len_in\":%u", rec->twin->idp_len);
         }
     }
 
@@ -1408,24 +1455,13 @@ static void flow_record_print_json (const struct flow_record *record) {
 
     }
 
-    if (rec->exe_name) {
-        zprintf(output, ",\"exe\":\"%s\"", rec->exe_name);
-    }
-
-    if (rec->full_path) {
-        zprintf(output, ",\"path\":\"%s\"", rec->full_path);
-    }
-
-    if (rec->file_version) {
-        zprintf(output, ",\"fileVer\":\"%s\"", rec->file_version);
-    }
-
-    if (rec->file_hash) {
-        zprintf(output, ",\"fileHash\":\"%s\"", rec->file_hash);
-    }
+    /*
+     * Host executable
+     */
+    print_host_executable_json(output, rec);
 
     if (rec->exp_type) {
-        zprintf(output, ",\"x\":\"%c\"", rec->exp_type);
+        zprintf(output, ",\"expire_type\":\"%c\"", rec->exp_type);
     }
 
     /*****************************************************************
