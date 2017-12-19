@@ -149,6 +149,8 @@ extern unsigned int records_in_file;
 
 extern unsigned int verbosity;
 
+extern unsigned int show_config;
+
 define_all_features_config_extern_uint(feature_list)
 
 /*
@@ -338,6 +340,8 @@ static int usage (char *s) {
            "  verbosity=L                Specify the lowest log level\n"
            "                             0=off, 1=debug, 2=info, 3=warning, 4=error, 5=critical\n"
            "                             Default=4\n"
+           "  show_config=0              Show the configuration on stderr in the CLI on program run\n"
+           "                             0=off, 1=show\n"
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
@@ -586,7 +590,9 @@ int main (int argc, char **argv) {
      * report on running configuration (which may depend on the command
      * line, the config file, or both)
      */
-    config_print(info, &config);
+    if (config.show_config) {
+        config_print(info, &config);
+    }
 
     if (config.params_file) {
         char params_splt[LINEMAX];
