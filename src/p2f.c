@@ -1022,13 +1022,13 @@ static void reduce_bd_bits (unsigned int *bd,
  *
  * \return none
  */
-static void print_host_executable_json (zfile f, const struct flow_record *rec) {
+static void print_executable_json (zfile f, const struct flow_record *rec) {
     uint8_t comma = 0;
 
     if (rec->exe_name || rec->full_path ||
         rec->file_version || rec->file_hash) {
 
-        zprintf(output, ",\"host_exe\"{");
+        zprintf(output, ",\"exe\"{");
         if (rec->exe_name) {
             zprintf(output, "\"name\":\"%s\"", rec->exe_name);
             comma = 1;
@@ -1043,22 +1043,70 @@ static void print_host_executable_json (zfile f, const struct flow_record *rec) 
         }
         if (rec->file_version) {
             if (comma) {
-                zprintf(output, ",\"file_ver\":\"%s\"", rec->file_version);
+                zprintf(output, ",\"version\":\"%s\"", rec->file_version);
             } else {
-                zprintf(output, "\"file_ver\":\"%s\"", rec->file_version);
+                zprintf(output, "\"version\":\"%s\"", rec->file_version);
                 comma = 1;
             }
         }
         if (rec->file_hash) {
             if (comma) {
-                zprintf(output, ",\"file_hash\":\"%s\"", rec->file_hash);
+                zprintf(output, ",\"hash\":\"%s\"", rec->file_hash);
             } else {
-                zprintf(output, "\"file_hash\":\"%s\"", rec->file_hash);
+                zprintf(output, "\"hash\":\"%s\"", rec->file_hash);
                 comma = 1;
             }
         }
         zprintf(output, "}");
     }
+}
+
+static void print_tcp_json (zfile f, const struct flow_record *rec) {
+    uint8_t comma = 0;
+
+    zprintf(f, "\"tcp\":{\"sp\":%u,\"dp\":%u,", rec->key.sp, rec->key.dp);
+
+    if (rec->initial_seq) {
+        zprintf(f, "\"initial_seq\":%u", rec->initial_seq);
+        comma = 1;
+    } else if (rec->twin != NULL && !rec->initial_seq && rec->twin->initial_seq) {
+        zprintf(f, "\"initial_seq\":%u", rec->twin->initial_seq);
+        comma = 1;
+    }
+
+    if (rec->tcp_initial_window_size) {
+        if (comma) {
+            zprintf(f, ",\"window_out\":%u", rec->tcp_initial_window_size);
+        } else {
+            zprintf(f, "\"window_out\":%u", rec->tcp_initial_window_size);
+            comma = 1;
+        }
+    } else if (rec->twin != NULL && rec->twin->tcp_initial_window_size) {
+        if (comma) {
+            zprintf(f, ",\"window_in\":%u", rec->twin->tcp_initial_window_size);
+        } else {
+            zprintf(f, "\"window_in\":%u", rec->twin->tcp_initial_window_size);
+            comma = 1;
+        }
+    }
+
+    if (rec->tcp_syn_size) {
+        if (comma) {
+            zprintf(f, ",\"syn_out\":%u", rec->tcp_syn_size);
+        } else {
+            zprintf(f, "\"syn_out\":%u", rec->tcp_syn_size);
+            comma = 1;
+        }
+    } else if (rec->twin != NULL && rec->twin->tcp_syn_size) {
+        if (comma) {
+            zprintf(f, ",\"syn_in\":%u", rec->twin->tcp_syn_size);
+        } else {
+            zprintf(f, "\"syn_in\":%u", rec->twin->tcp_syn_size);
+        }
+    }
+
+    /* End object */
+    zprintf(f, "},");
 }
 
 #define OUT "<"
@@ -1133,8 +1181,8 @@ static void flow_record_print_json (const struct flow_record *record) {
      */
 
     if (rec->key.prot == 6) {
-        /* TCP ports */
-        zprintf(output, "\"tcp\":{\"sp\":%u,\"dp\":%u},", rec->key.sp, rec->key.dp);
+        /* TCP object */
+        print_tcp_json(output, rec);
     } else if (rec->key.prot == 17) {
         /* UDP ports */
         zprintf(output, "\"udp\":{\"sp\":%u,\"dp\":%u},", rec->key.sp, rec->key.dp);
@@ -1172,33 +1220,6 @@ static void flow_record_print_json (const struct flow_record *record) {
 	zprintf(output, "\"ttl_out\":%u,", rec->ttl);
     if (rec->twin != NULL) {
         zprintf(output, "\"ttl_in\":%u,", rec->twin->ttl);
-    }
-
-    if (rec->initial_seq) {
-        zprintf(output, "\"initial_seq\":%u,", rec->initial_seq);
-    }
-    if (rec->twin != NULL) {
-        if (!rec->initial_seq && rec->twin->initial_seq) {
-            zprintf(output, "\"initial_seq\":%u,", rec->twin->initial_seq);
-        }
-    }
-
-    if (rec->tcp_initial_window_size) {
-        zprintf(output, "\"otcp_win\":%u,", rec->tcp_initial_window_size);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_initial_window_size) {
-            zprintf(output, "\"itcp_win\":%u,", rec->twin->tcp_initial_window_size);
-        }
-    }
-
-    if (rec->tcp_syn_size) {
-        zprintf(output, "\"otcp_syn\":%u,", rec->tcp_syn_size);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_syn_size) {
-            zprintf(output, "\"itcp_syn\":%u,", rec->twin->tcp_syn_size);
-        }
     }
 
     /*****************************************************************
@@ -1458,7 +1479,7 @@ static void flow_record_print_json (const struct flow_record *record) {
     /*
      * Host executable
      */
-    print_host_executable_json(output, rec);
+    print_executable_json(output, rec);
 
     if (rec->exp_type) {
         zprintf(output, ",\"expire_type\":\"%c\"", rec->exp_type);
