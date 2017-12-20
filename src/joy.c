@@ -158,6 +158,12 @@ define_all_features_config_extern_uint(feature_list)
  */
 extern struct configuration config;
 
+/*
+ * reopenLog is the flag set when SIGHUP is received
+ * volatile as it is modified by a signal handler
+ */
+volatile int reopenLog = 0;
+
 
 
 /* BEGIN utility functions */
@@ -290,20 +296,15 @@ static void sig_close (int signal_arg) {
 }
 
 
-#if 0
 /*
- * sig_reload() 
+ * sig_reload()
+ * Sets reopenLog flag when SIGHUP is received
  */
 static void sig_reload (int signal_arg) {
 
-    if (handle) {
-        pcap_breakloop(handle);
-    }
-    fprintf(info, "got signal %d, printing out stats and configuration\n", signal_arg); 
-    flocap_stats_output(info);
-    config_print(info, &config);
+    fprintf(info, "got signal %d, closing and reopening log file\n", signal_arg); 
+    reopenLog = 1;
 }
-#endif
 
 static int usage (char *s) {
     printf("usage: %s [OPTIONS] file1 [file2 ... ]\n", s);
@@ -782,7 +783,7 @@ int main (int argc, char **argv) {
     
         signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
         signal(SIGTERM, sig_close);
-        // signal(SIGHUP, sig_reload);
+        signal(SIGHUP, sig_reload);
         // signal(SIGTSTP, sig_reload);
         //signal(SIGQUIT, sig_reload);   /* Ctl-\ causes an info dump      */
 
@@ -934,6 +935,16 @@ int main (int argc, char **argv) {
 	              fflush(info);
            }
            // fflush(output);
+           // Close and reopen the log file if reopenLog flag is set
+           if (reopenLog && config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
+              fclose(info);
+              reopenLog = 0;
+              info = fopen(config.logfile, "a");
+              if (info == NULL) {
+                 fprintf(stderr, "error: could not open new log file %s\n", config.logfile);
+                 return -1;
+              }
+           }
         }
 
         if (filter_exp) {

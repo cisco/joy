@@ -16,6 +16,7 @@ if [ "$OSREL" == "CentOS" -o "$OSREL" == "RedHatEnterpriseServer" ]; then
     # Upgrade
     else
         if [ -f /usr/lib/systemd/system/joy.service ]; then
+            systemctl daemon-reload
             systemctl try-restart joy.service >/dev/null 2>&1 || :
         elif [ -f /etc/init.d/joy -a -f /usr/sbin/chkconfig ]; then
             service joy condrestart >/dev/null 2>&1 || :
@@ -34,6 +35,7 @@ elif [ "$OSREL" == "Ubuntu" -o "$OSREL" == "Debian" ]; then
     # Upgrade
     else
         if [ -f /usr/lib/systemd/system/joy.service ]; then
+            systemctl daemon-reload
             systemctl try-restart joy.service >/dev/null 2>&1 || :
         elif [ -f /etc/init.d/joy ]; then
             service joy condrestart >/dev/null 2>&1 || :
