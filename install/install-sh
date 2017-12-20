@@ -52,6 +52,7 @@ TLS_FINGERPRINT_FILE=${APP_ROOT}/resources/tls_fingerprint.json
 PREFIX="/usr/local"
 BUILDROOT=""
 ARCH=`uname -m`
+LOGROTATEFILE=/etc/logrotate.d/joy
 
 echo
 echo JOY INSTALL-SH
@@ -616,8 +617,22 @@ elif [ "$sysname" == "Linux" ]; then
         fi
     fi
 
+    # Install the logrotate configuration file
+    create_directory $BUILDROOT/etc/logrotate.d
+    cp ${CWD}/joy.logrotate ${BUILDROOT}${LOGROTATEFILE}
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not copy joy.logrotate to ${BUILDROOT}${LOGROTATEFILE}"
+        exit 1
+    fi
+    chmod 644 ${BUILDROOT}${LOGROTATEFILE}
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not chmod 644 ${BUILDROOT}${LOGROTATEFILE}"
+        exit 1
+    fi
+
     # List all the installed files
-    
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/bin/sleuth
@@ -632,6 +647,7 @@ elif [ "$sysname" == "Linux" ]; then
             ls -l /etc/systemd/system/joy.service.d/20-accounting.conf
             systemctl status joy.service
         fi
+        [ -f "$LOGROTATEFILE" ] && ls -l ${LOGROTATEFILE}
     fi
 
     echo "done" 
