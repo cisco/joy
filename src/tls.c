@@ -2032,7 +2032,7 @@ static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
     if (m.num_handshakes) {
         for (i = 0; i < m.num_handshakes; i++) {
             if (i == (m.num_handshakes - 1)) {
-                zprintf(f, "%u\",", m.handshake_types[i], term);
+                zprintf(f, "%u\",", m.handshake_types[i]);
             } else {
                 zprintf(f, "%u,", m.handshake_types[i]);
             }
@@ -2040,7 +2040,7 @@ static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
         zprintf(f, "\"hs_lens\":[");
         for (i = 0; i < m.num_handshakes; i++) {
             if (i == (m.num_handshakes - 1)) {
-                zprintf(f, "%u]", m.handshake_lens[i], term);
+                zprintf(f, "%u]", m.handshake_lens[i]);
             } else {
                 zprintf(f, "%u,", m.handshake_lens[i]);
             }
