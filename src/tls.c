@@ -1695,6 +1695,11 @@ static void tls_handshake_buffer_parse(struct tls *r) {
         tls_hdr = (const struct tls_header*)data;
         tls_len = tls_header_get_length(tls_hdr);
 
+        if (tls_len > data_len) {
+            joy_log_warn("corrupt buffer data, bad tls_len");
+            return;
+        }
+
         if (tls_hdr->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC ||
             tls_hdr->content_type == TLS_CONTENT_ALERT ||
             tls_hdr->content_type == TLS_CONTENT_APPLICATION_DATA) {
