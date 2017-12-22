@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Determine OS release
+OSREL=`lsb_release -is 2>/dev/null`
+
+# On first install, add joy user and group
+#
+if [ "$OSREL" == "CentOS" -o "$OSREL" == "RedHatEnterpriseServer" ]; then
+    # RPM install, not upgrade
+    if [ $1 -eq 1 ] ; then
+        /usr/sbin/groupadd -r joy 2> /dev/null
+        /usr/sbin/useradd -g joy -s /sbin/nologin -M -r -d / joy 2> /dev/null
+    fi
+elif [ "$OSREL" == "Ubuntu" -o "$OSREL" == "Debian" ]; then
+    # deb install, not upgrade
+    if [ -z $2 ]; then
+        /usr/sbin/groupadd -r joy 2> /dev/null
+        /usr/sbin/useradd -g joy -s /sbin/nologin -M -r -d / joy 2> /dev/null
+    fi
+fi
