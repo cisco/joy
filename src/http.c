@@ -48,11 +48,6 @@
 #include "str_match.h"
 #include "err.h"
 
-/*
- * change this flag is you want hexadecimal output
- */
-#define NO_HEX_OUTPUT 1
-
 /** user name match structure */
 extern str_match_ctx  usernames_ctx;
 
@@ -70,10 +65,7 @@ extern str_match_ctx  usernames_ctx;
  * declarations of functions that are internal to this file
  */
 static unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsigned int length);
-
-#if NO_HEX_OUTPUT
 static void http_print_header(zfile f, char *header, unsigned length);
-#endif
 
 /**
  *
@@ -114,8 +106,11 @@ void http_update(struct http *http,
                  const void *data,
                  unsigned int data_len,
                  unsigned int report_http) {
+    if (!report_http || data_len == 0) {
+        return;
+    }
   
-    if (report_http && (http->header == NULL)) {
+    if (http->header == NULL) {
         unsigned int len = (data_len + MAGIC) < HTTP_LEN ? (data_len + MAGIC) : HTTP_LEN;
         /*
          * note: we leave room for null termination in the data buffer
@@ -142,49 +137,51 @@ void http_update(struct http *http,
 void http_print_json(const struct http *h1,
                      const struct http *h2,
                      zfile f) {
+    int comma = 0;
+
+    /* Sanity check */
     if (h1 == NULL) {
         return;
     }
 
-    /* start http object */
+    /* Check if there's data to print */
+    if (h2 != NULL) {
+        if (h1->header == NULL && h2->header == NULL) {
+            /* No data to print */
+            return;
+        }
+    } else {
+        if (h1->header == NULL) {
+            /* No data to print */
+            return;
+        }
+    }
+
+    /* Start http object */
     zprintf(f, ",\"http\":{");
 
-#if NO_HEX_OUTPUT
     if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
-        zprintf(f, "\"out\":{");
+        zprintf(f, "\"out\":[");
         http_print_header(f, h1->header, h1->header_length);
-        zprintf(f, "}");
+        zprintf(f, "]");
+        comma = 1;
     }
 
     if (h2) {
         /* Twin */
         if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
-            zprintf(f, ",\"in\":{");
+            if (comma) {
+                zprintf(f, ",\"in\":[");
+            } else {
+                zprintf(f, "\"in\":[");
+            }
             http_print_header(f, h2->header, h2->header_length);
-            zprintf(f, "}");
+            zprintf(f, "]");
         }
     }
 
-#else 
-    if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
-        zprintf(f, "\"out\":{");
-        zprintf_raw_as_hex(f, h1->header, h1->header_length);
-        zprintf(f, "}");
-    }
-
-    if (h2) {
-        /* Twin */
-        if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
-            zprintf(f, ",\"in\":{");
-            zprintf_raw_as_hex(f, h2->header, h2->header_length);
-            zprintf(f, "}");
-        }
-    }
-#endif
-
-    /* end http object */
+    /* End http object */
     zprintf(f, "}");
-
 }
 
 /**
@@ -382,8 +379,6 @@ enum header_state {
     got_value   = 2
 };
 
-#if NO_HEX_OUTPUT
-
 static enum http_type http_get_next_line (char **saveptr,
 				  unsigned int *length, char **token1, char **token2) {
     unsigned int i;
@@ -569,6 +564,9 @@ static void http_print_header(zfile f, char *header, unsigned length) {
         return;
     }
 
+    /* Start req/resp array */
+    zprintf(f, "[");
+
     /*
      * parse start-line, and print as request/status as appropriate
      */
@@ -576,31 +574,32 @@ static void http_print_header(zfile f, char *header, unsigned length) {
     type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
     if (type == http_request_line) {    
     
-        zprintf(f, "\"method\":\"%s\",", token1);
-        zprintf(f, "\"uri\":\"");
+        zprintf(f, "{\"method\":\"%s\"},", token1);
+        zprintf(f, "{\"uri\":\"");
         if (usernames_ctx) {
             str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
             anon_print_uri_pseudonym(f, &matches, token2);
         } else {
             zprintf(f, "%s", token2);
         }
-        zprintf(f, "\",");
-        zprintf(f, "\"v\":\"%s\"", token3);
+        zprintf(f, "\"},");
+        zprintf(f, "{\"version\":\"%s\"}", token3);
 
 #if PRINT_USERNAMES
         /*
          * print out (anonymized) usernames found in URI
          */
         if (usernames_ctx) {
-            zprintf(f, ",");
+            zprintf(f, ",{");
             zprintf_usernames(f, &matches, token2, is_special, anon_string);
+            zprintf(f, "}");
         }
 #endif
 
         not_first_header = 1;
     } else if (type == http_status_line) {    
-        zprintf(f, "\"v\":\"%s\","
-	          "\"code\":\"%s\"," "\"reason\":\"%s\"", 
+        zprintf(f, "{\"version\":\"%s\"},"
+	          "{\"code\":\"%s\"}," "{\"reason\":\"%s\"}",
 	          token1, token2, token3);
         not_first_header = 1;
     }
@@ -618,7 +617,7 @@ static void http_print_header(zfile f, char *header, unsigned length) {
 	              } else {
 	                  not_first_header = 1;
 	              }
-	              zprintf(f, "\"%s\":\"%s\"", token1, token2);
+	              zprintf(f, "{\"%s\":\"%s\"}", token1, token2);
             }
 
         } while (type == http_header);
@@ -633,7 +632,7 @@ static void http_print_header(zfile f, char *header, unsigned length) {
         } else {
            not_first_header = 1;
         }
-        zprintf(f, "\"malformed\":%u", length);
+        zprintf(f, "{\"malformed\":%u}", length);
     }
 
     /*
@@ -643,12 +642,14 @@ static void http_print_header(zfile f, char *header, unsigned length) {
         if (not_first_header) {
             zprintf(f, ",");
         } 
-        zprintf(f, "\"body\":");
+        zprintf(f, "{\"body\":");
         zprintf_raw_as_hex(f, (unsigned char*)saveptr, length); 
+        zprintf(f, "}");
     }
-}
 
-#endif /* NO_HEX_OUTPUT */
+    /* End req/resp array */
+    zprintf(f, "]");
+}
 
 /**
  * \brief Unit test for HTTP
