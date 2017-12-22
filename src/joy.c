@@ -746,10 +746,16 @@ int main (int argc, char **argv) {
         if (config.max_records != 0) {
             snprintf(filename + file_base_len, MAX_FILENAME_LEN - file_base_len, zsuffix("%d"), file_count);
         }
-        output = zopen(filename, "w");
-        if (output == NULL) {
-            fprintf(info, "error: could not open output file %s (%s)\n", filename, strerror(errno));
-            return -1;
+        /*
+         * if not doing live capture, open output file now;
+         * otherwise wait until after dropping root privileges
+         */
+        if (mode != mode_online) { 
+            output = zopen(filename, "w");
+            if (output == NULL) {
+                fprintf(info, "error: could not open output file %s (%s)\n", filename, strerror(errno));
+                return -1;
+            }
         }
     } else {
         output = zattach(stdout, "w");
@@ -871,6 +877,17 @@ int main (int argc, char **argv) {
             return -5;
         }
 #endif /* _WIN32 */
+
+        /*
+         * open output file
+         */
+        if (config.filename) {
+            output = zopen(filename, "w");
+            if (output == NULL) {
+                fprintf(info, "error: could not open output file %s (%s)\n", filename, strerror(errno));
+                return -1;
+            }
+        }
 
         /*
          * start up the updater thread
