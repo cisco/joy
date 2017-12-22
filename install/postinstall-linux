@@ -21,6 +21,8 @@ if [ "$OSREL" == "CentOS" -o "$OSREL" == "RedHatEnterpriseServer" ]; then
         elif [ -f /etc/init.d/joy -a -f /usr/sbin/chkconfig ]; then
             service joy condrestart >/dev/null 2>&1 || :
         fi
+        # Change owner from root.root to joy.joy
+        chown -R joy.joy /usr/local/var/joy /usr/local/var/log || :
     fi
 elif [ "$OSREL" == "Ubuntu" -o "$OSREL" == "Debian" ]; then
     # Initial deb installation
@@ -32,6 +34,7 @@ elif [ "$OSREL" == "Ubuntu" -o "$OSREL" == "Debian" ]; then
         elif [ -x /usr/sbin/update-rc.d ]; then
             update-rc.d joy defaults >/dev/null 2>&1 || :
         fi
+        chown joy.joy /usr/local/var/joy /usr/local/var/log || :
     # Upgrade
     else
         if [ -f /usr/lib/systemd/system/joy.service ]; then
@@ -40,6 +43,8 @@ elif [ "$OSREL" == "Ubuntu" -o "$OSREL" == "Debian" ]; then
         elif [ -f /etc/init.d/joy ]; then
             service joy condrestart >/dev/null 2>&1 || :
         fi
+        # Change owner from root.root to joy.joy
+        chown -R joy.joy /usr/local/var/joy /usr/local/var/log || :
     fi
 fi
 
