@@ -2155,7 +2155,7 @@ static const char *tls_extension_types[] = {
     [12]="srp", [13]="signature_algorithms", [14]="use_srtp", [15]="heartbeat",
     [16]="application_layer_protocol_negotiation", [17]="status_request_v2", [18]="signed_certificate_timestamp", [19]="client_certificate_type",
     [20]="server_certificate_type", [21]="padding", [22]="encrypt_then_mac", [23]="extended_master_secret",
-    [24]="token_binding", [25]="cached_info", [35]="SessionTicketTLS", [65281]="renegotiation_info",
+    [24]="token_binding", [25]="cached_info", [35]="session_ticket", [65281]="renegotiation_info",
 };
 
 /**
@@ -2227,7 +2227,7 @@ static void tls_print_extensions(const struct tls_extension *extensions,
 void tls_print_json (const struct tls *data,
                      const struct tls *data_twin,
                      zfile f) {
-    int i;
+    int i = 0;
 
     if (data == NULL) {
         return;
@@ -2245,23 +2245,40 @@ void tls_print_json (const struct tls *data,
 
     zprintf(f, ",\"tls\":{");
 
-    if (data->version) {
-        zprintf(f, "\"version_out\":%u", data->version);
-    }
-    if (data_twin && data_twin->version) {
-        if (data->version) {
-            zprintf(f, ",\"version_in\":%u", data_twin->version);
+    /*
+     * Assign the versions according to role.
+     * Do not allow both to be identical role at the same time...
+     * i.e. both client or both server
+     */
+    if (data->role == role_client) {
+        zprintf(f, "\"c_version\":%u", data->version);
+        if (data_twin && data_twin->version && data_twin->role == role_server) {
+            zprintf(f, ",\"s_version\":%u", data->version);
         } else {
-            zprintf(f, "\"version_in\":%u", data_twin->version);
+            zprintf(f, ",\"error\":\"twin clients\"}");
+            return;
         }
+    } else if (data->role == role_server) {
+        zprintf(f, "\"s_version\":%u", data->version);
+        if (data_twin && data_twin->version && data_twin->role == role_client) {
+            zprintf(f, ",\"c_version\":%u", data->version);
+        } else {
+            zprintf(f, ",\"error\":\"twin servers\"}");
+            return;
+        }
+    } else {
+        zprintf(f, "\"error\":\"no role\"}");
+        return;
     }
 
+    /*
+     * Client key length
+     */
     if (data->client_key_length) {
         zprintf(f, ",\"c_key_length\":%u", data->client_key_length);
         zprintf(f, ",\"c_key_exchange\":");
         zprintf_raw_as_hex_tls(f, data->clientKeyExchange, data->client_key_length/8);
-    }
-    if (data_twin && data_twin->client_key_length) {
+    } else if (data_twin && data_twin->client_key_length) {
         zprintf(f, ",\"c_key_length\":%u", data_twin->client_key_length);
         zprintf(f, ",\"c_key_exchange\":");
         zprintf_raw_as_hex_tls(f, data_twin->clientKeyExchange, data_twin->client_key_length/8);
@@ -2274,26 +2291,16 @@ void tls_print_json (const struct tls *data,
         zprintf(f, ",\"c_random\":");
         zprintf_raw_as_hex_tls(f, data->random, 32);
         if (data_twin) {
-            if (data_twin->role == role_server) {
-                zprintf(f, ",\"s_random\":");
-                zprintf_raw_as_hex_tls(f, data_twin->random, 32);
-            }
-            else if (data_twin->role == role_client) {
-                zprintf(f, ",\"error\":\"twin clients\"");
-            }
+            zprintf(f, ",\"s_random\":");
+            zprintf_raw_as_hex_tls(f, data_twin->random, 32);
         }
     }
-    else if (data->role == role_server) {
+    else {
         zprintf(f, ",\"s_random\":");
         zprintf_raw_as_hex_tls(f, data->random, 32);
         if (data_twin) {
-            if (data_twin->role == role_client) {
-                zprintf(f, ",\"c_random\":");
-                zprintf_raw_as_hex_tls(f, data_twin->random, 32);
-            }
-            else if (data_twin->role == role_server) {
-                zprintf(f, ",\"error\":\"twin servers\"");
-            }
+            zprintf(f, ",\"c_random\":");
+            zprintf_raw_as_hex_tls(f, data_twin->random, 32);
         }
     }
 
@@ -2301,12 +2308,21 @@ void tls_print_json (const struct tls *data,
      * Session ID
      */
     if (data->sid_len) {
-        zprintf(f, ",\"sid_out\":");
-        zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
-    }
-    if (data_twin && data_twin->sid_len) {
-        zprintf(f, ",\"sid_in\":");
-        zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
+        if (data->role == role_client) {
+            zprintf(f, ",\"c_sid\":");
+            zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
+            if (data_twin && data_twin->sid_len) {
+                zprintf(f, ",\"s_sid\":");
+                zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
+            }
+        } else {
+            zprintf(f, ",\"s_sid\":");
+            zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
+            if (data_twin && data_twin->sid_len) {
+                zprintf(f, ",\"c_sid\":");
+                zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
+            }
+        }
     }
 
     /*
@@ -2315,35 +2331,38 @@ void tls_print_json (const struct tls *data,
     if (data->sni_length) {
         zprintf(f, ",\"sni\":[\"%s\"]", (char *)data->sni);
     }
-    if (data_twin && data_twin->sni_length) {
+    else if (data_twin && data_twin->sni_length) {
         zprintf(f, ",\"sni\":[\"%s\"]", (char *)data_twin->sni);
     }
 
     /*
      * Offered and selected ciphersuites
      */
-    if (data->num_ciphersuites) {
-        if (data->num_ciphersuites == 1) {
-            zprintf(f, ",\"scs\":\"%04x\"", data->ciphersuites[0]);
-        } else {
+    if (data->role == role_client) {
+        if (data_twin->num_ciphersuites == 1) {
+            zprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
+        }
+
+        if (data->num_ciphersuites) {
             zprintf(f, ",\"cs\":[");
             for (i = 0; i < data->num_ciphersuites-1; i++) {
-	            zprintf(f, "\"%04x\",", data->ciphersuites[i]);
+                zprintf(f, "\"%04x\",", data->ciphersuites[i]);
             }
             zprintf(f, "\"%04x\"]", data->ciphersuites[i]);
         }
-    }  
-    if (data_twin && data_twin->num_ciphersuites) {
-        if (data_twin->num_ciphersuites == 1) {
-            zprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
-        } else {
+    } else {
+        if (data->num_ciphersuites == 1) {
+            zprintf(f, ",\"scs\":\"%04x\"", data->ciphersuites[0]);
+        }
+
+        if (data_twin->num_ciphersuites) {
             zprintf(f, ",\"cs\":[");
             for (i = 0; i < data_twin->num_ciphersuites-1; i++) {
-	            zprintf(f, "\"%04x\",", data_twin->ciphersuites[i]);
+                zprintf(f, "\"%04x\",", data_twin->ciphersuites[i]);
             }
             zprintf(f, "\"%04x\"]", data_twin->ciphersuites[i]);
         }
-    }    
+    }
   
     /*
      * Extensions

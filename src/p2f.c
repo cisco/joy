@@ -1062,47 +1062,24 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
 }
 
 static void print_tcp_json (zfile f, const struct flow_record *rec) {
-    uint8_t comma = 0;
-
-    zprintf(f, "\"tcp\":{\"sp\":%u,\"dp\":%u,", rec->key.sp, rec->key.dp);
+    zprintf(f, "\"tcp\":{\"sp\":%u,\"dp\":%u", rec->key.sp, rec->key.dp);
 
     if (rec->initial_seq) {
-        zprintf(f, "\"initial_seq\":%u", rec->initial_seq);
-        comma = 1;
+        zprintf(f, ",\"initial_seq\":%u", rec->initial_seq);
     } else if (rec->twin != NULL && !rec->initial_seq && rec->twin->initial_seq) {
-        zprintf(f, "\"initial_seq\":%u", rec->twin->initial_seq);
-        comma = 1;
+        zprintf(f, ",\"initial_seq\":%u", rec->twin->initial_seq);
     }
 
     if (rec->tcp_initial_window_size) {
-        if (comma) {
-            zprintf(f, ",\"window_out\":%u", rec->tcp_initial_window_size);
-        } else {
-            zprintf(f, "\"window_out\":%u", rec->tcp_initial_window_size);
-            comma = 1;
-        }
+        zprintf(f, ",\"window_out\":%u", rec->tcp_initial_window_size);
     } else if (rec->twin != NULL && rec->twin->tcp_initial_window_size) {
-        if (comma) {
-            zprintf(f, ",\"window_in\":%u", rec->twin->tcp_initial_window_size);
-        } else {
-            zprintf(f, "\"window_in\":%u", rec->twin->tcp_initial_window_size);
-            comma = 1;
-        }
+        zprintf(f, ",\"window_in\":%u", rec->twin->tcp_initial_window_size);
     }
 
     if (rec->tcp_syn_size) {
-        if (comma) {
-            zprintf(f, ",\"syn_out\":%u", rec->tcp_syn_size);
-        } else {
-            zprintf(f, "\"syn_out\":%u", rec->tcp_syn_size);
-            comma = 1;
-        }
+        zprintf(f, ",\"syn_out\":%u", rec->tcp_syn_size);
     } else if (rec->twin != NULL && rec->twin->tcp_syn_size) {
-        if (comma) {
-            zprintf(f, ",\"syn_in\":%u", rec->twin->tcp_syn_size);
-        } else {
-            zprintf(f, "\"syn_in\":%u", rec->twin->tcp_syn_size);
-        }
+        zprintf(f, ",\"syn_in\":%u", rec->twin->tcp_syn_size);
     }
 
     /* End object */
@@ -1467,11 +1444,22 @@ static void flow_record_print_json (const struct flow_record *record) {
             retrans += rec->twin->retrans;
             invalid += rec->twin->invalid;
         }
-        if (retrans) {
-            zprintf(output, ",\"rtn\":%u", retrans);
-        }
-        if (invalid) {
-            zprintf(output, ",\"inv\":%u", invalid);
+
+        if (retrans || invalid) {
+            uint8_t comma = 0;
+            zprintf(output, ",\"debug\":{");
+            if (retrans) {
+                zprintf(output, "\"retrans\":%u", retrans);
+                comma = 1;
+            }
+            if (invalid) {
+                if (comma) {
+                    zprintf(output, ",\"invalid\":%u", invalid);
+                } else {
+                    zprintf(output, "\"invalid\":%u", invalid);
+                }
+            }
+            zprintf(output, "}");
         }
 
     }

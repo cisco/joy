@@ -3753,7 +3753,7 @@ static unsigned int ike_hash_v1_unmarshal(struct ike_hash *s, const char *data, 
  * \return
  */
 static void ike_notify_print_json(struct ike_notify *s, zfile f) {
-    int i = 0;
+    int i, k = 0;
     char *prot_id_string = ike_protocol_id_string(s->protocol_id);
     char *notify_type_string = ike_notify_type_string(s->type);
 
@@ -3784,27 +3784,29 @@ static void ike_notify_print_json(struct ike_notify *s, zfile f) {
     if (s->data->len > 0) {
     switch (s->type) {
     case IKE_SIGNATURE_HASH_ALGORITHMS_V2:
-        for (i = 0; i < s->data->len/2; i++) {
+        k = s->data->len/2;
+
+        for (i = 0; i < k; i++) {
             char *hash_alg_string = NULL;
             uint16_t id = 0;
 
             if (i == 0) {
-                zprintf(f, ",\"parsed\":\"");
-            } else {
-                zprintf(f, ",");
+                zprintf(f, ",\"parsed\":[");
             }
 
             id = raw_to_uint16((char *)s->data->bytes+2*i);
             hash_alg_string = ike_hash_algorithm_string(id);
 
             if (hash_alg_string) {
-                zprintf(f, "%s", hash_alg_string);
+                zprintf(f, "\"%s\"", hash_alg_string);
             } else {
-                zprintf(f, "%04x", id);
+                zprintf(f, "\"%04x\"", id);
             }
 
-            if (i == s->data->len/2 - 1) {
-                zprintf(f, "\"");
+            if (i == k - 1) {
+                zprintf(f, "]");
+            } else {
+                zprintf(f, ",");
             }
         }
         break;
@@ -4475,18 +4477,18 @@ static void ike_header_print_json(struct ike_header *s, zfile f) {
         zprintf(f, ",\"exchange_type\":\"%02x\"", s->exchange_type);
     }
     zprintf(f, ",\"flags\":{\"hex\":\"%04x\"", s->flags);
-    zprintf(f, ",\"parsed\":\"");
+    zprintf(f, ",\"parsed\":[");
     if (s->major == 1) {
-        zprintf(f, (s->flags & IKE_ENCRYPTION_BIT_V1)? "encryption": "no_encryption");
-        zprintf(f, (s->flags & IKE_COMMIT_BIT_V1)? ",commit": ",no_commit");
-        zprintf(f, (s->flags & IKE_AUTHENTICATION_BIT_V1)? ",authentication": ",no_authentication");
+        zprintf(f, (s->flags & IKE_ENCRYPTION_BIT_V1)? "\"encryption\"": "\"no_encryption\"");
+        zprintf(f, (s->flags & IKE_COMMIT_BIT_V1)? ",\"commit\"": ",\"no_commit\"");
+        zprintf(f, (s->flags & IKE_AUTHENTICATION_BIT_V1)? ",\"authentication\"": ",\"no_authentication\"");
     }
-    if (s->major == 2) {
-        zprintf(f, (s->flags & IKE_INITIATOR_BIT_V2) ? "initiator": "responder");
-        zprintf(f, (s->flags & IKE_VERSION_BIT_V2) ? ",higher_version": ",no_higher_version");
-        zprintf(f, (s->flags & IKE_RESPONSE_BIT_V2) ? ",response": ",request");
+    else if (s->major == 2) {
+        zprintf(f, (s->flags & IKE_INITIATOR_BIT_V2) ? "\"initiator\"": "\"responder\"");
+        zprintf(f, (s->flags & IKE_VERSION_BIT_V2) ? ",\"higher_version\"": ",\"no_higher_version\"");
+        zprintf(f, (s->flags & IKE_RESPONSE_BIT_V2) ? ",\"response\"": ",\"request\"");
     }
-    zprintf(f, "\"}");
+    zprintf(f, "]}");
     zprintf(f, ",\"message_id\":%u", s->message_id);
     zprintf(f, ",\"length\":%u", s->length);
 
