@@ -89,6 +89,7 @@ struct configuration {
     char *intface;
     char *filename;              /*!< output file, if not NULL */
     char *outputdir;             /*!< directory to write output files */
+    char *username;              /*!< username to become when dropping root */
     char *logfile; 
     char *anon_addrs_file;
     char *anon_http_file;

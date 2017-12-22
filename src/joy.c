@@ -62,6 +62,8 @@
 #include <sys/socket.h>
 #include <sys/wait.h>    
 #include <netinet/in.h>
+#include <pwd.h>
+#include <grp.h>
 #endif
 
 #include <limits.h>  
@@ -310,8 +312,8 @@ static int usage (char *s) {
     printf("usage: %s [OPTIONS] file1 [file2 ... ]\n", s);
     printf("where OPTIONS are as follows:\n"); 
     printf("General options\n"
-	   "  -x F                       read configuration commands from file F\n"
-	   "  interface=I                read packets live from interface I\n"
+           "  -x F                       read configuration commands from file F\n"
+           "  interface=I                read packets live from interface I\n"
            "  promisc=1                  put interface into promiscuous mode\n"
            "  output=F                   write output to file F (otherwise stdout is used)\n"
            "  logfile=F                  write secondary output to file F (otherwise stderr is used)\n" 
@@ -343,6 +345,8 @@ static int usage (char *s) {
            "                             Default=4\n"
            "  show_config=0              Show the configuration on stderr in the CLI on program run\n"
            "                             0=off, 1=show\n"
+           "  username=\"user\"          Drop privileges to username \"user\" after starting packet capture\n"
+           "                             Default=\"joy\"\n"
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
@@ -416,6 +420,7 @@ int main (int argc, char **argv) {
     int upd_rc;
     pthread_t ipfix_cts_monitor_thread;
     int cts_monitor_thread_rc;
+    struct passwd *pw = NULL;
 
     /* sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -844,6 +849,28 @@ int main (int argc, char **argv) {
             }
 
         }
+
+#ifndef _WIN32
+        /*
+         * drop privileges once pcap handle exists
+         */
+        pw = getpwnam(config.username);
+        if (pw) {
+            if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
+                setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
+                fprintf(stderr, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
+                    config.username,
+                    (unsigned long)pw->pw_uid,
+                    (unsigned long)pw->pw_gid,
+                    pcap_strerror(errno));
+                return -5; 
+            }
+        }
+        else {
+            fprintf(stderr, "error: could not find user '%.32s'\n", config.username);
+            return -5;
+        }
+#endif /* _WIN32 */
 
         /*
          * start up the updater thread
