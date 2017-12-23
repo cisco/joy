@@ -12,5 +12,16 @@
     </array>
     <key>KeepAlive</key>
     <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/joy.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/joy_err.log</string>
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>Core</key>
+        <integer>4294967296</integer>
+        <key>ResidentSetSize</key>
+        <integer>4294967296</integer>
+    </dict>
 </dict>
 </plist>
