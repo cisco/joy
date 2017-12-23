@@ -420,7 +420,9 @@ int main (int argc, char **argv) {
     int upd_rc;
     pthread_t ipfix_cts_monitor_thread;
     int cts_monitor_thread_rc;
+#ifndef _WIN32
     struct passwd *pw = NULL;
+#endif
 
     /* sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -864,16 +866,22 @@ int main (int argc, char **argv) {
         if (pw) {
             if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
                 setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
-                fprintf(stderr, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
+                fprintf(info, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
                     config.username,
                     (unsigned long)pw->pw_uid,
                     (unsigned long)pw->pw_gid,
                     pcap_strerror(errno));
                 return -5; 
             }
+            else {
+                fprintf(info, "changed user to '%.32s' (uid=%lu gid=%lu)\n",
+                    config.username,
+                    (unsigned long)pw->pw_uid,
+                    (unsigned long)pw->pw_gid);
+            }
         }
         else {
-            fprintf(stderr, "error: could not find user '%.32s'\n", config.username);
+            fprintf(info, "error: could not find user '%.32s'\n", config.username);
             return -5;
         }
 #endif /* _WIN32 */
@@ -895,8 +903,8 @@ int main (int argc, char **argv) {
          */
          upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)&config);
          if (upd_rc) {
-	            fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
-	            return -6;
+             fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
+             return -6;
          }
 
         /*
@@ -906,8 +914,8 @@ int main (int argc, char **argv) {
          if (config.upload_servername) {
              upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&config);
              if (upd_rc) {
-	         fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
-	         return -7;
+	             fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
+	             return -7;
              }
          }
 
