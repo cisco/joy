@@ -285,8 +285,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/src/joy.c joy/install/preinstall-linux 2>/dev/null
-    tar -uvf $TAR_FILE -C .. joy/src/joy.c joy/install/preinstall-linux
+    tar -f $TAR_FILE --delete joy/install/install-sh 2>/dev/null
+    tar -rvf $TAR_FILE -C .. joy/src/joy.c joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
@@ -355,13 +355,12 @@ if [ "$BUILDTYPE" == "deb" ]; then
     fpm -s dir -t deb $FPM_LINUX_OPTIONS $FPM_REQS \
         -d "python >= 2.7" \
         --deb-no-default-config-files \
-        --description 'Joy is a libpcap-based software package for extracting data features from live
+        --description "Joy is a libpcap-based software package for extracting data features from live
 network traffic or packet capture \(pcap\) files, using a flow-oriented model
 similar to that of IPFIX or Netflow, and then representing these data features
 in JSON. It also contains analysis tools that can be applied to these data
 files. Joy can be used to explore data at scale, especially security and
-threat-relevant data.' \
-        --summary "Capture and analyze network flow data for research, forensics and monitoring. (Compression: $COMPRESSION)" \
+threat-relevant data. (Compression: $COMPRESSION)" \
         ./
     if [ "$?" != 0 ]; then
         echo Failed to build deb
@@ -369,13 +368,12 @@ threat-relevant data.' \
     fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
     fpm -s dir -t osxpkg $FPM_MAC_OPTIONS \
-        --description 'Joy is a libpcap-based software package for extracting data features from live
-network traffic or packet capture (pcap) files, using a flow-oriented model
+        --description "Joy is a libpcap-based software package for extracting data features from live
+network traffic or packet capture \(pcap\) files, using a flow-oriented model
 similar to that of IPFIX or Netflow, and then representing these data features
 in JSON. It also contains analysis tools that can be applied to these data
 files. Joy can be used to explore data at scale, especially security and
-threat-relevant data.' \
-        --summary "Capture and analyze network flow data for research, forensics and monitoring. (Compression: $COMPRESSION)" \
+threat-relevant data. (Compression: $COMPRESSION)" \
         ./
     if [ "$?" != 0 ]; then
         echo Failed to build OS X pkg
