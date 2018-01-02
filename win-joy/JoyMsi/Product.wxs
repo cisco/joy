@@ -28,6 +28,22 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes"/>
 
+    <!-- Create Scheduled Task to start Joy -->
+	  <!--
+    <CustomAction Id="CreateScheduledTask" Return="check" Impersonate="no" Execute="deferred" Directory="TARGETDIR"
+                  ExeCommand="&quot;[SystemFolder]SCHTASKS.EXE&quot; /CREATE /SC ONSTART /TN &quot;Joy&quot;  /TR &quot;&quot;[INSTALLFOLDER]\win-joy.exe -x win-options.cfg&quot;&quot; /RU &quot;NT Authority\LocalService&quot; /RP " />
+    
+    Delete Joy Scheduled Task
+    <CustomAction Id="DeleteScheduledTask" Return="check" Impersonate="no" Execute="deferred" Directory="TARGETDIR"
+                  ExeCommand="&quot;[SystemFolder]SCHTASKS.EXE&quot; /DELETE /TN &quot;Joy&quot; /F"/>
+
+    Custom action sequence
+    <InstallExecuteSequence>
+      <Custom Action="CreateScheduledTask" After="InstallFiles">NOT Installed</Custom>
+      <Custom Action="DeleteScheduledTask" After="RemoveFiles">Installed</Custom>
+    </InstallExecuteSequence>
+	  -->
+
     <Feature Id="ProductFeature" Title="Joy" Level="1">
       <ComponentRef Id="MainExecutable"/>
       <ComponentGroupRef Id="RequiredDlls" />
@@ -92,13 +108,8 @@
    -->
   <Fragment>
     <Component Id="MainExecutable" Directory="INSTALLFOLDER" Win64="$(var.Win64)">
-        <File Source="$(var.win-joy.TargetPath)" KeyPath="yes"/>
-        <ServiceInstall Id="ServiceInstaller" Type="ownProcess" Name="JoyService"
-                        DisplayName="JoyService" Description="Advanced network flow data capture"
-                        Account="LocalSystem"
-                        Start="demand" ErrorControl="normal" Arguments="-x win-options.cfg" /> 
-        <!--<ServiceControl Id="StartService" Name="JoyService" Start="install" Stop="both" Remove="uninstall" Wait="yes" />-->
-      </Component>
+      <File Source="$(var.win-joy.TargetPath)" KeyPath="yes"/>
+    </Component>
   </Fragment>
   
   <Fragment>
