@@ -1,0 +1,70 @@
+#!/bin/bash
+#
+# uninstall-joy-pkg
+#
+# uninstaller for joy MacOS X package
+
+PKGNAME=com.cisco.joy
+
+echo
+echo UNINSTALL-JOY-PKG
+echo --------------------
+echo
+
+if ((UID!=0)); then
+    echo "You must run as root"
+    exit 1
+fi
+
+delete_file () {
+    if [ -f $1 ]; then
+        rm $1
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete file $1"
+        else
+            echo "deleted file $1"
+        fi
+    fi
+}
+
+delete_directory () {
+    if [ -d $1 ]; then
+        rm -rf $1
+        retval=$?
+        if [ $retval != "0" ]; then
+            echo "error: could not delete directory $1"
+        else
+            echo "deleted directory $1"
+        fi
+    fi
+}
+
+sysname=`uname -s`
+
+if [ "$sysname" == "Darwin" ]; then
+    ##
+    # Darwin operating system detected
+    ##
+    echo "System $sysname (Mac OS X) uninstalling package ${PKGNAME} ..."
+
+    pkgutil --pkg-info ${PKGNAME} &>/dev/null
+    if [ "$?" == 0 ]; then
+        # Stop the daemon
+        launchctl unload /Library/LaunchAgents/${PKGNAME}.plist
+        delete_file /Library/LaunchAgents/${PKGNAME}.plist
+
+        # Delete the application files
+        cd /
+        pkgutil --only-files --files ${PKGNAME} | tr '\n' '\0' | xargs -n 1 -0 rm
+        pkgutil --forget ${PKGNAME}
+
+        echo "... removed ${PKGNAME}"
+    else
+        echo "... unable to find ${PKGNAME}"
+        exit 1
+    fi
+else
+    echo "error: unknown system ($sysname)"
+    exit 1
+fi

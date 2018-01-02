@@ -5,10 +5,7 @@ LAUNCH_AGENT_SRC="/usr/local/etc/joy/joy.plist"
 LAUNCH_AGENT_DEST="/Library/LaunchAgents/com.cisco.joy.plist"
 LOGFILE="/usr/local/var/log/joy-preinstall.log"
 exec >> $LOGFILE 2>&1 
-
-# Uninstall old launch agent
-#launchctl unload "$LAUNCH_AGENT_DEST" || true
-#rm -f "$LAUNCH_AGENT_DEST" || true
+date
 
 # Backup key configuration files
 for file in /usr/local/etc/joy/upload-key /usr/local/etc/joy/upload-key.pub \
@@ -18,5 +15,99 @@ for file in /usr/local/etc/joy/upload-key /usr/local/etc/joy/upload-key.pub \
     		cp -a $file ${file}.previous-install
 	fi
 done
+
+# Create or update joy group
+#
+OLDGID=$(dscl . -read /Groups/joy PrimaryGroupID 2>/dev/null | awk '{print $2}')
+if [ -z "$OLDGID" ]; then
+    # joy group does not exist; find next available GID
+    MAXGID=$(dscl . -list /Groups PrimaryGroupID | awk '{print $2}' | sort -ug | tail -1)
+    NEWGID=$((MAXGID+1))
+else
+    # joy group already exists; re-use existing GID
+    NEWGID=$OLDGID
+fi
+    echo "creating/updating joy group"
+    dscl . -create /Groups/joy
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not create joy group"
+        exit 1
+    fi
+    dscl . -create /Groups/joy PrimaryGroupID $NEWGID
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not create joy group with GID $NEWGID"
+        exit 1
+    fi
+    dscl . -create /Groups/joy Password \*
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not update joy group Password"
+        exit 1
+    fi
+    dscl . -create /Groups/joy RealName "joy group"
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not update joy group RealName"
+        exit 1
+    fi
+        
+# Create or update joy user
+#
+OLDUID=$(dscl . -read /Users/joy UniqueID 2>/dev/null | awk '{print $2}')
+if [ -z "$OLDUID" ]; then
+    # joy user does not exist; find next available UID
+    MAXUID=$(dscl . -list /Users UniqueID | awk '{print $2}' | sort -ug | tail -1)
+    NEWUID=$((MAXUID+1))
+else
+    # joy group already exists; re-use existing UID
+    NEWUID=$OLDUID
+fi
+    echo "creating/updating joy user"
+    dscl . -create /Users/joy 
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not create joy user"
+        exit 1
+    fi
+    dscl . -create /Users/joy Password \*
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not set joy user Password"
+        exit 1
+    fi
+    dscl . -create /Users/joy RealUser "Joy User"
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not set joy user RealUser"
+        exit 1
+    fi
+    dscl . -create /Users/joy UserShell /usr/bin/false
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not set joy user UserShell"
+        exit 1
+    fi
+    dscl . -create /Users/joy UniqueID $NEWUID
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not set joy user UniqueID $NEWUID"
+        exit 1
+    fi
+    dscl . -create /Users/joy PrimaryGroupID $NEWGID
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not set joy user PrimaryGroupID $NEWGID"
+        exit 1
+    fi
+    dscl . -create /Users/joy NFSHomeDirectory /var/empty
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not set joy user NFSHomeDirectory"
+        exit 1
+    fi
+    dscl . -delete /Users/joy AuthenticationAuthority
+    dscl . -delete /Users/joy PasswordPolicyOptions
 
 exit 0

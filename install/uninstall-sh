@@ -42,10 +42,20 @@ if [ "$sysname" == "Darwin" ]; then
     ##
     # Darwin operating system detected
     ##
+
+    pkgutil --pkg-info com.cisco.joy 2>/dev/null
+    if [ $? == 0 -o -f /usr/local/bin/uninstall-joy-pkg ]; then
+        echo
+        echo "You appear to have installed the Joy binary package."
+        echo "Please run the /usr/local/bin/uninstall-joy-pkg script."
+        echo
+        exit 1
+    fi
     echo "System $sysname (Mac OS X) uninstalling ..."
 
     # Stop the daemon
     launchctl unload /Library/LaunchDaemons/joy.plist
+    launchctl unload /Library/LaunchAgents/com.cisco.joy.plist
 
     # Delete the application files
     delete_file /usr/local/bin/joy
@@ -55,10 +65,14 @@ if [ "$sysname" == "Darwin" ]; then
     delete_directory /usr/local/etc/joy
 
     delete_file /Library/LaunchDaemons/joy.plist
+    delete_file /Library/LaunchAgents/com.cisco.joy.plist
 
     delete_file /usr/local/share/man/man1/joy.1
 
+    # Uninstall the sleuth python module
+    pip uninstall -y sleuth
     echo "... done"
+
     echo
 elif [ "$sysname" == "Linux" ]; then
     ##
