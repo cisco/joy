@@ -166,6 +166,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "outdir")) {
         parse_check(parse_string(&config->outputdir, arg, num));
 
+    } else if (match(command, "username")) {
+        parse_check(parse_string(&config->username, arg, num));
+
     } else if (match(command, "log")) {
         parse_check(parse_string(&config->logfile, arg, num));
 
@@ -265,8 +268,14 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "aux_resource_path")) {
         parse_check(parse_string(&config->aux_resource_path, arg, num));
 
+    } else if (match(command, "preemptive_timeout")) {
+        parse_check(parse_bool(&config->preemptive_timeout, arg, num));
+
     } else if (match(command, "exe")) {
         parse_check(parse_bool(&config->report_exe, arg, num));
+
+    } else if (match(command, "show_config")) {
+        parse_check(parse_bool(&config->show_config, arg, num));
 
     }
 
@@ -287,6 +296,8 @@ static int config_parse_command (struct configuration *config,
 void config_set_defaults (struct configuration *config) {
     config->type = 1;
     config->verbosity = 4;
+    config->show_config = 0;
+    config->username = "joy";    /*!< default username */
 }
 
 #define MAX_FILEPATH 128
@@ -488,6 +499,7 @@ void config_print (FILE *f, const struct configuration *c) {
     fprintf(f, "promisc = %u\n", c->promisc);
     fprintf(f, "output = %s\n", val(c->filename));
     fprintf(f, "outputdir = %s\n", val(c->outputdir));
+    fprintf(f, "username = %s\n", val(c->username));
     fprintf(f, "count = %u\n", c->max_records); 
     fprintf(f, "upload = %s\n", val(c->upload_servername));
     fprintf(f, "keyfile = %s\n", val(c->upload_key));
@@ -533,6 +545,7 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"promisc\":%u,", c->promisc);
     zprintf(f, "\"output\":\"%s\",", val(c->filename));
     zprintf(f, "\"outputdir\":\"%s\",", val(c->outputdir));
+    zprintf(f, "\"username\":\"%s\",", val(c->username));
     zprintf(f, "\"info\":\"%s\",", val(c->logfile));
     zprintf(f, "\"count\":%u,", c->max_records); 
     zprintf(f, "\"upload\":\"%s\",", val(c->upload_servername));

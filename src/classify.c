@@ -53,6 +53,7 @@
 #include <math.h>
 #include "classify.h"
 #include "p2f.h"
+#include "utils.h"
 
 /** finds the minimum value between to inputs */
 #ifndef WIN32
@@ -61,27 +62,6 @@
        __typeof__ (b) _b = (b); \
        _a < _b ? _a : _b; })
 #endif
-
-/* convert time value to millseconds */
-static unsigned int timeval_to_milliseconds_c(struct timeval ts) {
-    unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
-    return result;
-}
-
-/* time comparison */
-static inline unsigned int timer_lt_c(const struct timeval *a, const struct timeval *b) {
-    return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
-}
-
-/* time subrtaction (difference) */
-static inline void timer_sub_c(const struct timeval *a, const struct timeval *b, struct timeval *result)  {
-    result->tv_sec = a->tv_sec - b->tv_sec;        
-    result->tv_usec = a->tv_usec - b->tv_usec;     
-    if (result->tv_usec < 0) {                         
-        --result->tv_sec;                                
-        result->tv_usec += 1000000;                      
-    }                                                    
-}
 
 //bias (1) + w (207) 
 //const float parameters_splt[NUM_PARAMETERS_SPLT_LOGREG] = { 
@@ -298,63 +278,57 @@ void merge_splt_arrays (const uint16_t *pkt_len, const struct timeval *pkt_time,
     } else if (r_idx == 0) {
         ts_start = pkt_time[0];
         tmp = pkt_time[0];
-        timer_sub_c(&tmp, &start_time, &start_m);
+        joy_timer_sub(&tmp, &start_time, &start_m);
     } else if (s_idx == 0) {
         ts_start = pkt_time_twin[0];
         tmp = pkt_time_twin[0];
-        timer_sub_c(&tmp, &start_time_twin, &start_m);
+        joy_timer_sub(&tmp, &start_time_twin, &start_m);
     } else {
-        //    if (timer_lt_c(&pkt_time[0], &pkt_time_twin[0])) {
-        if (timer_lt_c(&start_time, &start_time_twin)) {
+        if (joy_timer_lt(&start_time, &start_time_twin)) {
             ts_start = pkt_time[0];
             tmp = pkt_time[0];
-            timer_sub_c(&tmp, &start_time, &start_m);
+            joy_timer_sub(&tmp, &start_time, &start_m);
         } else {
             //      ts_start = pkt_time_twin[0];
             tmp = pkt_time_twin[0];
-            timer_sub_c(&tmp, &start_time_twin, &start_m);
+            joy_timer_sub(&tmp, &start_time_twin, &start_m);
         }
     }
-    //  start_m = timeval_to_milliseconds_c(ts_start);
     s = r = 0;
     while ((s < s_idx) || (r < r_idx)) {
         if (s >= s_idx) {
             merged_lens[s+r] = pkt_len_twin[r];
             tmp = pkt_time_twin[r];
-            timer_sub_c(&tmp, &ts_start, &tmp_r);
-            merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+            joy_timer_sub(&tmp, &ts_start, &tmp_r);
+            merged_times[s+r] = joy_timeval_to_milliseconds(tmp_r);
             ts_start = tmp;
-            //merged_times[s+r] = pkt_time_twin[r];
             r++;
         } else if (r >= r_idx) {
             merged_lens[s+r] = pkt_len[s];
             tmp = pkt_time[s];
-            timer_sub_c(&tmp, &ts_start, &tmp_r);
-            merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+            joy_timer_sub(&tmp, &ts_start, &tmp_r);
+            merged_times[s+r] = joy_timeval_to_milliseconds(tmp_r);
             ts_start = tmp;
-            //merged_times[s+r] = pkt_time[s];
             s++;
         } else {
-            if (timer_lt_c(&pkt_time[s], &pkt_time_twin[r])) {
+            if (joy_timer_lt(&pkt_time[s], &pkt_time_twin[r])) {
                 merged_lens[s+r] = pkt_len[s];
 	               tmp = pkt_time[s];
-	               timer_sub_c(&tmp, &ts_start, &tmp_r);
-	               merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+	               joy_timer_sub(&tmp, &ts_start, &tmp_r);
+	               merged_times[s+r] = joy_timeval_to_milliseconds(tmp_r);
 	               ts_start = tmp;
-                //merged_times[s+r] = pkt_time[s];
                 s++;
             } else {
                 merged_lens[s+r] = pkt_len_twin[r];
 	               tmp = pkt_time_twin[r];
-	               timer_sub_c(&tmp, &ts_start, &tmp_r);
-	               merged_times[s+r] = timeval_to_milliseconds_c(tmp_r);
+	               joy_timer_sub(&tmp, &ts_start, &tmp_r);
+	               merged_times[s+r] = joy_timeval_to_milliseconds(tmp_r);
 	               ts_start = tmp;
-                //merged_times[s+r] = pkt_time_twin[r];
                 r++;
             }
         }
     }
-    merged_times[0] = timeval_to_milliseconds_c(start_m);
+    merged_times[0] = joy_timeval_to_milliseconds(start_m);
 }
 
 /* transform lens array to Markov chain */

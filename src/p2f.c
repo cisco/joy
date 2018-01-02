@@ -67,6 +67,7 @@
 #include "ipfix.h" /* ipfix protocol */
 #include "err.h" /* errors and logging */
 #include "osdetect.h"
+#include "utils.h"
 
 /*
  *  global variables
@@ -114,6 +115,8 @@ unsigned int ipfix_export_port = 0;
 
 unsigned int ipfix_export_remote_port = 0;
 
+unsigned int preemptive_timeout = 0;
+
 char *ipfix_export_remote_host = NULL;
 
 char *ipfix_export_template = NULL;
@@ -127,6 +130,8 @@ FILE *info = NULL;
 unsigned int records_in_file = 0;
 
 unsigned int verbosity = 0;
+
+unsigned int show_config = 0;
 
 unsigned short compact_bd_mapping[16];
 
@@ -146,6 +151,8 @@ struct configuration config = { 0, };
  */
 #define T_WINDOW 10
 #define T_ACTIVE 20
+
+struct timeval global_time = {0, 0};
 
 struct timeval time_window = { T_WINDOW, 0 };
 
@@ -182,81 +189,6 @@ unsigned int num_pkt_len = NUM_PKT_LEN;
 static void flow_record_delete(struct flow_record *r);
 static void flow_record_print_and_delete(struct flow_record *record);
 
-/* *********************************************************************
- * ---------------------------------------------------------------------
- *                      Time functions
- * For portability and static analysis, we define our own timer
- * comparison functions (rather than use non-standard
- * timercmp/timersub macros)
- * ---------------------------------------------------------------------
- * *********************************************************************
- */
-
-static inline unsigned int timer_lt (const struct timeval *a, const struct timeval *b) {
-    return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);
-}
-
-/**
- * \brief Calculate the difference betwen two times (result = a - b)
- * \param a First time value
- * \param b Second time value
- * \param result The difference between the two time values
- * \return none
- */
-void timer_sub(const struct timeval *a,
-               const struct timeval *b,
-               struct timeval *result) {
-    result->tv_sec = a->tv_sec - b->tv_sec;
-    result->tv_usec = a->tv_usec - b->tv_usec;
-    if (result->tv_usec < 0) {
-        --result->tv_sec;
-        result->tv_usec += 1000000;
-    }
-}
-
-/**
- * \brief Zeroize a timeval.
- * \param a Timeval to zero out
- * \return none
- */
-static inline void timer_clear (struct timeval *a) {
-    a->tv_sec = a->tv_usec = 0;
-}
-
-/**
- * \brief Calculate the milliseconds representation of a timeval.
- * \param ts Timeval
- * \return Milliseconds (unsigned int)
- */
-static unsigned int timeval_to_milliseconds (struct timeval ts) {
-    unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
-    return result;
-}
-
-#ifdef WIN32
-int gettimeofday(struct timeval *tp,
-                 struct timezone *tzp)
-{
-	// Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
-	// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
-	// until 00:00:00 January 1, 1970
-	static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
-
-	SYSTEMTIME  system_time;
-	FILETIME    file_time;
-	uint64_t    time;
-
-	GetSystemTime(&system_time);
-	SystemTimeToFileTime(&system_time, &file_time);
-	time = ((uint64_t)file_time.dwLowDateTime);
-	time += ((uint64_t)file_time.dwHighDateTime) << 32;
-
-	tp->tv_sec = (long)((time - EPOCH) / 10000000L);
-	tp->tv_usec = (long)(system_time.wMilliseconds * 1000);
-	return 0;
-}
-#endif
-
 /* ***********************************************
  * -----------------------------------------------
  *          Flow monitoring functions
@@ -282,8 +214,8 @@ void flocap_stats_output (FILE *f) {
 	gettimeofday(&now, NULL);
 	memset(time_str, 0x00, sizeof(time_str));
 
-	timer_sub(&now, &last_stats_output_time, &tmp);
-    seconds = (float) timeval_to_milliseconds(tmp) / 1000.0;
+	joy_timer_sub(&now, &last_stats_output_time, &tmp);
+    seconds = (float) joy_timeval_to_milliseconds(tmp) / 1000.0;
 
     bps = (float) (stats.num_bytes - last_stats.num_bytes) / seconds;
     pps = (float) (stats.num_packets - last_stats.num_packets) / seconds;
@@ -516,7 +448,14 @@ static void flow_record_init (struct flow_record *record,
  * \return Valid pointer if in list, NULL otherwise
  */
 static inline unsigned int flow_record_is_in_chrono_list (const struct flow_record *record) {
-    return record->time_next || record->time_prev;
+    if (record->time_next || record->time_prev) {
+        return 1;
+    }
+    if (record == flow_record_chrono_first) {
+        /* Corner case when there is a single record in the list */
+        return 1;
+    }
+    return 0;
 }
 
 /**
@@ -647,9 +586,6 @@ static unsigned int flow_record_list_remove (flow_record_list *head,
  * \return none
  */
 static void flow_record_chrono_list_append (struct flow_record *record) {
-    extern struct flow_record *flow_record_chrono_first;
-    extern struct flow_record *flow_record_chrono_last;
-
     if (flow_record_chrono_first == NULL) {
         flow_record_chrono_first = record;
         flow_record_chrono_last = record;
@@ -666,9 +602,6 @@ static void flow_record_chrono_list_append (struct flow_record *record) {
  * \return none
  */
 static void flow_record_chrono_list_remove (struct flow_record *record) {
-    extern struct flow_record *flow_record_chrono_first;
-    extern struct flow_record *flow_record_chrono_last;
-
     if (record == NULL) {
         return;
     }
@@ -688,16 +621,94 @@ static void flow_record_chrono_list_remove (struct flow_record *record) {
     }
 }
 
-/*
- * flow_record_is_past_active_expiration(record) returns 1 if the age
- * of the flow record is greater than active_max, and returns 0 otherwise
+/**
+ *
+ * \brief Check if an active flow_record is expired.
+ *
+ * This function operates in one of two modes:
+ * 1. Use the incoming packet information within \p header to determine if
+ *    the current flow \p record is expired. I.e. should the incoming packet
+ *    be placed in a new record.
+ * 2. If there is not a new packet \p header, then use the timestamps
+ *    of the \p record to determine if it is expired.
+ *
+ * \param record - The current flow record that matches the incoming packet
+ * \param header - this is the incoming packet header which contains timestamps
+ * \return int - 1 if expired, 0 otherwise
  */
-static unsigned int flow_record_is_past_active_expiration (const struct flow_record *record) {
-    if (record->end.tv_sec > (record->start.tv_sec + active_max)) {
-        if ((record->twin == NULL) || (record->end.tv_sec > (record->twin->start.tv_sec + active_max))) {
+static int flow_record_is_active_expired(struct flow_record *record,
+                                         const struct pcap_pkthdr *header) {
+    if (header) {
+        /*
+         * Preemptive Timeout
+         * Check the new incoming packet to see if it will expire the record
+         */
+        if (header->ts.tv_sec > (record->start.tv_sec + active_max) && preemptive_timeout) {
+            if ((record->twin == NULL) || (header->ts.tv_sec > (record->twin->start.tv_sec + active_max))) {
+                return 1;
+            }
+        }
+    } else {
+        /* Check the record only to see if it's expired (no new packet) */
+        if (record->end.tv_sec > (record->start.tv_sec + active_max)) {
+            if ((record->twin == NULL) || (record->end.tv_sec > (record->twin->start.tv_sec + active_max))) {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+/**
+ *
+ * \brief Check if a flow_record is expired.
+ *
+ * The global Joy time is the most recent packet that has been seen.
+ * All of the cutoffs are calculated relative to each other because
+ * it enables usage in situations where we cannot use real-time,
+ * i.e. IPFIX collection.
+ *
+ * \param record - A flow_record
+ * \return int - 1 if expired, 0 otherwise
+ */
+static unsigned int flow_record_is_expired(struct flow_record *record) {
+    struct timeval inactive_cutoff;
+    struct timeval active_cutoff;
+
+    joy_timer_sub(&global_time, &time_window, &inactive_cutoff);
+    joy_timer_sub(&inactive_cutoff, &active_timeout, &active_cutoff);
+
+    /*
+     * Check for active timeout
+     */
+    if (joy_timer_lt(&record->start, &active_cutoff)) {
+        if (record->twin) {
+            if (joy_timer_lt(&record->twin->start, &active_cutoff)) {
+	              record->exp_type = expiration_type_active;
+	              return 1;
+            }
+        } else {
+            record->exp_type = expiration_type_active;
             return 1;
         }
     }
+
+    /*
+     * Check for inactive timeout
+     */
+    if (joy_timer_lt(&record->end, &inactive_cutoff)) {
+        if (record->twin) {
+            if (joy_timer_lt(&record->twin->end, &inactive_cutoff)) {
+	            record->exp_type = expiration_type_inactive;
+	            return 1;
+            }
+        } else {
+            record->exp_type = expiration_type_inactive;
+            return 1;
+        }
+    }
+
     return 0;
 }
 
@@ -709,26 +720,28 @@ static unsigned int flow_record_is_past_active_expiration (const struct flow_rec
  * \return NULL if expired or could not create or retrieve record
  */
 struct flow_record *flow_key_get_record (const struct flow_key *key,
-                                         unsigned int create_new_records) {
+                                         unsigned int create_new_records,
+                                         const struct pcap_pkthdr *header) {
     struct flow_record *record;
     unsigned int hash_key;
 
-    /* find a record matching the flow key, if it exists */
+    /* Find a record matching the flow key, if it exists */
     hash_key = flow_key_hash(key);
     record = flow_record_list_find_record_by_key(&flow_record_list_array[hash_key], key);
+
     if (record != NULL) {
-        if (create_new_records && flow_record_is_in_chrono_list(record) && flow_record_is_past_active_expiration(record)) {
+       if (create_new_records && flow_record_is_in_chrono_list(record)
+           && flow_record_is_active_expired(record, header)) {
             /*
-             *  active-timeout exceeded for this flow_record; print and delete
+             *  Active-timeout exceeded for this flow_record; print and delete
              *  it, then set record = NULL to cause the creation of a new
              *  flow_record to be used in further packet processing
              */
-            // fprintf(output, "deleting active-expired record\n");
-            flow_record_print_and_delete(record);
-            record = NULL;
-        } else {
-            return record;
-        }
+           flow_record_print_and_delete(record);
+           record = NULL;
+       } else {
+           return record;
+       }
     }
 
     /* if we get here, then record == NULL  */
@@ -843,7 +856,7 @@ int flow_key_set_process_info(const struct flow_key *key, const struct host_flow
 	if (data->exe_name == NULL) {
 		return failure;   /* no point in looking for flow_record */
 	}
-	r = flow_key_get_record(key, DONT_CREATE_RECORDS);
+	r = flow_key_get_record(key, DONT_CREATE_RECORDS, NULL);
 	// flow_key_print(key);
 	if (r) {
 		if (r->exe_name == NULL) {
@@ -952,10 +965,10 @@ static void print_bytes_dir_time (unsigned short int pkt_len,
                                   char *term) {
     if (pkt_len < 32768) {
         zprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
-	            pkt_len, dir, timeval_to_milliseconds(ts), term);
+	            pkt_len, dir, joy_timeval_to_milliseconds(ts), term);
     } else {
         zprintf(output, "{\"rep\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
-	            65536-pkt_len, dir, timeval_to_milliseconds(ts), term);
+	            65536-pkt_len, dir, joy_timeval_to_milliseconds(ts), term);
     }
 }
 
@@ -1025,7 +1038,7 @@ static void flow_record_print_json (const struct flow_record *record) {
 
     if (record->twin != NULL) {
         // Use the smaller of the 2 time values
-        if (timer_lt(&record->start, &record->twin->start)) {
+        if (joy_timer_lt(&record->start, &record->twin->start)) {
             ts_start = record->start;
             rec = record;
         } else {
@@ -1033,7 +1046,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             rec = record->twin;
         }
         // Use the larger of the 2 time values
-        if (timer_lt(&record->end, &record->twin->end)) {
+        if (joy_timer_lt(&record->end, &record->twin->end)) {
             ts_end = record->twin->end;
         } else {
             ts_end = record->end;
@@ -1193,16 +1206,16 @@ static void flow_record_print_json (const struct flow_record *record) {
         } else {
             for (i = 0; i < imax-1; i++) {
                 if (i > 0) {
-                    timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
+                    joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
                 } else {
-                    timer_clear(&ts);
+                    joy_timer_clear(&ts);
                 }
                 print_bytes_dir_time(rec->pkt_len[i], OUT, ts, ",");
             }
             if (i == 0) {        /* TODO this code could be simplified */
-                timer_clear(&ts);
+                joy_timer_clear(&ts);
             } else {
-                timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
+                joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
             }
             print_bytes_dir_time(rec->pkt_len[i], OUT, ts, "");
         }
@@ -1228,7 +1241,7 @@ static void flow_record_print_json (const struct flow_record *record) {
 	            i++;
             } else {
                 /* Neither list is exhausted, so use list with lowest time */
-                if (timer_lt(&rec->pkt_time[i], &rec->twin->pkt_time[j])) {
+                if (joy_timer_lt(&rec->pkt_time[i], &rec->twin->pkt_time[j])) {
                     ts = rec->pkt_time[i];
                     pkt_len = rec->pkt_len[i];
                     dir = IN;
@@ -1241,7 +1254,7 @@ static void flow_record_print_json (const struct flow_record *record) {
                 }
             }
 
-            timer_sub(&ts, &ts_last, &tmp);
+            joy_timer_sub(&ts, &ts_last, &tmp);
             print_bytes_dir_time(pkt_len, dir, tmp, "");
             ts_last = ts;
 
@@ -1456,53 +1469,7 @@ static void flow_record_print_json (const struct flow_record *record) {
     zprintf(output, "}\n");
 }
 
-/*
- * a unidirectional flow_record is inactive-expired when it end time is after
- * the expiration time
- *
- * a bidirectional flow_record (i.e. one with twin != NULL) is expired
- * when both the record end time and the twin end time are after the
- * expiration time
- *
- */
-static unsigned int flow_record_is_expired(struct flow_record *record,
-                                           const struct timeval *inactive_cutoff) {
-    struct timeval active_cutoff;
 
-    /*
-     * Check for active timeout
-     */
-    timer_sub(inactive_cutoff, &active_timeout, &active_cutoff);
-
-    if (timer_lt(&record->start, &active_cutoff)) {
-        if (record->twin) {
-            if (timer_lt(&record->twin->start, &active_cutoff)) {
-	              record->exp_type = expiration_type_active;
-	              return 1;
-            }
-        } else {
-            record->exp_type = expiration_type_active;
-            return 1;
-        }
-    }
-
-    /*
-     * Check for inactive timeout
-     */
-    if (timer_lt(&record->end, inactive_cutoff)) {
-        if (record->twin) {
-            if (timer_lt(&record->twin->end, inactive_cutoff)) {
-	            record->exp_type = expiration_type_inactive;
-	            return 1;
-            }
-        } else {
-            record->exp_type = expiration_type_inactive;
-            return 1;
-        }
-    }
-
-    return 0;
-}
 
 /**
  * \brief Print a flow record to output and delete.
@@ -1543,23 +1510,25 @@ static void flow_record_print_and_delete (struct flow_record *record) {
 }
 
 /**
- * \brief Prints out the flow record list in JSON format
+ * \brief Prints out the flow record list in JSON format.
  *
- * \param inactive_cutoff Cutoff time for inactive flows
+ * \param print_all Flag whether to indiscriminately print all flow_records.
+ *                  1 to print all of them, 0 to perform expiration check
  *
  * \return none
  */
-void flow_record_list_print_json (const struct timeval *inactive_cutoff) {
-    struct flow_record *record;
+void flow_record_list_print_json (unsigned int print_all) {
+    struct flow_record *record = NULL;
 
+    /* The head of chrono record list */
     record = flow_record_chrono_first;
+
     while (record != NULL) {
-        /*
-         * Avoid printing flows that might still be active, if a non-NULL
-         * expiration time was passed into this function
-         */
-        if (inactive_cutoff && !flow_record_is_expired(record, inactive_cutoff)) {
-            break;
+        if (!print_all) {
+            /* Avoid printing flows that might still be active */
+            if (!flow_record_is_expired(record)) {
+                break;
+            }
         }
 
         flow_record_print_and_delete(record);
@@ -1744,11 +1713,11 @@ static int uploader_send_file (char *filename, char *servername,
        joy_log_info("transfer of file [%s] successful!", filename);
        /* see if we are allowed to delete the file after upload */
        if (retain == 0) {
-            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", "config.vars");
-            joy_log_info("removing file [%s]", "config.vars");
+            snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", filename);
+            joy_log_info("removing file [%s]", filename);
             rc = system(cmd);
             if (rc != 0) {
-                fprintf(info,"uploader: removing file [%s] failed!", "config.vars");
+                joy_log_err("removing file [%s] failed!", filename);
             }
         }
     } else {

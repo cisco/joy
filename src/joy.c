@@ -63,6 +63,8 @@
 #include <sys/socket.h>
 #include <sys/wait.h>    
 #include <netinet/in.h>
+#include <pwd.h>
+#include <grp.h>
 #endif
 
 #include <limits.h>  
@@ -121,12 +123,6 @@ extern radix_trie_t rt;
 
 extern struct flocap_stats stats;
 
-extern struct timeval time_window;
-
-extern struct timeval active_timeout;
-
-extern unsigned int active_max;
-
 extern unsigned short compact_bd_mapping[16];
 
 /* configuration state */
@@ -159,6 +155,8 @@ extern unsigned int ipfix_export_port;
 
 extern unsigned int ipfix_export_remote_port;
 
+extern unsigned int preemptive_timeout;
+
 extern char *ipfix_export_remote_host;
 
 extern char *ipfix_export_template;
@@ -173,10 +171,18 @@ extern unsigned int records_in_file;
 
 extern unsigned int verbosity;
 
+extern unsigned int show_config;
+
 define_all_features_config_extern_uint(feature_list)
 
 /* config is the global configuration */
 extern struct configuration config;
+
+/*
+ * reopenLog is the flag set when SIGHUP is received
+ * volatile as it is modified by a signal handler
+ */
+volatile int reopenLog = 0;
 
 /*******************************************************************
  *******************************************************************
@@ -293,10 +299,28 @@ static void sig_close (int signal_arg) {
      * flush remaining flow records, and print them even though they are
      * not expired
      */
-    flow_record_list_print_json(NULL);
+    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
     zclose(output);  
+
+    if (config.ipfix_export_port) {
+        /* Flush any unsent exporter messages in Ipfix module */
+        ipfix_export_flush_message();
+    }
+    /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
+    ipfix_module_cleanup();
+
     fprintf(info, "got signal %d, shutting down\n", signal_arg); 
     exit(EXIT_SUCCESS);
+}
+
+/*
+ * sig_reload()
+ * Sets reopenLog flag when SIGHUP is received
+ */
+static void sig_reload (int signal_arg) {
+
+    fprintf(info, "got signal %d, closing and reopening log file\n", signal_arg); 
+    reopenLog = 1;
 }
 
 /**
@@ -310,8 +334,8 @@ static int usage (char *s) {
     printf("usage: %s [OPTIONS] file1 [file2 ... ]\n", s);
     printf("where OPTIONS are as follows:\n"); 
     printf("General options\n"
-	   "  -x F                       read configuration commands from file F\n"
-	   "  interface=I                read packets live from interface I\n"
+           "  -x F                       read configuration commands from file F\n"
+           "  interface=I                read packets live from interface I\n"
            "  promisc=1                  put interface into promiscuous mode\n"
            "  output=F                   write output to file F (otherwise stdout is used)\n"
            "  logfile=F                  write secondary output to file F (otherwise stderr is used)\n" 
@@ -320,6 +344,9 @@ static int usage (char *s) {
            "  keyfile=F                  use SSH identity (private key) in file F for upload\n" 
            "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
            "  retain=1                   retain a local copy of file after upload\n" 
+           "  preemptive_timeout=1       For active flows, look at incoming packets timestamp to decide if\n"
+           "                             adding that packet to the flow record will automatically time it out.\n"
+           "                             Default=0\n"
            "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
            "  ipfix_collect_port=N       enable IPFIX collector on port N\n"
            "  ipfix_collect_online=1     use an active UDP socket for IPFIX collector\n"
@@ -338,6 +365,10 @@ static int usage (char *s) {
            "  verbosity=L                Specify the lowest log level\n"
            "                             0=off, 1=debug, 2=info, 3=warning, 4=error, 5=critical\n"
            "                             Default=4\n"
+           "  show_config=0              Show the configuration on stderr in the CLI on program run\n"
+           "                             0=off, 1=show\n"
+           "  username=\"user\"          Drop privileges to username \"user\" after starting packet capture\n"
+           "                             Default=\"joy\"\n"
 	   "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
@@ -499,6 +530,7 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         ipfix_export_remote_port = config.ipfix_export_remote_port;
         ipfix_export_remote_host = config.ipfix_export_remote_host;
         ipfix_export_template = config.ipfix_export_template;
+        preemptive_timeout = config.preemptive_timeout;
         aux_resource_path = config.aux_resource_path;
         verbosity = config.verbosity;
 
@@ -517,6 +549,11 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
 
     /* Set log to file or console */
     if (set_logfile()) return 1;
+
+    if (config.show_config) {
+        /* Print running configuration */
+        config_print(info, &config);
+    }
 
     if (config.report_tls) {
         /* Load the TLS fingerprints into memory */
@@ -775,10 +812,16 @@ static int set_data_output_file(char *output_filename,
                  zsuffix("%d"), file_count);
     }
 
-    output = zopen(output_filename, "w");
-    if (output == NULL) {
-        joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
-		goto end;
+    /*
+     * If not doing live capture, open output file now;
+     * otherwise wait until after dropping root privileges.
+     */
+    if (joy_mode != MODE_ONLINE) { 
+        output = zopen(output_filename, "w");
+        if (output == NULL) {
+            joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+            goto end;
+        }
     }
 
     /* Success */
@@ -825,6 +868,9 @@ int main (int argc, char **argv) {
     pthread_t ipfix_cts_monitor_thread;
     int cts_monitor_thread_rc;
     int c, i = 0;
+#ifndef _WIN32
+    struct passwd *pw = NULL;
+#endif
 
     /* Sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -903,12 +949,6 @@ int main (int argc, char **argv) {
     fprintf(info, "--- Joy Initialization ---\n");
     flocap_stats_output(info);
 
-    /*
-     * Report on running configuration (which may depend on the command
-     * line, the config file, or both)
-     */
-    config_print(info, &config);
-
     /* 
      * Retrieve sequence of packet lengths/times and byte distribution
      * parameters if supplied
@@ -949,6 +989,7 @@ int main (int argc, char **argv) {
     
         signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
         signal(SIGTERM, sig_close);
+        signal(SIGHUP, sig_reload);
 
         /*
          * set capture interface as needed
@@ -1008,14 +1049,53 @@ int main (int argc, char **argv) {
 
         }
 
+#ifndef _WIN32
+        /*
+         * drop privileges once pcap handle exists
+         */
+        pw = getpwnam(config.username);
+        if (pw) {
+            if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
+                setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
+                fprintf(info, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
+                    config.username,
+                    (unsigned long)pw->pw_uid,
+                    (unsigned long)pw->pw_gid,
+                    pcap_strerror(errno));
+                return -5; 
+            }
+            else {
+                fprintf(info, "changed user to '%.32s' (uid=%lu gid=%lu)\n",
+                    config.username,
+                    (unsigned long)pw->pw_uid,
+                    (unsigned long)pw->pw_gid);
+            }
+        }
+        else {
+            fprintf(info, "error: could not find user '%.32s'\n", config.username);
+            return -5;
+        }
+#endif /* _WIN32 */
+
+        /*
+         * open output file
+         */
+        if (config.filename) {
+            output = zopen(output_filename, "w");
+            if (output == NULL) {
+                fprintf(info, "error: could not open output file %s (%s)\n", output_filename, strerror(errno));
+                return -1;
+            }
+        }
+
         /*
          * start up the updater thread
          *   updater is only active during live capture runs
          */
          upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)&config);
          if (upd_rc) {
-	            fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
-	            return -6;
+             fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
+             return -6;
          }
 
         /*
@@ -1025,8 +1105,8 @@ int main (int argc, char **argv) {
          if (config.upload_servername) {
              upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&config);
              if (upd_rc) {
-	         fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
-	         return -7;
+	             fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
+	             return -7;
              }
          }
 
@@ -1041,9 +1121,9 @@ int main (int argc, char **argv) {
         config_print_json(output, &config);
 
         while(1) {
-            struct timeval time_of_day, inactive_flow_cutoff;
-
-            /* loop over packets captured from interface */
+            /* 
+             * Loop over packets captured from interface.
+             */
             pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
       
             joy_log_info("PCAP processing loop done");
@@ -1058,19 +1138,13 @@ int main (int argc, char **argv) {
 	              }
            }
 
-           /*
-            * periodically report on progress
-            */
+           /* Periodically report on progress */
            if ((flocap_stats_get_num_packets() % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
 	              flocap_stats_output(info);
            }
 
-           /* print out inactive flows */
-           gettimeofday(&time_of_day, NULL);
-
-           timer_sub(&time_of_day, &time_window, &inactive_flow_cutoff);
-
-           flow_record_list_print_json(&inactive_flow_cutoff);
+           /* Print out expired flows */
+           flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
 
            if (config.filename) {
 	
@@ -1104,6 +1178,16 @@ int main (int argc, char **argv) {
 	              fflush(info);
            }
            // fflush(output);
+           // Close and reopen the log file if reopenLog flag is set
+           if (reopenLog && config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
+              fclose(info);
+              reopenLog = 0;
+              info = fopen(config.logfile, "a");
+              if (info == NULL) {
+                 fprintf(stderr, "error: could not open new log file %s\n", config.logfile);
+                 return -1;
+              }
+           }
         }
 
         if (filter_exp) {
@@ -1136,7 +1220,7 @@ int main (int argc, char **argv) {
 
         ipfix_collect_main();
 
-        flow_record_list_print_json(NULL);
+        flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
         fflush(info);
     } else { /* mode = mode_offline */
 
@@ -1215,6 +1299,7 @@ int main (int argc, char **argv) {
  */
 int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
+    int more = 1;
 
     joy_log_info("reading pcap file %s", file_name);
 
@@ -1241,20 +1326,23 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
         }
     }
   
-    /* loop over all packets in capture file */
-    pcap_loop(handle, GET_ALL_PACKETS, process_packet, NULL);
+    while (more) {
+        /* Loop over all packets in capture file */
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
+        /* Print out expired flows */
+        flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
+    }
 
-    /* cleanup */
-  
     joy_log_info("all flows processed");
   
+    /* Cleanup */
     if (filter_exp) {
         pcap_freecode(fp);
     }
   
     pcap_close(handle);
   
-    flow_record_list_print_json(NULL);
+    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
     flow_record_list_free();
 
     return 0;

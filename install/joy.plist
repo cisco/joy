@@ -1,33 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-
 <plist version="1.0">
-
 <dict>
-
     <key>Label</key>
-
-    <string>org.p2f.joy</string>
-
+    <string>com.cisco.joy</string>
     <key>ProgramArguments</key>
-
     <array>
-
         <string>/usr/local/bin/joy</string>
-
         <string>-x</string>
-
         <string>/usr/local/etc/joy/options.cfg</string>
-
     </array>
-
     <key>KeepAlive</key>
-
     <true/>
-
+    <key>StandardOutPath</key>
+    <string>/var/log/joy.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/joy_err.log</string>
+    <key>HardResourceLimits</key>
+    <dict>
+        <key>Core</key>
+        <integer>4294967296</integer>
+        <key>ResidentSetSize</key>
+        <integer>4294967296</integer>
+    </dict>
 </dict>
-
 </plist>
-
- 

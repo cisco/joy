@@ -39,7 +39,7 @@
  *
  * @brief Source code to perform IPFIX protocol operations.
  **********************************************************/
-
+#include <unistd.h>
 #include <string.h>   /* for memcpy() */
 #include <stdlib.h>
 #include <time.h>
@@ -263,7 +263,7 @@ static int ipfix_collect_process_socket(unsigned char *data,
   key.dp = ntohs(gateway_collect.clctr_addr.sin_port);
   key.prot = IPPROTO_UDP;
 
-  record = flow_key_get_record(&key, CREATE_RECORDS);
+  record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
 
   process_ipfix((char*)data, data_len, record);
 
@@ -1048,7 +1048,8 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       ipfix_flow_key_init(&key, cur_template, (const char*)data_ptr);
 
       /* Get a flow record related to ipfix data */
-      ix_record = flow_key_get_record(&key, CREATE_RECORDS);
+      ix_record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
+
 
       /* Fill out record */
       if (memcmp(&key, prev_data_key, sizeof(struct flow_key)) != 0) {
@@ -1489,7 +1490,7 @@ static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->tls_len[i] = ntohs(*((const uint16_t *)data));
+    ix_record->tls->lengths[i] = ntohs(*((const uint16_t *)data));
 
     data += element_length;
     data_length -= element_length;
@@ -1520,11 +1521,11 @@ static void ipfix_process_tls_record_times(struct flow_record *ix_record,
 
   while (data_length > 0) {
     uint16_t value_time = ntohs(*((const uint16_t *)data));
-    ix_record->tls->tls_time[i].tv_sec =
+    ix_record->tls->times[i].tv_sec =
       ((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
       + (ix_record->start.tv_usec / 1000)) / 1000;
 
-    ix_record->tls->tls_time[i].tv_usec =
+    ix_record->tls->times[i].tv_usec =
       (((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
         + (ix_record->start.tv_usec/1000)) % 1000) * 1000;
 
@@ -1557,7 +1558,7 @@ static void ipfix_process_tls_content_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->tls_type[i].content = *((const uint8_t *)data);
+    ix_record->tls->msg_stats[i].content_type = *((const uint8_t *)data);
 
     data += element_length;
     data_length -= element_length;
@@ -1586,8 +1587,9 @@ static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->tls_type[i].handshake = *((const uint8_t *)data);
-    ix_record->tls->tls_op += 1;
+    ix_record->tls->msg_stats[i].handshake_types[0] = *((const uint8_t *)data);
+    ix_record->tls->msg_stats[i].num_handshakes = 1;
+    ix_record->tls->op += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1646,7 +1648,7 @@ static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->tls_extensions[i].length = ntohs(*((const uint16_t *)data));
+    ix_record->tls->extensions[i].length = ntohs(*((const uint16_t *)data));
 
     data += element_length;
     data_length -= element_length;
@@ -1675,9 +1677,9 @@ static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
   }
 
   while (data_length > 0) {
-    ix_record->tls->tls_extensions[i].type = ntohs(*((const uint16_t *)data));
-    ix_record->tls->tls_extensions[i].data = NULL;
-    ix_record->tls->num_tls_extensions += 1;
+    ix_record->tls->extensions[i].type = ntohs(*((const uint16_t *)data));
+    ix_record->tls->extensions[i].data = NULL;
+    ix_record->tls->num_extensions += 1;
 
     data += element_length;
     data_length -= element_length;
@@ -1870,23 +1872,23 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         break;
 
       case IPFIX_TLS_VERSION:
-        ix_record->tls->tls_v = *(const uint8_t *)flow_data;
+        ix_record->tls->version = *(const uint8_t *)flow_data;
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_KEY_LENGTH:
-        ix_record->tls->tls_client_key_length = ntohs(*(const uint16_t *)flow_data);
+        ix_record->tls->client_key_length = ntohs(*(const uint16_t *)flow_data);
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_SESSION_ID:
-        ix_record->tls->tls_sid_len = min(field_length, 256);
-        memcpy(ix_record->tls->tls_sid, flow_data, ix_record->tls->tls_sid_len);
+        ix_record->tls->sid_len = min(field_length, 256);
+        memcpy(ix_record->tls->sid, flow_data, ix_record->tls->sid_len);
         flow_data += field_length;
         break;
 
       case IPFIX_TLS_RANDOM:
-        memcpy(ix_record->tls->tls_random, flow_data, 32);
+        memcpy(ix_record->tls->random, flow_data, 32);
         flow_data += field_length;
         break;
 

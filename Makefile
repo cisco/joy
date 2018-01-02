@@ -42,6 +42,9 @@ endif
 ifndef CURLPATH
 $(error error is "Please run ./config first.")
 endif
+ifndef COMPDEF
+$(error error is "Please run ./config first.")
+endif
 
 export BINDIR = $(ROOT_PATH)/bin
 export TESTDIR = $(ROOT_PATH)/test
@@ -107,7 +110,7 @@ clean:
 # remove everything not under version control
 ##
 clobber: clean
-	rm -rf bin/ joy.bin config.vars
+	rm -rf bin/ joy.bin config.vars test/unit_test
 
 ##
 # installation via shell script

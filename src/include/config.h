@@ -79,7 +79,9 @@ struct configuration {
     unsigned int ipfix_export_port;
     unsigned int ipfix_export_remote_port;
     unsigned int flow_key_match_method;
+    unsigned int preemptive_timeout;
     unsigned int verbosity;
+    unsigned int show_config;
   
     declare_all_features_config_uint(feature_list) 
   
@@ -87,6 +89,7 @@ struct configuration {
     char *intface;
     char *filename;              /*!< output file, if not NULL */
     char *outputdir;             /*!< directory to write output files */
+    char *username;              /*!< username to become when dropping root */
     char *logfile; 
     char *anon_addrs_file;
     char *anon_http_file;

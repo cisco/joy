@@ -35,25 +35,55 @@
  */
 
 /**
- * \file modules.h
+ * \file payload.h
  *
- * \brief module interface
+ * \brief payload generic programming interface defined in feature.h.
  *
  */
-#ifndef MODULES_H
-#define MODULES_H
+#ifndef PAYLOAD_H
+#define PAYLOAD_H
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* secure shell protocol         */
-#include "ike.h"          /* ike protocol                  */
-#include "ip_id.h"        /* ipv4 identification field     */
-#include "salt.h"         /* seq of app lengths and times  */
-#include "ppi.h"          /* per-packet information        */
-#include "tls.h"          /* tls protocol                  */
-#include "dhcp.h"         /* dhcp protocol                 */
-#include "http.h"         /* http protocol                 */
-#include "payload.h"      /* TCP, UDP, IP payload prefix   */
+#include <stdio.h> 
+#include <pcap.h>
+#include "output.h"
+#include "feature.h"
 
-#endif /* MODULES_H */
+#define PAYLOAD_LEN 32
+
+/** usage string */
+#define payload_usage "  payload=N                  include N bytes of payload\n"
+
+/** payload filter key */
+#define payload_filter(key) 1
+  
+/** payload structure */
+typedef struct payload {
+    unsigned int length;
+    unsigned char data[PAYLOAD_LEN]; 
+} payload_t;
+
+
+declare_feature(payload);
+
+/** initialization function */
+void payload_init(struct payload **payload_handle);
+
+/** update payload */
+void payload_update(struct payload *payload, 
+		    const struct pcap_pkthdr *header,
+		    const void *data, 
+		    unsigned int len, 
+		    unsigned int report_payload);
+
+/** JSON print payload */
+void payload_print_json(const struct payload *w1, 
+		    const struct payload *w2,
+		    zfile f);
+
+/** delete payload */
+void payload_delete(struct payload **payload_handle);
+
+/** payload unit test entry point */
+void payload_unit_test();
+
+#endif /* PAYLOAD_H */

@@ -46,7 +46,6 @@
 #ifndef OUTPUT_H
 #define OUTPUT_H
 
-#include <zlib.h>
 
 /**
  * \brief Set the variable COMPRESSED_OUTPUT to 1 to use zlib to
@@ -60,7 +59,6 @@
 #define COMPRESSED_OUTPUT 1
 #endif
 
-
 #if (COMPRESSED_OUTPUT == 0)
 /** normal output */
 typedef FILE *zfile;
@@ -73,21 +71,44 @@ typedef FILE *zfile;
 #define zsuffix(string)      (string)
 
 #else
-/** gzip compressed output */
-typedef gzFile zfile;
 
-#define zopen(fname, ...)    (gzopen(fname, __VA_ARGS__))
+#ifdef USE_BZIP2
+    /** bzip2 compressed output */
+    #include <bzlib.h>
+    int BZ2_bzprintf(BZFILE *b, const char * format, ...);
 
-#ifdef WIN32
-#define zattach(FILEp, ...)  (gzdopen(_fileno(FILEp), __VA_ARGS__))
+    typedef BZFILE *zfile;
+
+    #define zopen(fname, ...)    (BZ2_bzopen(fname, __VA_ARGS__))
+
+    #ifdef WIN32
+        #define zattach(FILEp, ...)  (BZ2_bzdopen(_fileno(FILEp), __VA_ARGS__))
+    #else
+        #define zattach(FILEp, ...)  (BZ2_bzdopen(fileno(FILEp), __VA_ARGS__))
+    #endif
+    #define zprintf              BZ2_bzprintf
+    #define zflush(FILEp)        (BZ2_bzflush(FILEp))
+    #define zclose(output)       (BZ2_bzclose(output))
+    #define zsuffix(string)      (string ".bz2")
+
 #else
-#define zattach(FILEp, ...)  (gzdopen(fileno(FILEp), __VA_ARGS__))
-#endif
+    /** gzip compressed output */
+    #include <zlib.h>
+    typedef gzFile zfile;
 
-#define zprintf(output, ...) (gzprintf(output, __VA_ARGS__))
-#define zflush(FILEp)        (gzflush(FILEp))
-#define zclose(output)       (gzclose(output))
-#define zsuffix(string)      (string ".gz")
+    #define zopen(fname, ...)    (gzopen(fname, __VA_ARGS__))
+
+    #ifdef WIN32
+        #define zattach(FILEp, ...)  (gzdopen(_fileno(FILEp), __VA_ARGS__))
+    #else
+        #define zattach(FILEp, ...)  (gzdopen(fileno(FILEp), __VA_ARGS__))
+    #endif
+
+    #define zprintf(output, ...) (gzprintf(output, __VA_ARGS__))
+    #define zflush(FILEp)        (gzflush(FILEp))
+    #define zclose(output)       (gzclose(output))
+    #define zsuffix(string)      (string ".gz")
+#endif
 
 #endif
 

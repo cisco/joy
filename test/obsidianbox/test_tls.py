@@ -40,6 +40,7 @@ import logging
 import subprocess
 import time
 import gzip
+import bz2
 import json
 import uuid
 import glob
@@ -116,10 +117,10 @@ class ValidateTLS(object):
         self.corrupt_new_flows = {'tls10': list(), 'tls11': list(), 'tls12': list(),
                                   # 'tls13': list()
                                   }
-        self.tmp_outputs = {'tls10': 'tmp-tls10.json.gz',
-                            'tls11': 'tmp-tls11.json.gz',
-                            'tls12': 'tmp-tls12.json.gz',
-                            # 'tls13': 'tmp-tls13.json.gz'
+        self.tmp_outputs = {'tls10': 'tmp-tls10.json',
+                            'tls11': 'tmp-tls11.json',
+                            'tls12': 'tmp-tls12.json',
+                            # 'tls13': 'tmp-tls13.json'
                             }
 
     def _cleanup_tmp_files(self):
@@ -153,6 +154,14 @@ class ValidateTLS(object):
                             flows.append(flow)
                         except:
                             continue
+            elif ft.is_bz2():
+                with bz2.BZ2File(latest_file, 'r') as f:
+                    for line in f:
+                        try:
+                            flow = json.loads(line)
+                            flows.append(flow)
+                        except:
+                            continue
             else:
                 with open(latest_file, 'r') as f:
                     for line in f:
@@ -179,6 +188,14 @@ class ValidateTLS(object):
             ft = FileType(self.tmp_outputs[version])
             if ft.is_gz():
                 with gzip.open(self.tmp_outputs[version], 'r') as f:
+                    for line in f:
+                        try:
+                            flow = json.loads(line)
+                            flows.append(flow)
+                        except:
+                            continue
+            elif ft.is_bz2():
+                with bz2.BZ2File(self.tmp_outputs[version], 'r') as f:
                     for line in f:
                         try:
                             flow = json.loads(line)

@@ -86,3 +86,14 @@ class FileType(object):
                 return True
 
         return False
+
+    def is_bz2(self):
+        magic = "\x42\x5a\x68"
+
+        with open(self.filename) as f:
+            data = f.read(len(magic))
+
+            if data.startswith(magic):
+                return True
+
+        return False
