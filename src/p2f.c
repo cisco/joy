@@ -1062,24 +1062,48 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
 }
 
 static void print_tcp_json (zfile f, const struct flow_record *rec) {
-    zprintf(f, "\"tcp\":{\"sp\":%u,\"dp\":%u", rec->key.sp, rec->key.dp);
+    int comma = 0;
+
+    zprintf(f, "\"tcp\":{");
 
     if (rec->initial_seq) {
-        zprintf(f, ",\"initial_seq\":%u", rec->initial_seq);
+        zprintf(f, "\"initial_seq\":%u", rec->initial_seq);
+        comma = 1;
     } else if (rec->twin != NULL && !rec->initial_seq && rec->twin->initial_seq) {
-        zprintf(f, ",\"initial_seq\":%u", rec->twin->initial_seq);
+        zprintf(f, "\"initial_seq\":%u", rec->twin->initial_seq);
+        comma = 1;
     }
 
     if (rec->tcp_initial_window_size) {
-        zprintf(f, ",\"window_out\":%u", rec->tcp_initial_window_size);
+        if (comma) {
+            zprintf(f, ",\"window_out\":%u", rec->tcp_initial_window_size);
+        } else {
+            zprintf(f, "\"window_out\":%u", rec->tcp_initial_window_size);
+            comma = 1;
+        }
     } else if (rec->twin != NULL && rec->twin->tcp_initial_window_size) {
-        zprintf(f, ",\"window_in\":%u", rec->twin->tcp_initial_window_size);
+        if (comma) {
+            zprintf(f, ",\"window_in\":%u", rec->twin->tcp_initial_window_size);
+        } else {
+            zprintf(f, "\"window_in\":%u", rec->twin->tcp_initial_window_size);
+            comma = 1;
+        }
     }
 
     if (rec->tcp_syn_size) {
-        zprintf(f, ",\"syn_out\":%u", rec->tcp_syn_size);
+        if (comma) {
+            zprintf(f, ",\"syn_out\":%u", rec->tcp_syn_size);
+        } else {
+            zprintf(f, "\"syn_out\":%u", rec->tcp_syn_size);
+            comma = 1;
+        }
     } else if (rec->twin != NULL && rec->twin->tcp_syn_size) {
-        zprintf(f, ",\"syn_in\":%u", rec->twin->tcp_syn_size);
+        if (comma) {
+            zprintf(f, ",\"syn_in\":%u", rec->twin->tcp_syn_size);
+        } else {
+            zprintf(f, "\"syn_in\":%u", rec->twin->tcp_syn_size);
+            comma = 1;
+        }
     }
 
     /* End object */
@@ -1135,34 +1159,29 @@ static void flow_record_print_json (const struct flow_record *record) {
      */
     zprintf(output, "{");
 
-    /*****************************************************************
-     * IP object start
-     *****************************************************************
-     */
-    zprintf(output, "\"ip\":{");
     if (ipv4_addr_needs_anonymization(&rec->key.sa)) {
-        zprintf(output, "\"sa\":\"%s\"", addr_get_anon_hexstring(&rec->key.sa));
+        zprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->key.sa));
     } else {
-        zprintf(output, "\"sa\":\"%s\"", inet_ntoa(rec->key.sa));
+        zprintf(output, "\"sa\":\"%s\",", inet_ntoa(rec->key.sa));
     }
     if (ipv4_addr_needs_anonymization(&rec->key.da)) {
-        zprintf(output, ",\"da\":\"%s\"", addr_get_anon_hexstring(&rec->key.da));
+        zprintf(output, "\"da\":\"%s\",", addr_get_anon_hexstring(&rec->key.da));
     } else {
-        zprintf(output, ",\"da\":\"%s\"", inet_ntoa(rec->key.da));
+        zprintf(output, "\"da\":\"%s\",", inet_ntoa(rec->key.da));
     }
-    zprintf(output, ",\"pr\":%u", rec->key.prot);
-    zprintf(output, "},");
-    /*****************************************************************
-     * IP object end
-     *****************************************************************
-     */
+    zprintf(output, "\"pr\":%u,", rec->key.prot);
 
-    if (rec->key.prot == 6) {
-        /* TCP object */
-        print_tcp_json(output, rec);
-    } else if (rec->key.prot == 17) {
-        /* UDP ports */
-        zprintf(output, "\"udp\":{\"sp\":%u,\"dp\":%u},", rec->key.sp, rec->key.dp);
+    if (rec->key.prot == 6 || rec->key.prot == 17) {
+        zprintf(output, "\"sp\":%u,", rec->key.sp);
+        zprintf(output, "\"dp\":%u,", rec->key.dp);
+        if (rec->key.prot == 6) {
+            /* TCP object */
+            print_tcp_json(output, rec);
+        }
+    } else {
+        /* Make dp/sp null so that they can still be compared */
+        zprintf(output, "\"sp\":null,");
+        zprintf(output, "\"dp\":null,");
     }
 
     /*

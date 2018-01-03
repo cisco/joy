@@ -120,18 +120,14 @@ class FlowStitchIterator(DictStreamIterator):
         self.active_flows = collections.OrderedDict()
 
         for f in source:
-            if 'ip' in f:
-                ip = f['ip']
-                key = (ip['sa'], ip['da'], ip['sp'], ip['dp'], ip['pr'])
-                revkey = (ip['da'], ip['sa'], ip['dp'], ip['sp'], ip['pr'])
-                if key in self.active_flows:
-                    self.active_flows[key] = self.merge(self.active_flows[key], f)
-                elif revkey in self.active_flows:
-                    self.active_flows[revkey] = self.merge_reverse(self.active_flows[revkey], f)
-                else:
-                    self.active_flows[key] = f
+            key = (f['sa'], f['da'], f['sp'], f['dp'], f['pr'])
+            revkey = (f['da'], f['sa'], f['dp'], f['sp'], f['pr'])
+            if key in self.active_flows:
+                self.active_flows[key] = self.merge(self.active_flows[key], f)
+            elif revkey in self.active_flows:
+                self.active_flows[revkey] = self.merge_reverse(self.active_flows[revkey], f)
             else:
-                pass # what to do with non-ip flows?
+                self.active_flows[key] = f
 
         self.flows = iter(self.active_flows.values())
 
@@ -146,13 +142,13 @@ class FlowStitchIterator(DictStreamIterator):
             if k not in f1:
                 f1[k] = f2[k]
             else:
-                if k == 'te':
+                if k == 'time_end':
                     f1[k] = max(f1[k], f2[k])
-                elif k == 'ipk' or k == 'ib':
+                elif k == 'num_pkts_in' or k == 'bytes_in':
                     f1[k] += f2[k]
-                elif k == 'opk' or k == 'ob':
+                elif k == 'num_pkts_out' or k == 'bytes_out':
                     f1[k] += f2[k]
-                elif k == 'bd':
+                elif k == 'byte_dist':
                     for i, e in enumerate(f2[k]):
                         f1[k][i] += e
                 else:
@@ -165,20 +161,20 @@ class FlowStitchIterator(DictStreamIterator):
     def merge_reverse(self, f1, f2):
         for k, v in f2.items():
             if k not in f1:
-                if k == 'op':
-                    f1['ipk'] += f2[k]
-                elif k == 'ob':
-                    f1['ib'] += f2[k]
+                if k == 'num_pkts_out':
+                    f1['num_pkt_in'] += f2[k]
+                elif k == 'bytes_out':
+                    f1['bytes_in'] += f2[k]
                 else:
                     f1[k] = f2[k]
             else:
-                if k == 'te':
+                if k == 'time_end':
                     f1[k] = max(f1[k], f2[k])
-                elif k == 'ipk':
-                    f1[k] += f2['ob']
-                elif k == 'opk':
-                    f1[k] += f2['ib']
-                elif k == 'bd':
+                elif k == 'num_pkts_in':
+                    f1[k] += f2['bytes_out']
+                elif k == 'num_pkts_out':
+                    f1[k] += f2['bytes_in']
+                elif k == 'byte_dist':
                     for i, e in enumerate(f2[k]):
                         f1[k][i] += e
                 else:
@@ -309,11 +305,14 @@ def pipeline():
     parser.add_argument("--sec_policy_file", dest='policy_file',
                         default="policy.json", help="File containing seclevel policy; defaults to policy.json")
     parser.add_argument("--sec_failure_threshold", dest='failure_threshold',
-                        default=None, help="Integer defining a custom failure threshold for reporting; defaults to specified value in the policy json")
+                        default=None, help="Integer defining a custom failure reporting threshold." +
+                                           "Adjust 'default_failure_threshold' value in the policy JSON file to specify default")
     parser.add_argument("--sec_unknowns", dest='unknowns',
-                        default="report", help="Flag to determine handling of unknowns - ignore or report; defaults to report")
+                        choices=['report', 'ignore'], default="report",
+                        help="Report or ignore unknown ciphersuites, extensions, etc; defaults to report")
     parser.add_argument("--sec_compliance", nargs="*", dest='compliance',
-                        help="List of policies to do a soft check for selected cipher suite compliance against, i.e. fips_140; as defined in compliance.json")
+                        help="List of policies to do a soft check for selected cipher suite compliance against." +
+                             "I.e. 'fips_140' as defined in compliance.json")
 
     # Parse command line, and check arguments
     args = parser.parse_args()
@@ -363,13 +362,13 @@ def pipeline():
         if args.filter:
             flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
         if args.tls_sec:
-            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls, policy_file=args.policy_file, unknowns=args.unknowns, compliance=args.compliance, failure_threshold=args.failure_threshold)
+            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls,
+                                                   policy_file=args.policy_file, unknowns=args.unknowns,
+                                                   compliance=args.compliance, failure_threshold=args.failure_threshold)
 
-        # process all flows from source
+        # Process all flows from source
         try:
             for flow in flow_source:
-                #json.dump(flow, sys.stdout, json_indent)
-                #print
                 fp.main_process(flow)
         except KeyboardInterrupt:
             sys.exit()
