@@ -1060,7 +1060,7 @@ int main (int argc, char **argv) {
         }
 
         if (user == NULL) {
-            joy_log_crit("cannot find username to drop privileges");
+            joy_log_crit("Please specify username=foo or run program with sudo");
             return -5;
         }
 
