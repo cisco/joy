@@ -74,7 +74,6 @@ class Policy:
         return "unknown"
 
 
-
 def check_compliance(compliance_policy, scs):
     """
     It should be noted that this is a soft check on whether or not the selected
@@ -118,7 +117,7 @@ def audit_certs_issuer(certs, trusted_ca_list):
         return None
     
     if org_name not in trusted_ca_list:
-        return 'CA not trusted: ' + each['entry_data']
+        return 'CA not trusted: ' + org_name
 
     return None
 
@@ -266,7 +265,6 @@ def get_scs_seclevel(policy, scs, client_key_length):
             seclevel_floor = min(seclevel_inventory.values())
 
         return seclevel_floor, concerns
-
 
 
 def enrich_tls(flow, kwargs):
