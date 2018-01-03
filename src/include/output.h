@@ -68,7 +68,7 @@ typedef FILE *zfile;
 #define zprintf(output, ...) (fprintf(output, __VA_ARGS__))
 #define zflush(FILEp)        (fflush(FILEp))
 #define zclose(output)       (fclose(output))
-#define zsuffix(string)      (string)
+#define zsuffix              ""
 
 #else
 
@@ -89,7 +89,7 @@ typedef FILE *zfile;
     #define zprintf              BZ2_bzprintf
     #define zflush(FILEp)        (BZ2_bzflush(FILEp))
     #define zclose(output)       (BZ2_bzclose(output))
-    #define zsuffix(string)      (string ".bz2")
+    #define zsuffix              ".bz2"
 
 #else
     /** gzip compressed output */
@@ -107,7 +107,7 @@ typedef FILE *zfile;
     #define zprintf(output, ...) (gzprintf(output, __VA_ARGS__))
     #define zflush(FILEp)        (gzflush(FILEp))
     #define zclose(output)       (gzclose(output))
-    #define zsuffix(string)      (string ".gz")
+    #define zsuffix              ".gz"
 #endif
 
 #endif
