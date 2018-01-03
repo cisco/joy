@@ -49,10 +49,11 @@
 #include "config.h"
 #include "radix_trie.h"
 #include "hdr_dsc.h" 
-#include "p2f.h" 
+#include "p2f.h"
 
 #ifdef WIN32
 #include "unistd.h"
+#include <ShlObj.h>
 
 size_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif
@@ -165,6 +166,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "outdir")) {
         parse_check(parse_string(&config->outputdir, arg, num));
 
+    } else if (match(command, "username")) {
+        parse_check(parse_string(&config->username, arg, num));
+
     } else if (match(command, "log")) {
         parse_check(parse_string(&config->logfile, arg, num));
 
@@ -270,6 +274,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "exe")) {
         parse_check(parse_bool(&config->report_exe, arg, num));
 
+    } else if (match(command, "show_config")) {
+        parse_check(parse_bool(&config->show_config, arg, num));
+
     }
 
     config_all_features_bool(feature_list);
@@ -289,6 +296,48 @@ static int config_parse_command (struct configuration *config,
 void config_set_defaults (struct configuration *config) {
     config->type = 1;
     config->verbosity = 4;
+    config->show_config = 0;
+    config->username = "joy";    /*!< default username */
+}
+
+#define MAX_FILEPATH 128
+
+static FILE* open_config_file(const char *filename) {
+    FILE *fp = NULL;
+
+    /* Try the filename that was given (it may be whole path needed) */
+    fp = fopen(filename, "r");
+
+#ifdef WIN32
+    if (!fp) {
+        /* In case of Windows install, try looking in the LocalAppData */
+        char *filepath = NULL;
+        PWSTR windir = NULL;
+
+        /* Allocate memory to store constructed file path */
+        filepath = calloc(MAX_FILEPATH, sizeof(char));
+
+        SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
+
+        memset(filepath, 0, MAX_FILEPATH);
+        snprintf(filepath, MAX_FILEPATH, "%ls\\Joy\\%s", windir, filename);
+        fp = fopen(filepath, "r");
+
+        if (windir != NULL) {
+            CoTaskMemFree(windir);
+        }
+
+        if (filepath) {
+            free(filepath);
+        }
+    }
+#endif
+
+    if (!fp) {
+        joy_log_err("could not open %s", filename);
+    }
+
+    return fp;
 }
 
 /**
@@ -309,9 +358,9 @@ int config_set_from_file (struct configuration *config, const char *fname) {
     unsigned int linecount = 0;
     char *c;
 
-    f = fopen(fname, "r");
+    f = open_config_file(fname);
     if (f == NULL) {
-        fprintf(info, "error: could not open file %s\n", fname);
+        joy_log_err("could not find config file %s\n", fname);
         return failure;
     } 
 
@@ -450,6 +499,7 @@ void config_print (FILE *f, const struct configuration *c) {
     fprintf(f, "promisc = %u\n", c->promisc);
     fprintf(f, "output = %s\n", val(c->filename));
     fprintf(f, "outputdir = %s\n", val(c->outputdir));
+    fprintf(f, "username = %s\n", val(c->username));
     fprintf(f, "count = %u\n", c->max_records); 
     fprintf(f, "upload = %s\n", val(c->upload_servername));
     fprintf(f, "keyfile = %s\n", val(c->upload_key));
@@ -495,6 +545,7 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"promisc\":%u,", c->promisc);
     zprintf(f, "\"output\":\"%s\",", val(c->filename));
     zprintf(f, "\"outputdir\":\"%s\",", val(c->outputdir));
+    zprintf(f, "\"username\":\"%s\",", val(c->username));
     zprintf(f, "\"info\":\"%s\",", val(c->logfile));
     zprintf(f, "\"count\":%u,", c->max_records); 
     zprintf(f, "\"upload\":\"%s\",", val(c->upload_servername));

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 """
-joyq performs query operations on JSON-formatted flow objects; see joyq --help for more details
+sleuth performs query operations on JSON-formatted flow objects; see sleuth --help for more details
 
  *
  * Copyright (c) 2017 Cisco Systems, Inc.
@@ -226,14 +226,14 @@ class PcapLoader:
     def run(self):
         """
         Run Joy with the pcap file as input.
-        The json output will then be operated upon in this program (joyq).
-        A temporary json file (temp-joyq.json.gz) will be written to the user's "home" directory.
+        The json output will then be operated upon in this program (sleuth).
+        A temporary json file (temp-sleuth.json.gz) will be written to the user's "home" directory.
         Use the function cleanup() within this class to delete the file before program exit.
         :return:
         """
         cur_dir = os.path.dirname(__file__)
         temp_json_dir = os.path.expanduser('~')
-        temp_json_filename = 'temp-joyq.json.gz'
+        temp_json_filename = 'temp-sleuth.json.gz'
         self.temp_json['file'] = os.path.join(temp_json_dir, temp_json_filename)
 
         enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
@@ -254,7 +254,7 @@ class PcapLoader:
             subprocess.call(command)
         except OSError as e:
             if e.errno == os.errno.ENOENT:
-                # Look within the same directory where joyq lives.
+                # Look within the same directory where sleuth lives.
                 try:
                     subprocess.call(command_local)
                 except OSError as ee:

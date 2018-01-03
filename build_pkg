@@ -6,7 +6,7 @@
 usage() { 
     echo "usage:"
     echo ""
-    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ] [ -s ssl-path ]"
+    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ] [ -s ssl-path ] [ -z compression-type]"
     echo ""
     echo "where the options are as follows"
     echo ""
@@ -23,6 +23,9 @@ usage() {
     echo "   The -s ssl-path is required when building osxpkg and specifies the"
     echo "   location of the OpenSSL header files."
     echo ""
+    echo "   The -z compression-type should be none, gzip or bzip2. This option is passed"
+    echo "   to joy's config script. Default: gzip"
+    echo ""
 } 
 
 # set defaults
@@ -32,21 +35,21 @@ NAME=joy
 # contains the next version number for joy, not the current version.
 VERSION=`echo "scale = 2; \`cat VERSION\` - .01" | bc`
 GITREF=master
+COMPRESSION=gzip
 CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP_ROOT=$(dirname "$CWD")
 PROGNAME=`basename $0`
+# Packages required on build host and requirements for built packages
 DEBIAN_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
-    libssl1.0.2 libssl-dev make python python-pip ruby \
-    ruby-ffi zlib1g zlib1g-dev libbz2-1.0 libbz2-dev"
-DEBIAN_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.2"
+    libssl1.0.2 libssl-dev make python python-pip ruby ruby-ffi"
+DEBIAN_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.2 -d logrotate"
 UBUNTU_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
-    libssl1.0.0 libssl-dev make python python-pip ruby \
-    ruby-ffi zlib1g zlib1g-dev"
-UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0"
+    libssl1.0.0 libssl-dev make python python-pip ruby ruby-ffi"
+UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0 -d logrotate"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
-    openssl-devel python python2-pip ruby rubygems zlib zlib-devel \
-    bzip2-libs bzip2-devel"
+    openssl-devel python python2-pip ruby rubygems"
+RPM_REQS="-d libcurl -d libpcap -d logrotate -d openssl -d openssl-libs"
 ARCH=`uname -m`
 
 echo
@@ -56,11 +59,15 @@ echo
 
 # check command line arguments, ovveride defaults as appropriate
 #
-while getopts "ht:s:r:R:" arg; do
+while getopts "ht:s:r:R:z:" arg; do
     case $arg in
     h)
         usage
         exit
+        ;;
+    z)
+        echo "-z was triggered with option ${OPTARG}" 
+        COMPRESSION=${OPTARG}
         ;;
     t)
         echo "-t was triggered with option ${OPTARG}" 
@@ -122,6 +129,28 @@ else
     else
         RELEASE=1
     fi
+fi
+if [ $COMPRESSION != "none" -a $COMPRESSION != "gzip" -a $COMPRESSION != "bzip2" ]; then
+    echo "-z compression-type must be none, gzip or bzip2"
+    exit 1  
+fi
+
+# Compression-specific packages and requirements
+#
+if [ $COMPRESSION == "gzip" ]; then
+    DEBIAN_PKGS="$DEBIAN_PKGS zlib1g zlib1g-dev"
+    DEBIAN_REQS="$DEBIAN_REQS -d zlib1g"
+    UBUNTU_PKGS="$UBUNTU_PKGS zlib1g zlib1g-dev"
+    UBUNTU_REQS="$UBUNTU_REQS -d zlib1g"
+    RPM_PKGS="$RPM_PKGS zlib zlib-devel"
+    RPM_REQS="$RPM_REQS -d zlib"
+elif [ $COMPRESSION == "bzip2" ]; then
+    DEBIAN_PKGS="$DEBIAN_PKGS libbz2-1.0 libbz2-dev"
+    DEBIAN_REQS="$DEBIAN_REQS -d bzip2 -d libbz2-1.0"
+    UBUNTU_PKGS="$UBUNTU_PKGS libbz2-1.0 libbz2-dev"
+    UBUNTU_REQS="$UBUNTU_REQS -d bzip2 -d libbz2-1.0"
+    RPM_PKGS="$RPM_PKGS bzip2-libs bzip2-devel"
+    RPM_REQS="$RPM_REQS -d bzip2 -d bzip2-libs"
 fi
 
 # Check for build dependencies
@@ -230,6 +259,7 @@ if [ "$?" != 0 ]; then
 fi
 FPM_LINUX_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION --iteration $ITERATION \
     --after-install $APP_ROOT/joy/install/postinstall-linux \
+    --before-install $APP_ROOT/joy/install/preinstall-linux \
     --before-remove $APP_ROOT/joy/install/preuninstall-linux \
     --vendor Cisco --config-files /usr/local/etc/joy/ \
     --config-files /usr/local/var/joy \
@@ -255,8 +285,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/Makefile joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin 2>/dev/null
-    tar -uf $TAR_FILE -C .. joy/Makefile joy/config joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin
+    tar -f $TAR_FILE --delete joy/install/install-sh 2>/dev/null
+    tar -rvf $TAR_FILE -C .. joy/src/joy.c joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
@@ -279,19 +309,24 @@ if [ "$?" != 0 ]; then
     echo Failed to change directory to $NAME
     exit 1
 fi
+patch -p1 < install/joy-num-packets.patch
+if [ "$?" != 0 ]; then
+    echo Failed to patch src/joy.c
+    exit 1
+fi
 if [ "$BUILDTYPE" == "deb" ]; then
     if [ "$ARCH" == "x86_64" ]; then
-        ./config -l /usr/lib/x86_64-linux-gnu -z bzip2
+        ./config -l /usr/lib/x86_64-linux-gnu -z $COMPRESSION
     elif [ "$ARCH" == "armv7l" ]; then
-        ./config -l /usr/lib/arm-linux-gnueabihf -z bzip2
+        ./config -l /usr/lib/arm-linux-gnueabihf -z $COMPRESSION
     else
         echo "Arch $ARCH not supported"
         exit 1
     fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
-    ./config --ssl-path $SSL_PATH -z bzip2
+    ./config --ssl-path $SSL_PATH -z $COMPRESSION
 elif [ "$BUILDTYPE" == "rpm" ]; then
-    ./config -l /usr/lib64 -z bzip2
+    ./config -l /usr/lib64 -z $COMPRESSION
 fi
 if [ "$?" != 0 ]; then
     echo Failed to run ./config
@@ -318,14 +353,14 @@ if [ "$BUILDTYPE" == "deb" ]; then
         FPM_REQS="$DEBIAN_REQS"
     fi
     fpm -s dir -t deb $FPM_LINUX_OPTIONS $FPM_REQS \
-        -d "python >= 2.7" -d zlib1g -d libbz2-1.0 \
+        -d "python >= 2.7" \
         --deb-no-default-config-files \
-        --description 'Joy is a libpcap-based software package for extracting data features from live
+        --description "Joy is a libpcap-based software package for extracting data features from live
 network traffic or packet capture \(pcap\) files, using a flow-oriented model
 similar to that of IPFIX or Netflow, and then representing these data features
 in JSON. It also contains analysis tools that can be applied to these data
 files. Joy can be used to explore data at scale, especially security and
-threat-relevant data.' \
+threat-relevant data. (Compression: $COMPRESSION)" \
         ./
     if [ "$?" != 0 ]; then
         echo Failed to build deb
@@ -333,30 +368,37 @@ threat-relevant data.' \
     fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
     fpm -s dir -t osxpkg $FPM_MAC_OPTIONS \
-        --description 'Joy is a libpcap-based software package for extracting data features from live
+        --description "Joy is a libpcap-based software package for extracting data features from live
 network traffic or packet capture \(pcap\) files, using a flow-oriented model
 similar to that of IPFIX or Netflow, and then representing these data features
 in JSON. It also contains analysis tools that can be applied to these data
 files. Joy can be used to explore data at scale, especially security and
-threat-relevant data.' \
+threat-relevant data. (Compression: $COMPRESSION)" \
         ./
     if [ "$?" != 0 ]; then
         echo Failed to build OS X pkg
         exit 1
     fi
 elif [ "$BUILDTYPE" == "rpm" ]; then
-    fpm -s dir -t rpm $FPM_LINUX_OPTIONS \
-        -d libcurl -d libpcap -d "kernel >= 3.10" -d openssl \
-        -d openssl-libs -d "python >= 2.7" -d zlib -d bzip2-libs \
+    if [ "$OSREL" == "centos" -o "$OSREL" == "redhatenterpriseserver" ]; then
+        FPM_REQS="$RPM_REQS"
+    else
+        echo Unable to build rpm on $OSREL
+        exit 1
+    fi
+    fpm -s dir -t rpm $FPM_LINUX_OPTIONS $FPM_REQS \
+        -d "kernel >= 3.10" -d "python >= 2.7" \
         --config-files /etc/systemd/system/joy.service.d/20-accounting.conf \
         --description 'Joy is a libpcap-based software package for extracting data features from live
-network traffic or packet capture \(pcap\) files, using a flow-oriented model
+network traffic or packet capture (pcap) files, using a flow-oriented model
 similar to that of IPFIX or Netflow, and then representing these data features
 in JSON. It also contains analysis tools that can be applied to these data
 files. Joy can be used to explore data at scale, especially security and
 threat-relevant data.' \
         --rpm-dist el7 \
-        --rpm-summary "Capture and analyze network flow data for research, forensics and monitoring." \
+        --rpm-summary "Capture and analyze network flow data for research, forensics and monitoring. (Compression: $COMPRESSION)" \
+        --rpm-attr 775,joy,joy:/usr/local/var/joy \
+        --rpm-attr 775,joy,joy:/usr/local/var/log \
         ./
     if [ "$?" != 0 ]; then
         echo Failed to build RPM

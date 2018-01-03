@@ -52,6 +52,7 @@ TLS_FINGERPRINT_FILE=${APP_ROOT}/resources/tls_fingerprint.json
 PREFIX="/usr/local"
 BUILDROOT=""
 ARCH=`uname -m`
+LOGROTATEFILE=/etc/logrotate.d/joy
 
 echo
 echo JOY INSTALL-SH
@@ -195,7 +196,102 @@ if [ "$sysname" == "Darwin" ]; then
     if [ -z "$PKGBUILD" ]; then
         echo "stopping flow capture daemon (just in case one is already running)"
         launchctl unload /Library/LaunchDaemons/joy.plist
-    fi
+        launchctl unload /Library/LaunchAgents/com.cisco.joy.plist
+
+        # Create or update joy group
+        #
+        OLDGID=$(dscl . -read /Groups/joy PrimaryGroupID 2>/dev/null | awk '{print $2}')
+        if [ -z "$OLDGID" ]; then
+            # joy group does not exist; find next available GID
+            MAXGID=$(dscl . -list /Groups PrimaryGroupID | awk '{print $2}' | sort -ug | tail -1)
+            NEWGID=$((MAXGID+1))
+        else
+            # joy group already exists; re-use existing GID
+            NEWGID=$OLDGID
+        fi
+        echo "creating/updating joy group"
+        dscl . -create /Groups/joy
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not create joy group"
+            exit 1
+        fi
+        dscl . -create /Groups/joy PrimaryGroupID $NEWGID
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not create joy group with GID $NEWGID"
+            exit 1
+        fi
+        dscl . -create /Groups/joy Password \*
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not update joy group Password"
+            exit 1
+        fi
+        dscl . -create /Groups/joy RealName "joy group"
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not update joy group RealName"
+            exit 1
+        fi
+        
+        # Create or update joy user
+        #
+        OLDUID=$(dscl . -read /Users/joy UniqueID 2>/dev/null | awk '{print $2}')
+        if [ -z "$OLDUID" ]; then
+            # joy user does not exist; find next available UID
+            MAXUID=$(dscl . -list /Users UniqueID | awk '{print $2}' | sort -ug | tail -1)
+            NEWUID=$((MAXUID+1))
+        else
+            # joy group already exists; re-use existing UID
+            NEWUID=$OLDUID
+        fi
+        echo "creating/updating joy user"
+        dscl . -create /Users/joy
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not create joy user"
+            exit 1
+        fi
+        dscl . -create /Users/joy Password \*
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not set joy user Password"
+            exit 1
+        fi
+        dscl . -create /Users/joy RealUser "Joy User"
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not set joy user RealUser"
+            exit 1
+        fi
+        dscl . -create /Users/joy UserShell /usr/bin/false
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not set joy user UserShell"
+            exit 1
+        fi
+        dscl . -create /Users/joy UniqueID $NEWUID
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not set joy user UniqueID $NEWUID"
+            exit 1
+        fi
+        dscl . -create /Users/joy PrimaryGroupID $NEWGID
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not set joy user PrimaryGroupID $NEWGID"
+            exit 1
+        fi
+        dscl . -create /Users/joy NFSHomeDirectory /var/empty
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not set joy user NFSHomeDirectory"
+            exit 1
+        fi
+        dscl . -delete /Users/joy AuthenticationAuthority
+        dscl . -delete /Users/joy PasswordPolicyOptions
+    fi # PKGBUILD
 
     # Create ${PREFIX}/bin directory if it does not currently exist
     create_directory ${PREFIX}/bin
@@ -205,9 +301,17 @@ if [ "$sysname" == "Darwin" ]; then
 
     # Create ${PREFIX}/var/joy directory if it does not currently exist
     create_directory ${PREFIX}/var/joy
+    if [ -z "$PKGBUILD" ]; then
+        chown -R joy:joy ${PREFIX}/var/joy
+        chmod 775 ${PREFIX}/var/joy
+    fi
 
     # Create ${PREFIX}/var/log directory if it does not currently exist
     create_directory ${PREFIX}/var/log
+    if [ -z "$PKGBUILD" ]; then
+        chown -R joy:joy ${PREFIX}/var/log
+        chmod 775 ${PREFIX}/var/log
+    fi
 
     # Create ${PREFIX}/etc directory if it does not currently exist
     create_directory ${PREFIX}/etc
@@ -232,6 +336,23 @@ if [ "$sysname" == "Darwin" ]; then
         exit 1
     fi
 
+    # Install the joy uninstall script
+    if [ -z "$PKGBUILD" ]; then
+        cp ${CWD}/uninstall-sh ${PREFIX}/bin/uninstall-joy
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy uninstall-joy to ${PREFIX}/bin"
+            exit 1
+        fi
+    else
+        cp ${CWD}/uninstall-joy-pkg ${PREFIX}/bin
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy uninstall-joy-pkg to ${PREFIX}/bin"
+            exit 1
+        fi
+    fi
+
     # Install sleuth script
     cp ${APP_ROOT}/sleuth ${PREFIX}/bin/
     retval=$?
@@ -245,21 +366,21 @@ if [ "$sysname" == "Darwin" ]; then
         echo "Running pip install ${APP_ROOT}/sleuth_pkg/"
         pip install ${APP_ROOT}/sleuth_pkg/
     else
-	cd ${APP_ROOT}/sleuth_pkg
-	SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
-	echo "Running python setup.py bdist --format=gztar"
-	python setup.py bdist --format=gztar
+        cd ${APP_ROOT}/sleuth_pkg
+        SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
+        echo "Running python setup.py bdist --format=gztar"
+        python setup.py bdist --format=gztar
         if [ $retval -ne "0" ]; then
             echo "error: could not run python setup.py for sleuth_pkg"
             exit 1
         fi
-        SLEUTHFILE="${APP_ROOT}/sleuth_pkg/dist/sleuth-${SLEUTHVER}.macosx-${OSXVER}-intel.tar.gz"
-	if [ -f $SLEUTHFILE ]; then
+        SLEUTHFILE="${APP_ROOT}/sleuth_pkg/dist/sleuth-${SLEUTHVER}.macosx-${OSXVER}-${ARCH}.tar.gz"
+        if [ -f $SLEUTHFILE ]; then
             tar -xf $SLEUTHFILE -C $BUILDROOT
-	else
+        else
             echo "Cannot find sleuth tarball $SLEUTHFILE"
             exit 1
-	fi
+        fi
     fi
 
     # Install the configuration file
@@ -326,10 +447,10 @@ if [ "$sysname" == "Darwin" ]; then
 
     # Install the Launchd script for daemon management
     if [ -z "$PKGBUILD" ]; then
-        cp ${CWD}/joy.plist /Library/LaunchDaemons/
+        cp ${CWD}/joy.plist /Library/LaunchAgents/com.cisco.joy.plist
         retval=$?
         if [ $retval -ne "0" ]; then
-            echo "error: could not copy joy.plist to /Library/LaunchDaemons"
+            echo "error: could not copy joy.plist to /Library/LaunchAgents"
             exit 1
         fi
     else
@@ -353,11 +474,12 @@ if [ "$sysname" == "Darwin" ]; then
 
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
+        ls -l ${PREFIX}/bin/uninstall-joy
         ls -l ${PREFIX}/etc/joy/*
         ls -l ${PREFIX}/share/man/man1/joy.1
-        ls -l /Library/LaunchDaemons/joy.plist
+        ls -l /Library/LaunchAgents/com.cisco.joy.plist
         echo "starting flow capture daemon"
-        launchctl load /Library/LaunchDaemons/joy.plist
+        launchctl load /Library/LaunchAgents/com.cisco.joy.plist
     fi
 
     echo "...done"
@@ -383,6 +505,12 @@ elif [ "$sysname" == "Linux" ]; then
         fi
     fi
 
+    # Create joy user and group
+    if [ -z "$PKGBUILD" ]; then
+        getent group joy &>/dev/null || /usr/sbin/groupadd -r joy
+        getent passwd joy &>/dev/null || /usr/sbin/useradd -g joy -s /sbin/nologin -M -r -d / joy
+    fi
+
     # Create ${PREFIX}/bin directory if it does not currently exist
     create_directory ${PREFIX}/bin
 
@@ -391,9 +519,17 @@ elif [ "$sysname" == "Linux" ]; then
 
     # Create ${PREFIX}/var/joy directory if it does not currently exist
     create_directory ${PREFIX}/var/joy
+    if [ -z "$PKGBUILD" ]; then
+        chown -R joy.joy ${PREFIX}/var/joy
+        chmod 775 ${PREFIX}/var/joy
+    fi
 
     # Create ${PREFIX}/var/log directory if it does not currently exist
     create_directory ${PREFIX}/var/log
+    if [ -z "$PKGBUILD" ]; then
+        chown -R joy.joy ${PREFIX}/var/log
+        chmod 775 ${PREFIX}/var/joy
+    fi
 
     # Create ${PREFIX}/etc directory if it does not currently exist
     create_directory ${PREFIX}/etc
@@ -434,6 +570,16 @@ elif [ "$sysname" == "Linux" ]; then
         exit 1
     fi
 
+    # Install the joy uninstall script
+    if [ -z "$PKGBUILD" ]; then
+        cp ${CWD}/uninstall-sh ${PREFIX}/bin/uninstall-joy
+        retval=$?
+        if [ $retval -ne "0" ]; then
+            echo "error: could not copy uninstall-joy to ${PREFIX}/bin"
+            exit 1
+        fi
+    fi
+
     # Install sleuth script
     cp ${APP_ROOT}/sleuth ${PREFIX}/bin/
     retval=$?
@@ -452,6 +598,12 @@ elif [ "$sysname" == "Linux" ]; then
 	python setup.py bdist --format=gztar
         if [ $retval -ne "0" ]; then
             echo "error: could not run python setup.py for sleuth_pkg"
+            exit 1
+        fi
+        SLEUTHFILE="${APP_ROOT}/sleuth_pkg/dist/sleuth-${SLEUTHVER}.linux-${ARCH}.tar.gz"
+	if [ -f $SLEUTHFILE ]; then
+            tar -xf $SLEUTHFILE -C $BUILDROOT
+	else
             exit 1
         fi
         SLEUTHFILE="${APP_ROOT}/sleuth_pkg/dist/sleuth-${SLEUTHVER}.linux-${ARCH}.tar.gz"
@@ -616,8 +768,22 @@ elif [ "$sysname" == "Linux" ]; then
         fi
     fi
 
+    # Install the logrotate configuration file
+    create_directory $BUILDROOT/etc/logrotate.d
+    cp ${CWD}/joy.logrotate ${BUILDROOT}${LOGROTATEFILE}
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not copy joy.logrotate to ${BUILDROOT}${LOGROTATEFILE}"
+        exit 1
+    fi
+    chmod 644 ${BUILDROOT}${LOGROTATEFILE}
+    retval=$?
+    if [ $retval -ne "0" ]; then
+        echo "error: could not chmod 644 ${BUILDROOT}${LOGROTATEFILE}"
+        exit 1
+    fi
+
     # List all the installed files
-    
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/bin/sleuth
@@ -632,6 +798,7 @@ elif [ "$sysname" == "Linux" ]; then
             ls -l /etc/systemd/system/joy.service.d/20-accounting.conf
             systemctl status joy.service
         fi
+        [ -f "$LOGROTATEFILE" ] && ls -l ${LOGROTATEFILE}
     fi
 
     echo "done" 
