@@ -192,7 +192,7 @@ volatile int reopenLog = 0;
  *******************************************************************
  */
 #define MAC_ADDR_LEN 6
-#define MAC_ADDR_STR_LEN 13
+#define MAC_ADDR_STR_LEN 32
 #define IFL_MAX 16
 #define INTFACENAMESIZE 64
 
@@ -222,7 +222,7 @@ volatile int reopenLog = 0;
 struct intrface { 
     unsigned char name [INTFACENAMESIZE];
     unsigned char mac_addr[MAC_ADDR_STR_LEN];
-    unsigned char mac_addr_pretty[MAC_ADDR_STR_LEN+5];
+    unsigned char mac_addr_pretty[MAC_ADDR_STR_LEN];
     unsigned char ip_addr4[INET_ADDRSTRLEN];
     unsigned char ip_addr6[INET6_ADDRSTRLEN];
     unsigned char active;
@@ -246,7 +246,7 @@ static int find_interface_in_list(char *name) {
 }
 
 void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN], 
-                     unsigned char mac_addr_pretty[MAC_ADDR_STR_LEN+5])
+                     unsigned char mac_addr_pretty[MAC_ADDR_STR_LEN])
 {
 #ifdef DARWIN
     struct ifaddrs *ifap, *ifaptr;
@@ -267,20 +267,30 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN],
     }
 #elif WIN32
 #else
-    int fd;
     struct ifreq ifr;
-    unsigned char *mac;
-     
-    fd = socket(AF_INET, SOCK_DGRAM, 0);
-    ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name , name , strlen(name));
-    ioctl(fd, SIOCGIFHWADDR, &ifr);
-    close(fd);
-    mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
-    sprintf((char*)mac_addr,"%02x%02x%02x%02x%02x%02x" ,
-           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    sprintf((char*)mac_addr_pretty,"%02x:%02x:%02x:%02x:%02x:%02x" ,
-           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    int sock;
+
+    sock=socket(PF_INET, SOCK_STREAM, 0);
+    strncpy(ifr.ifr_name,name,sizeof(ifr.ifr_name)-1);
+    ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
+    ioctl(sock, SIOCGIFHWADDR, &ifr);
+
+    sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[0],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[1],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[2],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
+
+    sprintf((char*)mac_addr_pretty, "%02x:%02x:%02x:%02x:%02x:%02x",
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[0],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[1],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[2],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
+    close(sock);
 #endif
 }
 
