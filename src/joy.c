@@ -316,6 +316,10 @@ static unsigned int interface_list_get() {
 
             /* check if the device is suitable for live capture */
             for (dev_addr = d->addresses; dev_addr != NULL; dev_addr = dev_addr->next) {
+                /* skip the loopback interface */
+                if (STRNCASECMP(d->name,"lo0",3) == 0) {
+                    continue;
+                }
                 if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
                     i = find_interface_in_list(d->name);
                     if (i > -1) {
