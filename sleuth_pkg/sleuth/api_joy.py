@@ -193,7 +193,7 @@ class DNSLinkedFlowEnrichIterator(DictStreamIterator):
                     if 'a' in record:
                         a = record['a']
                         self.dns[a] = dns                        
-       return flow
+        return flow
 
 
 class PcapLoader:
