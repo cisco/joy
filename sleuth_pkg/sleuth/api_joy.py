@@ -181,9 +181,9 @@ class DNSLinkedFlowEnrichIterator(DictStreamIterator):
     def next(self):
         flow = self.source.next()
         if 'dns' not in flow:
-            sa = flow['sa']
-            if sa in self.dns:
-                flow['linked_dns'] = self.dns[sa]
+            da = flow['da']
+            if da in self.dns:
+                flow['linked_dns'] = self.dns[da]
             return flow
         dns = flow['dns']
         for packet in dns:
