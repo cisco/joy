@@ -127,6 +127,8 @@ def pipeline():
         # Load the source data from input
         flow_source = FlowIteratorFromFile(x)
 
+        flow_source = DNSLinkedFlowEnrichIterator(flow_source)
+        
         if args.stitch:
             flow_source = FlowStitchIterator(flow_source)
         if args.selection:

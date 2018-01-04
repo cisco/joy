@@ -167,6 +167,34 @@ class FlowStitchIterator(DictStreamIterator):
                     pass
             return f1
 
+class DNSLinkedFlowEnrichIterator(DictStreamIterator):
+    """
+    Enriches flow objects with the DNS name used to look up the address, if any
+    """
+    def __init__(self, source):
+        self.source = source
+        self.dns = {}
+        
+    def __iter__(self):
+        return self
+
+    def next(self):
+        flow = self.source.next()
+        if 'dns' not in flow:
+            sa = flow['sa']
+            if sa in self.dns:
+                flow['linked_dns'] = self.dns[sa]
+            return flow
+        dns = flow['dns']
+        for packet in dns:
+            if 'rr' in packet:
+                rr = packet['rr']
+                for record in rr:
+                    if 'a' in record:
+                        a = record['a']
+                        self.dns[a] = dns                        
+       return flow
+
 
 class PcapLoader:
     """
