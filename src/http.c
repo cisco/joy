@@ -157,13 +157,13 @@ void http_print_json(const struct http *h1,
         }
     }
 
-    /* Start http object */
-    zprintf(f, ",\"http\":{");
+    /* Start http array */
+    // TODO support multiple pair objects
+    zprintf(f, ",\"http\":[{");
 
     if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
-        zprintf(f, "\"out\":[");
+        zprintf(f, "\"out\":");
         http_print_header(f, h1->header, h1->header_length);
-        zprintf(f, "]");
         comma = 1;
     }
 
@@ -171,17 +171,16 @@ void http_print_json(const struct http *h1,
         /* Twin */
         if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
             if (comma) {
-                zprintf(f, ",\"in\":[");
+                zprintf(f, ",\"in\":");
             } else {
-                zprintf(f, "\"in\":[");
+                zprintf(f, "\"in\":");
             }
             http_print_header(f, h2->header, h2->header_length);
-            zprintf(f, "]");
         }
     }
 
-    /* End http object */
-    zprintf(f, "}");
+    /* End http array */
+    zprintf(f, "}]");
 }
 
 /**
