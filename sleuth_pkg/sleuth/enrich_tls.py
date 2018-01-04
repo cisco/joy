@@ -86,10 +86,10 @@ def check_compliance(compliance_policy, scs):
         return 'unknown'
 
     cur_dir = os.path.dirname(__file__)
-    check_data_file = "data_tls_params.json"
+    check_data_file = "res_tls_params.json"
     check_data_path = os.path.join(cur_dir, check_data_file)
 
-    compliance_data_file = "compliance.json"
+    compliance_data_file = "res_tls_compliance.json"
     compliance_data_path = os.path.join(cur_dir, compliance_data_file)
 
     with open(check_data_path) as check_f:
@@ -225,7 +225,7 @@ def get_scs_seclevel(policy, scs, client_key_length):
         return 'unknown', []
 
     cur_dir = os.path.dirname(__file__)
-    data_file = "data_tls_params.json"
+    data_file = "res_tls_params.json"
     data_path = os.path.join(cur_dir, data_file)
 
     with open(data_path) as f:
