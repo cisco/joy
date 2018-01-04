@@ -222,6 +222,7 @@ volatile int reopenLog = 0;
 struct intrface { 
     unsigned char name [INTFACENAMESIZE];
     unsigned char mac_addr[MAC_ADDR_STR_LEN];
+    unsigned char mac_addr_pretty[MAC_ADDR_STR_LEN+5];
     unsigned char ip_addr4[INET_ADDRSTRLEN];
     unsigned char ip_addr6[INET6_ADDRSTRLEN];
     unsigned char active;
@@ -244,7 +245,8 @@ static int find_interface_in_list(char *name) {
    return -1;
 }
 
-void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
+void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN], 
+                     unsigned char mac_addr_pretty[MAC_ADDR_STR_LEN+5])
 {
 #ifdef DARWIN
     struct ifaddrs *ifap, *ifaptr;
@@ -256,6 +258,8 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
                 ptr = (unsigned char *)LLADDR((struct sockaddr_dl *)(ifaptr)->ifa_addr);
                 sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
                          *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
+                sprintf((char*)mac_addr_pretty, "%02x:%02x:%02x:%02x:%02x:%02x",
+                         *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
                 break;
             }
         }
@@ -263,16 +267,19 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
     }
 #elif WIN32
 #else
+    int fd;
     struct ifreq ifr;
     unsigned char *mac;
      
     fd = socket(AF_INET, SOCK_DGRAM, 0);
     ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name , name , IFNAMSIZ-1);
+    strncpy(ifr.ifr_name , name , strlen(name));
     ioctl(fd, SIOCGIFHWADDR, &ifr);
     close(fd);
     mac = (unsigned char *)ifr.ifr_hwaddr.sa_data;
-    sprintf((char*)mac_addr,"%02x%02x%02x%02x%02x%02x\n" ,
+    sprintf((char*)mac_addr,"%02x%02x%02x%02x%02x%02x" ,
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    sprintf((char*)mac_addr_pretty,"%02x:%02x:%02x:%02x:%02x:%02x" ,
            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 #endif
 }
@@ -335,7 +342,7 @@ static unsigned int interface_list_get() {
 	    fprintf(info, "\nInterfaces\n");
 	    fprintf(info, "==========\n");
 	    for (i = 0; i < num_ifs; ++i) {
-                get_mac_address((char*)ifl[i].name,ifl[i].mac_addr);
+                get_mac_address((char*)ifl[i].name,ifl[i].mac_addr,ifl[i].mac_addr_pretty);
                 fprintf(info, "Interface: %s\n", ifl[i].name);
                 if (ifl[i].ip_addr4[0] != 0) {
                     fprintf(info, "  IPv4 Address: %s\n", ifl[i].ip_addr4);
@@ -344,7 +351,7 @@ static unsigned int interface_list_get() {
                     fprintf(info, "  IPv6 Address: %s\n", ifl[i].ip_addr6);
                 }
                 if (ifl[i].mac_addr[0] != 0) {
-                    fprintf(info, "  MAC Address: %s\n", ifl[i].mac_addr);
+                    fprintf(info, "  MAC Address: %s\n", ifl[i].mac_addr_pretty);
                 }
             }
         }
