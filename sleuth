@@ -127,6 +127,9 @@ def pipeline():
         # Load the source data from input
         flow_source = FlowIteratorFromFile(x)
 
+        if args.filter:
+            flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
+
         if args.stitch:
             flow_source = FlowStitchIterator(flow_source)
         if args.selection:
@@ -134,8 +137,6 @@ def pipeline():
         if args.normalize:
             flow_source = DictStreamNormalizeIterator(flow_source, args.normalize)
         
-        if args.filter:
-            flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
         if args.tls_sec:
             flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls,
                                                    policy_file=args.policy_file, unknowns=args.unknowns,
