@@ -49,7 +49,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -1071,6 +1070,7 @@ int main (int argc, char **argv) {
     int c, i = 0;
 #ifndef _WIN32
     struct passwd *pw = NULL;
+    char *user = NULL;
 #endif
 
     /* Sanity check sizeof() expectations */
@@ -1219,28 +1219,40 @@ int main (int argc, char **argv) {
 
 #ifndef _WIN32
         /*
-         * drop privileges once pcap handle exists
+         * Drop privileges once pcap handle exists
          */
-        pw = getpwnam(config.username);
+        if (config.username) {
+            user = config.username;
+        } else {
+            user = getenv("SUDO_USER");
+        }
+
+        if (user == NULL) {
+            joy_log_crit("Please specify username=foo or run program with sudo");
+            return -5;
+        }
+
+        pw = getpwnam(user);
+
         if (pw) {
             if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
                 setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
                 fprintf(info, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
-                    config.username,
-                    (unsigned long)pw->pw_uid,
-                    (unsigned long)pw->pw_gid,
-                    pcap_strerror(errno));
+                        pw->pw_name,
+                        (unsigned long)pw->pw_uid,
+                        (unsigned long)pw->pw_gid,
+                        pcap_strerror(errno));
                 return -5; 
             }
             else {
                 fprintf(info, "changed user to '%.32s' (uid=%lu gid=%lu)\n",
-                    config.username,
-                    (unsigned long)pw->pw_uid,
-                    (unsigned long)pw->pw_gid);
+                        pw->pw_name,
+                        (unsigned long)pw->pw_uid,
+                        (unsigned long)pw->pw_gid);
             }
         }
         else {
-            fprintf(info, "error: could not find user '%.32s'\n", config.username);
+            joy_log_crit("could not find user '%.32s'", user);
             return -5;
         }
 #endif /* _WIN32 */
