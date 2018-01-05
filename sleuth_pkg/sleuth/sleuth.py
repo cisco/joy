@@ -245,23 +245,6 @@ class DictStreamProcessor(object):
                 print ""
 
 
-class DictStreamElementSelectProcessor(DictStreamProcessor):
-    def __init__(self, elements):
-        self.set = []
-        self.template = SleuthTemplateDict(elements)
-
-    def main_process(self, obj):
-        output = self.template.copy_selected_elements(self.template.template, obj)
-        if output:
-            self.set.append(output)
-
-    def post_process(self, proc=DictStreamProcessor()):
-        proc.pre_process(self.context)
-        for obj in self.set:
-            proc.main_process(obj)
-        proc.post_process()
-
-
 class DictStreamSplitProcessor(DictStreamProcessor):
     def __init__(self, fpobj, field):
         self.fpobj = fpobj
