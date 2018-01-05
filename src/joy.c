@@ -174,6 +174,8 @@ extern unsigned int verbosity;
 
 extern unsigned int show_config;
 
+extern unsigned int show_interfaces;
+
 define_all_features_config_extern_uint(feature_list)
 
 /* config is the global configuration */
@@ -327,6 +329,40 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
 #endif
 }
 
+/**
+ * \fn void print)interfaces (FILE *f, int num_ifs)
+ * \param f file to print to
+ * \param num_ifs number of interfaces available
+ * \return none
+ */
+void print_interfaces(FILE *info, int num_ifs) {
+{
+    int i;
+
+    fprintf(info, "\nInterfaces\n");
+    fprintf(info, "==========\n");
+    for (i = 0; i < num_ifs; ++i) {
+        get_mac_address((char*)ifl[i].name,ifl[i].mac_addr);
+        fprintf(info, "Interface: %s\n", ifl[i].name);
+        if (ifl[i].ip_addr4[0] != 0) {
+            fprintf(info, "  IPv4 Address: %s\n", ifl[i].ip_addr4);
+        }
+        if (ifl[i].ip_addr6[0] != 0) {
+            fprintf(info, "  IPv6 Address: %s\n", ifl[i].ip_addr6);
+        }
+        if (ifl[i].mac_addr[0] != 0) {
+            fprintf(info, "  MAC Address: %c%c:%c%c:%c%c:%c%c:%c%c:%c%c\n",
+                    ifl[i].mac_addr[0], ifl[i].mac_addr[1],
+                    ifl[i].mac_addr[2], ifl[i].mac_addr[3],
+                    ifl[i].mac_addr[4], ifl[i].mac_addr[5],
+                    ifl[i].mac_addr[6], ifl[i].mac_addr[7],
+                    ifl[i].mac_addr[8], ifl[i].mac_addr[9],
+                    ifl[i].mac_addr[10], ifl[i].mac_addr[11]);
+            }
+        }
+    }
+}
+
 static unsigned int interface_list_get() {
 	pcap_if_t *alldevs;
 	pcap_if_t *d;
@@ -384,29 +420,7 @@ static unsigned int interface_list_get() {
         }
 
 	if (num_ifs == 0) {
-            fprintf(info, "No suitable interfaces found.\n\n");
-	} else {
-	    fprintf(info, "\nInterfaces\n");
-	    fprintf(info, "==========\n");
-	    for (i = 0; i < num_ifs; ++i) {
-                get_mac_address((char*)ifl[i].name,ifl[i].mac_addr);
-                fprintf(info, "Interface: %s\n", ifl[i].name);
-                if (ifl[i].ip_addr4[0] != 0) {
-                    fprintf(info, "  IPv4 Address: %s\n", ifl[i].ip_addr4);
-                }
-                if (ifl[i].ip_addr6[0] != 0) {
-                    fprintf(info, "  IPv6 Address: %s\n", ifl[i].ip_addr6);
-                }
-                if (ifl[i].mac_addr[0] != 0) {
-                    fprintf(info, "  MAC Address: %c%c:%c%c:%c%c:%c%c:%c%c:%c%c\n",
-                        ifl[i].mac_addr[0], ifl[i].mac_addr[1],
-                        ifl[i].mac_addr[2], ifl[i].mac_addr[3],
-                        ifl[i].mac_addr[4], ifl[i].mac_addr[5],
-                        ifl[i].mac_addr[6], ifl[i].mac_addr[7],
-                        ifl[i].mac_addr[8], ifl[i].mac_addr[9],
-                        ifl[i].mac_addr[10], ifl[i].mac_addr[11]);
-                }
-            }
+           fprintf(info, "No suitable interfaces found.\n\n");
         }
 
 	pcap_freealldevs(alldevs);
@@ -501,6 +515,8 @@ static int usage (char *s) {
            "                             0=off, 1=debug, 2=info, 3=warning, 4=error, 5=critical\n"
            "                             Default=4\n"
            "  show_config=0              Show the configuration on stderr in the CLI on program run\n"
+           "                             0=off, 1=show\n"
+           "  show_interfaces=0          Show the interfaces on stderr in the CLI on program run\n"
            "                             0=off, 1=show\n"
            "  username=\"user\"          Drop privileges to username \"user\" after starting packet capture\n"
            "                             Default=\"joy\"\n"
@@ -700,6 +716,11 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
     if (joy_mode == MODE_ONLINE) {
         /* Get interface list */
         num_interfaces = interface_list_get();
+
+        if (config.show_interfaces) {
+            /* Print the interfaces */
+            print_interfaces(info, num_interfaces);
+        }
     }
 
     return 0;
