@@ -180,19 +180,25 @@ class DNSLinkedFlowEnrichIterator(DictStreamIterator):
 
     def next(self):
         flow = self.source.next()
+        #
+        # if flow is not dns, check cache for response returning destination address
+        #
         if 'dns' not in flow:
             da = flow['da']
             if da in self.dns:
                 flow['linked_dns'] = self.dns[da]
             return flow
-        dns = flow['dns']
-        for packet in dns:
+        #
+        # flow is dns, so add (address, response) tuples into cache
+        #
+        value = { 'dns': flow['dns'], 'server_addr': flow['da'], 'time': flow['time_start'] }
+        for packet in flow['dns']:
             if 'rr' in packet:
                 rr = packet['rr']
                 for record in rr:
                     if 'a' in record:
                         a = record['a']
-                        self.dns[a] = dns                        
+                        self.dns[a] = value                    
         return flow
 
 

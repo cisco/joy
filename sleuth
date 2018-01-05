@@ -99,9 +99,6 @@ def pipeline():
 
     # Set flow processor
     #
-    #if args.selection is not None:
-        # fp = DictStreamElementSelectProcessor(args.selection)
-    #else:
     fp = DictStreamProcessor(indent=json_indent)
 
     #if args.normalize is not None:
