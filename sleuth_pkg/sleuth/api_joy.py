@@ -51,9 +51,15 @@ class FlowIteratorFromFile(DictStreamIteratorFromFile):
     This allows iteration over all JSON objects within the file.
     """
 
-    def __init__(self, file_name):
-        self.pcap_loader = PcapLoader(file=file_name)
-        super(FlowIteratorFromFile, self).__init__(file_name=file_name,
+    def __init__(self, stdin=None, file_name=None):
+        if not stdin and not file_name:
+            raise ValueError("api_error: need stdin or file_name")
+
+        if file_name:
+            self.pcap_loader = PcapLoader(file=file_name)
+
+        super(FlowIteratorFromFile, self).__init__(stdin=stdin,
+                                                   file_name=file_name,
                                                    skip_lines=['version'])
 
     def _cleanup(self):
@@ -67,7 +73,10 @@ class FlowIteratorFromFile(DictStreamIteratorFromFile):
         except IOError:
             pass
 
-        self.pcap_loader.cleanup()
+        try:
+            self.pcap_loader.cleanup()
+        except AttributeError:
+            pass
 
     def _load_file(self):
         """
@@ -76,9 +85,9 @@ class FlowIteratorFromFile(DictStreamIteratorFromFile):
         in order to generate the necessary JSON output for use here.
         :return:
         """
-        if self.file_name is sys.stdin:
-            self.f = self.file_name
-        else:
+        if self.stdin:
+            self.f = self.stdin
+        elif self.file_name:
             if self.pcap_loader.is_pcap():
                 # Run Joy to generate some JSON for use in this script.
                 self.pcap_loader.run()

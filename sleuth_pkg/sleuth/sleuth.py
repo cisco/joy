@@ -65,7 +65,11 @@ class DictStreamIteratorFromFile(DictStreamIterator):
     Create a new DictIterator instance from the given input file.
     This allows iteration over all JSON objects within the file.
     """
-    def __init__(self, file_name, skip_lines=[]):
+    def __init__(self, stdin=None, file_name=None, skip_lines=[]):
+        if not stdin and not file_name:
+            raise ValueError("api_error: need stdin or file_name")
+
+        self.stdin = stdin
         self.file_name = file_name
         self.f = None
         self.skip_lines = skip_lines
@@ -82,9 +86,9 @@ class DictStreamIteratorFromFile(DictStreamIterator):
             pass
 
     def _load_file(self):
-        if self.file_name is sys.stdin:
-            self.f = self.file_name
-        else:
+        if self.stdin:
+            self.f = self.stdin
+        elif self.file_name:
             ft = SleuthFileType(self.file_name)
             if ft.is_gz():
                 self.f = gzip.open(self.file_name, 'r')

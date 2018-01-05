@@ -49,6 +49,23 @@ except ImportError:
     from sleuth_pkg import *
 
 
+def attach_iterators(source, args):
+    if args.filter:
+        source = DictStreamFilterIterator(source, SleuthPredicate(args.filter))
+
+    if args.stitch:
+        source = FlowStitchIterator(source)
+    if args.selection:
+        source = DictStreamSelectIterator(source, args.selection)
+    if args.normalize:
+        source = DictStreamNormalizeIterator(source, args.normalize)
+
+    if args.tls_sec:
+        source = DictStreamEnrichIterator(source, "tls_sec", enrich_tls,
+                                          policy_file=args.policy_file, unknowns=args.unknowns,
+                                          compliance=args.compliance, failure_threshold=args.failure_threshold)
+
+
 #
 # Main Processing Pipeline
 #
@@ -97,7 +114,7 @@ def pipeline():
     else:
         json_indent = None
 
-    # Set flow processor
+    # Select flow processor
     #
     #if args.selection is not None:
         # fp = DictStreamElementSelectProcessor(args.selection)
@@ -110,7 +127,7 @@ def pipeline():
     if args.splitfield:
         fp = DictStreamSplitProcessor(fp, args.splitfield)
 
-    # Set post-processor
+    # Select post-processor
     #
     if args.dist:
         postproc = DictStreamDistributionProcessor(indent=json_indent)
@@ -119,28 +136,19 @@ def pipeline():
     else:
         postproc = DictStreamProcessor(indent=json_indent)
 
+    #
     # Process all files, with pre- and post-processing
     #
     fp.pre_process()
 
-    for x in args.input:
-        # Load the source data from input
-        flow_source = FlowIteratorFromFile(x)
+    if args.input == sys.stdin:
+        #
+        # Use standard input as source
+        #
+        flow_source = FlowIteratorFromFile(stdin=sys.stdin)
 
-        if args.filter:
-            flow_source = DictStreamFilterIterator(flow_source, SleuthPredicate(args.filter))
-
-        if args.stitch:
-            flow_source = FlowStitchIterator(flow_source)
-        if args.selection:
-            flow_source = DictStreamSelectIterator(flow_source, args.selection)
-        if args.normalize:
-            flow_source = DictStreamNormalizeIterator(flow_source, args.normalize)
-        
-        if args.tls_sec:
-            flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls,
-                                                   policy_file=args.policy_file, unknowns=args.unknowns,
-                                                   compliance=args.compliance, failure_threshold=args.failure_threshold)
+        # Add iteration-behavior to transform flows
+        attach_iterators(flow_source, args)
 
         # Process all flows from source
         try:
@@ -148,8 +156,22 @@ def pipeline():
                 fp.main_process(flow)
         except KeyboardInterrupt:
             sys.exit()
-        except:
-            raise
+    else:
+        #
+        # Use files as source, looping over each
+        #
+        for x in args.input:
+            flow_source = FlowIteratorFromFile(file_name=x)
+
+            # Add iteration-behavior to transform flows
+            attach_iterators(flow_source, args)
+
+            # Process all flows from source
+            try:
+                for flow in flow_source:
+                    fp.main_process(flow)
+            except KeyboardInterrupt:
+                sys.exit()
 
     fp.post_process(postproc)
 
