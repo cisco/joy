@@ -277,6 +277,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "show_config")) {
         parse_check(parse_bool(&config->show_config, arg, num));
 
+    } else if (match(command, "show_interfaces")) {
+        parse_check(parse_bool(&config->show_interfaces, arg, num));
+
     }
 
     config_all_features_bool(feature_list);
@@ -297,6 +300,8 @@ void config_set_defaults (struct configuration *config) {
     config->type = 1;
     config->verbosity = 4;
     config->show_config = 0;
+    config->show_interfaces = 0;
+    config->username = "joy";    /*!< default username */
 }
 
 #define MAX_FILEPATH 128

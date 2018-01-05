@@ -411,6 +411,7 @@ int host_flow_table_add_sessions (int sockets) {
 #ifdef LINUX 
 
 int host_flow_table_add_sessions (int sockets) {
+    get_host_flow(NULL);
     return 0;
 }
 

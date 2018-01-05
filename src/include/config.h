@@ -82,6 +82,7 @@ struct configuration {
     unsigned int preemptive_timeout;
     unsigned int verbosity;
     unsigned int show_config;
+    unsigned int show_interfaces;
   
     declare_all_features_config_uint(feature_list) 
   
