@@ -973,8 +973,6 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
 		   goto end;
        }
 
-       printf("auto generated output filename: %s for interface %s\n", output_filename, interface_name );
-       fflush(stdout);
        joy_log_info("auto generated output filename: %s", output_filename);
 
     } else {
@@ -987,12 +985,12 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
 #ifdef WIN32
             if (windir) {
                 /* Use the Windows install directory */
-                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s%s", windir, config.filename, zsuffix);
+                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, config.filename);
             } else {
-                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s%s", outputdir, config.filename, zsuffix);
+                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s", outputdir, config.filename);
             }
 #else
-            snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s%s", outputdir, config.filename, zsuffix);
+            snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
 #endif
         }
     }
