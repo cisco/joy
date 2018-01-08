@@ -49,7 +49,13 @@ except ImportError:
     from sleuth_pkg import *
 
 
+def truncate(array):
+    return array[0:1]
+    
+
 def attach_iterators(source, args):
+    source = DNSLinkedFlowEnrichIterator(source)
+
     if args.filter:
         source = DictStreamFilterIterator(source, SleuthPredicate(args.filter))
 
@@ -59,6 +65,8 @@ def attach_iterators(source, args):
         source = DictStreamSelectIterator(source, args.selection)
     if args.normalize:
         source = DictStreamNormalizeIterator(source, args.normalize)
+
+    # source = DictStreamApplyIterator(source, 'ppi', truncate)
 
     if args.tls_sec:
         source = DictStreamEnrichIterator(source, "tls_sec", enrich_tls,
@@ -116,9 +124,6 @@ def pipeline():
 
     # Select flow processor
     #
-    #if args.selection is not None:
-        # fp = DictStreamElementSelectProcessor(args.selection)
-    #else:
     fp = DictStreamProcessor(indent=json_indent)
 
     #if args.normalize is not None:
