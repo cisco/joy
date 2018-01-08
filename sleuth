@@ -72,6 +72,7 @@ def attach_iterators(source, args):
         source = DictStreamEnrichIterator(source, "tls_sec", enrich_tls,
                                           policy_file=args.policy_file, unknowns=args.unknowns,
                                           compliance=args.compliance, failure_threshold=args.failure_threshold)
+    return source
 
 
 #
@@ -153,7 +154,7 @@ def pipeline():
         flow_source = FlowIteratorFromFile(stdin=sys.stdin)
 
         # Add iteration-behavior to transform flows
-        attach_iterators(flow_source, args)
+        flow_source = attach_iterators(flow_source, args)
 
         # Process all flows from source
         try:
@@ -169,7 +170,7 @@ def pipeline():
             flow_source = FlowIteratorFromFile(file_name=x)
 
             # Add iteration-behavior to transform flows
-            attach_iterators(flow_source, args)
+            flow_source = attach_iterators(flow_source, args)
 
             # Process all flows from source
             try:
