@@ -162,6 +162,18 @@ class DictStreamNormalizeIterator(DictStreamIterator):
 
         return output
 
+class DictStreamApplyIterator(DictStreamIterator):
+    def __init__(self, source, elements, func):
+        self.source = source
+        self.template = SleuthTemplateDict(elements)
+        self.func = func
+
+    def next(self):
+        tmp = self.source.next()
+        output = self.template.apply_to_selected_elements(self.template.template, tmp, self.func)
+
+        return output
+
     
 class DictStreamEnrichIterator(DictStreamIterator):
     def __init__(self, source, name, function, **kwargs):
@@ -450,6 +462,23 @@ class SleuthTemplateDict(object):
                     self.normalize_selected_elements(v, obj[k])
                 else:
                     obj[k] = None
+        return obj
+
+    def apply_to_selected_elements(self, tmplDict, obj, func):
+        if not obj:
+            return {}
+        for k, v in tmplDict.items():
+            if k in obj:
+                if isinstance(v, list):
+                    obj_list = obj[k]
+                    if obj_list:
+                        for x in obj_list:
+                            for y in v:
+                                self.apply_to_selected_elements(y, x, func)
+                elif isinstance(v, dict):
+                    self.apply_to_selected_elements(v, obj[k], func)
+                else:
+                    obj[k] = func(obj[k])
         return obj
 
         

@@ -48,7 +48,9 @@ except ImportError:
     # If in source code directory
     from sleuth_pkg import *
 
-
+def truncate(array):
+    return array[0:1]
+    
 #
 # Main Processing Pipeline
 #
@@ -135,7 +137,9 @@ def pipeline():
             flow_source = DictStreamSelectIterator(flow_source, args.selection)
         if args.normalize:
             flow_source = DictStreamNormalizeIterator(flow_source, args.normalize)
-        
+
+        # flow_source = DictStreamApplyIterator(flow_source, 'ppi', truncate)
+            
         if args.tls_sec:
             flow_source = DictStreamEnrichIterator(flow_source, "tls_sec", enrich_tls,
                                                    policy_file=args.policy_file, unknowns=args.unknowns,
