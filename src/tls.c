@@ -2262,19 +2262,21 @@ void tls_print_json (const struct tls *data,
      */
     if (data->role == role_client) {
         zprintf(f, "\"c_version\":%u", data->version);
-        if (data_twin && data_twin->version && data_twin->role == role_server) {
-            zprintf(f, ",\"s_version\":%u", data->version);
-        } else {
-            zprintf(f, ",\"error\":\"twin clients\"}");
-            return;
+        if (data_twin && data_twin->version) {
+            if (data_twin->role == role_server) {
+                zprintf(f, ",\"s_version\":%u", data->version);
+            } else {
+                zprintf(f, ",\"error\":\"twin clients\"}");
+            }
         }
     } else if (data->role == role_server) {
         zprintf(f, "\"s_version\":%u", data->version);
-        if (data_twin && data_twin->version && data_twin->role == role_client) {
-            zprintf(f, ",\"c_version\":%u", data->version);
-        } else {
-            zprintf(f, ",\"error\":\"twin servers\"}");
-            return;
+        if (data_twin && data_twin->version) {
+            if (data_twin->role == role_client) {
+                zprintf(f, ",\"c_version\":%u", data->version);
+            } else {
+                zprintf(f, ",\"error\":\"twin servers\"}");
+            }
         }
     } else {
         zprintf(f, "\"error\":\"no role\"}");
@@ -2349,7 +2351,7 @@ void tls_print_json (const struct tls *data,
      * Offered and selected ciphersuites
      */
     if (data->role == role_client) {
-        if (data_twin->num_ciphersuites == 1) {
+        if (data_twin && data_twin->num_ciphersuites == 1) {
             zprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
         }
 
@@ -2365,7 +2367,7 @@ void tls_print_json (const struct tls *data,
             zprintf(f, ",\"scs\":\"%04x\"", data->ciphersuites[0]);
         }
 
-        if (data_twin->num_ciphersuites) {
+        if (data_twin && data_twin->num_ciphersuites) {
             zprintf(f, ",\"cs\":[");
             for (i = 0; i < data_twin->num_ciphersuites-1; i++) {
                 zprintf(f, "\"%04x\",", data_twin->ciphersuites[i]);
