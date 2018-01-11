@@ -1066,6 +1066,33 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
 static void print_tcp_json (zfile f, const struct flow_record *rec) {
     int top_com = 0;
     int com = 0;
+    int empty = 1;
+    int out_empty = 1;
+    int in_empty = 1;
+
+    /*
+     * Check what TCP data is avilable (if any).
+     */
+    if (rec->tcp.first_seq) {
+        empty = 0;
+    } else if (rec->twin && rec->twin->tcp.first_seq) {
+        empty = 0;
+    }
+
+#define not_empty(rec) (rec->tcp.first_window_size || rec->tcp.first_syn_size \
+                       || rec->tcp.opt_len)
+
+    if (not_empty(rec)) {
+        empty = 0; out_empty = 0;
+    }
+    if (rec->twin && not_empty(rec->twin)) {
+        empty = 0; in_empty = 0;
+    }
+
+    if (empty) {
+        /* No data to print */
+        return;
+    }
 
     zprintf(f, "\"tcp\":{");
 
@@ -1077,39 +1104,42 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
         top_com = 1;
     }
 
-    if (top_com) {
-        zprintf(f, ",\"out\":{");
-    } else {
-        zprintf(f, "\"out\":{");
-    }
-
-    if (rec->tcp.first_window_size) {
-        zprintf(f, "\"first_window\":%u", rec->tcp.first_window_size);
-        com = 1;
-    }
-
-    if (rec->tcp.first_syn_size) {
-        if (com) {
-            zprintf(f, ",\"first_syn_size\":%u", rec->tcp.first_syn_size);
+    if (!out_empty) {
+        if (top_com) {
+            zprintf(f, ",\"out\":{");
         } else {
-            zprintf(f, "\"first_syn_size\":%u", rec->tcp.first_syn_size);
+            zprintf(f, "\"out\":{");
+            top_com = 1;
+        }
+
+        if (rec->tcp.first_window_size) {
+            zprintf(f, "\"first_window\":%u", rec->tcp.first_window_size);
             com = 1;
         }
-    }
 
-    if (rec->tcp.opt_len) {
-        if (com) {
-            zprintf(f, ",\"opt_len\":%u", rec->tcp.opt_len);
-        } else {
-            zprintf(f, "\"opt_len\":%u", rec->tcp.opt_len);
+        if (rec->tcp.first_syn_size) {
+            if (com) {
+                zprintf(f, ",\"first_syn_size\":%u", rec->tcp.first_syn_size);
+            } else {
+                zprintf(f, "\"first_syn_size\":%u", rec->tcp.first_syn_size);
+                com = 1;
+            }
         }
-        tcp_opt_print_json(f, rec->tcp.opts, rec->tcp.opt_len);
+
+        if (rec->tcp.opt_len) {
+            if (com) {
+                zprintf(f, ",\"opt_len\":%u", rec->tcp.opt_len);
+            } else {
+                zprintf(f, "\"opt_len\":%u", rec->tcp.opt_len);
+            }
+            tcp_opt_print_json(f, rec->tcp.opts, rec->tcp.opt_len);
+        }
+
+        /* End out object */
+        zprintf(f, "}");
     }
 
-    /* End out object */
-    zprintf(f, "}");
-
-    if (rec->twin != NULL) {
+    if (!in_empty) {
         com = 0;
 
         if (top_com) {
