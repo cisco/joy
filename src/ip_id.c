@@ -149,7 +149,6 @@ void ip_id_print_json (const struct ip_id *x1, const struct ip_id *x2, zfile f) 
                 zprintf(f, ",");
             }
         }
-        zprintf(f, "]");
     }
 
     if (! empty) {
