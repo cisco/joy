@@ -1107,7 +1107,7 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
     }
 
     /* End out object */
-    zprintf(f, "},");
+    zprintf(f, "}");
 
     if (rec->twin != NULL) {
         com = 0;
