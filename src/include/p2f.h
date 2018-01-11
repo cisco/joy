@@ -60,6 +60,17 @@
 #include "modules.h"      
 #include "feature.h"
 
+struct tcp_info {
+    uint32_t ack;
+    uint32_t seq;
+    uint32_t retrans;
+    uint32_t first_seq;
+    uint32_t first_syn_size;
+    uint16_t first_window_size;
+    unsigned char opt_len;
+    unsigned char opts[TCP_OPT_LEN];
+};
+
 #define FLOW_LIST_CHECK_EXPIRE 0
 #define FLOW_LIST_PRINT_ALL 1
 
@@ -72,9 +83,6 @@ struct flow_key {
 };
 
 #include "procwatch.h"
-
-/** Main entry point for the uploader thread */
-void *uploader_main(void* ptr);
 
 /*
  * default and maximum number of packets on which to report
@@ -104,17 +112,12 @@ struct flow_record {
     header_description_t hd;         /*!< header description (proto ident)    */
     void *idp;
     unsigned int idp_len;
-    unsigned int ack;
-    unsigned int seq;
-    unsigned int initial_seq;
+    struct tcp_info tcp;
     unsigned int invalid;
-    unsigned int retrans;
 	char *exe_name;                       /*!< executable associated with flow    */
 	char *full_path;                      /*!< executable path associated with flow    */
 	char *file_version;                   /*!< executable version associated with flow    */
 	char *file_hash;                      /*!< executable file hash associated with flow    */
-    unsigned short tcp_initial_window_size;
-    unsigned int tcp_syn_size;
     unsigned char exp_type;
     unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
   
@@ -284,6 +287,8 @@ enum SALT_algorithm {
   rle = 4
 };
 
+/** Main entry point for the uploader thread */
+void *uploader_main(void* ptr);
 
 int upload_file(char *filename);
 

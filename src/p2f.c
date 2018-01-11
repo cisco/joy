@@ -1064,51 +1064,88 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
 }
 
 static void print_tcp_json (zfile f, const struct flow_record *rec) {
-    int comma = 0;
+    int top_com = 0;
+    int com = 0;
 
     zprintf(f, "\"tcp\":{");
 
-    if (rec->initial_seq) {
-        zprintf(f, "\"initial_seq\":%u", rec->initial_seq);
-        comma = 1;
-    } else if (rec->twin != NULL && !rec->initial_seq && rec->twin->initial_seq) {
-        zprintf(f, "\"initial_seq\":%u", rec->twin->initial_seq);
-        comma = 1;
+    if (rec->tcp.first_seq) {
+        zprintf(f, "\"first_seq\":%u", rec->tcp.first_seq);
+        top_com = 1;
+    } else if (rec->twin != NULL && rec->twin->tcp.first_seq) {
+        zprintf(f, "\"first_seq\":%u", rec->twin->tcp.first_seq);
+        top_com = 1;
     }
 
-    if (rec->tcp_initial_window_size) {
-        if (comma) {
-            zprintf(f, ",\"window_out\":%u", rec->tcp_initial_window_size);
-        } else {
-            zprintf(f, "\"window_out\":%u", rec->tcp_initial_window_size);
-            comma = 1;
-        }
-    } else if (rec->twin != NULL && rec->twin->tcp_initial_window_size) {
-        if (comma) {
-            zprintf(f, ",\"window_in\":%u", rec->twin->tcp_initial_window_size);
-        } else {
-            zprintf(f, "\"window_in\":%u", rec->twin->tcp_initial_window_size);
-            comma = 1;
-        }
+    if (top_com) {
+        zprintf(f, ",\"out\":{");
+    } else {
+        zprintf(f, "\"out\":{");
     }
 
-    if (rec->tcp_syn_size) {
-        if (comma) {
-            zprintf(f, ",\"syn_out\":%u", rec->tcp_syn_size);
+    if (rec->tcp.first_window_size) {
+        zprintf(f, "\"first_window\":%u", rec->tcp.first_window_size);
+        com = 1;
+    }
+
+    if (rec->tcp.first_syn_size) {
+        if (com) {
+            zprintf(f, ",\"first_syn_size\":%u", rec->tcp.first_syn_size);
         } else {
-            zprintf(f, "\"syn_out\":%u", rec->tcp_syn_size);
-            comma = 1;
-        }
-    } else if (rec->twin != NULL && rec->twin->tcp_syn_size) {
-        if (comma) {
-            zprintf(f, ",\"syn_in\":%u", rec->twin->tcp_syn_size);
-        } else {
-            zprintf(f, "\"syn_in\":%u", rec->twin->tcp_syn_size);
-            comma = 1;
+            zprintf(f, "\"first_syn_size\":%u", rec->tcp.first_syn_size);
+            com = 1;
         }
     }
 
-    /* End object */
+    if (rec->tcp.opt_len) {
+        if (com) {
+            zprintf(f, ",\"opt_len\":%u", rec->tcp.opt_len);
+        } else {
+            zprintf(f, "\"opt_len\":%u", rec->tcp.opt_len);
+        }
+        tcp_opt_print_json(f, rec->tcp.opts, rec->tcp.opt_len);
+    }
+
+    /* End out object */
+    zprintf(f, "},");
+
+    if (rec->twin != NULL) {
+        com = 0;
+
+        if (top_com) {
+            zprintf(f, ",\"in\":{");
+        } else {
+            zprintf(f, "\"in\":{");
+        }
+
+        if (rec->twin->tcp.first_window_size) {
+            zprintf(f, "\"first_window\":%u", rec->twin->tcp.first_window_size);
+            com = 1;
+        }
+
+        if (rec->twin->tcp.first_syn_size) {
+            if (com) {
+                zprintf(f, ",\"first_syn_size\":%u", rec->twin->tcp.first_syn_size);
+            } else {
+                zprintf(f, "\"first_syn_size\":%u", rec->twin->tcp.first_syn_size);
+                com = 1;
+            }
+        }
+
+        if (rec->twin->tcp.opt_len) {
+            if (com) {
+                zprintf(f, ",\"opt_len\":%u", rec->twin->tcp.opt_len);
+            } else {
+                zprintf(f, "\"opt_len\":%u", rec->twin->tcp.opt_len);
+            }
+            tcp_opt_print_json(f, rec->twin->tcp.opts, rec->twin->tcp.opt_len);
+        }
+
+        /* End in object */
+        zprintf(f, "}");
+    }
+
+    /* End tcp object */
     zprintf(f, "},");
 }
 
@@ -1432,11 +1469,10 @@ static void flow_record_print_json (const struct flow_record *record) {
      * Operating system
      */
     if (include_os) {
-
         if (rec->twin) {
-            os_printf(output, rec->ttl, rec->tcp_initial_window_size, rec->twin->ttl, rec->twin->tcp_initial_window_size);
+            os_printf(output, rec->ttl, rec->tcp.first_window_size, rec->twin->ttl, rec->twin->tcp.first_window_size);
         } else {
-            os_printf(output, rec->ttl, rec->tcp_initial_window_size, 0, 0);
+            os_printf(output, rec->ttl, rec->tcp.first_window_size, 0, 0);
         }
     }
 
@@ -1459,10 +1495,10 @@ static void flow_record_print_json (const struct flow_record *record) {
     {
         unsigned int retrans, invalid;
 
-        retrans = rec->retrans;
+        retrans = rec->tcp.retrans;
         invalid = rec->invalid;
         if (rec->twin) {
-            retrans += rec->twin->retrans;
+            retrans += rec->twin->tcp.retrans;
             invalid += rec->twin->invalid;
         }
 
@@ -1470,7 +1506,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             uint8_t comma = 0;
             zprintf(output, ",\"debug\":{");
             if (retrans) {
-                zprintf(output, "\"retrans\":%u", retrans);
+                zprintf(output, "\"tcp_retrans\":%u", retrans);
                 comma = 1;
             }
             if (invalid) {

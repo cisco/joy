@@ -74,6 +74,10 @@ typedef struct ppi {
     struct pkt_info pkt_info[MAX_NUM_PKT];
 } ppi_t;
 
+void tcp_opt_print_json(zfile f,
+                        const unsigned char *options,
+                        unsigned int total_len);
+
 declare_feature(ppi);
 
 /** initialization function */

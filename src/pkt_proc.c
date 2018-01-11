@@ -224,7 +224,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
                 record->pkt_len[record->op] += length;
                 record->pkt_time[record->op] = *time;
             }
-            if (ntohl(tcp->tcp_ack) > record->ack) {
+            if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
 	              if (record->pkt_len[record->op] != 0) {
 	                  record->op++;
 	              }
@@ -245,7 +245,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
 	                  record->op++;
                 }
             }
-            if (ntohl(tcp->tcp_ack) > record->ack) {
+            if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
                 if (record->pkt_len[record->op] != 0) {
 	                  record->op++;
                 }
@@ -264,8 +264,8 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
     }
 
     record->pkt_flags[record->op] = tcp->tcp_flags;
-    record->seq = ntohl(tcp->tcp_seq);
-    record->ack = ntohl(tcp->tcp_ack);
+    record->tcp.seq = ntohl(tcp->tcp_seq);
+    record->tcp.ack = ntohl(tcp->tcp_ack);
 }
 
 /*
@@ -593,13 +593,13 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
         return NULL;
     }
 
-    joy_log_debug("SEQ: %d -- relative SEQ: %d", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->seq);
-    joy_log_debug("ACK: %d -- relative ACK: %d", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->ack);
+    joy_log_debug("SEQ: %d -- relative SEQ: %d", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->tcp.seq);
+    joy_log_debug("ACK: %d -- relative ACK: %d", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->tcp.ack);
 
     if (size_payload > 0) {
-        if (ntohl(tcp->tcp_seq) < record->seq) {
+        if (ntohl(tcp->tcp_seq) < record->tcp.seq) {
             joy_log_debug("retransmission detected");
-            record->retrans++;
+            record->tcp.retrans++;
             if (!include_retrans) {
                 // do not process TCP retransmissions
                 return NULL;
@@ -610,23 +610,36 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
           flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
     }
 
-    // if initial SYN packet, get TCP sequence number
+    /* If initial SYN packet, get TCP sequence number */
     if (size_payload > 0) {
-        if (tcp->tcp_flags == 2 && record->initial_seq == 0) { // SYN==2
-            record->initial_seq = ntohl(tcp->tcp_seq);
+        if (tcp->tcp_flags == 2 && record->tcp.first_seq == 0) { // SYN==2
+            record->tcp.first_seq = ntohl(tcp->tcp_seq);
         }
     }
 
-    // if initial SYN/ACK packet, parse TCP options
     if (tcp->tcp_flags == 2 || tcp->tcp_flags == 18) { // SYN==2, SYN/ACK==18
-        // get initial window size
-        if (!record->tcp_initial_window_size) {
-            record->tcp_initial_window_size = ntohs(tcp->tcp_win);
+        /* Initial SYN or SYN/ACK packet */
+        unsigned int opt_len = tcp_hdr_len - 20;
+
+        /* Get initial window size */
+        if (!record->tcp.first_window_size) {
+            record->tcp.first_window_size = ntohs(tcp->tcp_win);
         }
 
-        // get SYN packet size
+        /* Get SYN packet size */
         if (tcp->tcp_flags == 2) {
-            record->tcp_syn_size = tcp_len;
+            record->tcp.first_syn_size = tcp_len;
+        }
+
+        if (opt_len > 0) {
+            /* Copy options data into buffer */
+            if (opt_len > TCP_OPT_LEN) {
+                record->tcp.opt_len = TCP_OPT_LEN;
+                memcpy(record->tcp.opts, tcp_start + 20, TCP_OPT_LEN);
+            } else {
+                record->tcp.opt_len = opt_len;
+                memcpy(record->tcp.opts, tcp_start + 20, opt_len);
+            }
         }
     }
 
