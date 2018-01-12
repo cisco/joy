@@ -287,6 +287,21 @@ void joy_utils_convert_to_json_string (char *s, unsigned int len) {
  * *********************************************************************
  */
 
+/**
+ * \brief Compare two times to see if they are equal
+ * \param a First time value
+ * \param b Second time value
+ * \return 1 if equal, 0 otherwise
+ */
+unsigned int joy_timer_eq(const struct timeval *a,
+                          const struct timeval *b) {
+    if (a->tv_sec == b->tv_sec && a->tv_usec == b->tv_usec) {
+        return 1;
+    }
+
+    return 0;
+}
+
 unsigned int joy_timer_lt(const struct timeval *a,
                       const struct timeval *b) {
     return (a->tv_sec == b->tv_sec) ? (a->tv_usec < b->tv_usec) : (a->tv_sec < b->tv_sec);

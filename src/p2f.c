@@ -1079,8 +1079,7 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
         empty = 0;
     }
 
-#define not_empty(rec) (rec->tcp.first_window_size || rec->tcp.first_syn_size \
-                       || rec->tcp.opt_len)
+#define not_empty(rec) (rec->tcp.flags || rec->tcp.first_window_size || rec->tcp.opt_len)
 
     if (not_empty(rec)) {
         empty = 0; out_empty = 0;
@@ -1105,6 +1104,8 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
     }
 
     if (!out_empty) {
+        char out_flags_string[9] = {0};
+
         if (top_com) {
             zprintf(f, ",\"out\":{");
         } else {
@@ -1112,16 +1113,17 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
             top_com = 1;
         }
 
-        if (rec->tcp.first_window_size) {
-            zprintf(f, "\"first_window\":%u", rec->tcp.first_window_size);
+        if (rec->tcp.flags) {
+            tcp_flags_to_string(rec->tcp.flags, out_flags_string);
+            zprintf(f, "\"flags\":\"%s\"", out_flags_string);
             com = 1;
         }
 
-        if (rec->tcp.first_syn_size) {
+        if (rec->tcp.first_window_size) {
             if (com) {
-                zprintf(f, ",\"first_syn_size\":%u", rec->tcp.first_syn_size);
+                zprintf(f, ",\"first_window_size\":%u", rec->tcp.first_window_size);
             } else {
-                zprintf(f, "\"first_syn_size\":%u", rec->tcp.first_syn_size);
+                zprintf(f, "\"first_window_size\":%u", rec->tcp.first_window_size);
                 com = 1;
             }
         }
@@ -1140,6 +1142,7 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
     }
 
     if (!in_empty) {
+        char in_flags_string[9] = {0};
         com = 0;
 
         if (top_com) {
@@ -1148,16 +1151,17 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
             zprintf(f, "\"in\":{");
         }
 
-        if (rec->twin->tcp.first_window_size) {
-            zprintf(f, "\"first_window\":%u", rec->twin->tcp.first_window_size);
+        if (rec->twin->tcp.flags) {
+            tcp_flags_to_string(rec->twin->tcp.flags, in_flags_string);
+            zprintf(f, "\"flags\":\"%s\"", in_flags_string);
             com = 1;
         }
 
-        if (rec->twin->tcp.first_syn_size) {
+        if (rec->twin->tcp.first_window_size) {
             if (com) {
-                zprintf(f, ",\"first_syn_size\":%u", rec->twin->tcp.first_syn_size);
+                zprintf(f, ",\"first_window_size\":%u", rec->twin->tcp.first_window_size);
             } else {
-                zprintf(f, "\"first_syn_size\":%u", rec->twin->tcp.first_syn_size);
+                zprintf(f, "\"first_window_size\":%u", rec->twin->tcp.first_window_size);
                 com = 1;
             }
         }
@@ -1177,6 +1181,43 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
 
     /* End tcp object */
     zprintf(f, "},");
+}
+
+static const struct flow_record *tcp_client_flow(const struct flow_record *a,
+                                                 const struct flow_record *b) {
+    if (!a->tcp.flags && !b->tcp.flags) {
+        /* No flags to compare */
+        return NULL;
+    }
+
+    if (a->tcp.flags == 2 && b->tcp.flags == 2) {
+        /* Cannot determine, both have SYN */
+        return NULL;
+    }
+
+    /* SYN */
+    if (a->tcp.flags == 2) {
+        return a;
+    } else if (b->tcp.flags == 2) {
+        return b;
+    }
+
+    if (a->tcp.flags == 18 && b->tcp.flags == 18) {
+        /* Cannot determine, both have SYN/ACK */
+        return NULL;
+    }
+
+    /*
+     * SYN/ACK
+     * If detected, then return the twin.
+     */
+    if (a->tcp.flags == 18) {
+        return b;
+    } else if (b->tcp.flags == 18) {
+        return a;
+    }
+
+    return NULL;
 }
 
 #define OUT "<"
@@ -1200,21 +1241,46 @@ static void flow_record_print_json (const struct flow_record *record) {
     records_in_file++;
 
     if (record->twin != NULL) {
-        // Use the smaller of the 2 time values
-        if (joy_timer_lt(&record->start, &record->twin->start)) {
-            ts_start = record->start;
-            rec = record;
-        } else {
-            ts_start = record->twin->start;
-            rec = record->twin;
+        /*
+         * The flow is bidirectional.
+         * Need to figure client/server order.
+         */
+        int compare_start_times = 1;
+
+        if (joy_timer_eq(&record->start, &record->twin->start)) {
+            /*
+             * The start times are equal.
+             * Try to resolve using TCP flags (if they exist)
+             */
+            rec = tcp_client_flow(record, record->twin);
+            if (rec != NULL) {
+                compare_start_times = 0;
+                ts_start = rec->start;
+            }
         }
-        // Use the larger of the 2 time values
+
+        if (compare_start_times) {
+            if (joy_timer_lt(&record->start, &record->twin->start)) {
+                // Use the smaller of the 2 time values
+                ts_start = record->start;
+                rec = record;
+            } else {
+                ts_start = record->twin->start;
+                rec = record->twin;
+            }
+        }
+
+        /* Get the end time of the flow */
         if (joy_timer_lt(&record->end, &record->twin->end)) {
+            // Use the larger of the 2 time values
             ts_end = record->twin->end;
         } else {
             ts_end = record->end;
         }
     } else {
+        /*
+         * The flow is unidirectional. Easy enough.
+         */
         ts_start = record->start;
         ts_end = record->end;
         rec = record;

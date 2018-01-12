@@ -610,25 +610,22 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
           flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
     }
 
-    /* If initial SYN packet, get TCP sequence number */
-    if (size_payload > 0) {
-        if (tcp->tcp_flags == 2 && record->tcp.first_seq == 0) { // SYN==2
-            record->tcp.first_seq = ntohl(tcp->tcp_seq);
-        }
-    }
-
     if (tcp->tcp_flags == 2 || tcp->tcp_flags == 18) { // SYN==2, SYN/ACK==18
         /* Initial SYN or SYN/ACK packet */
         unsigned int opt_len = tcp_hdr_len - 20;
 
+        if (!record->tcp.flags) {
+            record->tcp.flags = tcp->tcp_flags;
+        }
+
+        /* Get initial sequence number */
+        if (tcp->tcp_flags == 2 && record->tcp.first_seq == 0) {
+            record->tcp.first_seq = ntohl(tcp->tcp_seq);
+        }
+
         /* Get initial window size */
         if (!record->tcp.first_window_size) {
             record->tcp.first_window_size = ntohs(tcp->tcp_win);
-        }
-
-        /* Get SYN packet size */
-        if (tcp->tcp_flags == 2) {
-            record->tcp.first_syn_size = tcp_len;
         }
 
         if (opt_len > 0) {

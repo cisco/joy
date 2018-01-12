@@ -65,8 +65,8 @@ struct tcp_info {
     uint32_t seq;
     uint32_t retrans;
     uint32_t first_seq;
-    uint32_t first_syn_size;
     uint16_t first_window_size;
+    unsigned char flags;
     unsigned char opt_len;
     unsigned char opts[TCP_OPT_LEN];
 };
