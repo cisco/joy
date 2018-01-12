@@ -245,6 +245,12 @@ static int find_interface_in_list(char *name) {
    return -1;
 }
 
+/**
+ * \fn void get_mac_address (char *name, unsigned char mac_addr)
+ * \param name interface name
+ * \param mac_addr MAC address of interface
+ * \return none
+ */
 void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
 {
 #ifdef DARWIN
@@ -329,7 +335,7 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
 }
 
 /**
- * \fn void print)interfaces (FILE *f, int num_ifs)
+ * \fn void print_interfaces (FILE *f, int num_ifs)
  * \param f file to print to
  * \param num_ifs number of interfaces available
  * \return none
@@ -341,7 +347,6 @@ void print_interfaces(FILE *info, int num_ifs) {
     fprintf(info, "\nInterfaces\n");
     fprintf(info, "==========\n");
     for (i = 0; i < num_ifs; ++i) {
-        // get_mac_address((char*)ifl[i].name,ifl[i].mac_addr);
         fprintf(info, "Interface: %s\n", ifl[i].name);
         if (ifl[i].ip_addr4[0] != 0) {
             fprintf(info, "  IPv4 Address: %s\n", ifl[i].ip_addr4);
