@@ -410,6 +410,7 @@ static unsigned int interface_list_get() {
                         inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
                         snprintf((char*)ifl[i].ip_addr4, INET_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
                     }
+                    get_mac_address((char*)ifl[i].name,ifl[i].mac_addr);
                 } else {
                     /* first time seeing this interface add to list */
                     snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
@@ -422,9 +423,9 @@ static unsigned int interface_list_get() {
                         snprintf((char*)ifl[num_ifs].ip_addr4, INET_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
                     }
                     ifl[num_ifs].active = IFF_UP;
+                    get_mac_address((char*)ifl[num_ifs].name,ifl[num_ifs].mac_addr);
                     ++num_ifs;
                 }
-                get_mac_address((char*)ifl[i].name,ifl[i].mac_addr);
             }
         }
     }
