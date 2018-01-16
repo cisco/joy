@@ -114,7 +114,7 @@
       <ShowProgress>NotSet</ShowProgress>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
       <AdditionalOptions>/NODEFAULTLIB:MSVCRT %(AdditionalOptions)</AdditionalOptions>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateDebugInformation>No</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -149,6 +149,7 @@
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\windows\64;</AdditionalLibraryDirectories>
       <AdditionalDependencies>version.lib;psapi.lib;getopt.lib;iphlpapi.lib;ws2_32.lib;pthread.lib;libcurl.lib;zlib.lib;libbz2.lib;libeay32.lib;ssleay32.lib;wpcap.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;Winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <GenerateDebugInformation>No</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -173,6 +174,7 @@
     <ClCompile Include="..\..\src\osdetect.c" />
     <ClCompile Include="..\..\src\p2f.c" />
     <ClCompile Include="..\..\src\parson.c" />
+    <ClCompile Include="..\..\src\payload.c" />
     <ClCompile Include="..\..\src\pkt_proc.c" />
     <ClCompile Include="..\..\src\ppi.c" />
     <ClCompile Include="..\..\src\procwatch.c" />
@@ -210,6 +212,7 @@
     <ClInclude Include="..\..\src\include\output.h" />
     <ClInclude Include="..\..\src\include\p2f.h" />
     <ClInclude Include="..\..\src\include\parson.h" />
+    <ClInclude Include="..\..\src\include\payload.h" />
     <ClInclude Include="..\..\src\include\pkt.h" />
     <ClInclude Include="..\..\src\include\pkt_proc.h" />
     <ClInclude Include="..\..\src\include\ppi.h" />

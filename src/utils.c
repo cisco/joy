@@ -345,6 +345,7 @@ unsigned int joy_timeval_to_milliseconds(struct timeval ts) {
 }
 
 #ifdef WIN32
+#include <stdint.h>
 int gettimeofday(struct timeval *tp,
                  struct timezone *tzp)
 {

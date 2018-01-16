@@ -1,5 +1,5 @@
 /*
- *	
+ *  
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
  * 
@@ -49,7 +49,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -59,6 +58,7 @@
 #include "Ws2tcpip.h"
 #include <ShlObj.h>
 #else 
+#include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/wait.h>    
@@ -173,6 +173,8 @@ extern unsigned int verbosity;
 
 extern unsigned int show_config;
 
+extern unsigned int show_interfaces;
+
 define_all_features_config_extern_uint(feature_list)
 
 /* config is the global configuration */
@@ -190,6 +192,8 @@ volatile int reopenLog = 0;
  *******************************************************************
  *******************************************************************
  */
+#define MAC_ADDR_LEN 6
+#define MAC_ADDR_STR_LEN 32
 #define IFL_MAX 16
 #define INTFACENAMESIZE 64
 
@@ -218,65 +222,221 @@ volatile int reopenLog = 0;
 
 struct intrface { 
     unsigned char name [INTFACENAMESIZE];
-    unsigned char friendly_name[IFNAMSIZ];
-    unsigned char ip_addr[INET6_ADDRSTRLEN];
+    unsigned char mac_addr[MAC_ADDR_STR_LEN];
+    unsigned char ip_addr4[INET_ADDRSTRLEN];
+    unsigned char ip_addr6[INET6_ADDRSTRLEN];
     unsigned char active;
 };
-
-static unsigned int interface_list_get(struct intrface ifl[IFL_MAX]) {
-	pcap_if_t *alldevs;
-	pcap_if_t *d;
-	unsigned int num_ifs = 0;
-	char errbuf[PCAP_ERRBUF_SIZE];
-
-	/* Retrieve the device list on the local machine */
-	//if (pcap_findalldevs_ex(PCAP_SRC_IF_STRING, NULL, &alldevs, errbuf) == -1) {
-	if (pcap_findalldevs(&alldevs, errbuf) == -1) {
-			fprintf(stderr, "Error in pcap_findalldevs: %s\n", errbuf);
-		return num_ifs;
-	}
-
-	/* Print the list */
-	fprintf(info, "\nInterfaces\n");
-	fprintf(info, "==========\n");
-	for (d = alldevs; d; d = d->next) {
-		char ip_string[INET6_ADDRSTRLEN];
-		pcap_addr_t *dev_addr = NULL; //interface address that used by pcap_findalldevs()
-
-		/* check if the device is suitable for live capture */
-		for (dev_addr = d->addresses; dev_addr != NULL; dev_addr = dev_addr->next) {
-                       if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
-                                memset(ip_string, 0x00, INET6_ADDRSTRLEN);
-                                if (dev_addr->addr->sa_family == AF_INET6) {
-                                        inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
-                                } else {
-                                        inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
-                                }
-				memset(&ifl[num_ifs], 0x00, sizeof(struct intrface));
-				snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
-				snprintf((char*)ifl[num_ifs].friendly_name, IFNAMSIZ, "intf%d", num_ifs);
-				snprintf((char*)ifl[num_ifs].ip_addr, INET6_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
-				ifl[num_ifs].active = IFF_UP;
-				fprintf(info, "Interface: %s\n", ifl[num_ifs].friendly_name);
-				fprintf(info, "  IP Address: %s\n", ifl[num_ifs].ip_addr);
-				++num_ifs;
-			}
-		}
-	}
-
-	if (num_ifs == 0) {
-		fprintf(info, "No suitable interfaces found.\n\n");
-	}
-
-	pcap_freealldevs(alldevs);
-	return num_ifs;
-}
 
 /*
  * Local interface globals
  */
 static struct intrface ifl[IFL_MAX];
 static unsigned int num_interfaces = 0;
+
+static int find_interface_in_list(char *name) {
+    int i;
+
+    for (i = 0; i < IFL_MAX; ++i) {
+        if (STRNCASECMP((char*)ifl[i].name, name, strlen(name)) == 0) {
+            return i;
+        }
+    }
+   return -1;
+}
+
+/**
+ * \fn void get_mac_address (char *name, unsigned char mac_addr)
+ * \param name interface name
+ * \param mac_addr MAC address of interface
+ * \return none
+ */
+void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
+{
+#ifdef DARWIN
+    struct ifaddrs *ifap, *ifaptr;
+    unsigned char *ptr;
+
+    if (getifaddrs(&ifap) == 0) {
+        for(ifaptr = ifap; ifaptr != NULL; ifaptr = (ifaptr)->ifa_next) {
+            if (!strcmp((ifaptr)->ifa_name, name) && (((ifaptr)->ifa_addr)->sa_family == AF_LINK)) {
+                ptr = (unsigned char *)LLADDR((struct sockaddr_dl *)(ifaptr)->ifa_addr);
+                sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
+                         *ptr, *(ptr+1), *(ptr+2), *(ptr+3), *(ptr+4), *(ptr+5));
+                break;
+            }
+        }
+        freeifaddrs(ifap);
+    }
+#elif WIN32
+#include <winsock2.h>
+#include <iphlpapi.h>
+    IP_ADAPTER_INFO AdapterInfo[16];
+    DWORD dwBufLen = sizeof(AdapterInfo);
+
+    DWORD dwStatus = GetAdaptersInfo(AdapterInfo, &dwBufLen);
+    if (dwStatus != ERROR_SUCCESS) {
+        return;
+    }
+
+    PIP_ADAPTER_INFO pAdapterInfo = AdapterInfo;
+
+    do {
+        int i = 0;
+        int delta = 0;
+        delta = strlen(name) - strlen(pAdapterInfo->AdapterName);
+        if (delta != 0) {
+            /* check the last N characters of the name */
+            char *p = (char*)(name+delta);
+            if (STRNCASECMP(p, pAdapterInfo->AdapterName, strlen(pAdapterInfo->AdapterName)) == 0) {
+                sprintf((char*)mac_addr, "%02X%02X%02X%02X%02X%02X",
+                    (int)pAdapterInfo->Address[0],
+                    (int)pAdapterInfo->Address[1],
+                    (int)pAdapterInfo->Address[2],
+                    (int)pAdapterInfo->Address[3],
+                    (int)pAdapterInfo->Address[4],
+                    (int)pAdapterInfo->Address[5]);
+                break;
+            }
+        } else {
+            if (STRNCASECMP(name, pAdapterInfo->AdapterName, strlen(name)) == 0) {
+                sprintf((char*)mac_addr, "%02X%02X%02X%02X%02X%02X",
+                    (int)pAdapterInfo->Address[0],
+                    (int)pAdapterInfo->Address[1],
+                    (int)pAdapterInfo->Address[2],
+                    (int)pAdapterInfo->Address[3],
+                    (int)pAdapterInfo->Address[4],
+                    (int)pAdapterInfo->Address[5]);
+                break;
+            }
+        }
+        pAdapterInfo = pAdapterInfo->Next;
+    } while (pAdapterInfo);
+
+#else
+    struct ifreq ifr;
+    int sock;
+
+    sock=socket(PF_INET, SOCK_STREAM, 0);
+    strncpy(ifr.ifr_name,name,sizeof(ifr.ifr_name)-1);
+    ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
+    ioctl(sock, SIOCGIFHWADDR, &ifr);
+
+    sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[0],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[1],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[2],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
+        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
+
+    close(sock);
+#endif
+}
+
+/**
+ * \fn void print_interfaces (FILE *f, int num_ifs)
+ * \param f file to print to
+ * \param num_ifs number of interfaces available
+ * \return none
+ */
+void print_interfaces(FILE *info, int num_ifs) {
+{
+    int i;
+
+    fprintf(info, "\nInterfaces\n");
+    fprintf(info, "==========\n");
+    for (i = 0; i < num_ifs; ++i) {
+        fprintf(info, "Interface: %s\n", ifl[i].name);
+        if (ifl[i].ip_addr4[0] != 0) {
+            fprintf(info, "  IPv4 Address: %s\n", ifl[i].ip_addr4);
+        }
+        if (ifl[i].ip_addr6[0] != 0) {
+            fprintf(info, "  IPv6 Address: %s\n", ifl[i].ip_addr6);
+        }
+        if (ifl[i].mac_addr[0] != 0) {
+            fprintf(info, "  MAC Address: %c%c:%c%c:%c%c:%c%c:%c%c:%c%c\n",
+                    ifl[i].mac_addr[0], ifl[i].mac_addr[1],
+                    ifl[i].mac_addr[2], ifl[i].mac_addr[3],
+                    ifl[i].mac_addr[4], ifl[i].mac_addr[5],
+                    ifl[i].mac_addr[6], ifl[i].mac_addr[7],
+                    ifl[i].mac_addr[8], ifl[i].mac_addr[9],
+                    ifl[i].mac_addr[10], ifl[i].mac_addr[11]);
+            }
+        }
+    }
+}
+
+static unsigned int interface_list_get() {
+    pcap_if_t *alldevs;
+    pcap_if_t *d;
+    int i;
+    unsigned int num_ifs = 0;
+    char errbuf[PCAP_ERRBUF_SIZE];
+
+    /* Retrieve the device list on the local machine */
+    //if (pcap_findalldevs_ex(PCAP_SRC_IF_STRING, NULL, &alldevs, errbuf) == -1) {
+    if (pcap_findalldevs(&alldevs, errbuf) == -1) {
+        fprintf(stderr, "Error in pcap_findalldevs: %s\n", errbuf);
+        return num_ifs;
+    }
+    memset(&ifl, 0x00, sizeof(ifl));
+
+    /* store off the interface list */
+    for (d = alldevs; d; d = d->next) {
+        char ip_string[INET6_ADDRSTRLEN];
+        pcap_addr_t *dev_addr = NULL; //interface address that used by pcap_findalldevs()
+
+        /* check if the device is suitable for live capture */
+        for (dev_addr = d->addresses; dev_addr != NULL; dev_addr = dev_addr->next) {
+            /* skip the loopback interfaces */
+            /* MacOS */
+            if (STRNCASECMP(d->name,"lo0",3) == 0) {
+                continue;
+            }
+            /* Linux */
+            if (STRNCASECMP(d->name,"lo",2) == 0) {
+                continue;
+            }
+            if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
+                i = find_interface_in_list(d->name);
+                if (i > -1) {
+                    /* seen this interface before */
+                    memset(ip_string, 0x00, INET6_ADDRSTRLEN);
+                    if (dev_addr->addr->sa_family == AF_INET6) {
+                        inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
+                        snprintf((char*)ifl[i].ip_addr6, INET6_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
+                    } else {
+                        inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
+                        snprintf((char*)ifl[i].ip_addr4, INET_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
+                    }
+                    get_mac_address((char*)ifl[i].name,ifl[i].mac_addr);
+                } else {
+                    /* first time seeing this interface add to list */
+                    snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
+                    memset(ip_string, 0x00, INET6_ADDRSTRLEN);
+                    if (dev_addr->addr->sa_family == AF_INET6) {
+                        inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
+                        snprintf((char*)ifl[num_ifs].ip_addr6, INET6_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
+                    } else {
+                        inet_ntop(AF_INET, &((struct sockaddr_in *)dev_addr->addr)->sin_addr, ip_string, INET_ADDRSTRLEN);
+                        snprintf((char*)ifl[num_ifs].ip_addr4, INET_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
+                    }
+                    ifl[num_ifs].active = IFF_UP;
+                    get_mac_address((char*)ifl[num_ifs].name,ifl[num_ifs].mac_addr);
+                    ++num_ifs;
+                }
+            }
+        }
+    }
+
+    if (num_ifs == 0) {
+       fprintf(info, "No suitable interfaces found.\n\n");
+    }
+
+    pcap_freealldevs(alldevs);
+    return num_ifs;
+}
 
 /*************************************************************************
  *************************************************************************
@@ -367,9 +527,11 @@ static int usage (char *s) {
            "                             Default=4\n"
            "  show_config=0              Show the configuration on stderr in the CLI on program run\n"
            "                             0=off, 1=show\n"
+           "  show_interfaces=0          Show the interfaces on stderr in the CLI on program run\n"
+           "                             0=off, 1=show\n"
            "  username=\"user\"          Drop privileges to username \"user\" after starting packet capture\n"
            "                             Default=\"joy\"\n"
-	   "Data feature options\n"
+           "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
            "  retrans=1                  include TCP retransmissions in packet list\n"
@@ -388,8 +550,8 @@ static int usage (char *s) {
            "  model=F1:F2                change classifier parameters, SPLT in file F1 and SPLT+BD in file F2\n"
            "  hd=1                       include header description\n" 
            "  URLlabel=URL               Full URL including filename to be used to retrieve label updates\n" 
-	   get_usage_all_features(feature_list),
-	   MAX_NUM_PKT_LEN); 
+       get_usage_all_features(feature_list),
+       MAX_NUM_PKT_LEN); 
     printf("RETURN VALUE                 0 if no errors; nonzero otherwise\n"); 
     return -1;
 }
@@ -564,7 +726,12 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
 
     if (joy_mode == MODE_ONLINE) {
         /* Get interface list */
-        num_interfaces = interface_list_get(ifl);
+        num_interfaces = interface_list_get();
+
+        if (config.show_interfaces) {
+            /* Print the interfaces */
+            print_interfaces(info, num_interfaces);
+        }
     }
 
     return 0;
@@ -715,6 +882,61 @@ static int configure_anonymization() {
 }
 
 /**
+ * \brief Find and open the interface to monitor traffic on
+ *
+ * assigns the capture interface name to the pointer passed in
+ *
+ * \return 0 success, -1 failure
+ */
+static int open_interface (char **capture_if, char **capture_mac) {
+    int linktype;
+    char errbuf[PCAP_ERRBUF_SIZE];
+
+    /*
+     * set capture interface as needed
+     */
+    if (strncmp(config.intface, "auto", strlen("auto")) == 0) {
+        *capture_if = (char*)ifl[0].name;
+        *capture_mac = (char*)ifl[0].mac_addr;
+        fprintf(info, "starting capture on interface %s\n", ifl[0].name);
+    } else {
+         int i;
+         for (i = 0; i < num_interfaces; ++i) {
+             if (STRNCASECMP((char*)ifl[i].name, config.intface, strlen((char*)ifl[i].name)) == 0) {
+                 *capture_if = (char*)ifl[i].name;
+                 *capture_mac = (char*)ifl[i].mac_addr;
+                 break;
+             }
+         }
+    }
+
+    if (*capture_if == NULL) {
+        fprintf(info, "could not find specified capture device: %s\n", config.intface);
+        return -1;
+    }
+
+    errbuf[0] = 0;
+    handle = pcap_open_live(*capture_if, 65535, config.promisc, 10000, errbuf);
+    if (handle == NULL) {
+        fprintf(info, "could not open device %s: %s\n", *capture_if, errbuf);
+        return -1;
+    }
+    if (errbuf[0] != 0) {
+        fprintf(stderr, "warning: %s\n", errbuf);
+    }
+
+    /* verify that we can handle the link layer headers */
+    linktype = pcap_datalink(handle);
+    if (linktype != DLT_EN10MB) {
+        fprintf(info, "device %s has unsupported linktype (%d)\n",
+                *capture_if, linktype);
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
  * \brief Set the data output to desired target.
  *
  * The output may be stdout, or a file with an auto-generated name,
@@ -722,13 +944,11 @@ static int configure_anonymization() {
  *
  * \return 0 success, 1 failure
  */
-static int set_data_output_file(char *output_filename,
-                                unsigned int *outfile_base_len,
-                                unsigned int file_count) {
+static int set_data_output_file(char *output_filename, char *interface_name, char *mac_address) {
     char *outputdir = NULL;
     int rc = 1;
 #ifdef WIN32
-	PWSTR windir = NULL;
+    PWSTR windir = NULL;
 #endif
 
     if (!config.filename) {
@@ -767,19 +987,22 @@ static int set_data_output_file(char *output_filename,
 #ifdef WIN32
             if (windir != NULL) {
                 /* Use the Windows install directory */
-                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", windir,
-                         t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\flocap-%s-%d%.2d%.2d%.2d%.2d%.2d%s", windir,
+                         mac_address,
+                         t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, zsuffix);
             } else {
-                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
-                         t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\flocap-%s-%d%.2d%.2d%.2d%.2d%.2d%s", outputdir,
+                         mac_address,
+                         t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec,zsuffix);
             }
 #else
-            snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-h%d-m%d-s%d-D%d-M%d-Y%d", outputdir,
-                     t->tm_hour, t->tm_min, t->tm_sec, t->tm_mday, t->tm_mon, t->tm_year + 1900);
+            snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-%s-%d%.2d%.2d%.2d%.2d%.2d%s", outputdir,
+                     mac_address,
+                     t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, zsuffix);
 #endif
        } else {
            joy_log_err("cannot use \"output = auto\" with no interface specified; use -o or -l options");
-		   goto end;
+           goto end;
        }
 
        joy_log_info("auto generated output filename: %s", output_filename);
@@ -802,14 +1025,6 @@ static int set_data_output_file(char *output_filename,
             snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
 #endif
         }
-    }
-
-    (*outfile_base_len) = strlen(output_filename);
-
-    if (config.max_records != 0) {
-        snprintf(output_filename + (*outfile_base_len),
-                 MAX_FILENAME_LEN - (*outfile_base_len),
-                 zsuffix("%d"), file_count);
     }
 
     /*
@@ -849,16 +1064,13 @@ int main (int argc, char **argv) {
     unsigned int num_cmds = 0;
     unsigned int done_with_options = 0;
     char *config_file = NULL;
-    char errbuf[PCAP_ERRBUF_SIZE];
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
     int tmp_ret;
-    char *ifile = NULL;
-    unsigned int file_count = 0;
     char output_filename[MAX_FILENAME_LEN];  /* data output file */
-    unsigned int outfile_base_len = 0;
     char pcap_filename[MAX_FILENAME_LEN*2];   /* output file */
     char *capture_if = NULL;
+    char *capture_mac = NULL;
     struct stat sb;
     DIR *dir;
     struct dirent *ent;
@@ -870,6 +1082,7 @@ int main (int argc, char **argv) {
     int c, i = 0;
 #ifndef _WIN32
     struct passwd *pw = NULL;
+    char *user = NULL;
 #endif
 
     /* Sanity check sizeof() expectations */
@@ -881,8 +1094,8 @@ int main (int argc, char **argv) {
     for (i=1; i<argc; i++) {
         if (strchr(argv[i], '=')) {
             if (done_with_options) {
-	              joy_log_crit("option (%s) found after filename (%s)", argv[i], argv[i-1]);
-	              exit(EXIT_FAILURE);
+                  joy_log_crit("option (%s) found after filename (%s)", argv[i], argv[i-1]);
+                  exit(EXIT_FAILURE);
             }
         } else {
             done_with_options = 1;
@@ -944,11 +1157,11 @@ int main (int argc, char **argv) {
     if (initial_setup(config_file, num_cmds)) exit(EXIT_FAILURE);
 
     if (joy_mode != MODE_OFFLINE) {
-	/*
-	 * Cheerful message to indicate the start of a new run of the program
-	 */
-	fprintf(info, "--- Joy Initialization ---\n");
-	flocap_stats_output(info);
+        /*
+         * Cheerful message to indicate the start of a new run of the program
+         */
+        fprintf(info, "--- Joy Initialization ---\n");
+        flocap_stats_output(info);
     }
 
     /* 
@@ -966,24 +1179,29 @@ int main (int argc, char **argv) {
     /* Configure anonymization */
     if (configure_anonymization()) exit(EXIT_FAILURE);
 
-    /* Configure data output */
-    set_data_output_file(output_filename, &outfile_base_len, file_count);
+    /* Open interface for live captures */
+    if (joy_mode == MODE_ONLINE) {
+        if (open_interface(&capture_if, &capture_mac) < 0) {
+            fprintf(info, "error: open_interface for live capture session failed!\n");
+            return -2;
+        }
+    }
 
-    if (ifile != NULL) {
-        opt_count--;
-        argv[1+opt_count] = ifile; 
+    /* Configure data output */
+    if (set_data_output_file(output_filename, capture_if, capture_mac) == 1) {
+        fprintf(info, "error: set_data_output_file failed!\n");
+        return -2;
     }
 
     if (joy_mode == MODE_ONLINE) {   /* live capture */
-        int linktype;
 
         /*
          * sanity check: we can't be in both offline mode and online mode
          * simultaneously
          */
-        if ((argc-opt_count > 1) || (ifile != NULL)) {
+        if (argc-opt_count > 1) {
             fprintf(info, "error: both interface (%s) and pcap input file (%s) specified\n",
-	                    config.intface, argv[1+opt_count]);
+                    config.intface, argv[1+opt_count]);
             return usage(argv[0]);
         }
 
@@ -991,97 +1209,70 @@ int main (int argc, char **argv) {
     
         signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
         signal(SIGTERM, sig_close);
+#ifndef WIN32
         signal(SIGHUP, sig_reload);
+#endif
 
-        /*
-         * set capture interface as needed
-         */
-        if (strncmp(config.intface, "auto", strlen("auto")) == 0) {
-            capture_if = (char*)ifl[0].name;
-            fprintf(info, "starting capture on interface %s\n", ifl[0].friendly_name);
-		}
-		else {
-			int i;
-			for (i = 0; i < num_interfaces; ++i) {
-				if (STRNCASECMP((char*)ifl[i].friendly_name, config.intface, strlen((char*)ifl[i].friendly_name)) == 0) {
-					capture_if = (char*)ifl[i].name;
-					break;
-				}
-			}
-        }
-
-		if (capture_if == NULL) {
-			fprintf(info, "could not find specified capture device: %s\n", config.intface);
-			return -1;
-		}
-
-        errbuf[0] = 0;
-        handle = pcap_open_live(capture_if, 65535, config.promisc, 10000, errbuf);
-        if (handle == NULL) {
-            fprintf(info, "could not open device %s: %s\n", capture_if, errbuf);
-            return -1;
-        }
-        if (errbuf[0] != 0) {
-            fprintf(stderr, "warning: %s\n", errbuf);
-        }
-
-        /* verify that we can handle the link layer headers */
-        linktype = pcap_datalink(handle);
-        if (linktype != DLT_EN10MB) {
-            fprintf(info, "device %s has unsupported linktype (%d)\n", 
-	                capture_if, linktype);
-            return -2;
-        }
-    
+        /* interface is already open, apply any filter expressions */
         if (filter_exp) {
 
             /* compile the filter expression */
             if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-	                fprintf(info, "error: could not parse filter %s: %s\n",
-		                      filter_exp, pcap_geterr(handle));
-	                return -3;
+                fprintf(info, "error: could not parse filter %s: %s\n",
+                        filter_exp, pcap_geterr(handle));
+                return -3;
             }
       
             /* apply the compiled filter */
             if (pcap_setfilter(handle, &fp) == -1) {
-	                fprintf(info, "error: could not install filter %s: %s\n",
-		                        filter_exp, pcap_geterr(handle));
-	                return -4;
+                fprintf(info, "error: could not install filter %s: %s\n",
+                        filter_exp, pcap_geterr(handle));
+                return -4;
             }
 
         }
 
 #ifndef _WIN32
         /*
-         * drop privileges once pcap handle exists
+         * Drop privileges once pcap handle exists
          */
-        pw = getpwnam(config.username);
+        if (config.username) {
+            user = config.username;
+        } else {
+            user = getenv("SUDO_USER");
+        }
+
+        if (user == NULL) {
+            joy_log_crit("Please specify username=foo or run program with sudo");
+            return -5;
+        }
+
+        pw = getpwnam(user);
+
         if (pw) {
             if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
                 setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
                 fprintf(info, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
-                    config.username,
-                    (unsigned long)pw->pw_uid,
-                    (unsigned long)pw->pw_gid,
-                    pcap_strerror(errno));
+                        pw->pw_name,
+                        (unsigned long)pw->pw_uid,
+                        (unsigned long)pw->pw_gid,
+                        pcap_strerror(errno));
                 return -5; 
             }
             else {
                 fprintf(info, "changed user to '%.32s' (uid=%lu gid=%lu)\n",
-                    config.username,
-                    (unsigned long)pw->pw_uid,
-                    (unsigned long)pw->pw_gid);
+                        pw->pw_name,
+                        (unsigned long)pw->pw_uid,
+                        (unsigned long)pw->pw_gid);
             }
         }
         else {
-            fprintf(info, "error: could not find user '%.32s'\n", config.username);
+            joy_log_crit("could not find user '%.32s'", user);
             return -5;
         }
 #endif /* _WIN32 */
 
-        /*
-         * open output file
-         */
+        /* open output file */
         if (config.filename) {
             output = zopen(output_filename, "w");
             if (output == NULL) {
@@ -1107,8 +1298,8 @@ int main (int argc, char **argv) {
          if (config.upload_servername) {
              upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&config);
              if (upd_rc) {
-	             fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
-	             return -7;
+                 fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
+                 return -7;
              }
          }
 
@@ -1131,53 +1322,52 @@ int main (int argc, char **argv) {
             joy_log_info("PCAP processing loop done");
 
             if (config.report_exe) {
-	              /*
-	               * periodically obtain host/process flow data
+                  /*
+                   * periodically obtain host/process flow data
                    * PP: Not implemented for WIN32. Need to handle
-	               */ 
-	              if (get_host_flow_data() != 0) {
-	                  joy_log_warn("Could not obtain host/process flow data\n");
-	              }
+                   */ 
+                  if (get_host_flow_data() != 0) {
+                      joy_log_warn("Could not obtain host/process flow data\n");
+                  }
            }
 
            /* Periodically report on progress */
            if ((flocap_stats_get_num_packets() % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
-	              flocap_stats_output(info);
+                  flocap_stats_output(info);
            }
 
            /* Print out expired flows */
            flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
 
            if (config.filename) {
-	
-	              /* rotate output file if needed */
-	              if (config.max_records && (records_in_file > config.max_records)) {
+    
+                  /* rotate output file if needed */
+                  if (config.max_records && (records_in_file > config.max_records)) {
 
-	                  /*
-	                   * write JSON postamble
-	                   */
-	                  zclose(output);
-	                  if (config.upload_servername) {
-	                      upload_file(output_filename);
-	                  }
+                      /*
+                       * write JSON postamble
+                       */
+                      zclose(output);
+                      if (config.upload_servername) {
+                          upload_file(output_filename);
+                      }
 
-	                  // printf("records: %d\tmax_records: %d\n", records_in_file, config.max_records);
-	                  file_count++;
-	                  if (config.max_records != 0) {
-	                      snprintf(output_filename + outfile_base_len, MAX_FILENAME_LEN - outfile_base_len, zsuffix("%d"), file_count);
-	                  }
-	                  output = zopen(output_filename, "w");
-	                  if (output == NULL) {
-	                      perror("error: could not open output file");
-	                      return -1;
-	                  }
-	                  records_in_file = 0;
-	              }
+                      // printf("records: %d\tmax_records: %d\n", records_in_file, config.max_records);
+                      if (config.max_records != 0) {
+                          set_data_output_file(output_filename, capture_if, capture_mac);
+                      }
+                      output = zopen(output_filename, "w");
+                      if (output == NULL) {
+                          perror("error: could not open output file");
+                          return -1;
+                      }
+                      records_in_file = 0;
+                  }
       
-	              /*
-	               * flush out buffered debug/info/log messages on the "info" stream
-	               */
-	              fflush(info);
+                  /*
+                   * flush out buffered debug/info/log messages on the "info" stream
+                   */
+                  fflush(info);
            }
            // fflush(output);
            // Close and reopen the log file if reopenLog flag is set
@@ -1225,8 +1415,7 @@ int main (int argc, char **argv) {
         flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
         fflush(info);
     } else { /* mode = mode_offline */
-
-        if ((argc-opt_count <= 1) && (ifile == NULL)) {
+        if (argc-opt_count <= 1) {
             fprintf(stderr, "error: missing pcap file name(s)\n");
             return usage(argv[0]);
         }
@@ -1239,34 +1428,34 @@ int main (int argc, char **argv) {
         for (i=1+opt_count; i<argc; i++) {
     
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
-	                if ((dir = opendir(argv[i])) != NULL) {
+                if ((dir = opendir(argv[i])) != NULL) {
 
-	                    while ((ent = readdir(dir)) != NULL) {
-	                        if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
-	                            strcpy(pcap_filename, argv[i]);
-	                            if (pcap_filename[strlen(pcap_filename)-1] != '/') {
-		                                strcat(pcap_filename, "/");
-	                            }
-	                            strcat(pcap_filename, ent->d_name);
-	                            tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
-	                            if (tmp_ret < 0) {
-		                                return tmp_ret;
-	                            }
-	                        }
-	                    }
+                    while ((ent = readdir(dir)) != NULL) {
+                        if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
+                            strcpy(pcap_filename, argv[i]);
+                            if (pcap_filename[strlen(pcap_filename)-1] != '/') {
+                                strcat(pcap_filename, "/");
+                            }
+                            strcat(pcap_filename, ent->d_name);
+                            tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
+                            if (tmp_ret < 0) {
+                                return tmp_ret;
+                            }
+                        }
+                    }
 
-	                    closedir(dir);
-	                } else {
-	                    /* error opening directory*/
-	                    printf("Error opening directory: %s\n", argv[i]);
-	                    return -1;
-	                }
+                    closedir(dir);
+                } else {
+                    /* error opening directory*/
+                    printf("Error opening directory: %s\n", argv[i]);
+                    return -1;
+                }
 
             } else {
-	                tmp_ret = process_pcap_file(argv[i], filter_exp, &net, &fp);
-	                if (tmp_ret < 0) {
-	                   return tmp_ret;
-	                }
+                tmp_ret = process_pcap_file(argv[i], filter_exp, &net, &fp);
+                if (tmp_ret < 0) {
+                    return tmp_ret;
+                }
             }
         }
     }
@@ -1312,20 +1501,20 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
         fprintf(stderr,"Couldn't open pcap file %s: %s\n", file_name, errbuf); 
         return -1;
     }   
-	
+    
     if (filter_exp) {
-	  
+      
         /* compile the filter expression */
         if (pcap_compile(handle, fp, filter_exp, 0, *net) == -1) {
             fprintf(stderr, "error: could not parse filter %s: %s\n",
-	                filter_exp, pcap_geterr(handle));
+                    filter_exp, pcap_geterr(handle));
             return -2;
         }
     
         /* apply the compiled filter */
         if (pcap_setfilter(handle, fp) == -1) {
             fprintf(stderr, "error: could not install filter %s: %s\n",
-	              filter_exp, pcap_geterr(handle));
+                    filter_exp, pcap_geterr(handle));
             return -3;
         }
     }
@@ -1352,3 +1541,4 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
     return 0;
 }
 
+// vim: tabstop=4 shiftwidth=4 expandtab

@@ -133,6 +133,8 @@ unsigned int verbosity = 0;
 
 unsigned int show_config = 0;
 
+unsigned int show_interfaces = 0;
+
 unsigned short compact_bd_mapping[16];
 
 radix_trie_t rt = NULL;
