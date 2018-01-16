@@ -257,8 +257,12 @@ class DictStreamProcessor(object):
             proc.post_process()
         else:
             for obj in self.obj_set:
-                json.dump(obj, sys.stdout, indent=self.indent)
-                print ""
+                try:
+                    json.dump(obj, sys.stdout, indent=self.indent)
+                    print ""
+                except IOError:
+                    # Broken pipe, exit loop
+                    break
 
 
 class DictStreamSplitProcessor(DictStreamProcessor):
