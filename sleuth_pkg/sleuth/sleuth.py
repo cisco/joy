@@ -265,7 +265,7 @@ class DictStreamProcessor(object):
                     break
 
 
-class DictStreamSplitProcessor(DictStreamProcessor):
+class DictStreamGroupProcessor(DictStreamProcessor):
     def __init__(self, fpobj, field):
         self.fpobj = fpobj
         self.dict = dict()

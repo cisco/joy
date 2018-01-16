@@ -63,8 +63,8 @@ def attach_iterators(source, args):
         source = FlowStitchIterator(source)
     if args.selection:
         source = DictStreamSelectIterator(source, args.selection)
-    if args.normalize:
-        source = DictStreamNormalizeIterator(source, args.normalize)
+    if args.norm_keys:
+        source = DictStreamNormalizeIterator(source, args.norm_keys)
 
     # source = DictStreamApplyIterator(source, 'ppi', truncate)
 
@@ -88,15 +88,15 @@ def pipeline():
                       help="Select key(s) to output.")
     parser.add_argument("--where", dest="filter",
                       help="Filter flows according to the provided key/value.")
-    parser.add_argument("--normalize", dest="normalize",
+    parser.add_argument("--normalize", dest="norm_keys",
                       help="Set values of selected key(s) to Null.")
     parser.add_argument("--stitch", dest='stitch', action="store_true",
                       help="Stitch together successive flows separated by active timeouts.")
-    parser.add_argument("--split", dest="splitfield",
-                        help='Split processing into separate pipeline according to each' +
+    parser.add_argument("--groupby", dest="group_keys",
+                        help='Split processing into separate pipelines, grouping by each ' +
                              'unique value for the provided keys(s).')
     parser.add_argument("--dist", dest='dist', action="store_true",
-                        help="Compute distribution over selected keys(s).")
+                        help="Compute distribution of unique values for keys(s) specified in --select.")
     parser.add_argument("--pretty", dest='pretty', action="store_true",
                         help="Pretty-print JSON output.")
     parser.add_argument("--sum", dest="sumvars",
@@ -127,11 +127,8 @@ def pipeline():
     #
     fp = DictStreamProcessor(indent=json_indent)
 
-    #if args.normalize is not None:
-    #    fp = DictStreamElementNormalizeProcessor(fp, args.normalize)
-        
-    if args.splitfield:
-        fp = DictStreamSplitProcessor(fp, args.splitfield)
+    if args.group_keys:
+        fp = DictStreamGroupProcessor(fp, args.group_keys)
 
     # Select post-processor
     #
