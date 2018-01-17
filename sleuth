@@ -48,6 +48,7 @@ except ImportError:
     # If in source code directory
     from sleuth_pkg import *
 
+
 def attach_iterators(source, args):
     source = DNSLinkedFlowEnrichIterator(source)
     
@@ -64,7 +65,7 @@ def attach_iterators(source, args):
     if args.filter:
         source = DictStreamFilterIterator(source, SleuthPredicate(args.filter))
 
-    if args.stitch:
+    if not args.no_stitch:
         source = FlowStitchIterator(source)
     if args.selection:
         source = DictStreamSelectIterator(source, args.selection)
@@ -94,8 +95,6 @@ def pipeline():
                       help="Filter flows according to the provided key/value.")
     parser.add_argument("--normalize", dest="norm_keys",
                       help="Set values of selected key(s) to Null.")
-    parser.add_argument("--stitch", dest='stitch', action="store_true",
-                      help="Stitch together successive flows separated by active timeouts.")
     parser.add_argument("--groupby", dest="group_keys",
                         help='Split processing into separate pipelines, grouping by each ' +
                              'unique value for the provided keys(s).')
@@ -103,6 +102,8 @@ def pipeline():
                         help="Compute distribution of unique values for keys(s) specified in --select.")
     parser.add_argument("--pretty", dest='pretty', action="store_true",
                         help="Pretty-print JSON output.")
+    parser.add_argument("--no_stitch", dest='no_stitch', action="store_true",
+                        help="Turn off stitching together successive flows separated by active timeouts.")
     parser.add_argument("--sum", dest="sumvars",
                         help="Compute sum over selected element(s).")
     parser.add_argument("--fingerprint", dest="fplist",
