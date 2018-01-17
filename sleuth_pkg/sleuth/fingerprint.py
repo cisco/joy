@@ -41,20 +41,16 @@ class fingerprinter(object):
     fingerprint_dict = {
         'tls': {
             'select': 'tls{c_extensions,cs}',
-            'normalize': 'tls{c_extensions[{server_name,signed_certificate_timestamp,session_ticket,padding,application_layer_protocol_negotiation,data}]}'    
+            'normalize': 'tls{c_extensions[{server_name,signed_certificate_timestamp,session_ticket,padding,application_layer_protocol_negotiation,data}]}'
         },
         'http': {
             'select': 'http[{out[{User-Agent}]}]',
             'normalize': ''
         },
         'tcp': {
-            'select': 'tcp{out{opt_len,opts}},ip_id{out}',
+            'select': 'tcp{out{opt_len,opts}}',
             'normalize': 'tcp{out{opts[{ts}]}}'
         },
-        'ip': {
-            'select': 'ip_id{out}',
-            'normalize': ''
-        }
     }
         
     def __init__(self, select, normalize):
@@ -71,5 +67,5 @@ class fingerprinter(object):
         return cls.fingerprint_dict
         
     @classmethod
-    def get_type(cls, typename):
-        return cls.fingerprint_dict[typename]
+    def get_instance(cls, typename):
+        return fingerprinter(**cls.fingerprint_dict[typename])

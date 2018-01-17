@@ -267,7 +267,7 @@ class PcapLoader:
         self.temp_json['file'] = os.path.join(temp_json_dir, temp_json_filename)
 
         enabled_features = ['bidir=1', 'http=1', 'tls=1', 'dns=1',
-                            'ssh=1', 'ip_id=1', 'entropy=1', 'payload=1', 'ppi=1']
+                            'ssh=1', 'entropy=1', 'payload=1', 'ppi=1']
 
         # Construct the commands
         command = ['joy', 'outdir=' + temp_json_dir, 'output=' + temp_json_filename]
