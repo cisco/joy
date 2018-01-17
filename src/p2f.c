@@ -1094,7 +1094,7 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
         return;
     }
 
-    zprintf(f, "\"tcp\":{");
+    zprintf(f, ",\"tcp\":{");
 
     if (rec->tcp.first_seq) {
         zprintf(f, "\"first_seq\":%u", rec->tcp.first_seq);
@@ -1181,13 +1181,13 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
     }
 
     /* End tcp object */
-    zprintf(f, "},");
+    zprintf(f, "}");
 }
 
 static void print_ip_json (zfile f, const struct flow_record *rec) {
     int k = 0;
 
-    zprintf(f, "\"ip\":{");
+    zprintf(f, ",\"ip\":{");
 
     zprintf(f, "\"out\":{");
     zprintf(f, "\"ttl\":%u", rec->ip.ttl);
@@ -1216,7 +1216,7 @@ static void print_ip_json (zfile f, const struct flow_record *rec) {
     }
 
     /* End IP object */
-    zprintf(f, "},");
+    zprintf(f, "}");
 }
 
 static const struct flow_record *tcp_client_flow(const struct flow_record *a,
@@ -1342,16 +1342,9 @@ static void flow_record_print_json (const struct flow_record *record) {
     }
     zprintf(output, "\"pr\":%u,", rec->key.prot);
 
-    /* IP object */
-    print_ip_json(output, rec);
-
     if (rec->key.prot == 6 || rec->key.prot == 17) {
         zprintf(output, "\"sp\":%u,", rec->key.sp);
         zprintf(output, "\"dp\":%u,", rec->key.dp);
-        if (rec->key.prot == 6) {
-            /* TCP object */
-            print_tcp_json(output, rec);
-        }
     } else {
         /* Make dp/sp null so that they can still be compared */
         zprintf(output, "\"sp\":null,");
@@ -1582,10 +1575,23 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, ",\"p_malware\":%f", score);
     }
 
+    /* IP object */
+    print_ip_json(output, rec);
+
+    if (rec->key.prot == 6) {
+        /* TCP object */
+        print_tcp_json(output, rec);
+    }
+
     /*
      * All of the feature modules
      */
     print_all_features(feature_list);
+
+    /*
+     * Host executable
+     */
+    print_executable_json(output, rec);
 
     if (report_hd) {
         /*
@@ -1651,11 +1657,6 @@ static void flow_record_print_json (const struct flow_record *record) {
         }
 
     }
-
-    /*
-     * Host executable
-     */
-    print_executable_json(output, rec);
 
     if (rec->exp_type) {
         zprintf(output, ",\"expire_type\":\"%c\"", rec->exp_type);
