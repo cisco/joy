@@ -38,11 +38,10 @@ from data_parser import DataParser
 import os
 
 class Pull:
-    def __init__(self, pos_dir, neg_dir, types=[0], compact=1, max_files=[None,None], bd_compact=0):
+    def __init__(self, pos_dir, neg_dir, types=[0], compact=1, max_files=[None,None]):
         self.num_params = 0
         self.types = types
         self.compact = compact
-        self.bd_compact = bd_compact
 
         for t in self.types:
             if t == 0:
@@ -55,14 +54,10 @@ class Pull:
                 self.num_params += 900
             elif t == 2 and self.compact == 1:
                 self.num_params += 100
-            elif t == 3 and self.bd_compact == 0:
+            elif t == 3:
                 self.num_params += 256
-            elif t == 3 and self.bd_compact == 1:
-                self.num_params += 16
-            elif t == 3 and self.bd_compact == 2:
-                self.num_params += 9
             elif t == 4:
-                self.num_params += 198
+                self.num_params += 186
 
 
         self.data = []
@@ -80,27 +75,19 @@ class Pull:
             try:
                 dParse = DataParser(idir + f,self.compact)
             except:
-                print idir + f
-                print 'fail'
+                print 'Error: failued to parse file %s' % (idir + f)
                 continue
 
             num_files += 1
 
             tmpTLS = dParse.getTLSInfo()
-            if self.bd_compact == 1:
-                tmpBD = dParse.getByteDistribution_compact()
-            elif self.bd_compact == 2:
-                tmpBD = dParse.getByteDistribution_mean_std()
-            else:
-                tmpBD = dParse.getByteDistribution()
+            tmpBD = dParse.getByteDistribution()
             tmpIPT = dParse.getIndividualFlowIPTs()
             tmpPL = dParse.getIndividualFlowPacketLengths()
-            tmp, ignore = dParse.getIndividualFlowMetadata()
+            tmp = dParse.getIndividualFlowMetadata()
 
             if tmp != None and tmpPL != None and tmpIPT != None:
                 for i in range(len(tmp)):
-                    if ignore[i] == 1 and label == 1.0:
-                        continue
                     tmp_data = []
                     if 0 in self.types:
                         tmp_data.extend(tmp[i])
@@ -112,12 +99,12 @@ class Pull:
                         tmp_data.extend(tmpBD[i])
                     if 4 in self.types:
                         tmp_data.extend(tmpTLS[i])
+
                     if len(tmp_data) != self.num_params:
-                        print len(tmp_data)
+                        continue
+
                     self.data.append(tmp_data)
-                for i in range(len(tmp)):
-＃                    if ignore[i] == 1 and label == 1.0:
-＃                       continue
                     self.labels.append(label)
+
             if max_files != None and num_files >= max_files:
                 break

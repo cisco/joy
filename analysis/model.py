@@ -64,13 +64,13 @@ def main():
     parser.add_argument('-l', '--lengths', action="store_true", default=False, help="Parse Packet Size Information")
     parser.add_argument('-t', '--times', action="store_true", default=False, help="Parse Inter-packet Time Information")
     parser.add_argument('-d', '--dist', action="store_true", default=False, help="Parse Byte Distribution Information")
+    parser.add_argument('-s', '--ssl', action="store_true", default=False, help="Parse SSL/TLS Information")
     parser.add_argument('-o', '--output', action="store", default="params.txt", help="Output file for parameters")
 
     args = parser.parse_args()
 
     max_files = [None,None]
     compact = 1
-    bd_compact = 0
 
     types = []
     if args.meta:
@@ -81,6 +81,8 @@ def main():
         types.append(2)
     if args.dist:
         types.append(3)
+    if args.ssl:
+        types.append(4)
 
     if args.pos_dir == None or not os.path.isdir(args.pos_dir):
         print 'No valid positive directory'
@@ -91,7 +93,7 @@ def main():
         return
 
     if types == []:
-        print 'Enter some data types to learn on (-m, -l, -t, -d)'
+        print 'Enter some data types to learn on (-m, -l, -t, -d, -s)'
         return
 
     param_file = args.output
@@ -99,7 +101,7 @@ def main():
         args.pos_dir += '/'
     if not args.neg_dir.endswith('/'):
         args.neg_dir += '/'
-    d = Pull(args.pos_dir, args.neg_dir, types, compact, max_files, bd_compact)
+    d = Pull(args.pos_dir, args.neg_dir, types, compact, max_files)
     data = d.data
     labels = d.labels
 
@@ -132,15 +134,9 @@ def main():
         elif t == 2 and compact == 1:
             print '\tPacket Times\t\t(100)'
             num_params += 100
-        elif t == 3 and bd_compact == 0:
+        elif t == 3:
             print '\tByte Distribution\t(256)'
             num_params += 256
-        elif t == 3 and bd_compact == 1:
-            print '\tByte Distribution\t(16)'
-            num_params += 16
-        elif t == 3 and bd_compact == 2:
-            print '\tByte Distribution Mean/std\t(9)'
-            num_params += 9
         elif t == 4:
             print '\tTLS Information\t\t(198)'
             num_params += 198
