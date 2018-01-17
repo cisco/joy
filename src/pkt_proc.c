@@ -967,11 +967,6 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
             break;
     }
 
-    /* apply IP-specific feature processing */
-    if (record != NULL) {
-        update_all_ip_features(ip_feature_list);
-    }
-
     /*
      * if our packet is malformed TCP, UDP, or ICMP, then the process
      * functions will return NULL; we deal with that case by treating it
@@ -995,10 +990,18 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     }
 
     /*
-     * set minimum ttl in flow record
+     * Get IP ID
      */
-    if (record->ttl > ip->ip_ttl) {
-        record->ttl = ip->ip_ttl;
+    if (record->ip.num_id < MAX_NUM_IP_ID) {
+        record->ip.id[record->ip.num_id] = ntohs(ip->ip_id);
+        record->ip.num_id++;
+    }
+
+    /*
+     * Set minimum ttl in flow record
+     */
+    if (record->ip.ttl > ip->ip_ttl) {
+        record->ip.ttl = ip->ip_ttl;
     }
 
     /* increment packet count in flow record */

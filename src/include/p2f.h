@@ -60,6 +60,19 @@
 #include "modules.h"      
 #include "feature.h"
 
+
+/**
+ * The maximum number of IP ID fields that will be
+ * reported for a single flow.
+ */
+#define MAX_NUM_IP_ID 50
+
+struct ip_info {
+    unsigned char ttl;              /*!< Smallest IP TTL in flow */
+    unsigned char num_id;           /*!< Number of IP ids */
+    uint16_t id[MAX_NUM_IP_ID];     /*!< Array of IP ids in flow */
+};
+
 struct tcp_info {
     uint32_t ack;
     uint32_t seq;
@@ -97,7 +110,6 @@ struct flow_record {
     unsigned int np;                      /*!< number of packets                   */
     unsigned int op;                      /*!< number of packets (w/nonzero data)  */
     unsigned int ob;                      /*!< number of bytes of application data */
-    unsigned char ttl;                    /*!< smallest IP TTL in flow             */
     struct timeval start;                 /*!< start time                          */ 
     struct timeval end;                   /*!< end time                            */
     unsigned int last_pkt_len;            /*!< last observed appdata length        */
@@ -112,6 +124,7 @@ struct flow_record {
     header_description_t hd;         /*!< header description (proto ident)    */
     void *idp;
     unsigned int idp_len;
+    struct ip_info ip;
     struct tcp_info tcp;
     unsigned int invalid;
 	char *exe_name;                       /*!< executable associated with flow    */

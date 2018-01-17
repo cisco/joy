@@ -43,6 +43,7 @@
 #include <stdio.h>      /* for fprintf()           */
 #include <stdlib.h>     /* for malloc, realloc, free */
 #include <stdint.h>     /* for uint32_t            */
+#include <string.h>     /* for memcpy               */
 
 #ifdef WIN32
 # include "Ws2tcpip.h"

@@ -63,7 +63,6 @@
 #include "config.h"     /* configuration                 */
 #include "output.h"     /* compressed output             */
 #include "salt.h"  // Because Windows!
-#include "ip_id.h" // Because Windows!
 #include "ipfix.h" /* ipfix protocol */
 #include "err.h" /* errors and logging */
 #include "osdetect.h"
@@ -441,7 +440,7 @@ static void flow_record_init (struct flow_record *record,
 
     /* Set the flow_key and TTL */
     flow_key_copy(&record->key, key);
-    record->ttl = MAX_TTL;
+    record->ip.ttl = MAX_TTL;
 }
 
 /**
@@ -1185,6 +1184,41 @@ static void print_tcp_json (zfile f, const struct flow_record *rec) {
     zprintf(f, "},");
 }
 
+static void print_ip_json (zfile f, const struct flow_record *rec) {
+    int k = 0;
+
+    zprintf(f, "\"ip\":{");
+
+    zprintf(f, "\"out\":{");
+    zprintf(f, "\"ttl\":%u", rec->ip.ttl);
+    if (rec->ip.num_id) {
+        zprintf(f, ",\"id\":[");
+        for (k = 0; k < rec->ip.num_id - 1; k++) {
+            zprintf(f, "%u,", rec->ip.id[k]);
+        }
+        zprintf(f, "%u]", rec->ip.id[k]);
+    }
+    /* End out object */
+    zprintf(f, "}");
+
+    if (rec->twin) {
+        zprintf(f, ",\"in\":{");
+        zprintf(f, "\"ttl\":%u", rec->twin->ip.ttl);
+        if (rec->twin->ip.num_id) {
+            zprintf(f, ",\"id\":[");
+            for (k = 0; k < rec->twin->ip.num_id - 1; k++) {
+                zprintf(f, "%u,", rec->twin->ip.id[k]);
+            }
+            zprintf(f, "%u]", rec->twin->ip.id[k]);
+        }
+        /* End in object */
+        zprintf(f, "}");
+    }
+
+    /* End IP object */
+    zprintf(f, "},");
+}
+
 static const struct flow_record *tcp_client_flow(const struct flow_record *a,
                                                  const struct flow_record *b) {
     if (!a->tcp.flags && !b->tcp.flags) {
@@ -1308,6 +1342,9 @@ static void flow_record_print_json (const struct flow_record *record) {
     }
     zprintf(output, "\"pr\":%u,", rec->key.prot);
 
+    /* IP object */
+    print_ip_json(output, rec);
+
     if (rec->key.prot == 6 || rec->key.prot == 17) {
         zprintf(output, "\"sp\":%u,", rec->key.sp);
         zprintf(output, "\"dp\":%u,", rec->key.dp);
@@ -1350,10 +1387,6 @@ static void flow_record_print_json (const struct flow_record *record) {
     zprintf(output, "\"time_start\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
     zprintf(output, "\"time_end\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
 #endif
-	zprintf(output, "\"ttl_out\":%u,", rec->ttl);
-    if (rec->twin != NULL) {
-        zprintf(output, "\"ttl_in\":%u,", rec->twin->ttl);
-    }
 
     /*****************************************************************
      * Packet length and time array
@@ -1568,9 +1601,9 @@ static void flow_record_print_json (const struct flow_record *record) {
      */
     if (include_os) {
         if (rec->twin) {
-            os_printf(output, rec->ttl, rec->tcp.first_window_size, rec->twin->ttl, rec->twin->tcp.first_window_size);
+            os_printf(output, rec->ip.ttl, rec->tcp.first_window_size, rec->twin->ip.ttl, rec->twin->tcp.first_window_size);
         } else {
-            os_printf(output, rec->ttl, rec->tcp.first_window_size, 0, 0);
+            os_printf(output, rec->ip.ttl, rec->tcp.first_window_size, 0, 0);
         }
     }
 
