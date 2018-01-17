@@ -193,6 +193,24 @@ class DictStreamEnrichIterator(DictStreamIterator):
             nextval[self.name] = tmp
         return nextval
 
+
+class DictStreamEnrichIntoIterator(DictStreamIterator):
+    def __init__(self, source, name, function, **kwargs):
+        self.source = source
+        self.name = name
+        self.function = function
+        self.kwargs = kwargs
+
+    def next(self):
+        nextval = self.source.next()
+        tmp = self.function(nextval, self.kwargs)
+        if tmp:
+            if self.name not in nextval:
+                nextval[self.name] = {}
+            for key, value in tmp.items():
+                nextval[self.name][key] = value
+        return nextval
+
 class DictStreamDistributionIterator(DictStreamIterator):
     def __init__(self, source, indent=None):
         self.source = source

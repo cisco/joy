@@ -48,14 +48,19 @@ except ImportError:
     # If in source code directory
     from sleuth_pkg import *
 
-
-def truncate(array):
-    return array[0:1]
-    
-
 def attach_iterators(source, args):
     source = DNSLinkedFlowEnrichIterator(source)
-
+    
+    if args.fplist:
+        for fp in args.fplist.split(','):
+            if fp in fingerprint_dict:
+                f = fingerprinter(**fingerprint_dict[fp])
+                source = DictStreamEnrichIntoIterator(source, "fingerprint", f.get_fingerprint)
+            elif fp == 'all':
+                for fp in fingerprint_dict.keys():
+                    f = fingerprinter(**fingerprint_dict[fp])
+                    source = DictStreamEnrichIntoIterator(source, "fingerprint", f.get_fingerprint)
+        
     if args.filter:
         source = DictStreamFilterIterator(source, SleuthPredicate(args.filter))
 
@@ -72,6 +77,7 @@ def attach_iterators(source, args):
         source = DictStreamEnrichIterator(source, "tls_sec", enrich_tls,
                                           policy_file=args.policy_file, unknowns=args.unknowns,
                                           compliance=args.compliance, failure_threshold=args.failure_threshold)
+
     return source
 
 
@@ -101,6 +107,8 @@ def pipeline():
                         help="Pretty-print JSON output.")
     parser.add_argument("--sum", dest="sumvars",
                         help="Compute sum over selected element(s).")
+    parser.add_argument("--fingerprint", dest="fplist",
+                        help="Enrich with fingerprint(s): (all, tcp, tls, or http).")
     parser.add_argument("--tls_sec", dest='tls_sec', action="store_true",
                         help="Report security level of TLS sessions.")
     parser.add_argument("--sec_policy_file", dest='policy_file',

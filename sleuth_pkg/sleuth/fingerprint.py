@@ -37,6 +37,21 @@ import os
 import json
 from sleuth import SleuthTemplateDict
 
+fingerprint_dict = {
+    'tls': {
+        'select': 'tls{c_extensions,cs}',
+        'normalize': 'tls{c_extensions[{server_name,signed_certificate_timestamp,session_ticket,padding,application_layer_protocol_negotiation,data}]}'    
+    },
+    'http': {
+        'select': 'http[{out[{User-Agent}]}]',
+        'normalize': ''
+    },
+    'tcp': {
+        'select': 'tcp{out{opt_len,opts}},ip_id{out}',
+        'normalize': 'tcp{out{opts[{ts}]}}'
+    }
+}
+
 class fingerprinter(object):
     def __init__(self, select, normalize):
         self.select_template = SleuthTemplateDict(select)
