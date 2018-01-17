@@ -112,12 +112,22 @@ def audit_certs_issuer(certs, trusted_ca_list):
     is in our trusted_ca_list; if not, we report it as a concern
     """
     try:
-        org_name = certs[-1]['issuer']['organizationName']
+        top_cert_issuer = certs[-1]["issuer"]
+
+        org_name = None
+        for entry in top_cert_issuer:
+            if "organizationName" in entry:
+                org_name = entry["organizationName"]
+                break
     except KeyError:
         return None
-    
-    if org_name not in trusted_ca_list:
-        return 'CA not trusted: ' + org_name
+
+    if org_name:
+        if org_name not in trusted_ca_list:
+            return 'CA not trusted: ' + org_name
+    else:
+        # Didn't find org_name in cert
+        return "CA is none"
 
     return None
 
