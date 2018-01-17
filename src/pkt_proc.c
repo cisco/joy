@@ -813,9 +813,6 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
     }
 #endif
 
-    /* signify IP by using zero (reserved) port values */
-    key->sp = key->dp = 0;
-
     record = flow_key_get_record(key, CREATE_RECORDS, header);
     if (record == NULL) {
         return NULL;
