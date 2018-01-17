@@ -37,22 +37,26 @@ import os
 import json
 from sleuth import SleuthTemplateDict
 
-fingerprint_dict = {
-    'tls': {
-        'select': 'tls{c_extensions,cs}',
-        'normalize': 'tls{c_extensions[{server_name,signed_certificate_timestamp,session_ticket,padding,application_layer_protocol_negotiation,data}]}'    
-    },
-    'http': {
-        'select': 'http[{out[{User-Agent}]}]',
-        'normalize': ''
-    },
-    'tcp': {
-        'select': 'tcp{out{opt_len,opts}},ip_id{out}',
-        'normalize': 'tcp{out{opts[{ts}]}}'
-    }
-}
-
 class fingerprinter(object):
+    fingerprint_dict = {
+        'tls': {
+            'select': 'tls{c_extensions,cs}',
+            'normalize': 'tls{c_extensions[{server_name,signed_certificate_timestamp,session_ticket,padding,application_layer_protocol_negotiation,data}]}'    
+        },
+        'http': {
+            'select': 'http[{out[{User-Agent}]}]',
+            'normalize': ''
+        },
+        'tcp': {
+            'select': 'tcp{out{opt_len,opts}},ip_id{out}',
+            'normalize': 'tcp{out{opts[{ts}]}}'
+        },
+        'ip': {
+            'select': 'ip_id{out}',
+            'normalize': ''
+        }
+    }
+        
     def __init__(self, select, normalize):
         self.select_template = SleuthTemplateDict(select)
         self.normalize_template = SleuthTemplateDict(normalize)
@@ -62,5 +66,10 @@ class fingerprinter(object):
         output = self.normalize_template.normalize_selected_elements(self.normalize_template.template, tmp)
         return output
 
+    @classmethod
+    def types(cls):
+        return cls.fingerprint_dict
         
-
+    @classmethod
+    def get_type(cls, typename):
+        return cls.fingerprint_dict[typename]

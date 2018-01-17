@@ -53,12 +53,12 @@ def attach_iterators(source, args):
     
     if args.fplist:
         for fp in args.fplist.split(','):
-            if fp in fingerprint_dict:
-                f = fingerprinter(**fingerprint_dict[fp])
+            if fp in fingerprinter.types():
+                f = fingerprinter(**fingerprinter.get_type(fp))
                 source = DictStreamEnrichIntoIterator(source, "fingerprint", f.get_fingerprint)
             elif fp == 'all':
-                for fp in fingerprint_dict.keys():
-                    f = fingerprinter(**fingerprint_dict[fp])
+                for fp in fingerprinter.types():
+                    f = fingerprinter(**fingerprinter.get_type(fp))
                     source = DictStreamEnrichIntoIterator(source, "fingerprint", f.get_fingerprint)
         
     if args.filter:
@@ -70,8 +70,6 @@ def attach_iterators(source, args):
         source = DictStreamSelectIterator(source, args.selection)
     if args.norm_keys:
         source = DictStreamNormalizeIterator(source, args.norm_keys)
-
-    # source = DictStreamApplyIterator(source, 'ppi', truncate)
 
     if args.tls_sec:
         source = DictStreamEnrichIterator(source, "tls_sec", enrich_tls,
