@@ -51,6 +51,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+
+#ifndef WIN32
+#include <libgen.h>
+#endif
+
 #include <sys/types.h>
 
 #ifdef WIN32
@@ -112,6 +117,7 @@ enum operating_mode {
 static enum operating_mode joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
 static char *filter_exp = "ip or vlan";
+static char dir_output[MAX_FILENAME_LEN];
 
 /* Globals defined in p2f.c */
 
@@ -1412,32 +1418,88 @@ int main (int argc, char **argv) {
         flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
         fflush(info);
     } else { /* mode = mode_offline */
+        int multi_file_input = 0;
+
         if (argc-opt_count <= 1) {
             fprintf(stderr, "error: missing pcap file name(s)\n");
             return usage(argv[0]);
         }
 
-        config_print_json(output, &config);
+        /* check if multiple files have been specified on the command line
+         * and the output is not going to STDOUT
+         */
+        if ((argc > 2) && (config.filename)) {
+           multi_file_input = 1;
+        }
+
+        /* check if a directory has been specified as the input file
+         * and the output is not going to STDOUT
+         */
+        if ((stat(argv[1], &sb) == 0 && S_ISDIR(sb.st_mode)) && (config.filename)) {
+           multi_file_input = 1;
+        }
+
+        /* determine how we are going to produce the output */
+        if (multi_file_input) {
+            /* close out the exsting open output file and remove it */
+            zclose(output);
+            remove(output_filename);
+
+            /* create a directory to place all of the output files into */
+            struct stat st = {0};
+            if (stat(output_filename, &st) == -1) {
+#ifdef WIN32
+                mkdir(output_filename);
+#else
+                mkdir(output_filename, 0700);
+#endif
+             }
+        } else {
+            config_print_json(output, &config);
+        }
   
         flow_record_list_init();
         flocap_stats_timer_init();
-
         for (i=1+opt_count; i<argc; i++) {
     
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
+                /* processing an input directory, by default this is multi-file input */
                 if ((dir = opendir(argv[i])) != NULL) {
 
                     while ((ent = readdir(dir)) != NULL) {
                         if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
                             strcpy(pcap_filename, argv[i]);
+#ifdef WIN32
+                            if (pcap_filename[strlen(pcap_filename) - 1] != '\\') {
+                                strcat(pcap_filename, "\\");
+                            }
+                            strcat(pcap_filename, ent->d_name);
+
+                            /* open new output file for multi-file processing */
+                            sprintf(dir_output, "%s\\%s_json%s", output_filename, ent->d_name, zsuffix);
+                            output = zopen(dir_output, "w");
+#else
                             if (pcap_filename[strlen(pcap_filename)-1] != '/') {
                                 strcat(pcap_filename, "/");
                             }
                             strcat(pcap_filename, ent->d_name);
+
+                            /* open new output file for multi-file processing */
+                            sprintf(dir_output, "%s/%s_json%s", output_filename, ent->d_name, zsuffix);
+                            output = zopen(dir_output, "w");
+#endif
+                            /* initialize the outputfile and processing structures */
+                            config_print_json(output, &config);
+                            flow_record_list_init();
+                            flocap_stats_timer_init();
+
                             tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
                             if (tmp_ret < 0) {
                                 return tmp_ret;
                             }
+
+                            /* close the output file */
+                            zclose(output);
                         }
                     }
 
@@ -1449,9 +1511,48 @@ int main (int argc, char **argv) {
                 }
 
             } else {
+                /* check for multi-file input processing via command line */
+                if (multi_file_input) {
+#ifdef WIN32
+                    char input_path[256];
+                    char fname[128];
+                    char ext[8];
+                    char input_file_base_name[136];
+
+                    strncpy(input_path, argv[i],255);
+                    _splitpath_s(input_path,NULL,0,NULL,0,fname,_MAX_FNAME,ext,_MAX_EXT);
+                    sprintf(input_file_base_name, "%s%s", fname, ext);
+
+                    /* open new output file for multi-file processing */
+                    sprintf(dir_output, "%s\\%s_json%s", output_filename, input_file_base_name, zsuffix);
+#else
+                    char *input_path = NULL;
+                    char *input_file_base_name = NULL;;
+
+                    /* copy input filename path */
+                    input_path = strdup(argv[i]);
+
+                    /* get the input basename */
+                    input_file_base_name = basename(input_path);
+
+                    /* open new output file for multi-file processing */
+                    sprintf(dir_output, "%s/%s_json%s", output_filename, input_file_base_name, zsuffix);
+#endif
+
+                    output = zopen(dir_output, "w");
+                    config_print_json(output, &config);
+                    flow_record_list_init();
+                    flocap_stats_timer_init();
+                }
+
                 tmp_ret = process_pcap_file(argv[i], filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
                     return tmp_ret;
+                }
+
+                /* close output file if we are processing multiple files */
+                if (multi_file_input) {
+                    zclose(output);
                 }
             }
         }
