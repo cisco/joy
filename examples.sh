@@ -144,6 +144,7 @@
 #
 ./sleuth $@ --where "packets[{b}]=50" --select "da,packets[{b}]" 
 
+
 # for flows containing interpacket times greater than 1000ms, show the
 # destination address as well as the inter-packet timings and
 # direction
@@ -158,21 +159,27 @@
 ./sleuth $@ --where "bytes_out>10000" --select "pr,dp,da,bytes_out"
 
 
-# show TCP traffic other than HTTP and HTTPS
+# show TCP traffic other than HTTP; use tcp=* to detect flows for
+# which a TCP handshake was observed, instead of pr=6, because in the
+# latter case the directionality might be confused
 #
-./sleuth $@ --where "tcp=*,(dp~80,dp~443)" --select pr,dp,da 
+./sleuth $@ --where "tcp=*,dp~80" --select pr,dp,da 
+
 
 # show flows destined to internal addresses
 #
 ./sleuth $@ --select "sa,sp,da,dp,pr" --where "da=10.*|da=192.168.*"
 
+
 # show traffic with byte entropy over four, if it is not HTTP or HTTPS
 #
-./sleuth $@ --where "entropy>4,(dp~80,dp~443)" --select dp,bytes_out,entropy 
+./sleuth $@ --where "entropy>4,dp~80,dp~443" --select dp,bytes_out,entropy 
 
-# what addresses are the top destinations to which data has been sent?
+
+# what addresses are the top destinations to which data has been sent?  show
+# the sum of bytes_out across all flows grouped by destination address
 #
-./sleuth $@ --select "da,bytes_out" --groupby da --sum bytes_out | sort -k 4 -n
+./sleuth $@ --select "da,bytes_out" --groupby da --sum bytes_out | sort -k 2 -nr
 
 # show the distribution of HTTP User-Agent and Accept-Encoding headers
 #
