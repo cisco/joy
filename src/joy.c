@@ -1500,6 +1500,7 @@ int main (int argc, char **argv) {
 
                             /* close the output file */
                             zclose(output);
+                            output = NULL;
                         }
                     }
 
@@ -1553,6 +1554,7 @@ int main (int argc, char **argv) {
                 /* close output file if we are processing multiple files */
                 if (multi_file_input) {
                     zclose(output);
+                    output = NULL;
                 }
             }
         }
@@ -1568,7 +1570,8 @@ int main (int argc, char **argv) {
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
     ipfix_module_cleanup();
 
-    zclose(output);
+    if (output)
+        zclose(output);
 
     return 0;
 }
