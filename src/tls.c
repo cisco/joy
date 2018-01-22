@@ -2263,20 +2263,20 @@ void tls_print_json (const struct tls *data,
     if (data->role == role_client) {
         zprintf(f, "\"c_version\":%u", data->version);
         if (data_twin && data_twin->version) {
-            if (data_twin->role == role_server) {
-                zprintf(f, ",\"s_version\":%u", data->version);
-            } else {
+            if (data_twin->role == role_client) {
                 zprintf(f, ",\"error\":\"twin clients\"}");
+                return;
             }
+            zprintf(f, ",\"s_version\":%u", data->version);
         }
     } else if (data->role == role_server) {
         zprintf(f, "\"s_version\":%u", data->version);
         if (data_twin && data_twin->version) {
-            if (data_twin->role == role_client) {
-                zprintf(f, ",\"c_version\":%u", data->version);
-            } else {
+            if (data_twin->role == role_server) {
                 zprintf(f, ",\"error\":\"twin servers\"}");
+                return;
             }
+            zprintf(f, ",\"c_version\":%u", data->version);
         }
     } else {
         zprintf(f, "\"error\":\"no role\"}");
