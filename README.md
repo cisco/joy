@@ -68,6 +68,16 @@ Joy is alpha/beta software; we hope that you use it and benefit
 from it, but do understand that it is not suitable for production
 use.
 
+#### Upcoming Release
+
+The team is excited to announce Joy 2.0 which is coming very soon in
+the next week or two. This major version bump includes significant
+changes to the Joy JSON schema and brand new functionality for Sleuth.
+The new schema is better organized and facilitates more advanced usage
+of the network data, including easier object access. We will be providing
+more detailed documentation on using Joy, Sleuth and interpreting the schema
+itself. Please stay tuned!
+
 #### Relation to Cisco ETA
 
 Joy has helped support the research that paved the way for Cisco’s Encrypted
