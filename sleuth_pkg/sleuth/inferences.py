@@ -36,9 +36,10 @@
 import os
 import json
 import pickle
-from sleuth import SleuthTemplateDict
+
 
 tls_fp_dict = None
+
 
 def tls_fp_dict_init():
     global tls_fp_dict
@@ -48,24 +49,26 @@ def tls_fp_dict_init():
     tls_fp_path = os.path.join(cur_dir, tls_fp_file)
     
     tls_fp_dict = {}
-    for counter, line in enumerate(open(tls_fp_path)):
-        tmp = json.loads(line)
-        fpvalue = pickle.dumps(tmp['fingerprint']['tls'])
-        if fpvalue in tls_fp_dict:
-            print "warning: duplicate tls fingerprint in line " + str(counter + 1) + " of file " + tls_fp_file
-        tls_fp_dict[fpvalue] = tmp['label']
+    with open(tls_fp_path) as f:
+        for counter, line in enumerate(f):
+            tmp = json.loads(line)
+            fpvalue = pickle.dumps(tmp['fingerprint']['tls'])
+            if fpvalue in tls_fp_dict:
+                print "warning: duplicate tls fingerprint in line " + str(counter + 1) + " of file " + tls_fp_file
+            tls_fp_dict[fpvalue] = tmp['label']
+
 
 def tls_inference(f, kwargs):
     global tls_fp_dict
     
     if not tls_fp_dict:
         tls_fp_dict_init()
+
     if 'fingerprint' in f:
         if 'tls' in f['fingerprint']:
             fpvalue = pickle.dumps(f['fingerprint']['tls'])
             if fpvalue in tls_fp_dict:
-                return { 'tls': tls_fp_dict[fpvalue] }
-            else:
-                return { 'tls': null}
+                return {'tls': tls_fp_dict[fpvalue]}
+
     return None
 
