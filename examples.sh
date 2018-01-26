@@ -190,3 +190,23 @@
 #
 ./sleuth $@ --select "http[{in[{body,Content-Type}]}],entropy" --where "dp=80,entropy>6" 
 
+# show tls client fingerprints and destination addresses, using
+# --where tls=* so that only tls flows get reported
+#
+./sleuth $@ --where tls=* --fingerprint tls --select inferences,da 
+# {"inferences": {"tls": ["firefox-31.0"]}, "da": "63.245.216.134"}
+# {"inferences": {"tls": ["firefox-31.0"]}, "da": "63.245.217.161"}
+# {"inferences": {"tls": ["firefox-31.0"]}, "da": "63.245.217.161"}
+# {"inferences": {"tls": ["firefox-58.0"]}, "da": "172.217.12.238"}
+# {"inferences": {"tls": ["firefox-58.0"]}, "da": "216.58.217.78"}
+
+# show the linked DNS request names for TLS sessions with client
+# fingerprints matching firefox-58
+#
+./sleuth $@ --fingerprint tls  --where "inferences{tls[]}=firefox-58*"  --select linked_dns{dns[{rn}]}
+# {"linked_dns": {"dns": [{"rn": "google.com"}, {"rn": "google.com"}]}}
+# {"linked_dns": {"dns": [{"rn": "getpocket.cdn.mozilla.net"}, {"rn": "getpocket.cdn.mozilla.net"}]}}
+# {"linked_dns": {"dns": [{"rn": "tiles.services.mozilla.com"}, {"rn": "tiles.services.mozilla.com"}]}}
+# {"linked_dns": {"dns": [{"rn": "www.google.com"}, {"rn": "www.google.com"}]}}
+
+

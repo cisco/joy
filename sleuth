@@ -47,8 +47,8 @@ try:
 except ImportError:
     # If in source code directory
     from sleuth_pkg import *
-
-
+    
+    
 def attach_iterators(source, args):
     source = DNSLinkedFlowEnrichIterator(source)
     
@@ -59,7 +59,8 @@ def attach_iterators(source, args):
             elif fp == 'all':
                 for fp in fingerprinter.types():
                     source = DictStreamEnrichIntoIterator(source, "fingerprint", fingerprinter.get_instance(fp).get_fingerprint)
-        
+        source = DictStreamEnrichIntoIterator(source, "inferences", tls_inference)
+                    
     if args.filter:
         source = DictStreamFilterIterator(source, SleuthPredicate(args.filter))
 

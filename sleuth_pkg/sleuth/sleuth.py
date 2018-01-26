@@ -405,12 +405,12 @@ class SleuthTemplateDict(object):
                     needArg = False
                 t += x
             else:
-                t += '\"' + x + '\":'
+                t += 'u\'' + x + '\':'
                 needArg = True
         if needArg:
             t += "None"
         t += '}'
-        # print "t: " + t
+        #print "t: " + t
         return eval(t)
 
     def copy_selected_elements(self, tmplDict, obj):
@@ -451,11 +451,14 @@ class SleuthTemplateDict(object):
                     obj_list = obj[k]
                     if obj_list:
                         outDict[k] = list()
-                        for x in obj_list:
-                            for y in v:
-                                tmp = self.get_selected_element(y, x)
-                                if tmp:
-                                    outDict[k].append(tmp)
+                        if v:
+                            for x in obj_list:
+                                for y in v:
+                                    tmp = self.get_selected_element(y, x)
+                                    if tmp:
+                                        outDict[k].append(tmp)
+                        else:
+                            outDict[k] = obj[k] 
                         if not outDict[k]:
                             outDict = {}
                 elif isinstance(v, dict):
@@ -546,9 +549,13 @@ class SimplePredicate(object):
             listMatch = False
             if flow:
                 for x in flow:
-                    x = x.values()[0]
-                    if self.eval(x):
-                        listMatch = True
+                    if isinstance(x, dict):
+                        x = x.values()[0]
+                        if self.eval(x):
+                            listMatch = True
+                    else:
+                        if self.eval(x):
+                            listMatch = True
             return listMatch
         elif isinstance(flow, dict):
             # print 'dict flow: ' + str(flow)
