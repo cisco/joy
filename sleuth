@@ -51,6 +51,11 @@ except ImportError:
     
 def attach_iterators(source, args):
     source = DNSLinkedFlowEnrichIterator(source)
+
+    if args.tls_sec:
+        source = DictStreamEnrichIterator(source, "tls_sec", enrich_tls,
+                                          policy_file=args.policy_file, unknowns=args.unknowns,
+                                          compliance=args.compliance, failure_threshold=args.failure_threshold)
     
     if args.fplist:
         for fp in args.fplist.split(','):
@@ -60,7 +65,7 @@ def attach_iterators(source, args):
                 for fp in fingerprinter.types():
                     source = DictStreamEnrichIntoIterator(source, "fingerprint", fingerprinter.get_instance(fp).get_fingerprint)
         source = DictStreamEnrichIntoIterator(source, "inferences", tls_inference)
-                    
+
     if args.filter:
         source = DictStreamFilterIterator(source, SleuthPredicate(args.filter))
 
@@ -70,11 +75,6 @@ def attach_iterators(source, args):
         source = DictStreamSelectIterator(source, args.selection)
     if args.norm_keys:
         source = DictStreamNormalizeIterator(source, args.norm_keys)
-
-    if args.tls_sec:
-        source = DictStreamEnrichIterator(source, "tls_sec", enrich_tls,
-                                          policy_file=args.policy_file, unknowns=args.unknowns,
-                                          compliance=args.compliance, failure_threshold=args.failure_threshold)
 
     return source
 
