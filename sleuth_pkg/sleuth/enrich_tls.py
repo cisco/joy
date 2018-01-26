@@ -148,10 +148,14 @@ def get_seclevel_with_param(policy, attr, value, param):
     if param == None:
         return policy.rules[attr][value]["default"]
 
-    if attr == "kex":
-        param_rules = policy.rules[attr][value]["client_key_length"]
-    elif attr == "cert_sig_alg":
-        param_rules = policy.rules[attr][value]["sig_key_size"]
+    try:
+        if attr == "kex":
+            param_rules = policy.rules[attr][value]["client_key_length"]
+        elif attr == "cert_sig_alg":
+            param_rules = policy.rules[attr][value]["sig_key_size"]
+    except KeyError:
+        # Nothing to compare
+        return policy.max_seclevel
 
     try:
         op = OPS[param_rules['operator']]
