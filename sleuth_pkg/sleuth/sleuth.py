@@ -323,7 +323,7 @@ class DictStreamSumProcessor(DictStreamProcessor):
                 if k in self.sums:
                     self.sums[k] += v
                 else:
-                    self.sums[k] = 0
+                    self.sums[k] = v
             else:
                 if k not in self.fixed_fields:
                     self.fixed_fields[k] = set()
