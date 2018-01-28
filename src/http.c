@@ -48,11 +48,6 @@
 #include "str_match.h"
 #include "err.h"
 
-/*
- * change this flag is you want hexadecimal output
- */
-#define NO_HEX_OUTPUT 1
-
 /** user name match structure */
 extern str_match_ctx  usernames_ctx;
 
@@ -70,12 +65,7 @@ extern str_match_ctx  usernames_ctx;
  * declarations of functions that are internal to this file
  */
 static unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsigned int length);
-
-#if NO_HEX_OUTPUT
-static void http_header_print_as_object(zfile f, char *header, char *string, unsigned length);
-#else
-static void http_header_print_as_hex(zfile f, char *header, char *string, unsigned int len);
-#endif
+static void http_print_header(zfile f, char *header, unsigned length);
 
 /**
  *
@@ -116,8 +106,11 @@ void http_update(struct http *http,
                  const void *data,
                  unsigned int data_len,
                  unsigned int report_http) {
+    if (!report_http || data_len == 0) {
+        return;
+    }
   
-    if (report_http && (http->header == NULL)) {
+    if (http->header == NULL) {
         unsigned int len = (data_len + MAGIC) < HTTP_LEN ? (data_len + MAGIC) : HTTP_LEN;
         /*
          * note: we leave room for null termination in the data buffer
@@ -144,37 +137,50 @@ void http_update(struct http *http,
 void http_print_json(const struct http *h1,
                      const struct http *h2,
                      zfile f) {
+    int comma = 0;
+
+    /* Sanity check */
     if (h1 == NULL) {
         return;
     }
 
-#if NO_HEX_OUTPUT
+    /* Check if there's data to print */
+    if (h2 != NULL) {
+        if (h1->header == NULL && h2->header == NULL) {
+            /* No data to print */
+            return;
+        }
+    } else {
+        if (h1->header == NULL) {
+            /* No data to print */
+            return;
+        }
+    }
+
+    /* Start http array */
+    // TODO support multiple pair objects
+    zprintf(f, ",\"http\":[{");
+
     if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
-          http_header_print_as_object(f, h1->header, "ohttp", h1->header_length);
+        zprintf(f, "\"out\":");
+        http_print_header(f, h1->header, h1->header_length);
+        comma = 1;
     }
 
     if (h2) {
         /* Twin */
         if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
-            http_header_print_as_object(f, h2->header, "ihttp", h2->header_length);
+            if (comma) {
+                zprintf(f, ",\"in\":");
+            } else {
+                zprintf(f, "\"in\":");
+            }
+            http_print_header(f, h2->header, h2->header_length);
         }
     }
 
-#else 
-
-    if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
-          http_header_print_as_hex(f, h1->header, "ohttp", h1->header_length);
-    }
-
-    if (h2) {
-        /* Twin */
-        if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
-            http_header_print_as_hex(f, h2->header, "ihttp", h2->header_length);
-        }
-    }
-
-#endif
-
+    /* End http array */
+    zprintf(f, "}]");
 }
 
 /**
@@ -372,8 +378,6 @@ enum header_state {
     got_value   = 2
 };
 
-#if NO_HEX_OUTPUT
-
 static enum http_type http_get_next_line (char **saveptr,
 				  unsigned int *length, char **token1, char **token2) {
     unsigned int i;
@@ -547,7 +551,7 @@ static int http_header_select (char *h) {
 
 #define PRINT_USERNAMES 1
 
-static void http_header_print_as_object (zfile f, char *header, char *string, unsigned length) {
+static void http_print_header(zfile f, char *header, unsigned length) {
     char *token1, *token2, *token3, *saveptr;  
     unsigned int not_first_header = 0;
     enum http_type type = http_done;  
@@ -555,11 +559,12 @@ static void http_header_print_as_object (zfile f, char *header, char *string, un
 
     token1 = token2 = NULL; /* initialize just to avoid compiler warnings */
 
-    zprintf(f, ",\"%s\":{", string);
-
     if (length < 4) {
-        goto bail;
+        return;
     }
+
+    /* Start req/resp array */
+    zprintf(f, "[");
 
     /*
      * parse start-line, and print as request/status as appropriate
@@ -568,31 +573,32 @@ static void http_header_print_as_object (zfile f, char *header, char *string, un
     type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
     if (type == http_request_line) {    
     
-        zprintf(f, "\"method\":\"%s\",", token1);
-        zprintf(f, "\"uri\":\"");
+        zprintf(f, "{\"method\":\"%s\"},", token1);
+        zprintf(f, "{\"uri\":\"");
         if (usernames_ctx) {
             str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
             anon_print_uri_pseudonym(f, &matches, token2);
         } else {
             zprintf(f, "%s", token2);
         }
-        zprintf(f, "\",");
-        zprintf(f, "\"v\":\"%s\"", token3);
+        zprintf(f, "\"},");
+        zprintf(f, "{\"version\":\"%s\"}", token3);
 
 #if PRINT_USERNAMES
         /*
          * print out (anonymized) usernames found in URI
          */
         if (usernames_ctx) {
-            zprintf(f, ",");
+            zprintf(f, ",{");
             zprintf_usernames(f, &matches, token2, is_special, anon_string);
+            zprintf(f, "}");
         }
 #endif
 
         not_first_header = 1;
     } else if (type == http_status_line) {    
-        zprintf(f, "\"v\":\"%s\","
-	          "\"code\":\"%s\"," "\"reason\":\"%s\"", 
+        zprintf(f, "{\"version\":\"%s\"},"
+	          "{\"code\":\"%s\"}," "{\"reason\":\"%s\"}",
 	          token1, token2, token3);
         not_first_header = 1;
     }
@@ -610,7 +616,7 @@ static void http_header_print_as_object (zfile f, char *header, char *string, un
 	              } else {
 	                  not_first_header = 1;
 	              }
-	              zprintf(f, "\"%s\":\"%s\"", token1, token2);
+	              zprintf(f, "{\"%s\":\"%s\"}", token1, token2);
             }
 
         } while (type == http_header);
@@ -625,7 +631,7 @@ static void http_header_print_as_object (zfile f, char *header, char *string, un
         } else {
            not_first_header = 1;
         }
-        zprintf(f, "\"malformed\":%u", length);
+        zprintf(f, "{\"malformed\":%u}", length);
     }
 
     /*
@@ -635,21 +641,14 @@ static void http_header_print_as_object (zfile f, char *header, char *string, un
         if (not_first_header) {
             zprintf(f, ",");
         } 
-        zprintf(f, "\"body\":");
+        zprintf(f, "{\"body\":");
         zprintf_raw_as_hex(f, (unsigned char*)saveptr, length); 
+        zprintf(f, "}");
     }
 
-    bail:  zprintf(f, "}");
+    /* End req/resp array */
+    zprintf(f, "]");
 }
-
-#else
-
-static void http_header_print_as_hex (zfile f, char *header, char *string, unsigned int len) {
-    zprintf(f, ",\"%s\":", string);
-    zprintf_raw_as_hex(f, header, len); 
-}
-
-#endif
 
 /**
  * \brief Unit test for HTTP

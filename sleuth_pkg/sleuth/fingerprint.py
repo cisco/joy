@@ -1,24 +1,24 @@
-/*
- *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+"""
+ *
+ * Copyright (c) 2017 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -32,75 +32,40 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- */
+"""
+import os
+import json
+from sleuth import SleuthTemplateDict
 
-/**
- * \file ppi.h
- *
- * \brief per-packet information (ppi) module using the generic
- * programming interface defined in feature.h.
- *
- */
-#ifndef PPI_H
-#define PPI_H
+class fingerprinter(object):
+    fingerprint_dict = {
+        'tls': {
+            'select': 'tls{c_extensions,cs}',
+            'normalize': 'tls{c_extensions[{server_name,signed_certificate_timestamp,session_ticket,padding,application_layer_protocol_negotiation,data}]}'
+        },
+        'http': {
+            'select': 'http[{out[{User-Agent}]}]',
+            'normalize': ''
+        },
+        'tcp': {
+            'select': 'tcp{out{opt_len,opts}}',
+            'normalize': 'tcp{out{opts[{ts}]}}'
+        },
+    }
+        
+    def __init__(self, select, normalize):
+        self.select_template = SleuthTemplateDict(select)
+        self.normalize_template = SleuthTemplateDict(normalize)
 
-#include <stdio.h> 
-#include "output.h"
-#include "feature.h"
+    def get_fingerprint(self, flow, kwargs):
+        tmp = self.select_template.copy_selected_elements(self.select_template.template, flow)
+        output = self.normalize_template.normalize_selected_elements(self.normalize_template.template, tmp)
+        return output
 
-#define MAX_NUM_PKT 200
-
-/** usage string */
-#define ppi_usage "  ppi=1                      include per-packet info (ppi)\n"
-
-/** ppi filter key */
-#define ppi_filter(key) 1
-
-#define TCP_OPT_LEN 24
-  
-struct pkt_info {
-    struct timeval time; 
-    unsigned int ack;
-    unsigned int seq;
-    unsigned short len;  
-    unsigned char flags;
-    unsigned short opt_len;  
-    unsigned char opts[TCP_OPT_LEN];
-};
-
-/** ppi structure */
-typedef struct ppi {
-    unsigned int np;
-    struct pkt_info pkt_info[MAX_NUM_PKT];
-} ppi_t;
-
-void tcp_flags_to_string(unsigned char flags, char *string);
-
-void tcp_opt_print_json(zfile f,
-                        const unsigned char *options,
-                        unsigned int total_len);
-
-declare_feature(ppi);
-
-/** initialization function */
-void ppi_init(struct ppi **ppi_handle);
-
-/** update ppi */
-void ppi_update(struct ppi *ppi, 
-		const struct pcap_pkthdr *header,
-		const void *data, 
-		unsigned int len, 
-		unsigned int report_ppi);
-
-/** JSON print ppi */
-void ppi_print_json(const struct ppi *w1, 
-		     const struct ppi *w2,
-		     zfile f);
-
-/** delete ppi */
-void ppi_delete(struct ppi **ppi_handle);
-
-/** ppi unit test entry point */
-void ppi_unit_test();
-
-#endif /* PPI_H */
+    @classmethod
+    def types(cls):
+        return cls.fingerprint_dict
+        
+    @classmethod
+    def get_instance(cls, typename):
+        return fingerprinter(**cls.fingerprint_dict[typename])

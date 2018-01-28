@@ -2026,18 +2026,22 @@ static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
                                      char *term, zfile f) {
     int i = 0;
 
-    zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":\"%u:",
+    zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":%u",
             pkt_len, dir, joy_timeval_to_milliseconds(ts), m.content_type);
 
     if (m.num_handshakes) {
+        /*
+         * Print handshake information
+         */
+        zprintf(f, ",\"hs_types\":[");
         for (i = 0; i < m.num_handshakes; i++) {
             if (i == (m.num_handshakes - 1)) {
-                zprintf(f, "%u\",", m.handshake_types[i]);
+                zprintf(f, "%u]", m.handshake_types[i]);
             } else {
                 zprintf(f, "%u,", m.handshake_types[i]);
             }
         }
-        zprintf(f, "\"hs_lens\":[");
+        zprintf(f, ",\"hs_lens\":[");
         for (i = 0; i < m.num_handshakes; i++) {
             if (i == (m.num_handshakes - 1)) {
                 zprintf(f, "%u]", m.handshake_lens[i]);
@@ -2045,10 +2049,10 @@ static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
                 zprintf(f, "%u,", m.handshake_lens[i]);
             }
         }
-        zprintf(f, "}%s", term);
-    } else {
-        zprintf(f, "0\"}%s", term);
     }
+
+    /* Close the object */
+    zprintf(f, "}%s", term);
 }
 
 static void len_time_print_interleaved_tls (unsigned int op, const unsigned short *len, 
@@ -2146,173 +2150,256 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
 }
 
 /**
+ * \brief Table storing IANA TLS extension name strings
+ *
+ * The string values in this table have been adapted from:
+ * https://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
+ *
+ * The strings within have been changed in some cases:
+ * - Whitespace has been deleted.
+ */
+static const char *tls_extension_types[] = {
+    [0]="server_name", [1]="max_fragment_length", [2]="client_certificate_url", [3]="trusted_ca_keys",
+    [4]="truncated_hmac", [5]="status_request", [6]="user_mapping", [7]="client_authz",
+    [8]="server_authz", [9]="cert_type", [10]="supported_groups", [11]="ec_point_formats",
+    [12]="srp", [13]="signature_algorithms", [14]="use_srtp", [15]="heartbeat",
+    [16]="application_layer_protocol_negotiation", [17]="status_request_v2", [18]="signed_certificate_timestamp", [19]="client_certificate_type",
+    [20]="server_certificate_type", [21]="padding", [22]="encrypt_then_mac", [23]="extended_master_secret",
+    [24]="token_binding", [25]="cached_info", [35]="session_ticket", [65281]="renegotiation_info",
+};
+
+/**
+ * \brief Try to resolve the TLS extension type to an IANA string.
+ *
+ * \param data pointer to message type data
+ *
+ * \return pointer to string from lookup table
+ */
+static const char *tls_extension_lookup(const unsigned short int type)
+{
+    if ((type >= 0 && type <= 25) || type == 35 || type == 65281) {
+        /* Make sure the type is within accepted bounds */
+        return tls_extension_types[type];
+    }
+
+    /* Invalid data value */
+    return NULL;
+}
+
+static void tls_print_extensions(const struct tls_extension *extensions,
+                                 unsigned short int count,
+                                 enum role role,
+                                 zfile f) {
+    int i = 0;
+
+    if (role == role_client) {
+        zprintf(f, ",\"c_extensions\":[");
+    } else if (role == role_server) {
+        zprintf(f, ",\"s_extensions\":[");
+    } else {
+        joy_log_err("unknown role is not permitted");
+        return;
+    }
+
+    for (i = 0; i < count; i++) {
+        const char *type_str = NULL;
+
+        type_str = tls_extension_lookup(extensions[i].type);
+        if (type_str) {
+            zprintf(f, "{\"%s\":", type_str);
+            zprintf_raw_as_hex_tls(f, extensions[i].data, extensions[i].length);
+            zprintf(f, "}");
+        } else {
+            /* The type is unknown */
+            zprintf(f, "{\"kind\":%u", extensions[i].type);
+	        zprintf(f, ",\"data\":");
+            zprintf_raw_as_hex_tls(f, extensions[i].data, extensions[i].length);
+            zprintf(f, "}");
+        }
+
+        if (i == (count - 1)) {
+            zprintf(f, "]");
+        } else {
+            zprintf(f, ",");
+        }
+    }
+}
+
+/**
+ * \brief Print the TLS struct to JSON output file \p f.
+ *
  * \param data pointer to TLS information structure
  * \param data_twin pointer to twin TLS information structure
  * \param f destination file for the output
  *
- * \return
- *
+ * \return none
  */
 void tls_print_json (const struct tls *data,
                      const struct tls *data_twin,
                      zfile f) {
-    int i;
+    int i = 0;
 
-    /* sanity check tls data passed in */
     if (data == NULL) {
         return;
     }
 
-    /* make sure the tls info passed in is reliable */
+    /* Make sure the tls info passed in is reliable */
     if (!data->version) {
         return;
     }
 
-    /* if a twin is present make sure its info is reliable */
+    /* If a twin is present make sure its info is reliable */
     if (data_twin != NULL && !data_twin->version) {
         return;
     }
 
     zprintf(f, ",\"tls\":{");
 
-    if (data->version) {
-        zprintf(f, "\"tls_ov\":%u", data->version);
-    }
-    if (data_twin && data_twin->version) {
-        if (data->version) {
-            zprintf(f, ",\"tls_iv\":%u", data_twin->version);
-        } else {
-            zprintf(f, "\"tls_iv\":%u", data_twin->version);
+    /*
+     * Assign the versions according to role.
+     * Do not allow both to be identical role at the same time...
+     * i.e. both client or both server
+     */
+    if (data->role == role_client) {
+        zprintf(f, "\"c_version\":%u", data->version);
+        if (data_twin && data_twin->version) {
+            if (data_twin->role == role_client) {
+                zprintf(f, ",\"error\":\"twin clients\"}");
+                return;
+            }
+            zprintf(f, ",\"s_version\":%u", data->version);
         }
+    } else if (data->role == role_server) {
+        zprintf(f, "\"s_version\":%u", data->version);
+        if (data_twin && data_twin->version) {
+            if (data_twin->role == role_server) {
+                zprintf(f, ",\"error\":\"twin servers\"}");
+                return;
+            }
+            zprintf(f, ",\"c_version\":%u", data->version);
+        }
+    } else {
+        zprintf(f, "\"error\":\"no role\"}");
+        return;
     }
 
+    /*
+     * Client key length
+     */
     if (data->client_key_length) {
-        zprintf(f, ",\"tls_client_key_length\":%u", data->client_key_length);
-        zprintf(f, ",\"clientKeyExchange\":");
+        zprintf(f, ",\"c_key_length\":%u", data->client_key_length);
+        zprintf(f, ",\"c_key_exchange\":");
         zprintf_raw_as_hex_tls(f, data->clientKeyExchange, data->client_key_length/8);
-    }
-    if (data_twin && data_twin->client_key_length) {
-        zprintf(f, ",\tls_client_key_length\":%u", data_twin->client_key_length);
-        zprintf(f, ",\"clientKeyExchange\":");
+    } else if (data_twin && data_twin->client_key_length) {
+        zprintf(f, ",\"c_key_length\":%u", data_twin->client_key_length);
+        zprintf(f, ",\"c_key_exchange\":");
         zprintf_raw_as_hex_tls(f, data_twin->clientKeyExchange, data_twin->client_key_length/8);
     }
 
-    /* print out TLS random */
+    /*
+     * TLS Random
+     */
     if (data->role == role_client) {
-	zprintf(f, ",\"tls_crandom\":");
-	zprintf_raw_as_hex_tls(f, data->random, 32);
-	if (data_twin) {
-	    if (data_twin->role == role_server) {
-		zprintf(f, ",\"tls_srandom\":");
-		zprintf_raw_as_hex_tls(f, data_twin->random, 32);
-	    }  else if (data_twin->role == role_client) {
-		zprintf(f, ",\"error\":\"twin clients\"");  
-	    } 
-	} 
-    } else if (data->role == role_server) {
-	zprintf(f, ",\"tls_srandom\":");
-	zprintf_raw_as_hex_tls(f, data->random, 32);
-	if (data_twin) {
-	    if (data_twin->role == role_client) {
-		zprintf(f, ",\"tls_crandom\":");
-		zprintf_raw_as_hex_tls(f, data_twin->random, 32);
-	    } else if (data_twin->role == role_server) {
-		zprintf(f, ",\"error\":\"twin servers\"");  
-	    }
-	}
+        zprintf(f, ",\"c_random\":");
+        zprintf_raw_as_hex_tls(f, data->random, 32);
+        if (data_twin) {
+            zprintf(f, ",\"s_random\":");
+            zprintf_raw_as_hex_tls(f, data_twin->random, 32);
+        }
+    }
+    else {
+        zprintf(f, ",\"s_random\":");
+        zprintf_raw_as_hex_tls(f, data->random, 32);
+        if (data_twin) {
+            zprintf(f, ",\"c_random\":");
+            zprintf_raw_as_hex_tls(f, data_twin->random, 32);
+        }
     }
 
+    /*
+     * Session ID
+     */
     if (data->sid_len) {
-        zprintf(f, ",\"tls_osid\":");
-        zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
-    }
-    if (data_twin && data_twin->sid_len) {
-        zprintf(f, ",\"tls_isid\":");
-        zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
-    }
-
-    if (data->sni_length) {
-        zprintf(f, ",\"SNI\":[\"%s\"]",(char *)data->sni);
-    }
-    if (data_twin && data_twin->sni_length) {
-        zprintf(f, ",\"SNI\":[\"%s\"]",(char *)data_twin->sni);
-    }
-
-    if (data->num_ciphersuites) {
-        if (data->num_ciphersuites == 1) {
-            zprintf(f, ",\"scs\":\"%04x\"", data->ciphersuites[0]);
+        if (data->role == role_client) {
+            zprintf(f, ",\"c_sid\":");
+            zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
+            if (data_twin && data_twin->sid_len) {
+                zprintf(f, ",\"s_sid\":");
+                zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
+            }
         } else {
+            zprintf(f, ",\"s_sid\":");
+            zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
+            if (data_twin && data_twin->sid_len) {
+                zprintf(f, ",\"c_sid\":");
+                zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
+            }
+        }
+    }
+
+    /*
+     * Server Name Indicator
+     */
+    if (data->sni_length) {
+        zprintf(f, ",\"sni\":[\"%s\"]", (char *)data->sni);
+    }
+    else if (data_twin && data_twin->sni_length) {
+        zprintf(f, ",\"sni\":[\"%s\"]", (char *)data_twin->sni);
+    }
+
+    /*
+     * Offered and selected ciphersuites
+     */
+    if (data->role == role_client) {
+        if (data_twin && data_twin->num_ciphersuites == 1) {
+            zprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
+        }
+
+        if (data->num_ciphersuites) {
             zprintf(f, ",\"cs\":[");
             for (i = 0; i < data->num_ciphersuites-1; i++) {
-	            zprintf(f, "\"%04x\",", data->ciphersuites[i]);
+                zprintf(f, "\"%04x\",", data->ciphersuites[i]);
             }
             zprintf(f, "\"%04x\"]", data->ciphersuites[i]);
         }
-    }  
-    if (data_twin && data_twin->num_ciphersuites) {
-        if (data_twin->num_ciphersuites == 1) {
-            zprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
-        } else {
+    } else {
+        if (data->num_ciphersuites == 1) {
+            zprintf(f, ",\"scs\":\"%04x\"", data->ciphersuites[0]);
+        }
+
+        if (data_twin && data_twin->num_ciphersuites) {
             zprintf(f, ",\"cs\":[");
             for (i = 0; i < data_twin->num_ciphersuites-1; i++) {
-	            zprintf(f, "\"%04x\",", data_twin->ciphersuites[i]);
+                zprintf(f, "\"%04x\",", data_twin->ciphersuites[i]);
             }
             zprintf(f, "\"%04x\"]", data_twin->ciphersuites[i]);
         }
-    }    
-  
-    if (data->num_extensions) {
-        zprintf(f, ",\"tls_ext\":[");
-        for (i = 0; i < data->num_extensions-1; i++) {
-            zprintf(f, "{\"type\":\"%04x\",", data->extensions[i].type);
-            zprintf(f, "\"length\":%i,\"data\":", data->extensions[i].length);
-            zprintf_raw_as_hex_tls(f, data->extensions[i].data, data->extensions[i].length);
-            zprintf(f, "},");
-        }
-        zprintf(f, "{\"type\":\"%04x\",", data->extensions[i].type);
-        zprintf(f, "\"length\":%i,\"data\":", data->extensions[i].length);
-        zprintf_raw_as_hex_tls(f, data->extensions[i].data, data->extensions[i].length);
-        zprintf(f, "}]");
-    }  
-    if (data_twin && data_twin->num_extensions) {
-        zprintf(f, ",\"tls_ext\":[");
-        for (i = 0; i < data_twin->num_extensions-1; i++) {
-            zprintf(f, "{\"type\":\"%04x\",", data_twin->extensions[i].type);
-            zprintf(f, "\"length\":%i,\"data\":", data_twin->extensions[i].length);
-            zprintf_raw_as_hex_tls(f, data_twin->extensions[i].data, data_twin->extensions[i].length);
-            zprintf(f, "},");
-        }
-        zprintf(f, "{\"type\":\"%04x\",", data_twin->extensions[i].type);
-        zprintf(f, "\"length\":%i,\"data\":", data_twin->extensions[i].length);
-        zprintf_raw_as_hex_tls(f, data_twin->extensions[i].data, data_twin->extensions[i].length);
-        zprintf(f, "}]");
     }
   
-    if (data->num_server_extensions) {
-        zprintf(f, ",\"s_tls_ext\":[");
-        for (i = 0; i < data->num_server_extensions-1; i++) {
-            zprintf(f, "{\"type\":\"%04x\",", data->server_extensions[i].type);
-            zprintf(f, "\"length\":%i,\"data\":", data->server_extensions[i].length);
-            zprintf_raw_as_hex_tls(f, data->server_extensions[i].data, data->server_extensions[i].length);
-            zprintf(f, "},");
-        }
-        zprintf(f, "{\"type\":\"%04x\",", data->server_extensions[i].type);
-        zprintf(f, "\"length\":%i,\"data\":", data->server_extensions[i].length);
-        zprintf_raw_as_hex_tls(f, data->server_extensions[i].data, data->server_extensions[i].length);
-        zprintf(f, "}]");
+    /*
+     * Extensions
+     */
+    if (data->num_extensions && data->role == role_client) {
+        tls_print_extensions(data->extensions,
+                             data->num_extensions,
+                             role_client, f);
     }  
-    if (data_twin && data_twin->num_server_extensions) {
-        zprintf(f, ",\"s_tls_ext\":[");
-        for (i = 0; i < data_twin->num_server_extensions-1; i++) {
-            zprintf(f, "{\"type\":\"%04x\",", data_twin->server_extensions[i].type);
-            zprintf(f, "\"length\":%i,\"data\":", data_twin->server_extensions[i].length);
-            zprintf_raw_as_hex_tls(f, data_twin->server_extensions[i].data, data_twin->server_extensions[i].length);
-            zprintf(f, "},");
-        }
-        zprintf(f, "{\"type\":\"%04x\",", data_twin->server_extensions[i].type);
-        zprintf(f, "\"length\":%i,\"data\":", data_twin->server_extensions[i].length);
-        zprintf_raw_as_hex_tls(f, data_twin->server_extensions[i].data, data_twin->server_extensions[i].length);
-        zprintf(f, "}]");
+    else if (data_twin && data_twin->num_extensions && data_twin->role == role_client) {
+        tls_print_extensions(data_twin->extensions,
+                             data_twin->num_extensions,
+                             role_client, f);
+    }
+  
+    if (data->num_server_extensions && data->role == role_server) {
+        tls_print_extensions(data->server_extensions,
+                             data->num_server_extensions,
+                             role_server, f);
+    }  
+    else if (data_twin && data_twin->num_server_extensions && data_twin->role == role_server) {
+        tls_print_extensions(data_twin->server_extensions,
+                             data_twin->num_server_extensions,
+                             role_server, f);
+
     }
 
     if (data->tls_fingerprint) {
@@ -2329,7 +2416,7 @@ void tls_print_json (const struct tls *data,
 
     if (data->role == role_client) {
         if (data->num_certificates) {
-            zprintf(f, ",\"client_cert\":[");
+            zprintf(f, ",\"c_cert\":[");
             for (i = 0; i < data->num_certificates-1; i++) {
                 tls_certificate_print_json(&data->certificates[i], f);
                 zprintf(f, "},");
@@ -2338,7 +2425,7 @@ void tls_print_json (const struct tls *data,
             zprintf(f, "}]");
         }
         if (data_twin && data_twin->num_certificates) {
-            zprintf(f, ",\"server_cert\":[");
+            zprintf(f, ",\"s_cert\":[");
             for (i = 0; i < data_twin->num_certificates-1; i++) {
                 tls_certificate_print_json(&data_twin->certificates[i], f);
                 zprintf(f, "},");
@@ -2348,7 +2435,7 @@ void tls_print_json (const struct tls *data,
         }
     } else {
         if (data->num_certificates) {
-            zprintf(f, ",\"server_cert\":[");
+            zprintf(f, ",\"s_cert\":[");
             for (i = 0; i < data->num_certificates-1; i++) {
                 tls_certificate_print_json(&data->certificates[i], f);
                 zprintf(f, "},");
@@ -2357,7 +2444,7 @@ void tls_print_json (const struct tls *data,
             zprintf(f, "}]");
         }
         if (data_twin && data_twin->num_certificates) {
-            zprintf(f, ",\"client_cert\":[");
+            zprintf(f, ",\"c_cert\":[");
             for (i = 0; i < data_twin->num_certificates-1; i++) {
                 tls_certificate_print_json(&data_twin->certificates[i], f);
                 zprintf(f, "},");
@@ -2408,7 +2495,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     }
 
     if (*data->signature_algorithm) {
-        zprintf(f, ",\"signature_algorithm\": \"%s\"", data->signature_algorithm);
+        zprintf(f, ",\"signature_algo\":\"%s\"", data->signature_algorithm);
     }
 
     if (data->signature_key_size) {
@@ -2418,9 +2505,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     if (data->num_issuer_items) {
         zprintf(f, ",\"issuer\":[");
         for (j = 0; j < data->num_issuer_items; j++) {
-	        zprintf(f, "{\"entry_id\": \"%s\",", data->issuer[j].id);
-            /* Print the data as a string */
-	        zprintf(f, "\"entry_data\":\"%s\"}", (char *)data->issuer[j].data);
+	        zprintf(f, "{\"%s\":\"%s\"}", data->issuer[j].id, (char *)data->issuer[j].data);
             if (j == (data->num_issuer_items - 1)) {
                 zprintf(f, "]");
             } else {
@@ -2432,9 +2517,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     if (data->num_subject_items) {
         zprintf(f, ",\"subject\":[");
         for (j = 0; j < data->num_subject_items; j++) {
-	        zprintf(f, "{\"entry_id\": \"%s\",", data->subject[j].id);
-            /* Print the data as a string */
-	        zprintf(f, "\"entry_data\":\"%s\"}", (char *)data->subject[j].data);
+	        zprintf(f, "{\"%s\":\"%s\"}", data->subject[j].id, (char *)data->subject[j].data);
             if (j == (data->num_subject_items - 1)) {
                 zprintf(f, "]");
             } else {
@@ -2446,9 +2529,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     if (data->num_extension_items) {
         zprintf(f, ",\"extensions\":[");
         for (j = 0; j < data->num_extension_items; j++) {
-	        zprintf(f, "{\"entry_id\": \"%s\", ", data->extensions[j].id);
-            /* Print the data as a string */
-	        zprintf(f, "\"entry_data\": \"%s\"}", (char *)data->extensions[j].data);
+            zprintf(f, "{\"%s\":\"%s\"}", data->extensions[j].id, (char *)data->extensions[j].data);
             if (j == (data->num_extension_items - 1)) {
                 zprintf(f, "]");
             } else {
@@ -2458,14 +2539,14 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     }
     
     if (data->validity_not_before) {
-        zprintf(f, ",\"validity_not_before\": \"%s\"", data->validity_not_before);
+        zprintf(f, ",\"validity_not_before\":\"%s\"", data->validity_not_before);
     }
     if (data->validity_not_after) {
-        zprintf(f, ",\"validity_not_after\": \"%s\"", data->validity_not_after);
+        zprintf(f, ",\"validity_not_after\":\"%s\"", data->validity_not_after);
     }
     
     if (*data->subject_public_key_algorithm) {
-        zprintf(f, ",\"subject_public_key_algorithm\": \"%s\"", data->subject_public_key_algorithm);
+        zprintf(f, ",\"subject_public_key_algo\":\"%s\"", data->subject_public_key_algorithm);
     }
     
     if (data->subject_public_key_size) {

@@ -1,24 +1,24 @@
-/*
- *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+"""
+ *
+ * Copyright (c) 2017 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -32,74 +32,43 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- */
-
-/**
- * \file ip_id.h
- *
- * \brief ip_id generic programming interface defined in feature.h.
- *
- */
-#ifndef IP_ID_H
-#define IP_ID_H
-
-#include <stdio.h> 
-#include <string.h> 
-#include "output.h"
-#include "feature.h"
-
-/** 
- * MAX_NUM_IP_ID is the maximum number of IP ID fields that will be
- * reported for a single flow
- */
-#define MAX_NUM_IP_ID 50
-
-/** usage string */
-#define ip_id_usage "  ip_id=1                    include ip_id feature\n"
-
-/** ip_id filter key */
-#define ip_id_filter(key) 1
-  
-/** ip_id structure */
-typedef struct ip_id {
-    unsigned short int num_ip_id;
-    unsigned short int id[MAX_NUM_IP_ID];
-} ip_id_t;
+"""
+import os
+import json
+import pickle
 
 
-declare_feature(ip_id);
+tls_fp_dict = None
 
-#if 0
-/**
-* \fn __inline void ip_id_init (struct ip_id *ip_id)
-* \param ip_id structure to initialize
-* \return none
-*/
-__inline void ip_id_init(struct ip_id *ip_id) {
-    memset(ip_id->id, 0, sizeof(ip_id->id));
-    ip_id->num_ip_id = 0;
-}
-#endif
 
-/** initialization function */
-void ip_id_init(struct ip_id **ip_id_handle);
+def tls_fp_dict_init():
+    global tls_fp_dict
+    tls_fp_file = 'res_tls_fingerprints.json'
 
-/** update ip_id */
-void ip_id_update(struct ip_id *ip_id, 
-		  const struct pcap_pkthdr *header,
-		  const void *data, 
-		  unsigned int len, 
-		  unsigned int report_ip_id);
+    cur_dir = os.path.dirname(__file__)
+    tls_fp_path = os.path.join(cur_dir, tls_fp_file)
+    
+    tls_fp_dict = {}
+    with open(tls_fp_path) as f:
+        for counter, line in enumerate(f):
+            tmp = json.loads(line)
+            fpvalue = pickle.dumps(tmp['fingerprint']['tls'])
+            if fpvalue in tls_fp_dict:
+                print "warning: duplicate tls fingerprint in line " + str(counter + 1) + " of file " + tls_fp_file
+            tls_fp_dict[fpvalue] = tmp['label']
 
-/** JSON print ip_id */
-void ip_id_print_json(const struct ip_id *w1, 
-		    const struct ip_id *w2,
-		    zfile f);
 
-/** delete ip_id */
-void ip_id_delete(struct ip_id **ip_id_handle);
+def tls_inference(f, kwargs):
+    global tls_fp_dict
+    
+    if not tls_fp_dict:
+        tls_fp_dict_init()
 
-/** ip_id unit test entry point */
-void ip_id_unit_test();
+    if 'fingerprint' in f:
+        if 'tls' in f['fingerprint']:
+            fpvalue = pickle.dumps(f['fingerprint']['tls'])
+            if fpvalue in tls_fp_dict:
+                return {'tls': tls_fp_dict[fpvalue]}
 
-#endif /* IP_ID_H */
+    return None
+

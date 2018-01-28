@@ -63,7 +63,6 @@
 #include "config.h"     /* configuration                 */
 #include "output.h"     /* compressed output             */
 #include "salt.h"  // Because Windows!
-#include "ip_id.h" // Because Windows!
 #include "ipfix.h" /* ipfix protocol */
 #include "err.h" /* errors and logging */
 #include "osdetect.h"
@@ -441,7 +440,7 @@ static void flow_record_init (struct flow_record *record,
 
     /* Set the flow_key and TTL */
     flow_key_copy(&record->key, key);
-    record->ttl = MAX_TTL;
+    record->ip.ttl = MAX_TTL;
 }
 
 /**
@@ -1018,6 +1017,245 @@ static void reduce_bd_bits (unsigned int *bd,
     }
 }
 
+/**
+ * \brief Print the host executable information tied to this flow.
+ *
+ * \param f Output file
+ * \param rec Flow record
+ *
+ * \return none
+ */
+static void print_executable_json (zfile f, const struct flow_record *rec) {
+    uint8_t comma = 0;
+
+    if (rec->exe_name || rec->full_path ||
+        rec->file_version || rec->file_hash) {
+
+        zprintf(output, ",\"exe\"{");
+        if (rec->exe_name) {
+            zprintf(output, "\"name\":\"%s\"", rec->exe_name);
+            comma = 1;
+        }
+        if (rec->full_path) {
+            if (comma) {
+                zprintf(output, ",\"path\":\"%s\"", rec->full_path);
+            } else {
+                zprintf(output, "\"path\":\"%s\"", rec->full_path);
+                comma = 1;
+            }
+        }
+        if (rec->file_version) {
+            if (comma) {
+                zprintf(output, ",\"version\":\"%s\"", rec->file_version);
+            } else {
+                zprintf(output, "\"version\":\"%s\"", rec->file_version);
+                comma = 1;
+            }
+        }
+        if (rec->file_hash) {
+            if (comma) {
+                zprintf(output, ",\"hash\":\"%s\"", rec->file_hash);
+            } else {
+                zprintf(output, "\"hash\":\"%s\"", rec->file_hash);
+                comma = 1;
+            }
+        }
+        zprintf(output, "}");
+    }
+}
+
+static void print_tcp_json (zfile f, const struct flow_record *rec) {
+    int top_com = 0;
+    int com = 0;
+    int empty = 1;
+    int out_empty = 1;
+    int in_empty = 1;
+
+    /*
+     * Check what TCP data is avilable (if any).
+     */
+    if (rec->tcp.first_seq) {
+        empty = 0;
+    } else if (rec->twin && rec->twin->tcp.first_seq) {
+        empty = 0;
+    }
+
+#define not_empty(rec) (rec->tcp.flags || rec->tcp.first_window_size || rec->tcp.opt_len)
+
+    if (not_empty(rec)) {
+        empty = 0; out_empty = 0;
+    }
+    if (rec->twin && not_empty(rec->twin)) {
+        empty = 0; in_empty = 0;
+    }
+
+    if (empty) {
+        /* No data to print */
+        return;
+    }
+
+    zprintf(f, ",\"tcp\":{");
+
+    if (rec->tcp.first_seq) {
+        zprintf(f, "\"first_seq\":%u", rec->tcp.first_seq);
+        top_com = 1;
+    } else if (rec->twin != NULL && rec->twin->tcp.first_seq) {
+        zprintf(f, "\"first_seq\":%u", rec->twin->tcp.first_seq);
+        top_com = 1;
+    }
+
+    if (!out_empty) {
+        char out_flags_string[9] = {0};
+
+        if (top_com) {
+            zprintf(f, ",\"out\":{");
+        } else {
+            zprintf(f, "\"out\":{");
+            top_com = 1;
+        }
+
+        if (rec->tcp.flags) {
+            tcp_flags_to_string(rec->tcp.flags, out_flags_string);
+            zprintf(f, "\"flags\":\"%s\"", out_flags_string);
+            com = 1;
+        }
+
+        if (rec->tcp.first_window_size) {
+            if (com) {
+                zprintf(f, ",\"first_window_size\":%u", rec->tcp.first_window_size);
+            } else {
+                zprintf(f, "\"first_window_size\":%u", rec->tcp.first_window_size);
+                com = 1;
+            }
+        }
+
+        if (rec->tcp.opt_len) {
+            if (com) {
+                zprintf(f, ",\"opt_len\":%u", rec->tcp.opt_len);
+            } else {
+                zprintf(f, "\"opt_len\":%u", rec->tcp.opt_len);
+            }
+            tcp_opt_print_json(f, rec->tcp.opts, rec->tcp.opt_len);
+        }
+
+        /* End out object */
+        zprintf(f, "}");
+    }
+
+    if (!in_empty) {
+        char in_flags_string[9] = {0};
+        com = 0;
+
+        if (top_com) {
+            zprintf(f, ",\"in\":{");
+        } else {
+            zprintf(f, "\"in\":{");
+        }
+
+        if (rec->twin->tcp.flags) {
+            tcp_flags_to_string(rec->twin->tcp.flags, in_flags_string);
+            zprintf(f, "\"flags\":\"%s\"", in_flags_string);
+            com = 1;
+        }
+
+        if (rec->twin->tcp.first_window_size) {
+            if (com) {
+                zprintf(f, ",\"first_window_size\":%u", rec->twin->tcp.first_window_size);
+            } else {
+                zprintf(f, "\"first_window_size\":%u", rec->twin->tcp.first_window_size);
+                com = 1;
+            }
+        }
+
+        if (rec->twin->tcp.opt_len) {
+            if (com) {
+                zprintf(f, ",\"opt_len\":%u", rec->twin->tcp.opt_len);
+            } else {
+                zprintf(f, "\"opt_len\":%u", rec->twin->tcp.opt_len);
+            }
+            tcp_opt_print_json(f, rec->twin->tcp.opts, rec->twin->tcp.opt_len);
+        }
+
+        /* End in object */
+        zprintf(f, "}");
+    }
+
+    /* End tcp object */
+    zprintf(f, "}");
+}
+
+static void print_ip_json (zfile f, const struct flow_record *rec) {
+    int k = 0;
+
+    zprintf(f, ",\"ip\":{");
+
+    zprintf(f, "\"out\":{");
+    zprintf(f, "\"ttl\":%u", rec->ip.ttl);
+    if (rec->ip.num_id) {
+        zprintf(f, ",\"id\":[");
+        for (k = 0; k < rec->ip.num_id - 1; k++) {
+            zprintf(f, "%u,", rec->ip.id[k]);
+        }
+        zprintf(f, "%u]", rec->ip.id[k]);
+    }
+    /* End out object */
+    zprintf(f, "}");
+
+    if (rec->twin) {
+        zprintf(f, ",\"in\":{");
+        zprintf(f, "\"ttl\":%u", rec->twin->ip.ttl);
+        if (rec->twin->ip.num_id) {
+            zprintf(f, ",\"id\":[");
+            for (k = 0; k < rec->twin->ip.num_id - 1; k++) {
+                zprintf(f, "%u,", rec->twin->ip.id[k]);
+            }
+            zprintf(f, "%u]", rec->twin->ip.id[k]);
+        }
+        /* End in object */
+        zprintf(f, "}");
+    }
+
+    /* End IP object */
+    zprintf(f, "}");
+}
+
+static const struct flow_record *tcp_client_flow(const struct flow_record *a,
+                                                 const struct flow_record *b) {
+    if (!a->tcp.flags && !b->tcp.flags) {
+        /* No flags to compare */
+        return NULL;
+    }
+
+    if (a->tcp.flags == 2 && b->tcp.flags == 2) {
+        /* Cannot determine, both have SYN */
+        return NULL;
+    }
+
+    /* SYN */
+    if (a->tcp.flags == 2) {
+        return a;
+    } else if (b->tcp.flags == 2) {
+        return b;
+    }
+
+    if (a->tcp.flags == 18 && b->tcp.flags == 18) {
+        /* Cannot determine, both have SYN/ACK */
+        return NULL;
+    }
+
+    /*
+     * SYN/ACK
+     * If detected, then return the twin.
+     */
+    if (a->tcp.flags == 18) {
+        return b;
+    } else if (b->tcp.flags == 18) {
+        return a;
+    }
+
+    return NULL;
+}
+
 #define OUT "<"
 #define IN  ">"
 
@@ -1039,31 +1277,59 @@ static void flow_record_print_json (const struct flow_record *record) {
     records_in_file++;
 
     if (record->twin != NULL) {
-        // Use the smaller of the 2 time values
-        if (joy_timer_lt(&record->start, &record->twin->start)) {
-            ts_start = record->start;
-            rec = record;
-        } else {
-            ts_start = record->twin->start;
-            rec = record->twin;
+        /*
+         * The flow is bidirectional.
+         * Need to figure client/server order.
+         */
+        int compare_start_times = 1;
+
+        if (joy_timer_eq(&record->start, &record->twin->start)) {
+            /*
+             * The start times are equal.
+             * Try to resolve using TCP flags (if they exist)
+             */
+            rec = tcp_client_flow(record, record->twin);
+            if (rec != NULL) {
+                compare_start_times = 0;
+                ts_start = rec->start;
+            }
         }
-        // Use the larger of the 2 time values
+
+        if (compare_start_times) {
+            if (joy_timer_lt(&record->start, &record->twin->start)) {
+                // Use the smaller of the 2 time values
+                ts_start = record->start;
+                rec = record;
+            } else {
+                ts_start = record->twin->start;
+                rec = record->twin;
+            }
+        }
+
+        /* Get the end time of the flow */
         if (joy_timer_lt(&record->end, &record->twin->end)) {
+            // Use the larger of the 2 time values
             ts_end = record->twin->end;
         } else {
             ts_end = record->end;
         }
     } else {
+        /*
+         * The flow is unidirectional. Easy enough.
+         */
         ts_start = record->start;
         ts_end = record->end;
         rec = record;
     }
 
+    /*****************************************************************
+     * ---------------------------------------------------------------
+     * Flow Record object start
+     * ---------------------------------------------------------------
+     *****************************************************************
+     */
     zprintf(output, "{");
 
-    /*
-     * Flow key
-     */
     if (ipv4_addr_needs_anonymization(&rec->key.sa)) {
         zprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->key.sa));
     } else {
@@ -1075,9 +1341,14 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, "\"da\":\"%s\",", inet_ntoa(rec->key.da));
     }
     zprintf(output, "\"pr\":%u,", rec->key.prot);
-    if (1 || rec->key.prot == 6 || rec->key.prot == 17) {
+
+    if (rec->key.prot == 6 || rec->key.prot == 17) {
         zprintf(output, "\"sp\":%u,", rec->key.sp);
         zprintf(output, "\"dp\":%u,", rec->key.dp);
+    } else {
+        /* Make dp/sp null so that they can still be compared */
+        zprintf(output, "\"sp\":null,");
+        zprintf(output, "\"dp\":null,");
     }
 
     /*
@@ -1096,107 +1367,23 @@ static void flow_record_print_json (const struct flow_record *record) {
     /*
      * Flow stats
      */
-    zprintf(output, "\"ob\":%u,", rec->ob);
-    zprintf(output, "\"op\":%u,", rec->np); /* not just packets with data */
+    zprintf(output, "\"bytes_out\":%u,", rec->ob);
+    zprintf(output, "\"num_pkts_out\":%u,", rec->np); /* not just packets with data */
     if (rec->twin != NULL) {
-        zprintf(output, "\"ib\":%u,", rec->twin->ob);
-        zprintf(output, "\"ip\":%u,", rec->twin->np);
+        zprintf(output, "\"bytes_in\":%u,", rec->twin->ob);
+        zprintf(output, "\"num_pkts_in\":%u,", rec->twin->np);
     }
 #ifdef WIN32
-	zprintf(output, "\"ts\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
-	zprintf(output, "\"te\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
+	zprintf(output, "\"time_start\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
+	zprintf(output, "\"time_end\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
 #else
-    zprintf(output, "\"ts\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
-    zprintf(output, "\"te\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
+    zprintf(output, "\"time_start\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
+    zprintf(output, "\"time_end\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
 #endif
-	zprintf(output, "\"ottl\":%u,", rec->ttl);
-    if (rec->twin != NULL) {
-        zprintf(output, "\"ittl\":%u,", rec->twin->ttl);
-    }
 
-    if (rec->initial_seq) {
-        zprintf(output, "\"initial_seq\":%u,", rec->initial_seq);
-    }
-    if (rec->twin != NULL) {
-        if (!rec->initial_seq && rec->twin->initial_seq) {
-            zprintf(output, "\"initial_seq\":%u,", rec->twin->initial_seq);
-        }
-    }
-
-    if (rec->tcp_initial_window_size) {
-        zprintf(output, "\"otcp_win\":%u,", rec->tcp_initial_window_size);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_initial_window_size) {
-            zprintf(output, "\"itcp_win\":%u,", rec->twin->tcp_initial_window_size);
-        }
-    }
-
-    if (rec->tcp_syn_size) {
-        zprintf(output, "\"otcp_syn\":%u,", rec->tcp_syn_size);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_syn_size) {
-            zprintf(output, "\"itcp_syn\":%u,", rec->twin->tcp_syn_size);
-        }
-    }
-
-    if (rec->tcp_option_nop) {
-        zprintf(output, "\"otcp_nop\":%u,", rec->tcp_option_nop);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_nop) {
-            zprintf(output, "\"itcp_nop\":%u,", rec->twin->tcp_option_nop);
-        }
-    }
-
-    if (rec->tcp_option_mss) {
-        zprintf(output, "\"otcp_mss\":%u,", rec->tcp_option_mss);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_mss) {
-            zprintf(output, "\"itcp_mss\":%u,", rec->twin->tcp_option_mss);
-        }
-    }
-
-    if (rec->tcp_option_wscale) {
-        zprintf(output, "\"otcp_wscale\":%u,", rec->tcp_option_wscale);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_wscale) {
-            zprintf(output, "\"itcp_wscale\":%u,", rec->twin->tcp_option_wscale);
-        }
-    }
-
-    if (rec->tcp_option_sack) {
-        zprintf(output, "\"otcp_sack\":%u,", rec->tcp_option_sack);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_sack) {
-            zprintf(output, "\"itcp_sack\":%u,", rec->twin->tcp_option_sack);
-        }
-    }
-
-    if (rec->tcp_option_fastopen) {
-        zprintf(output, "\"otcp_fastopen\":%u,", rec->tcp_option_fastopen);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_fastopen) {
-            zprintf(output, "\"itcp_fastopen\":%u,", rec->twin->tcp_option_fastopen);
-        }
-    }
-
-    if (rec->tcp_option_tstamp) {
-        zprintf(output, "\"otcp_tstamp\":%u,", rec->tcp_option_tstamp);
-    }
-    if (rec->twin != NULL) {
-        if (rec->twin->tcp_option_tstamp) {
-            zprintf(output, "\"itcp_tstamp\":%u,", rec->twin->tcp_option_tstamp);
-        }
-    }
-
-    /*
-     * Print length and time arrays
+    /*****************************************************************
+     * Packet length and time array
+     *****************************************************************
      */
     zprintf(output, "\"packets\":[");
 
@@ -1331,7 +1518,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             reduce_bd_bits(tmp, 256);
             array = tmp;
 
-            zprintf(output, ",\"bd\":[");
+            zprintf(output, ",\"byte_dist\":[");
             for (i = 0; i < 255; i++) {
                 zprintf(output, "%u,", (unsigned char)array[i]);
             }
@@ -1339,8 +1526,8 @@ static void flow_record_print_json (const struct flow_record *record) {
 
             /* Output the mean */
             if (num_bytes != 0) {
-                zprintf(output, ",\"bd_mean\":%f", mean);
-                zprintf(output, ",\"bd_std\":%f", variance);
+                zprintf(output, ",\"byte_dist_mean\":%f", mean);
+                zprintf(output, ",\"byte_dist_std\":%f", variance);
             }
 
         }
@@ -1349,7 +1536,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             reduce_bd_bits(compact_tmp, 16);
             compact_array = compact_tmp;
 
-            zprintf(output, ",\"compact_bd\":[");
+            zprintf(output, ",\"compact_byte_dist\":[");
             for (i = 0; i < 15; i++) {
                 zprintf(output, "%u,", (unsigned char)compact_array[i]);
             }
@@ -1360,8 +1547,8 @@ static void flow_record_print_json (const struct flow_record *record) {
             if (num_bytes != 0) {
                 double entropy = flow_record_get_byte_count_entropy(array, num_bytes);
 
-                zprintf(output, ",\"be\":%f", entropy);
-                zprintf(output, ",\"tbe\":%f", entropy * num_bytes);
+                zprintf(output, ",\"entropy\":%f", entropy);
+                zprintf(output, ",\"total_entropy\":%f", entropy * num_bytes);
             }
         }
     }
@@ -1388,10 +1575,23 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, ",\"p_malware\":%f", score);
     }
 
+    /* IP object */
+    print_ip_json(output, rec);
+
+    if (rec->key.prot == 6) {
+        /* TCP object */
+        print_tcp_json(output, rec);
+    }
+
     /*
      * All of the feature modules
      */
     print_all_features(feature_list);
+
+    /*
+     * Host executable
+     */
+    print_executable_json(output, rec);
 
     if (report_hd) {
         /*
@@ -1406,11 +1606,10 @@ static void flow_record_print_json (const struct flow_record *record) {
      * Operating system
      */
     if (include_os) {
-
         if (rec->twin) {
-            os_printf(output, rec->ttl, rec->tcp_initial_window_size, rec->twin->ttl, rec->twin->tcp_initial_window_size);
+            os_printf(output, rec->ip.ttl, rec->tcp.first_window_size, rec->twin->ip.ttl, rec->twin->tcp.first_window_size);
         } else {
-            os_printf(output, rec->ttl, rec->tcp_initial_window_size, 0, 0);
+            os_printf(output, rec->ip.ttl, rec->tcp.first_window_size, 0, 0);
         }
     }
 
@@ -1419,55 +1618,54 @@ static void flow_record_print_json (const struct flow_record *record) {
      */
     if (report_idp) {
         if (rec->idp != NULL) {
-            zprintf(output, ",\"oidp\":");
+            zprintf(output, ",\"idp_out\":");
             zprintf_raw_as_hex(output, rec->idp, rec->idp_len);
-            zprintf(output, ",\"oidp_len\":%u", rec->idp_len);
+            zprintf(output, ",\"idp_len_out\":%u", rec->idp_len);
         }
         if (rec->twin && (rec->twin->idp != NULL)) {
-            zprintf(output, ",\"iidp\":");
+            zprintf(output, ",\"idp_in\":");
             zprintf_raw_as_hex(output, rec->twin->idp, rec->twin->idp_len);
-            zprintf(output, ",\"iidp_len\":%u", rec->twin->idp_len);
+            zprintf(output, ",\"idp_len_in\":%u", rec->twin->idp_len);
         }
     }
 
     {
         unsigned int retrans, invalid;
 
-        retrans = rec->retrans;
+        retrans = rec->tcp.retrans;
         invalid = rec->invalid;
         if (rec->twin) {
-            retrans += rec->twin->retrans;
+            retrans += rec->twin->tcp.retrans;
             invalid += rec->twin->invalid;
         }
-        if (retrans) {
-            zprintf(output, ",\"rtn\":%u", retrans);
+
+        if (retrans || invalid) {
+            uint8_t comma = 0;
+            zprintf(output, ",\"debug\":{");
+            if (retrans) {
+                zprintf(output, "\"tcp_retrans\":%u", retrans);
+                comma = 1;
+            }
+            if (invalid) {
+                if (comma) {
+                    zprintf(output, ",\"invalid\":%u", invalid);
+                } else {
+                    zprintf(output, "\"invalid\":%u", invalid);
+                }
+            }
+            zprintf(output, "}");
         }
-        if (invalid) {
-            zprintf(output, ",\"inv\":%u", invalid);
-        }
 
-    }
-
-    if (rec->exe_name) {
-        zprintf(output, ",\"exe\":\"%s\"", rec->exe_name);
-    }
-
-    if (rec->full_path) {
-        zprintf(output, ",\"path\":\"%s\"", rec->full_path);
-    }
-
-    if (rec->file_version) {
-        zprintf(output, ",\"fileVer\":\"%s\"", rec->file_version);
-    }
-
-    if (rec->file_hash) {
-        zprintf(output, ",\"fileHash\":\"%s\"", rec->file_hash);
     }
 
     if (rec->exp_type) {
-        zprintf(output, ",\"x\":\"%c\"", rec->exp_type);
+        zprintf(output, ",\"expire_type\":\"%c\"", rec->exp_type);
     }
 
+    /*****************************************************************
+     * Flow Record object end
+     *****************************************************************
+     */
     zprintf(output, "}\n");
 }
 
