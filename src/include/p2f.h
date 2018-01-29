@@ -60,6 +60,30 @@
 #include "modules.h"      
 #include "feature.h"
 
+
+/**
+ * The maximum number of IP ID fields that will be
+ * reported for a single flow.
+ */
+#define MAX_NUM_IP_ID 50
+
+struct ip_info {
+    unsigned char ttl;              /*!< Smallest IP TTL in flow */
+    unsigned char num_id;           /*!< Number of IP ids */
+    uint16_t id[MAX_NUM_IP_ID];     /*!< Array of IP ids in flow */
+};
+
+struct tcp_info {
+    uint32_t ack;
+    uint32_t seq;
+    uint32_t retrans;
+    uint32_t first_seq;
+    uint16_t first_window_size;
+    unsigned char flags;
+    unsigned char opt_len;
+    unsigned char opts[TCP_OPT_LEN];
+};
+
 #define FLOW_LIST_CHECK_EXPIRE 0
 #define FLOW_LIST_PRINT_ALL 1
 
@@ -72,9 +96,6 @@ struct flow_key {
 };
 
 #include "procwatch.h"
-
-/** Main entry point for the uploader thread */
-void *uploader_main(void* ptr);
 
 /*
  * default and maximum number of packets on which to report
@@ -89,7 +110,6 @@ struct flow_record {
     unsigned int np;                      /*!< number of packets                   */
     unsigned int op;                      /*!< number of packets (w/nonzero data)  */
     unsigned int ob;                      /*!< number of bytes of application data */
-    unsigned char ttl;                    /*!< smallest IP TTL in flow             */
     struct timeval start;                 /*!< start time                          */ 
     struct timeval end;                   /*!< end time                            */
     unsigned int last_pkt_len;            /*!< last observed appdata length        */
@@ -104,23 +124,13 @@ struct flow_record {
     header_description_t hd;         /*!< header description (proto ident)    */
     void *idp;
     unsigned int idp_len;
-    unsigned int ack;
-    unsigned int seq;
-    unsigned int initial_seq;
+    struct ip_info ip;
+    struct tcp_info tcp;
     unsigned int invalid;
-    unsigned int retrans;
 	char *exe_name;                       /*!< executable associated with flow    */
 	char *full_path;                      /*!< executable path associated with flow    */
 	char *file_version;                   /*!< executable version associated with flow    */
 	char *file_hash;                      /*!< executable file hash associated with flow    */
-	unsigned char tcp_option_nop;
-    unsigned int tcp_option_mss;
-    unsigned int tcp_option_wscale;
-    unsigned char tcp_option_sack;
-    unsigned char tcp_option_fastopen;
-    unsigned char tcp_option_tstamp;
-    unsigned short tcp_initial_window_size;
-    unsigned int tcp_syn_size;
     unsigned char exp_type;
     unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
   
@@ -290,6 +300,8 @@ enum SALT_algorithm {
   rle = 4
 };
 
+/** Main entry point for the uploader thread */
+void *uploader_main(void* ptr);
 
 int upload_file(char *filename);
 

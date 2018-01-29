@@ -65,7 +65,11 @@ class DictStreamIteratorFromFile(DictStreamIterator):
     Create a new DictIterator instance from the given input file.
     This allows iteration over all JSON objects within the file.
     """
-    def __init__(self, file_name, skip_lines=[]):
+    def __init__(self, stdin=None, file_name=None, skip_lines=[]):
+        if not stdin and not file_name:
+            raise ValueError("api_error: need stdin or file_name")
+
+        self.stdin = stdin
         self.file_name = file_name
         self.f = None
         self.skip_lines = skip_lines
@@ -82,9 +86,9 @@ class DictStreamIteratorFromFile(DictStreamIterator):
             pass
 
     def _load_file(self):
-        if self.file_name is sys.stdin:
-            self.f = self.file_name
-        else:
+        if self.stdin:
+            self.f = self.stdin
+        elif self.file_name:
             ft = SleuthFileType(self.file_name)
             if ft.is_gz():
                 self.f = gzip.open(self.file_name, 'r')
@@ -116,7 +120,7 @@ class DictStreamIteratorFromFile(DictStreamIterator):
                 self._cleanup()
                 raise
             except:
-                pass
+                # sys.stderr.write(line)
                 self.badLineCount += 1
 
 
@@ -137,7 +141,44 @@ class DictStreamFilterIterator(DictStreamIterator):
 
         return tmp
 
+    
+class DictStreamSelectIterator(DictStreamIterator):
+    def __init__(self, source, elements):
+        self.source = source
+        self.template = SleuthTemplateDict(elements)
 
+    def next(self):
+        while True:
+            tmp = self.source.next()
+            output = self.template.copy_selected_elements(self.template.template, tmp)
+            if output:
+                return output
+
+
+class DictStreamNormalizeIterator(DictStreamIterator):
+    def __init__(self, source, elements):
+        self.source = source
+        self.template = SleuthTemplateDict(elements)
+
+    def next(self):
+        tmp = self.source.next()
+        output = self.template.normalize_selected_elements(self.template.template, tmp)
+
+        return output
+
+class DictStreamApplyIterator(DictStreamIterator):
+    def __init__(self, source, elements, func):
+        self.source = source
+        self.template = SleuthTemplateDict(elements)
+        self.func = func
+
+    def next(self):
+        tmp = self.source.next()
+        output = self.template.apply_to_selected_elements(self.template.template, tmp, self.func)
+
+        return output
+
+    
 class DictStreamEnrichIterator(DictStreamIterator):
     def __init__(self, source, name, function, **kwargs):
         self.source = source
@@ -152,6 +193,63 @@ class DictStreamEnrichIterator(DictStreamIterator):
             nextval[self.name] = tmp
         return nextval
 
+
+class DictStreamEnrichIntoIterator(DictStreamIterator):
+    def __init__(self, source, name, function, **kwargs):
+        self.source = source
+        self.name = name
+        self.function = function
+        self.kwargs = kwargs
+
+    def next(self):
+        nextval = self.source.next()
+        tmp = self.function(nextval, self.kwargs)
+        if tmp:
+            if self.name not in nextval:
+                nextval[self.name] = {}
+            for key, value in tmp.items():
+                nextval[self.name][key] = value
+        return nextval
+
+class DictStreamDistributionIterator(DictStreamIterator):
+    def __init__(self, source, indent=None):
+        self.source = source
+        self.dist = dict()
+        self.total = 0
+        self.indent = indent
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        try:
+            obj = self.source.next()
+            value = pickle.dumps(obj)
+            self.key = tuple(obj.keys())
+            if value in self.dist:
+                self.dist[value] += 1
+            else:
+                self.dist[value] = 1
+            self.total += 1
+        except StopIteration:
+            output = list()
+        
+            for k, v in self.dist.iteritems():
+                d = pickle.loads(k)
+                d["count"] = v
+                d["total"] = self.total
+                # d["fraction"] = v/self.total
+                output.append(d)
+            output.sort(key=lambda x: x["count"], reverse=True)
+
+            for d in output:
+                json.dump(d, sys.stdout, indent=self.indent)
+                print ""
+
+            raise StopIteration
+
+
+        
 
 """
 Dictionary Processor Classes
@@ -170,29 +268,22 @@ class DictStreamProcessor(object):
          self.context = context
 
     def post_process(self, proc=None):
-        for obj in self.obj_set:
-            json.dump(obj, sys.stdout, indent=self.indent)
-            print ""
+        if proc:
+            proc.pre_process(self.context)
+            for obj in self.obj_set:
+                proc.main_process(obj)
+            proc.post_process()
+        else:
+            for obj in self.obj_set:
+                try:
+                    json.dump(obj, sys.stdout, indent=self.indent)
+                    print ""
+                except IOError:
+                    # Broken pipe, exit loop
+                    break
 
 
-class DictStreamElementSelectProcessor(DictStreamProcessor):
-    def __init__(self, elements):
-        self.set = []
-        self.template = SleuthTemplateDict(elements)
-
-    def main_process(self, obj):
-        output = self.template.copy_selected_elements(self.template.template, obj)
-        if output:
-            self.set.append(output)
-
-    def post_process(self, proc=DictStreamProcessor()):
-        proc.pre_process(self.context)
-        for obj in self.set:
-            proc.main_process(obj)
-        proc.post_process()
-
-
-class DictStreamSplitProcessor(DictStreamProcessor):
+class DictStreamGroupProcessor(DictStreamProcessor):
     def __init__(self, fpobj, field):
         self.fpobj = fpobj
         self.dict = dict()
@@ -232,7 +323,7 @@ class DictStreamSumProcessor(DictStreamProcessor):
                 if k in self.sums:
                     self.sums[k] += v
                 else:
-                    self.sums[k] = 0
+                    self.sums[k] = v
             else:
                 if k not in self.fixed_fields:
                     self.fixed_fields[k] = set()
@@ -258,10 +349,11 @@ class DictStreamSumProcessor(DictStreamProcessor):
 
 
 class DictStreamDistributionProcessor(DictStreamProcessor):
-    def __init__(self):
+    def __init__(self, indent=None):
         self.dist = dict()
         self.total = 0
-
+        self.indent = indent
+        
     def main_process(self, obj):
         value = pickle.dumps(obj)
         self.key = tuple(obj.keys())
@@ -273,7 +365,7 @@ class DictStreamDistributionProcessor(DictStreamProcessor):
 
     def post_process(self):
         output = list()
-
+        
         for k, v in self.dist.iteritems():
             d = pickle.loads(k)
             d["count"] = v
@@ -283,7 +375,7 @@ class DictStreamDistributionProcessor(DictStreamProcessor):
         output.sort(key=lambda x: x["count"], reverse=True)
 
         for d in output:
-            json.dump(d, sys.stdout)
+            json.dump(d, sys.stdout, indent=self.indent)
             print ""
 
 
@@ -313,12 +405,12 @@ class SleuthTemplateDict(object):
                     needArg = False
                 t += x
             else:
-                t += '\"' + x + '\":'
+                t += 'u\'' + x + '\':'
                 needArg = True
         if needArg:
             t += "None"
         t += '}'
-        # print "t: " + t
+        #print "t: " + t
         return eval(t)
 
     def copy_selected_elements(self, tmplDict, obj):
@@ -359,11 +451,14 @@ class SleuthTemplateDict(object):
                     obj_list = obj[k]
                     if obj_list:
                         outDict[k] = list()
-                        for x in obj_list:
-                            for y in v:
-                                tmp = self.get_selected_element(y, x)
-                                if tmp:
-                                    outDict[k].append(tmp)
+                        if v:
+                            for x in obj_list:
+                                for y in v:
+                                    tmp = self.get_selected_element(y, x)
+                                    if tmp:
+                                        outDict[k].append(tmp)
+                        else:
+                            outDict[k] = obj[k] 
                         if not outDict[k]:
                             outDict = {}
                 elif isinstance(v, dict):
@@ -381,7 +476,41 @@ class SleuthTemplateDict(object):
         else:
             return None
 
+    def normalize_selected_elements(self, tmplDict, obj):
+        if not obj:
+            return {}
+        for k, v in tmplDict.items():
+            if k in obj:
+                if isinstance(v, list):
+                    obj_list = obj[k]
+                    if obj_list:
+                        for x in obj_list:
+                            for y in v:
+                                self.normalize_selected_elements(y, x)
+                elif isinstance(v, dict):
+                    self.normalize_selected_elements(v, obj[k])
+                else:
+                    obj[k] = None
+        return obj
 
+    def apply_to_selected_elements(self, tmplDict, obj, func):
+        if not obj:
+            return {}
+        for k, v in tmplDict.items():
+            if k in obj:
+                if isinstance(v, list):
+                    obj_list = obj[k]
+                    if obj_list:
+                        for x in obj_list:
+                            for y in v:
+                                self.apply_to_selected_elements(y, x, func)
+                elif isinstance(v, dict):
+                    self.apply_to_selected_elements(v, obj[k], func)
+                else:
+                    obj[k] = func(obj[k])
+        return obj
+
+        
 # fnmatch
 # *	  matches everything
 # ?       matches any single character
@@ -420,9 +549,13 @@ class SimplePredicate(object):
             listMatch = False
             if flow:
                 for x in flow:
-                    x = x.values()[0]
-                    if self.eval(x):
-                        listMatch = True
+                    if isinstance(x, dict):
+                        x = x.values()[0]
+                        if self.eval(x):
+                            listMatch = True
+                    else:
+                        if self.eval(x):
+                            listMatch = True
             return listMatch
         elif isinstance(flow, dict):
             # print 'dict flow: ' + str(flow)

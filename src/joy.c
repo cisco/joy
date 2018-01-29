@@ -1162,10 +1162,13 @@ int main (int argc, char **argv) {
      */
     if (initial_setup(config_file, num_cmds)) exit(EXIT_FAILURE);
 
-    /*
-     * Cheerful message to indicate the start of a new run of the program
-     */
-    fprintf(info, "--- Joy Initialization ---\n");
+    if (joy_mode != MODE_OFFLINE) {
+        /*
+         * Cheerful message to indicate the start of a new run of the program
+         */
+        fprintf(info, "--- Joy Initialization ---\n");
+        flocap_stats_output(info);
+    }
 
     /* 
      * Retrieve sequence of packet lengths/times and byte distribution
@@ -1560,9 +1563,11 @@ int main (int argc, char **argv) {
         }
     }
 
-    flocap_stats_output(info);
-    // config_print(info, &config);
-
+    if (joy_mode != MODE_OFFLINE) {
+	flocap_stats_output(info);
+	// config_print(info, &config);
+    }
+    
     if (config.ipfix_export_port) {
         /* Flush any unsent exporter messages in Ipfix module */
         ipfix_export_flush_message();

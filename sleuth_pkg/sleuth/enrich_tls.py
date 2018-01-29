@@ -74,7 +74,6 @@ class Policy:
         return "unknown"
 
 
-
 def check_compliance(compliance_policy, scs):
     """
     It should be noted that this is a soft check on whether or not the selected
@@ -87,10 +86,10 @@ def check_compliance(compliance_policy, scs):
         return 'unknown'
 
     cur_dir = os.path.dirname(__file__)
-    check_data_file = "data_tls_params.json"
+    check_data_file = "res_tls_params.json"
     check_data_path = os.path.join(cur_dir, check_data_file)
 
-    compliance_data_file = "compliance.json"
+    compliance_data_file = "res_tls_compliance.json"
     compliance_data_path = os.path.join(cur_dir, compliance_data_file)
 
     with open(check_data_path) as check_f:
@@ -112,11 +111,24 @@ def audit_certs_issuer(certs, trusted_ca_list):
     As implemented now, we will get the tls certs in order, the root cert is at the end. We check to see if the issuer
     is in our trusted_ca_list; if not, we report it as a concern
     """
-    for each in certs[-1]['issuer']:
-        if each['entry_id'] == 'organizationName':
-            if each['entry_data'] not in trusted_ca_list:
-                return 'CA not trusted: ' + each['entry_data']
-    
+    try:
+        top_cert_issuer = certs[-1]["issuer"]
+
+        org_name = None
+        for entry in top_cert_issuer:
+            if "organizationName" in entry:
+                org_name = entry["organizationName"]
+                break
+    except KeyError:
+        return None
+
+    if org_name:
+        if org_name not in trusted_ca_list:
+            return 'CA not trusted: ' + org_name
+    else:
+        # Didn't find org_name in cert
+        return "CA is none"
+
     return None
 
 
@@ -136,10 +148,14 @@ def get_seclevel_with_param(policy, attr, value, param):
     if param == None:
         return policy.rules[attr][value]["default"]
 
-    if attr == "kex":
-        param_rules = policy.rules[attr][value]["client_key_length"]
-    elif attr == "cert_sig_alg":
-        param_rules = policy.rules[attr][value]["sig_key_size"]
+    try:
+        if attr == "kex":
+            param_rules = policy.rules[attr][value]["client_key_length"]
+        elif attr == "cert_sig_alg":
+            param_rules = policy.rules[attr][value]["sig_key_size"]
+    except KeyError:
+        # Nothing to compare
+        return policy.max_seclevel
 
     try:
         op = OPS[param_rules['operator']]
@@ -223,7 +239,7 @@ def get_scs_seclevel(policy, scs, client_key_length):
         return 'unknown', []
 
     cur_dir = os.path.dirname(__file__)
-    data_file = "data_tls_params.json"
+    data_file = "res_tls_params.json"
     data_path = os.path.join(cur_dir, data_file)
 
     with open(data_path) as f:
@@ -265,64 +281,65 @@ def get_scs_seclevel(policy, scs, client_key_length):
         return seclevel_floor, concerns
 
 
-
 def enrich_tls(flow, kwargs):
     if 'tls' not in flow:
         return None
+
+    tls = flow['tls']
+
+    # Client key length
+    try:
+        # Subtract 16 encoding bits
+        client_key_length = tls['c_key_length'] - 16
+    except KeyError:
+        client_key_length = None
+
+    # Server extensions
+    try:
+        server_extensions = tls['s_extensions']
+    except KeyError:
+        server_extensions = None
+
+    # Selected cipher suite
+    try:
+        scs = tls['scs']
+    except KeyError:
+        scs = None
+
+    if 's_cert' in tls:
+        certs = list()
+        for x in tls['s_cert']:
+            tmp = dict()
+            tmp['cert_sig_alg'] = x['signature_algo']
+            tmp['sig_key_size'] = x['signature_key_size']
+            tmp['issuer'] = x['issuer']
+            certs.append(tmp)
     else:
-        # Get security-relevant parameters from flow record
-        tls = flow['tls']
+        certs = None
 
-        if 'tls_client_key_length' in tls:
-            # Subtract 16 encoding bits
-            client_key_length = tls['tls_client_key_length'] - 16
-        else:
-            client_key_length = None
+    seclevel_policy = Policy(kwargs["policy_file"], kwargs["failure_threshold"])
+    unknowns = kwargs["unknowns"]
 
-        if 's_tls_ext' in tls:
-            server_extensions = tls['s_tls_ext']
-        else:
-            server_extensions = None
+    certs_seclevel, certs_concerns = get_certs_seclevel(seclevel_policy, certs)
+    scs_seclevel, scs_concerns = get_scs_seclevel(seclevel_policy, scs, client_key_length)
 
-        if 'scs' in tls:
-            scs = tls['scs']
-        else:
-            scs = None
+    tls_sec_info = {}
+    concerns = certs_concerns + scs_concerns
+    seclevels = [ certs_seclevel, scs_seclevel ]
 
-        if 'server_cert' in tls:
-            certs = list()
-            for x in tls['server_cert']:
-                tmp = dict()
-                tmp['cert_sig_alg'] = x['signature_algorithm']
-                tmp['sig_key_size'] = x['signature_key_size']
-                tmp['issuer'] = x['issuer']
-                certs.append(tmp)
-        else:
-            certs = None
-        
-        seclevel_policy = Policy(kwargs["policy_file"], kwargs["failure_threshold"])
-        unknowns = kwargs["unknowns"]
+    classification = seclevel_policy.seclevel(min(x for x in seclevels if x is not None))
 
-        certs_seclevel, certs_concerns = get_certs_seclevel(seclevel_policy, certs)
-        scs_seclevel, scs_concerns = get_scs_seclevel(seclevel_policy, scs, client_key_length)
+    if not concerns:
+        tls_sec_info["seclevel"] = classification
+    else:
+        tls_sec_info["seclevel"] = { "classification": classification,
+                                           "concerns": concerns }
 
-        tls_sec_info = {}
-        concerns = certs_concerns + scs_concerns
-        seclevels = [ certs_seclevel, scs_seclevel ]
+    # if compliance argument was passed, assess and add to tls_sec_info. It should be noted that this is a soft
+    # check on whether or not the selected cipher suite would be acceptable to the specified compliance policy
+    #
+    if kwargs["compliance"]:
+        for policy in kwargs["compliance"]:
+            tls_sec_info[policy + "_compliant"] = check_compliance(policy, scs)
 
-        classification = seclevel_policy.seclevel(min(x for x in seclevels if x is not None))
-
-        if not concerns:
-            tls_sec_info["seclevel"] = classification
-        else:
-            tls_sec_info["seclevel"] = { "classification": classification,
-                                               "concerns": concerns }
-
-        # if compliance argument was passed, assess and add to tls_sec_info. It should be noted that this is a soft
-        # check on whether or not the selected cipher suite would be acceptable to the specified compliance policy
-        #
-        if kwargs["compliance"]:
-            for policy in kwargs["compliance"]:
-                tls_sec_info[policy + "_compliant"] = check_compliance(policy, scs)
-
-        return tls_sec_info
+    return tls_sec_info

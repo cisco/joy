@@ -67,6 +67,9 @@ int gettimeofday(struct timeval *tp,
                  struct timezone *tzp);
 #endif
 
+unsigned int joy_timer_eq(const struct timeval *a,
+                          const struct timeval *b);
+
 unsigned int joy_timer_lt(const struct timeval *a,
                       const struct timeval *b);
 
