@@ -33,7 +33,7 @@ usage() {
 NAME=joy
 # Subtract .01 from VERSION file in git to build packages since the VERSION file
 # contains the next version number for joy, not the current version.
-VERSION=`echo "scale = 2; \`cat VERSION\` - .01" | bc`
+VERSION=`echo "scale = 2; \`awk -F- {'print $1}' VERSION\` - .1" | bc`
 GITREF=master
 COMPRESSION=gzip
 CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
