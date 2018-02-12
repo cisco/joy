@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='sleuth',
-      version='0.1',
+      version='1.0',
       description='Iteration and inspection over dictionary objects',
       url='https://github.com/cisco/joy.git',
       author='David McGrew, Philip Perricone',

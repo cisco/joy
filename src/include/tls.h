@@ -325,7 +325,9 @@ void tls_print_json(const struct tls *data, const struct tls *data_twin, zfile f
 
 void tls_unit_test();
 
+#if 0
 int tls_load_fingerprints(void);
+#endif
 
 #endif /* TLS_H */
 
