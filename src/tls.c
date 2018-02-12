@@ -82,9 +82,11 @@
  */
 extern unsigned int ipfix_collect_port;
 
+#if 0
 /* Store the tls_fingerprint.json data */
 static fingerprint_db_t tls_fingerprint_db;
 static int tls_fingerprint_db_loaded = 0;
+#endif
 
 /* Local prototypes */
 static int tls_header_version_capture(struct tls *tls_info, const struct tls_header *tls_hdr);
@@ -1359,6 +1361,7 @@ static void tls_server_hello_get_extensions (const unsigned char *y,
     }
 }
 
+#if 0
 /*
  * @brief Load the tls_fingerprint.json data into the running process.
  *
@@ -1503,7 +1506,9 @@ cleanup:
 
     return rc;
 }
+#endif
 
+#if 0
 /*
  * @brief Find a client TLS fingerprint match.
  *
@@ -1597,6 +1602,7 @@ static int tls_client_fingerprint_match(struct tls *tls_info,
 
     return 0;
 }
+#endif
 
 static int tls_version_to_internal(unsigned char major,
                                    unsigned char minor) {
@@ -1767,9 +1773,11 @@ static void tls_handshake_buffer_parse(struct tls *r) {
                 tls_client_hello_get_ciphersuites(&handshake->body, body_len, r);
                 tls_client_hello_get_extensions(&handshake->body, body_len, r);
 
+#if 0
                 if (r->tls_fingerprint == NULL) {
                     tls_client_fingerprint_match(r, 100);
                 }
+#endif
             }
             else if (handshake->msg_type == TLS_HANDSHAKE_SERVER_HELLO) {
                 /*
@@ -2554,6 +2562,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     }
 }
 
+#if 0
 /*
  * \brief Unit test for ts_client_fingerprint_match().
  *
@@ -2603,6 +2612,7 @@ static int tls_test_client_fingerprint_match() {
 
     return num_fails;
 }
+#endif
 
 /*
  * \brief Test the internal TLS X509 certificate parsing api.
@@ -3552,10 +3562,12 @@ static int tls_test_calculate_handshake_length() {
 void tls_unit_test() {
     int num_fails = 0;
 
+#if 0
     if (tls_fingerprint_db_loaded == 0) {
         /* Attempt to load in the TLS fingerprints for testing */
         tls_load_fingerprints();
     }
+#endif
 
     fprintf(info, "\n******************************\n");
     fprintf(info, "TLS Unit Test starting...\n");
@@ -3564,7 +3576,9 @@ void tls_unit_test() {
 
     num_fails += tls_test_calculate_handshake_length();
 
+#if 0
     num_fails += tls_test_client_fingerprint_match();
+#endif
 
     num_fails += tls_test_initial_handshake();
 
