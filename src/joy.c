@@ -1464,7 +1464,7 @@ int main (int argc, char **argv) {
         flow_record_list_init();
         flocap_stats_timer_init();
         for (i=1+opt_count; i<argc; i++) {
-    
+            static int fc_cnt = 1;
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 /* processing an input directory, by default this is multi-file input */
                 if ((dir = opendir(argv[i])) != NULL) {
@@ -1479,7 +1479,8 @@ int main (int argc, char **argv) {
                             strcat(pcap_filename, ent->d_name);
 
                             /* open new output file for multi-file processing */
-                            sprintf(dir_output, "%s\\%s_json%s", output_filename, ent->d_name, zsuffix);
+                            sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                            ++fc_cnt;
                             output = zopen(dir_output, "w");
 #else
                             if (pcap_filename[strlen(pcap_filename)-1] != '/') {
@@ -1488,7 +1489,8 @@ int main (int argc, char **argv) {
                             strcat(pcap_filename, ent->d_name);
 
                             /* open new output file for multi-file processing */
-                            sprintf(dir_output, "%s/%s_json%s", output_filename, ent->d_name, zsuffix);
+                            sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                            ++fc_cnt;
                             output = zopen(dir_output, "w");
 #endif
                             /* initialize the outputfile and processing structures */
@@ -1528,7 +1530,8 @@ int main (int argc, char **argv) {
                     sprintf(input_file_base_name, "%s%s", fname, ext);
 
                     /* open new output file for multi-file processing */
-                    sprintf(dir_output, "%s\\%s_json%s", output_filename, input_file_base_name, zsuffix);
+                    sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
+                    ++fc_cnt;
 #else
                     char *input_path = NULL;
                     char *input_file_base_name = NULL;;
@@ -1540,7 +1543,8 @@ int main (int argc, char **argv) {
                     input_file_base_name = basename(input_path);
 
                     /* open new output file for multi-file processing */
-                    sprintf(dir_output, "%s/%s_json%s", output_filename, input_file_base_name, zsuffix);
+                    sprintf(dir_output, "%s/%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
+                    ++fc_cnt;
 #endif
 
                     output = zopen(dir_output, "w");
