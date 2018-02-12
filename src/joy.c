@@ -1041,6 +1041,7 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
         output = zopen(output_filename, "w");
         if (output == NULL) {
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+            joy_log_err("choose a new output name or move/remove the old data set");
             goto end;
         }
     }
