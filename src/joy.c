@@ -1136,7 +1136,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
         closedir(dir);
     } else {
         /* error opening directory*/
-        printf("Error opening directory: %s\n", input_directory);
+        joy_log_err("Error opening directory: %s\n", input_directory);
         return -11;
     }
     return 0;
