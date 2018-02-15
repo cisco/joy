@@ -1031,7 +1031,7 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
     if (rec->exe_name || rec->full_path ||
         rec->file_version || rec->file_hash) {
 
-        zprintf(output, ",\"exe\"{");
+        zprintf(output, ",\"exe\":{");
         if (rec->exe_name) {
             zprintf(output, "\"name\":\"%s\"", rec->exe_name);
             comma = 1;
