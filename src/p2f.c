@@ -1269,7 +1269,7 @@ static const struct flow_record *tcp_client_flow(const struct flow_record *a,
 static void flow_record_print_json (const struct flow_record *record) {
     unsigned int i, j, imax, jmax;
     struct timeval ts, ts_last, ts_start, ts_end, tmp;
-    const struct flow_record *rec;
+    const struct flow_record *rec = NULL;
     unsigned int pkt_len;
     char *dir;
 
