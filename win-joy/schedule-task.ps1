@@ -24,7 +24,10 @@ $trigger = New-ScheduledTaskTrigger -AtLogOn -User $username
 
 $principal = New-ScheduledTaskPrincipal -UserId $username -LogonType Interactive
 
-Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -TaskName "JoyTask" -Description "Advanced flow monitoring"
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+
+Register-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings `
+-TaskName "JoyTask" -Description "Advanced network flow monitoring"
 
 if($Start) {
     Start-ScheduledTask -TaskName "JoyTask"
