@@ -51,6 +51,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+
+#ifndef WIN32
+#include <libgen.h>
+#endif
+
 #include <sys/types.h>
 
 #ifdef WIN32
@@ -112,6 +117,7 @@ enum operating_mode {
 static enum operating_mode joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
 static char *filter_exp = "ip or vlan";
+static char dir_output[MAX_FILENAME_LEN];
 
 /* Globals defined in p2f.c */
 
@@ -1037,6 +1043,7 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
         output = zopen(output_filename, "w");
         if (output == NULL) {
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+            joy_log_err("choose a new output name or move/remove the old data set");
             goto end;
         }
     }
@@ -1055,6 +1062,189 @@ end:
 }
 
 /**
+ \fn int process_directory_of_files (char *input_directory, char *output_filename)
+ \brief logic to handle a directory of input files
+ \param input_directory - directory of pcap input files
+ \param output_filename - the name of the resulting directory for the results
+ \return 0 on success and negative number for processing error
+ \return -11 on directory open failure
+ */
+int process_directory_of_files (char *input_directory, char *output_filename) {
+    int tmp_ret = 0;
+    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
+    struct bpf_program fp;
+    struct dirent *ent = NULL;
+    DIR *dir = NULL;
+    char pcap_filename[MAX_FILENAME_LEN*2]; 
+
+    /* initialize variables */
+    memset(&fp, 0x00, sizeof(struct bpf_program));
+    memset(&pcap_filename[0], 0x00, (MAX_FILENAME_LEN*2));
+
+    /* create a directory to place all of the output files into */
+    struct stat st = {0};
+    if (stat(output_filename, &st) == -1) {
+#ifdef WIN32
+        mkdir(output_filename);
+#else
+        mkdir(output_filename, 0700);
+#endif
+     }
+
+    /* open the directory to read the files */
+    if ((dir = opendir(input_directory)) != NULL) {
+
+        while ((ent = readdir(dir)) != NULL) {
+            static int fc_cnt = 1;
+            if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
+                strcpy(pcap_filename, input_directory);
+#ifdef WIN32
+                if (pcap_filename[strlen(pcap_filename) - 1] != '\\') {
+                    strcat(pcap_filename, "\\");
+                }
+                strcat(pcap_filename, ent->d_name);
+
+                /* open new output file for multi-file processing */
+                sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                ++fc_cnt;
+                output = zopen(dir_output, "w");
+#else
+                if (pcap_filename[strlen(pcap_filename)-1] != '/') {
+                    strcat(pcap_filename, "/");
+                }
+                strcat(pcap_filename, ent->d_name);
+
+                /* open new output file for multi-file processing */
+                sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                ++fc_cnt;
+                output = zopen(dir_output, "w");
+#endif
+                /* initialize the outputfile and processing structures */
+                config_print_json(output, &config);
+                flow_record_list_init();
+                flocap_stats_timer_init();
+
+                tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
+                if (tmp_ret < 0) {
+                    return tmp_ret;
+                }
+
+                /* close the output file */
+                zclose(output);
+                output = NULL;
+            }
+        }
+
+        closedir(dir);
+    } else {
+        /* error opening directory*/
+        joy_log_err("Error opening directory: %s\n", input_directory);
+        return -11;
+    }
+    return 0;
+}
+
+/**
+ \fn int process_multiple_input_files (char *input_filename, char *output_filename, int fc_cnt)
+ \brief logic to handle multiple input files
+ \param input_filename - the pcap file to process 
+ \param output_filename - the output directory where are the results will be stored
+ \param fc_cnt - the argument number of the current file being processed
+ \return none
+ */
+int process_multiple_input_files (char *input_filename, char *output_filename, int fc_cnt) {
+    int tmp_ret = 0;
+    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
+    struct bpf_program fp;
+
+#ifdef WIN32
+    char input_path[256];
+    char fname[128];
+    char ext[8];
+    char input_file_base_name[136];
+#else
+    char *input_path = NULL;
+    char *input_file_base_name = NULL;;
+#endif
+
+    /* initialize variables */
+    memset(&fp, 0x00, sizeof(struct bpf_program));
+
+    /* create a directory to place all of the output files into */
+    struct stat st = {0};
+    if (stat(output_filename, &st) == -1) {
+#ifdef WIN32
+        mkdir(output_filename);
+#else
+        mkdir(output_filename, 0700);
+#endif
+    }
+
+#ifdef WIN32
+    strncpy(input_path, input_filename, 255);
+    _splitpath_s(input_path,NULL,0,NULL,0,fname,_MAX_FNAME,ext,_MAX_EXT);
+    sprintf(input_file_base_name, "%s%s", fname, ext);
+
+    /* full name for the new output file including directory */
+    sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
+    ++fc_cnt;
+#else
+    /* copy input filename path */
+    input_path = strdup(input_filename);
+
+    /* get the input basename */
+    input_file_base_name = basename(input_path);
+
+    /* full name for the new output file including directory */
+    sprintf(dir_output, "%s/%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
+    ++fc_cnt;
+#endif
+
+    /* open new output file for multi-file processing */
+    output = zopen(dir_output, "w");
+
+    /* print the json config */
+    config_print_json(output, &config);
+
+    /* process the file */
+    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
+    if (tmp_ret < 0) {
+        return tmp_ret;
+    }
+
+    /* close output file */
+    zclose(output);
+    output = NULL;
+    
+    return tmp_ret;
+}
+
+/**
+ \fn int process_single_input_file (char *input_filename, char *output_filename)
+ \brief logic to handle a single input file
+ \param input_filename - pcap file to process
+ \param output_filename - resulting json output file
+ \return 0 for success of negative number for processing error code
+ */
+int process_single_input_file (char *input_filename, char *output_filename) {
+    int tmp_ret = 0;
+    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
+    struct bpf_program fp;
+
+    /* initialize fp structure */
+    memset(&fp, 0x00, sizeof(struct bpf_program));
+
+    /* open outputfile */
+    output = zopen(output_filename,"w");
+    
+    /* print configuration */
+    config_print_json(output, &config);
+
+    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
+    return tmp_ret;
+}
+
+/**
  \fn int main (int argc, char **argv)
  \brief main entry point for joy
  \param argc command line argument count
@@ -1070,12 +1260,9 @@ int main (int argc, char **argv) {
     struct bpf_program fp;
     int tmp_ret;
     char output_filename[MAX_FILENAME_LEN];  /* data output file */
-    char pcap_filename[MAX_FILENAME_LEN*2];   /* output file */
     char *capture_if = NULL;
     char *capture_mac = NULL;
     struct stat sb;
-    DIR *dir;
-    struct dirent *ent;
     pthread_t upd_thread;
     pthread_t uploader_thread;
     int upd_rc;
@@ -1416,47 +1603,57 @@ int main (int argc, char **argv) {
 
         flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
         fflush(info);
+
     } else { /* mode = mode_offline */
+        int multi_file_input = 0;
+
         if (argc-opt_count <= 1) {
             fprintf(stderr, "error: missing pcap file name(s)\n");
             return usage(argv[0]);
         }
 
-        config_print_json(output, &config);
-  
+        /* check if multiple files have been specified on the command line
+         * and the output is not going to STDOUT
+         */
+        if ((argc > 2) && (config.filename)) {
+           multi_file_input = 1;
+        }
+
+        /* check if a directory has been specified as the input file
+         * and the output is not going to STDOUT
+         */
+        if ((stat(argv[1], &sb) == 0 && S_ISDIR(sb.st_mode)) && (config.filename)) {
+           multi_file_input = 1;
+        }
+      
+        /* close out the existing open output file and remove it */
+        zclose(output);
+        remove(output_filename);
+
+        /* intialize the data structures */
         flow_record_list_init();
         flocap_stats_timer_init();
 
+        /* loop over remaining arguments to process files */
         for (i=1+opt_count; i<argc; i++) {
-    
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
-                if ((dir = opendir(argv[i])) != NULL) {
-
-                    while ((ent = readdir(dir)) != NULL) {
-                        if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
-                            strcpy(pcap_filename, argv[i]);
-                            if (pcap_filename[strlen(pcap_filename)-1] != '/') {
-                                strcat(pcap_filename, "/");
-                            }
-                            strcat(pcap_filename, ent->d_name);
-                            tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
-                            if (tmp_ret < 0) {
-                                return tmp_ret;
-                            }
-                        }
-                    }
-
-                    closedir(dir);
-                } else {
-                    /* error opening directory*/
-                    printf("Error opening directory: %s\n", argv[i]);
-                    return -1;
-                }
-
-            } else {
-                tmp_ret = process_pcap_file(argv[i], filter_exp, &net, &fp);
+                /* processing an input directory */
+                tmp_ret = process_directory_of_files(argv[i],output_filename);
                 if (tmp_ret < 0) {
                     return tmp_ret;
+                }
+            } else {
+                /* check for multi-file input processing via command line */
+                if (multi_file_input) {
+                    tmp_ret = process_multiple_input_files(argv[i],output_filename,i);
+                    if (tmp_ret < 0) {
+                        return tmp_ret;
+                    }
+                } else {
+                    tmp_ret = process_single_input_file(argv[i],output_filename);
+                    if (tmp_ret < 0) {
+                        return tmp_ret;
+                    }
                 }
             }
         }
@@ -1474,7 +1671,10 @@ int main (int argc, char **argv) {
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
     ipfix_module_cleanup();
 
-    zclose(output);
+    /* close the output file if it is still open */
+    if (output) {
+        zclose(output);
+    }
 
     return 0;
 }
@@ -1542,5 +1742,3 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
 
     return 0;
 }
-
-// vim: tabstop=4 shiftwidth=4 expandtab
