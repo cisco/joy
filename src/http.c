@@ -299,7 +299,6 @@ static unsigned int memcpy_up_to_crlfcrlf_plus_magic (char *dst, const char *src
     for (i=0; i<length; ++i) {
         /* reached the end of the src without finding crlfcrlf */
         if (i == (length - MAGIC)) {
-           ++i;
            break;
         }
 
@@ -312,7 +311,6 @@ static unsigned int memcpy_up_to_crlfcrlf_plus_magic (char *dst, const char *src
                 // printf("body_bytes: %u\tMAGIC: %u\ti: %u\tlength: %u\n", body_bytes, MAGIC, i, length);
                 ++body_bytes;
             } else {
-                ++i;
                 break;
             }
         }
@@ -436,8 +434,13 @@ static enum http_type http_get_next_line (char **saveptr,
 
         if (state == second_lf) {
             src[i-3] = 0;   /* NULL terminate token */
-            *length = *length - i;
-            *saveptr = &src[i];
+            /* 
+             * move past the last lf token to set the pointer
+             * at the beginning of the body and set the length
+             * to be just of the remaining body bytes, if any.
+             */
+            *length = *length - i - 1;
+            *saveptr = &src[i+1];
             return http_done;
         }
     }
@@ -640,7 +643,7 @@ static void http_print_header(zfile f, char *header, unsigned length) {
     /*
      * print out the initial bytes of the HTTP body
      */
-    if (type == http_done && (MAGIC != 0) && (length != 0)) {
+    if (type == http_done && (MAGIC != 0)) {
         if (not_first_header) {
             zprintf(f, ",");
         } 
