@@ -91,7 +91,7 @@ We are pleased to announce the 2.0 release of the package, which has these featu
 * The JSON schema has been updated to be better organized, more readable, and more searchable (by putting searchable keywords as the JSON names),
 * The new sleuth tool replaces query/joyq, and brings new functionality such as —fingerprint, 
 * Much improved documentation, which covers the joy and sleuth tools, examples, and the JSON schema
-(see [using-joy](https://github.com/cisco/joy/blob/json-overhaul/doc/using-joy-05.pdf))
+(see [using-joy](https://github.com/cisco/joy/blob/master/doc/using-joy-05.pdf))
 
 We hope that you find it useful!
 - the Joy Team

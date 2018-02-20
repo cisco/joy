@@ -562,12 +562,15 @@ static void http_print_header(zfile f, char *header, unsigned length) {
 
     token1 = token2 = NULL; /* initialize just to avoid compiler warnings */
 
+    /* Start req/resp array */
+    zprintf(f, "[");
+
     if (length < 4) {
+        /* End req/resp array */
+        zprintf(f, "]");
         return;
     }
 
-    /* Start req/resp array */
-    zprintf(f, "[");
 
     /*
      * parse start-line, and print as request/status as appropriate

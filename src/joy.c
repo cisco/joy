@@ -723,12 +723,14 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         config_print(info, &config);
     }
 
+#if 0
     if (config.report_tls) {
         /* Load the TLS fingerprints into memory */
         if (tls_load_fingerprints()) {
             joy_log_warn("could not load tls_fingerprint.json file");
         }
     }
+#endif
 
     if (joy_mode == MODE_ONLINE) {
         /* Get interface list */
