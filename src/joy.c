@@ -1513,7 +1513,6 @@ int main (int argc, char **argv) {
             if (config.report_exe) {
                   /*
                    * periodically obtain host/process flow data
-                   * PP: Not implemented for WIN32. Need to handle
                    */ 
                   if (get_host_flow_data() != 0) {
                       joy_log_warn("Could not obtain host/process flow data\n");

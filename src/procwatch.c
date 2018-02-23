@@ -190,7 +190,7 @@ int print_flow_table() {
 		printf("\tTABLE Remote Addr: %s\n", szAddr);
 		printf("\tTABLE Remote Port: %d\n", ntohs(record->key.dp));
 		printf("\tTABLE Protocol: %d\n", record->key.prot);
-		printf("\tTABLE Process PID: %d\n", (int)record->pid);
+		printf("\tTABLE Process PID: %lu\n", record->pid);
 		if (record->exe_name != NULL)
 			printf("\tTABLE Exe Name: %s\n", record->exe_name);
 		else
@@ -208,7 +208,7 @@ int print_flow_table() {
 		else
 			printf("\tTABLE Hash: <unknown>\n");
 		printf("\tTABLE Thread Count: %d\n", record->threads);
-		printf("\tTABLE Parent PID: %d\n", (int)record->parent_pid);
+		printf("\tTABLE Parent PID: %lu\n", record->parent_pid);
 		printf("\t-----------------------\n");
 		++entries;
 	}
@@ -425,7 +425,8 @@ int host_flow_table_add_sessions (int sockets) {
 #include "errno.h"
 
 #define BUFSIZE 32
-#define RBUFSIZE 65536
+#define RBUFSIZE 128
+#define PLIST_FILE_MAX 256
 
 enum lsof_status {
   lsof_EOL = 0,
@@ -436,8 +437,11 @@ enum lsof_status {
 struct lsof_flow {
     struct flow_key key;
     char command[PROC_PATH_LEN];   
-    unsigned short pid;  
+    unsigned long pid;  
 };
+
+/* global lsof flow record */
+struct lsof_flow fr;
 
 void lsof_flow_print(const struct lsof_flow *flow) {
     char srcbuf[BUFSIZE];
@@ -468,45 +472,7 @@ int lsof_eat_string(char **sptr) {
     return 1;
 }
 
-int lsof_set_name(struct lsof_flow *f, char **sptr) {
-    unsigned int i = 0;
-    char *s = *sptr + 1;
-
-    while (*s != '\n') {
-        if (*s == 0) {
-            return 0;       /* indicate end of sptr */
-        }
-        f->command[i++] = *s++;
-    }
-    s++;                /* advance over newline   */
-    f->command[i] = 0;  /* null terminate         */
-
-    *sptr = s;
-  
-    return 1;
-}
-
-int lsof_set_pid(struct lsof_flow *f, char **sptr) {
-    char *s = *sptr + 1;
-
-    f->pid = strtoul(s, NULL, 10);
-
-    return lsof_eat_string(sptr);
-}
-
-int lsof_set_prot(struct lsof_flow *f, char **sptr) {
-    char *s = *sptr + 1;
-
-    if (*s == 'U') {
-        f->key.prot = 17; /* UDP */
-    } else {
-        f->key.prot = 6;  /* TCP */
-    }
-  
-    return lsof_eat_string(sptr);
-}
-
-int lsof_set_addrs_ports(struct lsof_flow *f, char **sptr) {
+int lsof_set_addrs_ports(char **sptr) {
     char *s = *sptr;
     char *start;
     unsigned int got_sa = 0;
@@ -517,7 +483,8 @@ int lsof_set_addrs_ports(struct lsof_flow *f, char **sptr) {
     start = s+1;
     while (*s != '\n') {
         if (*s == 0) {
-            return lsof_EOL;       /* indicate end of sptr */
+            lsof_status = lsof_EOL;       /* indicate end of sptr */
+            break;
         }
 
         /* ignore listening but not active sockets for now; skip over these lines */
@@ -535,17 +502,17 @@ int lsof_set_addrs_ports(struct lsof_flow *f, char **sptr) {
         if (*s == ':') {
             *s = 0;   /* null terminate */
             if (got_sa) {
-	        inet_pton(AF_INET, start, &f->key.da);
+	        inet_pton(AF_INET, start, &fr.key.da);
 	        got_da = 1;
             } else {
-	        inet_pton(AF_INET, start, &f->key.sa);
+	        inet_pton(AF_INET, start, &fr.key.sa);
 	        got_sa = 1;
             }	     
             start = s+1;
         }
         if (*s == '-') {
             *s = 0;   /* null terminate */
-            f->key.sp = strtoul(start, NULL, 10);
+            fr.key.sp = strtoul(start, NULL, 10);
             got_sp = 1;
             start = s+1;
         }
@@ -557,7 +524,7 @@ int lsof_set_addrs_ports(struct lsof_flow *f, char **sptr) {
     }
 
     if (got_da) {
-        f->key.dp = strtoul(start, NULL, 10);
+        fr.key.dp = strtoul(start, NULL, 10);
         lsof_status = lsof_got_flow;
     }
 
@@ -566,7 +533,7 @@ int lsof_set_addrs_ports(struct lsof_flow *f, char **sptr) {
     return lsof_status;
 }
 
-char* get_full_path_from_pid (int pid) {
+char* get_full_path_from_pid (long pid) {
     int ret;
     char *pbuf = NULL;
     char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
@@ -583,58 +550,119 @@ char* get_full_path_from_pid (int pid) {
     return(pbuf);
 }
 
+char* get_application_version (char* full_path) {
+    int i = 0;
+    int full_length = 0;
+    int found_base = 0;
+    char plist_file[PLIST_FILE_MAX];
+    FILE *ver_file = NULL;
+    char *ver_cmd = NULL;
+    char *ver_string = NULL;
+
+    /* get length of the file path */
+    full_length = strlen(full_path);
+
+    /* search from the back to front for the .app/ designation */
+    for (i=full_length; i > 0; --i) {
+        if ((*(full_path+i)   == '.') &&
+            (*(full_path+i+1) == 'a') &&
+            (*(full_path+i+2) == 'p') &&
+            (*(full_path+i+3) == 'p') &&
+            (*(full_path+i+4) == '/')) {
+            found_base = i;
+            break;
+        }
+    }
+
+    /* see if we found the .app base of the full path */
+    if (found_base > 0) {
+        /* see if we have room to operate on this application */
+        if ((found_base + 30) > PLIST_FILE_MAX) {
+            /* can't operate on this application return NULL */
+            return NULL;
+        }
+        /* setup the plist file name */
+        memset(plist_file, 0x00, PLIST_FILE_MAX);
+        strncpy(plist_file,full_path,found_base);
+        strcat(plist_file,".app/Contents/Info.plist");
+
+        /* setup the command to retireve the version info */
+        ver_cmd = malloc(found_base + 100);
+        ver_string = malloc(64);
+        sprintf(ver_cmd,"plutil -p \"%s\" | grep CFBundleShortVersionString | awk \'{print $3}\' | tr -d \\\"", plist_file);
+
+        /* execute command and read in the output */
+        ver_file = popen(ver_cmd, "r");
+        fscanf(ver_file,"%[^\n]\n",ver_string);
+
+        /* close the pipe and free up the cmd memory */
+        pclose(ver_file);
+        free(ver_cmd);
+ 
+        /* return version string of the application */
+        return ver_string;
+    }
+
+    /* couldn't find the app base, just return NULL */
+    return NULL;
+}
+
 void lsof_process_output(char *s, int sockets) {
-    struct lsof_flow f;
     struct host_flow *hf = NULL;
     enum lsof_status status;
     char srcAddr[BUFSIZE];
 
-    memset(&f, 0, sizeof(struct lsof_flow));
-
     while (*s != '\n') {
         switch (*s) {
-            case 'm': /* end of output marker */
-            case 0:
             case 'n':
-                status = lsof_set_addrs_ports(&f, &s);
+                /* network address line (sa:sp->da:dp) */
+                status = lsof_set_addrs_ports(&s);
                 if (status == lsof_got_flow) { 
-                    inet_ntop(AF_INET, &f.key.sa, srcAddr, BUFSIZE);
+                    inet_ntop(AF_INET, &fr.key.sa, srcAddr, BUFSIZE);
                     if ((strcmp(srcAddr,"127.0.0.1") != 0) || sockets) {
-                        hf = get_host_flow(&f.key);
+                        hf = get_host_flow(&fr.key);
                         if (hf != NULL) {
-                            hf->pid = f.pid;
-                            hf->exe_name = malloc(strlen(f.command)+1);
+                            hf->pid = fr.pid;
+                            hf->exe_name = malloc(strlen(fr.command)+1);
                             if (hf->exe_name != NULL) {
-                                strcpy(hf->exe_name,f.command);
+                                strcpy(hf->exe_name,fr.command);
                                 hf->full_path = get_full_path_from_pid(hf->pid);
                                 if (hf->full_path) {
                                     hf->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
                                     if (hf->hash != NULL) {
                                         calculate_sha256_hash((unsigned char*)hf->full_path, (unsigned char*)hf->hash);
                                     }
+                                    hf->file_version = get_application_version(hf->full_path);
                                 }
                             }
                         }
                     }
+	            return;
                 }
                 if (status == lsof_EOL) {
 	            return;
-                } 
+                }
                 break;
             case 'c':
-                if (!lsof_set_name(&f, &s)) {
-	            return;
-                }
+                /* process name line */
+                strcpy(fr.command, (s+1));
+	        return;
                 break;
+
             case 'p':
-                if (!lsof_set_pid(&f, &s)) {
-	            return;
-                } 
+                /* PID line (pid number) */
+                fr.pid = strtoul((s+1), NULL, 10);
+	        return;
                 break;
+
             case 'P':
-                if (!lsof_set_prot(&f, &s)) {
-	            return;
+                /* protocol line UDP or TCP */
+                if (*(s+1) == 'U') {
+                     fr.key.prot = 17; /* UDP */
+                } else {
+                     fr.key.prot = 6;  /* TCP */
                 }
+	        return;
                 break;
             default:
                 break;
@@ -644,19 +672,27 @@ void lsof_process_output(char *s, int sockets) {
 
 void read_lsof_data (int sockets) {
     FILE *lsof_file; 
-    char LSOF_COMMAND[] = "lsof -i -n -P -FcnP";
+    char LSOF_COMMAND[] = "lsof -i4TCP -n -P -FcnP -sTCP:^LISTEN";
     char rbuf[RBUFSIZE];
-    size_t bytes_read;
 
     lsof_file = popen(LSOF_COMMAND, "r");
     if (lsof_file == NULL) {
         joy_log_err("popen returned null (command: %s)\n", LSOF_COMMAND);
+        return;
     }
   
+    /* clean out the host flow record */
+    memset(&fr,0x00,sizeof(struct lsof_flow));
+
+    /* process lsof data */
     while (1) {
-        bytes_read = fread(rbuf, 1, RBUFSIZE, lsof_file);
+        /* process lsof output 1 line at a time */
+        fscanf(lsof_file,"%[^\n]\n", rbuf);
         lsof_process_output(rbuf, sockets);
-        return;
+        if (feof(lsof_file)) {
+            pclose(lsof_file);
+            return;
+        }
     }
 }
 
@@ -672,43 +708,59 @@ int host_flow_table_add_sessions (int sockets) {
 * \param none
 * \return 0
 */
+static struct timeval last_refresh_time = {0, 0};
+
 int get_host_flow_data() {
-	int i;
-	struct host_flow *record = NULL;
+    int i;
+    struct timeval current_time;
+    struct timeval delta_time;
+    float seconds = 0.0;
+    struct host_flow *record = NULL;
 
-	host_flow_table_init();
+    /* get current time and determine the delta from last refresh */
+    gettimeofday(&current_time, NULL);
+    joy_timer_sub(&current_time, &last_refresh_time, &delta_time);
+    seconds = (float) joy_timeval_to_milliseconds(delta_time) / 1000.0;
 
-	/* insert open TCP and UDP sockets into set */
-	host_flow_table_add_sessions(ACTIVE_PROC_SOCKETS_ONLY);
-	//print_flow_table();
+    /* see if we need to refresh the application process data */
+    if (seconds > 30) {
+        /* refresh the host data table */
+        host_flow_table_init();
 
-	/*
-	* for each entry in the host flow table, set the process info in the
-	* corresponding flow in the packet-based flow table, if there
-	* is one
-	*/
-	for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; i++) {
-		struct flow_key twin;
+        /* insert active TCP sockets into set */
+        host_flow_table_add_sessions(ACTIVE_PROC_SOCKETS_ONLY);
 
-		record = &host_proc_flow_table_array[i];
-                if (record->pid == 0) {
-                    /* we can stop, end of filled in entries in table */
-                    break;
-                }
-		twin.sa = record->key.da;
-		twin.da = record->key.sa;
-		twin.sp = record->key.dp;
-		twin.dp = record->key.sp;
-		twin.prot = record->key.prot;
+        /* store the last refresh timestamp */
+        gettimeofday(&last_refresh_time, NULL);
+    }
 
-		flow_key_set_process_info(&record->key, record);
-		flow_key_set_process_info(&twin, record);
-	}
+    /* print out the table if we want to debug anything */
+    //print_flow_table();
 
-        /* clean up anything left in the table */
-	host_flow_table_init();
+    /*
+    * for each entry in the host flow table, set the process info in the
+    * corresponding flow in the packet-based flow table, if there
+    * is one
+    */
+    for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; i++) {
+        struct flow_key twin;
 
-	return 0;
+        record = &host_proc_flow_table_array[i];
+        if (record->pid == 0) {
+            /* we can stop, end of filled in entries in table */
+            break;
+        }
+        twin.sa = record->key.da;
+        twin.da = record->key.sa;
+        twin.sp = record->key.dp;
+        twin.dp = record->key.sp;
+        twin.prot = record->key.prot;
+
+        flow_key_set_process_info(&record->key, record);
+        flow_key_set_process_info(&twin, record);
+    }
+
+    return 0;
 }
 
 
