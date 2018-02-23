@@ -50,7 +50,7 @@
 #define ALL_PROC_SOCKETS 1
 #define ACTIVE_PROC_SOCKETS_ONLY 0
 
-#define HOST_PROC_FLOW_TABLE_LEN 512
+#define HOST_PROC_FLOW_TABLE_LEN 1024
 
 struct host_flow {
 	struct flow_key key;
