@@ -410,8 +410,218 @@ int host_flow_table_add_sessions (int sockets) {
 
 #ifdef LINUX 
 
+#define BUFLEN 256
+
+static struct host_flow *get_host_flow_by_inode(unsigned long inode) {
+    int i;
+    struct host_flow *record = NULL;
+
+    for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
+        record = &host_proc_flow_table_array[i];
+        if (record->inode == inode) {
+            return record;
+        }
+    }
+
+    /* if we get here, we didn't find the flow by inode */
+    return NULL;
+}
+
+static char *get_proc_name_from_path (char *path) {
+    int i = 0;
+    int length = 0;
+    char *name = NULL;
+
+    /* check for a path */
+    if (path == NULL) {
+        return NULL;
+    }
+
+    /* find the last piece of the full path - the app name */
+    length = strlen(path);
+    for (i = length; i > 0; --i) {
+        if (path[i] == '/') {
+            break;
+        }
+    }
+
+    /* if we found the app name return it */
+    if (i > 0) {
+        name = malloc(length-i+1);
+        strcpy(name,(path+i+1));
+        return name;
+    } else {
+        return NULL;
+    }
+}
+
+static int proc_get_fds(char *pid_string) {
+    int len = 0;
+    int fd_len = 0;
+    int exe_len = 0;
+    unsigned long inode = 0;
+    char fd_name[128];
+    char exe_name[128];
+    char buffer[1024];
+    DIR *dir = NULL;
+    struct dirent *process = NULL;
+
+    memset(fd_name, 0x00, 128);
+    memset(exe_name, 0x00, 128);
+    snprintf(fd_name,128,"/proc/%s/fd/",pid_string);
+    snprintf(exe_name,128,"/proc/%s/",pid_string);
+    fd_len = strlen(fd_name);
+    exe_len = strlen(exe_name);
+ 
+    dir = opendir(fd_name);
+    if (dir == NULL) {
+        return -1;
+    }
+
+    /* read the pid process info */
+    process = readdir(dir);
+    while (process != NULL) {
+        /* check for sockets */
+        if (isdigit(process->d_name[0])) {
+            strncpy((fd_name+fd_len), process->d_name, (128-fd_len));
+            len = readlink(fd_name, buffer, sizeof(buffer));
+            if (len > 0) {
+                /* if socket, get corresopnding executable name */
+                if (memcmp("socket", buffer, 6) == 0) {
+                    struct host_flow *hf = NULL;
+
+                    inode = strtoul(buffer + 8, NULL, 10);
+                    buffer[len] = 0;
+
+                    hf = get_host_flow_by_inode(inode);
+                    if (hf != NULL) {
+                        strncpy((exe_name+exe_len), "/exe", (128-exe_len));
+
+                        len = readlink(exe_name, buffer, sizeof(buffer));
+                        if (len > 0) {
+                            buffer[len] = 0;
+                            hf->full_path = malloc(strlen(buffer)+1);
+                            strcpy(hf->full_path,buffer);
+                            hf->pid = atoi(pid_string);
+                            if (hf->full_path) {
+                                hf->exe_name = get_proc_name_from_path(hf->full_path);
+                                hf->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
+                                if (hf->hash != NULL) {
+                                    calculate_sha256_hash((unsigned char*)hf->full_path, (unsigned char*)hf->hash);
+                                }
+                            }
+                        } else {
+                           buffer[0] = 0;
+                        }
+
+                    }
+                }
+            }
+        }
+        process = readdir(dir);
+    }
+
+    closedir(dir);
+
+    return 0;
+}
+
+static unsigned int process_tcp_netproc_line (struct flow_key *key, char *line) {
+    char *i = line;
+    unsigned int inode = 0;
+
+    /* get the source address */
+    i += 3;
+    key->sa.s_addr = (strtoul(i, NULL, 16));
+
+    /* get the source port */
+    i += 9;
+    key->sp = strtoul(i, NULL, 16);
+
+    /* get the destination address */
+    i += 5;
+    key->da.s_addr = (strtoul(i, NULL, 16));
+
+    /* get the destination port */
+    i += 9;
+    key->dp = strtoul(i, NULL, 16);
+
+    /* get the inode values */
+    i += 62;
+    inode = strtoul(i, NULL, 10);
+
+    key->prot = 6; /* tcp */
+
+    return inode;
+}
+
+static void host_flow_table_add_tcp (unsigned int all_sockets) {
+    int rc = 0;
+    unsigned int inode = 0;
+    char buffer[BUFLEN];
+    struct flow_key key;
+    struct host_flow *hf = NULL;
+    FILE *fd = NULL;
+    DIR *dir = NULL;
+    struct dirent *process = NULL;
+
+    /* open up the tcp network file */
+    fd = fopen("/proc/net/tcp", "r");
+    if (fd == NULL) {
+        joy_log_err("could not open /proc/net/tcp");
+        return;
+    }
+
+    /* skip the first line (header line) */
+    rc = fscanf(fd,"%[^\n]\n",buffer);
+
+    /* read file until we reach the end of input */
+    while (!feof(fd)) {
+        rc = fscanf(fd,"%[^\n]\n", buffer);
+        memset(&key, 0x00, sizeof(struct flow_key));
+        inode = process_tcp_netproc_line(&key, buffer);
+
+        /* skip loopback address */
+        if (strcmp(inet_ntoa(key.sa), "127.0.0.1") == 0) {
+            continue;
+        }
+
+        /* skip any that don not have a destination address */
+        if (strcmp(inet_ntoa(key.da), "0.0.0.0") == 0) {
+            continue;
+        }
+
+        /* store off the inode */
+        hf = get_host_flow(&key);
+        if (hf != NULL) {
+            hf->inode = inode;
+        }
+    }
+    fclose(fd);
+
+    /* search all PIDs for open sockets */
+    dir = opendir("/proc");
+    if (dir == NULL) {
+        joy_log_err("could not open /proc directory");
+        return;
+    }
+
+    /* read PIDs until done */
+    process = readdir(dir);
+    while (process != NULL) {
+        if (isdigit(process->d_name[0])) {
+            /* find application data */
+            proc_get_fds(process->d_name);
+        }
+        process = readdir(dir);
+    }
+    closedir(dir);
+
+    return;
+}
+
 int host_flow_table_add_sessions (int sockets) {
-    get_host_flow(NULL);
+    host_flow_table_add_tcp(sockets);
     return 0;
 }
 
