@@ -319,9 +319,12 @@ class DictStreamSumProcessor(DictStreamProcessor):
         self.key = tuple(obj.keys())
 
         for k, v in obj.iteritems():
-            if k in self.sumvars: # assume isinstance(v, int):
+            if k in self.sumvars: 
                 if k in self.sums:
-                    self.sums[k] += v
+                    if isinstance(v, int):
+                        self.sums[k] += v
+                    elif isinstance(v, list):
+                        self.sums[k] = map(sum, zip(v, self.sums[k]))
                 else:
                     self.sums[k] = v
             else:
