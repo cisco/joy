@@ -1235,7 +1235,9 @@ int process_single_input_file (char *input_filename, char *output_filename) {
     memset(&fp, 0x00, sizeof(struct bpf_program));
 
     /* open outputfile */
-    output = zopen(output_filename,"w");
+    if (config.filename) {
+        output = zopen(output_filename,"w");
+    }
     
     /* print configuration */
     config_print_json(output, &config);
@@ -1627,8 +1629,10 @@ int main (int argc, char **argv) {
         }
       
         /* close out the existing open output file and remove it */
-        zclose(output);
-        remove(output_filename);
+        if (config.filename) {
+            zclose(output);
+            remove(output_filename);
+        }
 
         /* intialize the data structures */
         flow_record_list_init();
