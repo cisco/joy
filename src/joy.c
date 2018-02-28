@@ -1069,6 +1069,7 @@ end:
  \return 0 on success and negative number for processing error
  \return -11 on directory open failure
  */
+static int first_input_pcap_file = 1;
 int process_directory_of_files (char *input_directory, char *output_filename) {
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
@@ -1082,14 +1083,16 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
     memset(&pcap_filename[0], 0x00, (MAX_FILENAME_LEN*2));
 
     /* create a directory to place all of the output files into */
-    struct stat st = {0};
-    if (stat(output_filename, &st) == -1) {
+    if (config.filename) {
+        struct stat st = {0};
+        if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
-        mkdir(output_filename);
+            mkdir(output_filename);
 #else
-        mkdir(output_filename, 0700);
+            mkdir(output_filename, 0700);
 #endif
-     }
+         }
+    }
 
     /* open the directory to read the files */
     if ((dir = opendir(input_directory)) != NULL) {
@@ -1105,9 +1108,11 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 strcat(pcap_filename, ent->d_name);
 
                 /* open new output file for multi-file processing */
-                sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
-                ++fc_cnt;
-                output = zopen(dir_output, "w");
+                if (config.filename) {
+                    sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                    ++fc_cnt;
+                    output = zopen(dir_output, "w");
+                }
 #else
                 if (pcap_filename[strlen(pcap_filename)-1] != '/') {
                     strcat(pcap_filename, "/");
@@ -1115,12 +1120,21 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 strcat(pcap_filename, ent->d_name);
 
                 /* open new output file for multi-file processing */
-                sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
-                ++fc_cnt;
-                output = zopen(dir_output, "w");
+                if (config.filename) {
+                    sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                    ++fc_cnt;
+                    output = zopen(dir_output, "w");
+                }
 #endif
                 /* initialize the outputfile and processing structures */
-                config_print_json(output, &config);
+                if (config.filename) {
+                    config_print_json(output, &config);
+                } else {
+                    if (first_input_pcap_file) {
+                        config_print_json(output, &config);
+                        first_input_pcap_file = 0;
+                    }
+                }
                 flow_record_list_init();
                 flocap_stats_timer_init();
 
@@ -1130,8 +1144,10 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 }
 
                 /* close the output file */
-                zclose(output);
-                output = NULL;
+                if (config.filename) {
+                    zclose(output);
+                    output = NULL;
+                }
             }
         }
 
@@ -1171,13 +1187,15 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     memset(&fp, 0x00, sizeof(struct bpf_program));
 
     /* create a directory to place all of the output files into */
-    struct stat st = {0};
-    if (stat(output_filename, &st) == -1) {
+    if (config.filename) {
+        struct stat st = {0};
+        if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
-        mkdir(output_filename);
+            mkdir(output_filename);
 #else
-        mkdir(output_filename, 0700);
+            mkdir(output_filename, 0700);
 #endif
+        }
     }
 
 #ifdef WIN32
@@ -1186,8 +1204,10 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     sprintf(input_file_base_name, "%s%s", fname, ext);
 
     /* full name for the new output file including directory */
-    sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
-    ++fc_cnt;
+    if (config.filename) {
+        sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
+        ++fc_cnt;
+    }
 #else
     /* copy input filename path */
     input_path = strdup(input_filename);
@@ -1196,15 +1216,26 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     input_file_base_name = basename(input_path);
 
     /* full name for the new output file including directory */
-    sprintf(dir_output, "%s/%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
-    ++fc_cnt;
+    if (config.filename) {
+        sprintf(dir_output, "%s/%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
+        ++fc_cnt;
+    }
 #endif
 
     /* open new output file for multi-file processing */
-    output = zopen(dir_output, "w");
+    if (config.filename) {
+        output = zopen(dir_output, "w");
+    }
 
     /* print the json config */
-    config_print_json(output, &config);
+    if (config.filename) {
+        config_print_json(output, &config);
+    } else {
+        if (first_input_pcap_file) {
+            config_print_json(output, &config);
+            first_input_pcap_file = 0;
+        }
+    }
 
     /* process the file */
     tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
@@ -1213,8 +1244,10 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     }
 
     /* close output file */
-    zclose(output);
-    output = NULL;
+    if (config.filename) {
+        zclose(output);
+        output = NULL;
+    }
     
     return tmp_ret;
 }
@@ -1613,10 +1646,8 @@ int main (int argc, char **argv) {
             return usage(argv[0]);
         }
 
-        /* check if multiple files have been specified on the command line
-         * and the output is not going to STDOUT
-         */
-        if ((argc > 2) && (config.filename)) {
+        /* check if multiple files have been specified on the command line */
+        if (argc > 2) {
            multi_file_input = 1;
         }
 
