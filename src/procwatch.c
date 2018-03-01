@@ -77,7 +77,7 @@ int calculate_sha256_hash(unsigned char* path, unsigned char *output)
 {
 	SHA256_CTX sha256;
 	unsigned char hash[SHA256_DIGEST_LENGTH];
-	const int bufSize = 32768;
+	const int bufSize = 4096;
 	int bytesRead = 0;
 	int i = 0;
 	unsigned char* buffer = NULL;
@@ -132,7 +132,34 @@ static void host_flow_table_init() {
 	}
 }
 
-static struct host_flow *get_host_flow(struct flow_key *key) {
+static char *get_previous_hash_by_path (char *path) {
+	int i;
+	struct host_flow *record = NULL;
+
+	if (path == NULL) {
+		return NULL;
+	}
+
+	for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
+		record = &host_proc_flow_table_array[i];
+		/* see if we have a matching full path */
+		if (record->full_path) {
+			if ((strcmp(record->full_path, path) == 0) &&
+				(record->hash != NULL)) {
+				return record->hash;
+			}
+		}
+		/* if we find a blank entry, we are done searching */
+		if (record->key.sp == 0) {
+			return NULL;
+		}
+	}
+
+	/* if we get here, we didn't find the path in the table */
+	return NULL;
+}
+
+static struct host_flow *get_host_flow (struct flow_key *key) {
 	int i;
 	struct flow_key empty_key;
 	struct host_flow *record = NULL;
@@ -300,12 +327,20 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *
 			if (hProcess != NULL) {
 				record->full_path = malloc(PROC_PATH_LEN);
 				if (record->full_path != NULL) {
+					char *prev_hash = NULL;
+
 					memset(record->full_path, 0, PROC_PATH_LEN);
 					QueryFullProcessImageName(hProcess, 0, record->full_path, &len);
 					process_get_file_version(record);
+
+					prev_hash = get_previous_hash_by_path(record->full_path);
 					record->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
 					if (record->hash != NULL) {
-						calculate_sha256_hash(record->full_path, record->hash);
+						if (prev_hash) {
+							strcpy(record->hash,prev_hash);
+						} else {
+							calculate_sha256_hash(record->full_path, record->hash);
+						}
 					}
 				}
 				CloseHandle(hProcess);
@@ -410,214 +445,140 @@ int host_flow_table_add_sessions (int sockets) {
 
 #ifdef LINUX 
 
-#define BUFLEN 256
+#define PROCESS_SRC 0
+#define PROCESS_DST 1
+#define ADDR_MAX_LEN 32
+#define PID_MAX_LEN 64
+#define BUF_SIZE 512
 
-static struct host_flow *get_host_flow_by_inode(unsigned long inode) {
-    int i;
-    struct host_flow *record = NULL;
+struct ss_flow {
+    struct flow_key key;
+    char command[PROC_PATH_LEN];
+    unsigned long pid;
+};
 
-    for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
-        record = &host_proc_flow_table_array[i];
-        if (record->inode == inode) {
-            return record;
-        }
-    }
+/* global ss flow record */
+struct ss_flow fr;
 
-    /* if we get here, we didn't find the flow by inode */
-    return NULL;
-}
-
-static char *get_proc_name_from_path (char *path) {
-    int i = 0;
-    int length = 0;
-    char *name = NULL;
-
-    /* check for a path */
-    if (path == NULL) {
-        return NULL;
-    }
-
-    /* find the last piece of the full path - the app name */
-    length = strlen(path);
-    for (i = length; i > 0; --i) {
-        if (path[i] == '/') {
-            break;
-        }
-    }
-
-    /* if we found the app name return it */
-    if (i > 0) {
-        name = malloc(length-i+1);
-        strcpy(name,(path+i+1));
-        return name;
-    } else {
-        return NULL;
-    }
-}
-
-static int proc_get_fds(char *pid_string) {
+static void get_pid_path_hash (struct host_flow *hf) {
     int len = 0;
-    int fd_len = 0;
-    int exe_len = 0;
-    unsigned long inode = 0;
-    char fd_name[128];
-    char exe_name[128];
-    char buffer[1024];
-    DIR *dir = NULL;
-    struct dirent *process = NULL;
+    char exe_name[PID_MAX_LEN];
+    char buffer[BUF_SIZE];
 
-    memset(fd_name, 0x00, 128);
-    memset(exe_name, 0x00, 128);
-    snprintf(fd_name,128,"/proc/%s/fd/",pid_string);
-    snprintf(exe_name,128,"/proc/%s/",pid_string);
-    fd_len = strlen(fd_name);
-    exe_len = strlen(exe_name);
- 
-    dir = opendir(fd_name);
-    if (dir == NULL) {
-        return -1;
-    }
+    /* clean out buffers */
+    memset(exe_name, 0x00, PID_MAX_LEN);
+    memset(buffer, 0x00, BUF_SIZE);
 
-    /* read the pid process info */
-    process = readdir(dir);
-    while (process != NULL) {
-        /* check for sockets */
-        if (isdigit(process->d_name[0])) {
-            strncpy((fd_name+fd_len), process->d_name, (128-fd_len));
-            len = readlink(fd_name, buffer, sizeof(buffer));
-            if (len > 0) {
-                /* if socket, get corresopnding executable name */
-                if (memcmp("socket", buffer, 6) == 0) {
-                    struct host_flow *hf = NULL;
+    /* find the pid link */
+    snprintf(exe_name,PID_MAX_LEN,"/proc/%lu/exe",hf->pid);
+    len = readlink(exe_name, buffer, sizeof(buffer));
+    if (len > 0) {
+        /* got the link which has the full path */
+        buffer[len] = 0;
+        hf->full_path = malloc(strlen(buffer)+1);
+        if (hf->full_path) {
+            char *prev_hash = NULL;
 
-                    inode = strtoul(buffer + 8, NULL, 10);
-                    buffer[len] = 0;
-
-                    hf = get_host_flow_by_inode(inode);
-                    if (hf != NULL) {
-                        strncpy((exe_name+exe_len), "/exe", (128-exe_len));
-
-                        len = readlink(exe_name, buffer, sizeof(buffer));
-                        if (len > 0) {
-                            buffer[len] = 0;
-                            hf->full_path = malloc(strlen(buffer)+1);
-                            strcpy(hf->full_path,buffer);
-                            hf->pid = atoi(pid_string);
-                            if (hf->full_path) {
-                                hf->exe_name = get_proc_name_from_path(hf->full_path);
-                                hf->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
-                                if (hf->hash != NULL) {
-                                    calculate_sha256_hash((unsigned char*)hf->full_path, (unsigned char*)hf->hash);
-                                }
-                            }
-                        } else {
-                           buffer[0] = 0;
-                        }
-
-                    }
+            strcpy(hf->full_path,buffer);
+            prev_hash = get_previous_hash_by_path(hf->full_path);
+            hf->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
+            if (hf->hash != NULL) {
+                if (prev_hash) {
+                    strcpy(hf->hash,prev_hash);
+                } else {
+                    calculate_sha256_hash((unsigned char*)hf->full_path, (unsigned char*)hf->hash);
                 }
             }
         }
-        process = readdir(dir);
     }
-
-    closedir(dir);
-
-    return 0;
 }
 
-static unsigned int process_tcp_netproc_line (struct flow_key *key, char *line) {
-    char *i = line;
-    unsigned int inode = 0;
+static void process_pid_string (char *string) {
+    char *s = string;
 
-    /* get the source address */
-    i += 3;
-    key->sa.s_addr = (strtoul(i, NULL, 16));
+    /* search to beginning of the app name */
+    s = strstr(string,"\"");
+    string = s + 1;
+    s = string;
 
-    /* get the source port */
-    i += 9;
-    key->sp = strtoul(i, NULL, 16);
+    /* find the end of the app name */
+    s = strstr(string,"\"");
+    *s = 0;
 
-    /* get the destination address */
-    i += 5;
-    key->da.s_addr = (strtoul(i, NULL, 16));
+    /* copy app name into the flow record */
+    strncpy(fr.command,string,strlen(string));
 
-    /* get the destination port */
-    i += 9;
-    key->dp = strtoul(i, NULL, 16);
+    /* skip over to the pid */
+    s += 6;
+    string = s;
+    fr.pid = strtoul(s, NULL, 10);
+}
 
-    /* get the inode values */
-    i += 62;
-    inode = strtoul(i, NULL, 10);
+static void process_addr_string (int which, char *string) {
+    char *s = string;
 
-    key->prot = 6; /* tcp */
+    /* find the end of the ip address */
+    s = strstr(string,":");
 
-    return inode;
+    /* null temrinate and store off ip address and port*/
+    *s = 0;
+    if (which == PROCESS_SRC) {
+        inet_pton(AF_INET, string, &fr.key.sa);
+        fr.key.sp = strtoul(s+1, NULL, 10);
+    } else {
+        inet_pton(AF_INET, string, &fr.key.da);
+        fr.key.dp = strtoul(s+1, NULL, 10);
+    }
+
+    /* set the protocol to TCP */
+    fr.key.prot = 6; /* TCP */
 }
 
 static void host_flow_table_add_tcp (unsigned int all_sockets) {
+    char SS_COMMAND[] = "ss -tnp";
+    char dummy_string[PID_MAX_LEN];
+    char src_string[ADDR_MAX_LEN];
+    char dst_string[ADDR_MAX_LEN];
+    char pid_string[PID_MAX_LEN];
+    int dummy_int = 0;
     int rc = 0;
-    unsigned int inode = 0;
-    char buffer[BUFLEN];
-    struct flow_key key;
     struct host_flow *hf = NULL;
-    FILE *fd = NULL;
-    DIR *dir = NULL;
-    struct dirent *process = NULL;
+    FILE *ss_file;
 
-    /* open up the tcp network file */
-    fd = fopen("/proc/net/tcp", "r");
-    if (fd == NULL) {
-        joy_log_err("could not open /proc/net/tcp");
+    ss_file = popen(SS_COMMAND, "r");
+    if (ss_file == NULL) {
+        joy_log_err("popen returned null (command(%d): %s)\n", rc, SS_COMMAND);
         return;
     }
 
-    /* skip the first line (header line) */
-    rc = fscanf(fd,"%[^\n]\n",buffer);
+    /* skip the header line */
+    rc = fscanf(ss_file,"%[^\n]\n", dummy_string);
 
-    /* read file until we reach the end of input */
-    while (!feof(fd)) {
-        rc = fscanf(fd,"%[^\n]\n", buffer);
-        memset(&key, 0x00, sizeof(struct flow_key));
-        inode = process_tcp_netproc_line(&key, buffer);
+    /* process ss data */
+    while (1) {
+        /* clean out the ss flow record */
+        memset(&fr,0x00,sizeof(struct ss_flow));
 
-        /* skip loopback address */
-        if (strcmp(inet_ntoa(key.sa), "127.0.0.1") == 0) {
-            continue;
-        }
-
-        /* skip any that don not have a destination address */
-        if (strcmp(inet_ntoa(key.da), "0.0.0.0") == 0) {
-            continue;
-        }
-
-        /* store off the inode */
-        hf = get_host_flow(&key);
+        /* process ss output 1 line at a time */
+        rc = fscanf(ss_file,"%s %d %d %s %s %s\n", dummy_string,&dummy_int,&dummy_int,src_string,dst_string,pid_string);
+        process_addr_string(PROCESS_SRC,src_string);
+        process_addr_string(PROCESS_DST,dst_string);
+        process_pid_string(pid_string);
+        hf = get_host_flow(&fr.key);
         if (hf != NULL) {
-            hf->inode = inode;
+            hf->pid = fr.pid;
+            if (strlen(fr.command)) {
+                hf->exe_name = malloc(strlen(fr.command)+1);
+                strcpy(hf->exe_name,fr.command);
+            }
+            get_pid_path_hash(hf);
+        }
+
+        if (feof(ss_file)) {
+            pclose(ss_file);
+            return;
         }
     }
-    fclose(fd);
-
-    /* search all PIDs for open sockets */
-    dir = opendir("/proc");
-    if (dir == NULL) {
-        joy_log_err("could not open /proc directory");
-        return;
-    }
-
-    /* read PIDs until done */
-    process = readdir(dir);
-    while (process != NULL) {
-        if (isdigit(process->d_name[0])) {
-            /* find application data */
-            proc_get_fds(process->d_name);
-        }
-        process = readdir(dir);
-    }
-    closedir(dir);
-
-    return;
 }
 
 int host_flow_table_add_sessions (int sockets) {
@@ -652,19 +613,6 @@ struct lsof_flow {
 
 /* global lsof flow record */
 struct lsof_flow fr;
-
-void lsof_flow_print(const struct lsof_flow *flow) {
-    char srcbuf[BUFSIZE];
-    char dstbuf[BUFSIZE];
-    struct timeval now;
-
-    gettimeofday(&now, NULL);
-    inet_ntop(AF_INET, &flow->key.sa, srcbuf, BUFSIZE);
-    inet_ntop(AF_INET, &flow->key.da, dstbuf, BUFSIZE);
-    printf("{ \"command\": \"%s\", \"sa\": \"%s\", \"da\": \"%s\", \"sp\": %u, \"dp\": %u, \"pr\": %u, \"t\": %zd.%06zd }\n", 
-	   flow->command, srcbuf, dstbuf, flow->key.sp, flow->key.dp, flow->key.prot, now.tv_sec, now.tv_usec);
-
-}
 
 int lsof_eat_string(char **sptr) {
     char *s = *sptr;
@@ -833,14 +781,23 @@ void lsof_process_output(char *s, int sockets) {
                         hf = get_host_flow(&fr.key);
                         if (hf != NULL) {
                             hf->pid = fr.pid;
-                            hf->exe_name = malloc(strlen(fr.command)+1);
+                            if (strlen(fr.command)) {
+                                hf->exe_name = malloc(strlen(fr.command)+1);
+                            }
                             if (hf->exe_name != NULL) {
                                 strcpy(hf->exe_name,fr.command);
                                 hf->full_path = get_full_path_from_pid(hf->pid);
                                 if (hf->full_path) {
+                                    char *prev_hash = NULL;
+
+                                    prev_hash = get_previous_hash_by_path(hf->full_path);
                                     hf->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
                                     if (hf->hash != NULL) {
-                                        calculate_sha256_hash((unsigned char*)hf->full_path, (unsigned char*)hf->hash);
+                                        if (prev_hash) {
+                                            strcpy(hf->hash,prev_hash);
+                                        } else {
+                                            calculate_sha256_hash((unsigned char*)hf->full_path, (unsigned char*)hf->hash);
+                                        }
                                     }
                                     hf->file_version = get_application_version(hf->full_path);
                                 }
