@@ -812,6 +812,7 @@ static void ipfix_template_key_init(struct ipfix_template_key *k,
   k->template_id = template_id;
 }
 
+#define TEMPLATE_FLD_SIZE 4
 
 /*
  * @brief Parse through the contents of an IPFIX Template Set.
@@ -868,25 +869,23 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
      * within the payload, so we need to walk the entire template.
      */
     for (i = 0; i < field_count; i++) {
-      int fld_size = 4;
       const struct ipfix_template_field *tmp_field = (const struct ipfix_template_field*)template_ptr;
       const unsigned short host_info_elem_id = ntohs(tmp_field->info_elem_id);
       const unsigned short host_fixed_length = ntohs(tmp_field->fixed_length);
 
-      if (ipfix_field_enterprise_bit(host_info_elem_id)) {
-        /* The enterprise bit is set, remove from element id */
+      if (ipfix_field_enterprise_bit(host_info_elem_id) && (host_info_elem_id != IPFIX_IDP)) {
+        /* The enterprise bit is set, remove from element id FIXME */
         cur_template->fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
         cur_template->fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
-        fld_size = 8;
       } else {
         cur_template->fields[i].info_elem_id = host_info_elem_id;
       }
 
       cur_template->fields[i].fixed_length = host_fixed_length;
 
-      template_ptr += fld_size;
-      template_set_len -= fld_size;
-      cur_template_fld_len += fld_size;
+      template_ptr += TEMPLATE_FLD_SIZE;
+      template_set_len -= TEMPLATE_FLD_SIZE;
+      cur_template_fld_len += TEMPLATE_FLD_SIZE;
     }
 
     /* The template is new, so save info */
@@ -3936,6 +3935,7 @@ static int ipfix_exp_encode_message(struct ipfix_message *message,
 static int ipfix_export_send_message(struct ipfix_exporter *e,
                                      struct ipfix_message *message) {
   ssize_t bytes = 0;
+  size_t msg_len = message->hdr.length;
 
   memset(&raw_message, 0, sizeof(struct ipfix_raw_message));
 
@@ -3958,7 +3958,7 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
   memcpy(&raw_message.hdr, &message->hdr, sizeof(struct ipfix_hdr));
 
   /* Send the message */
-  bytes = sendto(e->socket, (const char*)&raw_message, raw_message.hdr.length, 0,
+  bytes = sendto(e->socket, (const char*)&raw_message, msg_len, 0,
                  (struct sockaddr *)&e->clctr_addr,
                  sizeof(e->clctr_addr));
 
