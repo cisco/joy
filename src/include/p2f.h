@@ -131,7 +131,7 @@ struct flow_record {
 	char *full_path;                      /*!< executable path associated with flow    */
 	char *file_version;                   /*!< executable version associated with flow    */
 	char *file_hash;                      /*!< executable file hash associated with flow    */
-	char *proc_uptime;                    /*!< executable uptime associated with flow    */
+	unsigned long uptime_seconds;         /*!< executable uptime associated with flow    */
     unsigned char exp_type;
     unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
   

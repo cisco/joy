@@ -834,10 +834,6 @@ static void flow_record_delete (struct flow_record *r) {
 		free(r->file_hash);
 	}
 
-	if (r->proc_uptime) {
-		free(r->proc_uptime);
-	}
-
     delete_all_features(feature_list);
 
     /*
@@ -879,10 +875,7 @@ int flow_key_set_process_info(const struct flow_key *key, const struct host_flow
                     if (data->hash)
 			r->file_hash = strdup(data->hash);
 		}
-		if (r->proc_uptime == NULL) {
-                    if (data->proc_uptime)
-			r->proc_uptime = strdup(data->proc_uptime);
-		}
+		r->uptime_seconds = data->uptime_seconds;
 		return ok;
 	}
 	return failure;
@@ -1068,11 +1061,11 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
                 comma = 1;
             }
         }
-        if (rec->proc_uptime) {
+        if (rec->uptime_seconds > 0) {
             if (comma) {
-                zprintf(output, ",\"uptime\":\"%s\"", rec->proc_uptime);
+                zprintf(output, ",\"uptime\":%lu", rec->uptime_seconds);
             } else {
-                zprintf(output, "\"uptime\":\"%s\"", rec->proc_uptime);
+                zprintf(output, "\"uptime\":%lu", rec->uptime_seconds);
                 comma = 1;
             }
         }

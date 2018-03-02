@@ -128,8 +128,6 @@ static void host_flow_table_init() {
 			free(host_proc_flow_table_array[i].file_version);
 		if (host_proc_flow_table_array[i].hash != NULL)
 			free(host_proc_flow_table_array[i].hash);
-		if (host_proc_flow_table_array[i].proc_uptime != NULL)
-			free(host_proc_flow_table_array[i].proc_uptime);
 		memset(&host_proc_flow_table_array[i], 0, sizeof(struct host_flow));
 	}
 }
@@ -236,10 +234,7 @@ int print_flow_table() {
 			printf("\tTABLE Hash: %s\n", record->hash);
 		else
 			printf("\tTABLE Hash: <unknown>\n");
-		if (record->proc_uptime != NULL)
-			printf("\tTABLE Uptime: %s\n", record->proc_uptime);
-		else
-			printf("\tTABLE Uptime: <unknown>\n");
+		printf("\tTABLE Uptime: %lu\n", record->uptime_seconds);
 		printf("\tTABLE Thread Count: %d\n", record->threads);
 		printf("\tTABLE Parent PID: %lu\n", record->parent_pid);
 		printf("\t-----------------------\n");
@@ -301,6 +296,10 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *
 	DWORD len = PROC_PATH_LEN;
 	HANDLE hProcess;
 	PROCESSENTRY32 pe32;
+	union { /* Structure required for file time arithmetic. */
+		LONGLONG li;
+		FILETIME ft;
+	} createTime, stopTime, elapsedTime;
 
 	// Set the size of the structure before using it.
 	pe32.dwSize = sizeof(PROCESSENTRY32);
@@ -333,7 +332,10 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *
 			if (hProcess != NULL) {
 				record->full_path = malloc(PROC_PATH_LEN);
 				if (record->full_path != NULL) {
+					unsigned long seconds = 0;
 					char *prev_hash = NULL;
+					FILETIME kernelTime,userTime;
+					SYSTEMTIME currentTime, upTime;
 
 					memset(record->full_path, 0, PROC_PATH_LEN);
 					QueryFullProcessImageName(hProcess, 0, record->full_path, &len);
@@ -348,6 +350,15 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *
 							calculate_sha256_hash(record->full_path, record->hash);
 						}
 					}
+
+					/* get the uptime of the process */
+					GetProcessTimes(hProcess, &createTime, &stopTime, &kernelTime, &userTime);
+					GetSystemTime(&currentTime);
+					SystemTimeToFileTime(&currentTime, &stopTime);
+					elapsedTime.li = stopTime.li - createTime.li;
+					FileTimeToSystemTime(&elapsedTime.ft, &upTime);
+					seconds = (upTime.wHour * 3600) + (upTime.wMinute * 60) + upTime.wSecond;
+					record->uptime_seconds = seconds;
 				}
 				CloseHandle(hProcess);
 			}
@@ -449,12 +460,95 @@ int host_flow_table_add_sessions (int sockets) {
 
 #endif
 
+#ifndef WIN32
+
+/* this function is the same for Linux and Mac OS X */
+
+#define PID_MAX_LEN 64
+
+static unsigned long get_process_uptime (unsigned long pid) {
+    int day,hour,min,sec = 0;
+    unsigned long ps_pid = 0;
+    unsigned long process_uptime = 0;
+    char PS_COMMAND[PID_MAX_LEN];
+    char dummy_string[PID_MAX_LEN];
+    int rc = 0;
+    char *s = NULL;
+    FILE *ps_file = NULL;
+
+    /* set up the command to execute */
+    sprintf(PS_COMMAND,"ps -p \"%lu\" -opid,etime",pid);
+
+    ps_file = popen(PS_COMMAND, "r");
+    if (ps_file == NULL) {
+        joy_log_err("popen returned null (command(%d): %s)\n", rc, PS_COMMAND);
+        return 0;
+    }
+
+    /* skip the header line */
+    rc = fscanf(ps_file,"%[^\n]\n", dummy_string);
+
+    /* process ps data */
+    while (1) {
+        /* clean out the variables */
+        ps_pid = day = hour = min = sec = 0;
+
+        /* process ps output 1 line at a time */
+        rc = fscanf(ps_file,"%lu %s\n",&ps_pid,dummy_string);
+        if ((pid == ps_pid) && (strlen(dummy_string) > 0)) {
+            int got_hours = 0;
+            int got_mins = 0;
+            int got_secs = 0;
+
+            /* format of elasped times is day-hr:min:sec 
+             * not all fields are always present, so process from
+             * the back of the string.
+             */
+            s = dummy_string + strlen(dummy_string);
+            while (s >= dummy_string) {
+                if (s == dummy_string) {
+                    if (got_hours) {
+                        day = atoi(s);
+                    } else if (got_mins) {
+                        hour = atoi(s);
+                    } else if (got_secs) {
+                        min = atoi(s);
+                    } else {
+                        sec = atoi(s);
+                    }
+                }
+                if (*s == '-') {
+                    hour = atoi(s+1);
+                    got_hours = 1;
+                }
+                if (*s == ':') {
+                    if (got_secs) {
+                        min = atoi(s+1);
+                        got_mins = 1;
+                    } else {
+                        sec = atoi(s+1);
+                        got_secs = 1;
+                    }
+                }
+                --s;
+            }
+            process_uptime = ((day * 86400) + (hour * 3600) + (min * 60) + sec);
+        }
+        if (feof(ps_file)) {
+            pclose(ps_file);
+            return process_uptime;
+        }
+    }
+    return 0;
+}
+
+#endif
+
 #ifdef LINUX 
 
 #define PROCESS_SRC 0
 #define PROCESS_DST 1
 #define ADDR_MAX_LEN 32
-#define PID_MAX_LEN 64
 #define BUF_SIZE 512
 
 struct ss_flow {
@@ -499,45 +593,7 @@ static void get_pid_path_hash (struct host_flow *hf) {
     }
 }
 
-static char* get_process_uptime (unsigned long pid) {
-    unsigned long ps_pid = 0;
-    char PS_COMMAND[PID_MAX_LEN];
-    char ps_etime[PID_MAX_LEN];
-    char dummy_string[PID_MAX_LEN];
-    int rc = 0;
-    char *process_uptime = NULL;
-    FILE *ps_file = NULL;
-
-    /* set up the command to execute */
-    sprintf(PS_COMMAND,"ps -p \"%lu\" -opid,etime",pid);
-
-    ps_file = popen(PS_COMMAND, "r");
-    if (ps_file == NULL) {
-        joy_log_err("popen returned null (command(%d): %s)\n", rc, PS_COMMAND);
-        return NULL;
-    }
-
-    /* skip the header line */
-    rc = fscanf(ps_file,"%[^\n]\n", dummy_string);
-
-    /* process ps data */
-    while (1) {
-        /* clean out the variables */
-        ps_pid = 0;
-        memset(&ps_etime, 0x00, PID_MAX_LEN);
-
-        /* process ps output 1 line at a time */
-        rc = fscanf(ps_file,"%lu %s\n",&ps_pid,ps_etime);
-        if ((pid == ps_pid) && (strlen(ps_etime) > 0)) {
-            process_uptime = malloc(strlen(ps_etime)+1);
-            strcpy(process_uptime,ps_etime);
-        }
-        if (feof(ps_file)) {
-            pclose(ps_file);
-            return process_uptime;
-        }
-    }
-    return NULL;
+static unsigned long get_process_uptime (unsigned long pid) {
 }
 
 static void process_pid_string (char *string) {
@@ -644,7 +700,6 @@ int host_flow_table_add_sessions (int sockets) {
 #include "errno.h"
 
 #define BUFSIZE 32
-#define PID_MAX_LEN 32
 #define RBUFSIZE 128
 #define PLIST_FILE_MAX 256
 
@@ -740,46 +795,6 @@ int lsof_set_addrs_ports(char **sptr) {
     return lsof_status;
 }
 
-static char* get_process_uptime (unsigned long pid) {
-    unsigned long ps_pid = 0;
-    char PS_COMMAND[PID_MAX_LEN];
-    char ps_etime[PID_MAX_LEN];
-    char dummy_string[PID_MAX_LEN];
-    int rc = 0;
-    char *process_uptime = NULL;
-    FILE *ps_file = NULL;
-
-    /* set up the command to execute */
-    sprintf(PS_COMMAND,"ps -p \"%lu\" -opid,etime",pid);
-
-    ps_file = popen(PS_COMMAND, "r");
-    if (ps_file == NULL) {
-        joy_log_err("popen returned null (command(%d): %s)\n", rc, PS_COMMAND);
-        return NULL;
-    }
-
-    /* skip the header line */
-    rc = fscanf(ps_file,"%[^\n]\n", dummy_string);
-
-    /* process ps data */
-    while (1) {
-        /* clean out the variables */
-        ps_pid = 0;
-        memset(&ps_etime, 0x00, PID_MAX_LEN);
-
-        /* process ps output 1 line at a time */
-        rc = fscanf(ps_file,"%lu %s\n",&ps_pid,ps_etime);
-        if ((pid == ps_pid) && (strlen(ps_etime) > 0)) {
-            process_uptime = malloc(strlen(ps_etime)+1);
-            strcpy(process_uptime,ps_etime);
-        }
-        if (feof(ps_file)) {
-            pclose(ps_file);
-            return process_uptime;
-        }
-    }
-    return NULL;
-}
 char* get_full_path_from_pid (long pid) {
     int ret;
     char *pbuf = NULL;
@@ -889,7 +904,7 @@ void lsof_process_output(char *s, int sockets) {
                                         }
                                     }
                                     hf->file_version = get_application_version(hf->full_path);
-                                    hf->proc_uptime = get_process_uptime(hf->pid);
+                                    hf->uptime_seconds = get_process_uptime(hf->pid);
                                 }
                             }
                         }
