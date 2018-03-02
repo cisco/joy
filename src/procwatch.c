@@ -128,6 +128,8 @@ static void host_flow_table_init() {
 			free(host_proc_flow_table_array[i].file_version);
 		if (host_proc_flow_table_array[i].hash != NULL)
 			free(host_proc_flow_table_array[i].hash);
+		if (host_proc_flow_table_array[i].proc_uptime != NULL)
+			free(host_proc_flow_table_array[i].proc_uptime);
 		memset(&host_proc_flow_table_array[i], 0, sizeof(struct host_flow));
 	}
 }
@@ -234,6 +236,10 @@ int print_flow_table() {
 			printf("\tTABLE Hash: %s\n", record->hash);
 		else
 			printf("\tTABLE Hash: <unknown>\n");
+		if (record->proc_uptime != NULL)
+			printf("\tTABLE Uptime: %s\n", record->proc_uptime);
+		else
+			printf("\tTABLE Uptime: <unknown>\n");
 		printf("\tTABLE Thread Count: %d\n", record->threads);
 		printf("\tTABLE Parent PID: %lu\n", record->parent_pid);
 		printf("\t-----------------------\n");
@@ -493,6 +499,47 @@ static void get_pid_path_hash (struct host_flow *hf) {
     }
 }
 
+static char* get_process_uptime (unsigned long pid) {
+    unsigned long ps_pid = 0;
+    char PS_COMMAND[PID_MAX_LEN];
+    char ps_etime[PID_MAX_LEN];
+    char dummy_string[PID_MAX_LEN];
+    int rc = 0;
+    char *process_uptime = NULL;
+    FILE *ps_file = NULL;
+
+    /* set up the command to execute */
+    sprintf(PS_COMMAND,"ps -p \"%lu\" -opid,etime",pid);
+
+    ps_file = popen(PS_COMMAND, "r");
+    if (ps_file == NULL) {
+        joy_log_err("popen returned null (command(%d): %s)\n", rc, PS_COMMAND);
+        return NULL;
+    }
+
+    /* skip the header line */
+    rc = fscanf(ps_file,"%[^\n]\n", dummy_string);
+
+    /* process ps data */
+    while (1) {
+        /* clean out the variables */
+        ps_pid = 0;
+        memset(&ps_etime, 0x00, PID_MAX_LEN);
+
+        /* process ps output 1 line at a time */
+        rc = fscanf(ps_file,"%lu %s\n",&ps_pid,ps_etime);
+        if ((pid == ps_pid) && (strlen(ps_etime) > 0)) {
+            process_uptime = malloc(strlen(ps_etime)+1);
+            strcpy(process_uptime,ps_etime);
+        }
+        if (feof(ps_file)) {
+            pclose(ps_file);
+            return process_uptime;
+        }
+    }
+    return NULL;
+}
+
 static void process_pid_string (char *string) {
     char *s = string;
 
@@ -571,6 +618,7 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
                 hf->exe_name = malloc(strlen(fr.command)+1);
                 strcpy(hf->exe_name,fr.command);
             }
+            hf->proc_uptime = get_process_uptime(hf->pid);
             get_pid_path_hash(hf);
         }
 

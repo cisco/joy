@@ -61,6 +61,7 @@ struct host_flow {
 	char *full_path;
 	char *file_version;
 	char *hash;
+	char *proc_uptime;
 };
 
 /*
