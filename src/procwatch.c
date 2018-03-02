@@ -593,9 +593,6 @@ static void get_pid_path_hash (struct host_flow *hf) {
     }
 }
 
-static unsigned long get_process_uptime (unsigned long pid) {
-}
-
 static void process_pid_string (char *string) {
     char *s = string;
 
@@ -674,7 +671,7 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
                 hf->exe_name = malloc(strlen(fr.command)+1);
                 strcpy(hf->exe_name,fr.command);
             }
-            hf->proc_uptime = get_process_uptime(hf->pid);
+            hf->uptime_seconds = get_process_uptime(hf->pid);
             get_pid_path_hash(hf);
         }
 
