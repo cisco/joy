@@ -500,7 +500,7 @@ static unsigned long get_process_uptime (unsigned long pid) {
             int got_mins = 0;
             int got_secs = 0;
 
-            /* format of elasped times is day-hr:min:sec 
+            /* format of elasped times is day-hr:min:sec
              * not all fields are always present, so process from
              * the back of the string.
              */
