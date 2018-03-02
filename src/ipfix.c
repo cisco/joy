@@ -812,8 +812,6 @@ static void ipfix_template_key_init(struct ipfix_template_key *k,
   k->template_id = template_id;
 }
 
-#define TEMPLATE_FLD_SIZE 4
-
 /*
  * @brief Parse through the contents of an IPFIX Template Set.
  *
@@ -869,23 +867,25 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
      * within the payload, so we need to walk the entire template.
      */
     for (i = 0; i < field_count; i++) {
+      int fld_size = 4;
       const struct ipfix_template_field *tmp_field = (const struct ipfix_template_field*)template_ptr;
       const unsigned short host_info_elem_id = ntohs(tmp_field->info_elem_id);
       const unsigned short host_fixed_length = ntohs(tmp_field->fixed_length);
 
-      if (ipfix_field_enterprise_bit(host_info_elem_id) && (host_info_elem_id != IPFIX_IDP)) {
-        /* The enterprise bit is set, remove from element id FIXME */
+      if (ipfix_field_enterprise_bit(host_info_elem_id)) {
+        /* The enterprise bit is set, remove from element id */
         cur_template->fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
         cur_template->fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
+        fld_size = 8;
       } else {
         cur_template->fields[i].info_elem_id = host_info_elem_id;
       }
 
       cur_template->fields[i].fixed_length = host_fixed_length;
 
-      template_ptr += TEMPLATE_FLD_SIZE;
-      template_set_len -= TEMPLATE_FLD_SIZE;
-      cur_template_fld_len += TEMPLATE_FLD_SIZE;
+      template_ptr += fld_size;
+      template_set_len -= fld_size;
+      cur_template_fld_len += fld_size;
     }
 
     /* The template is new, so save info */
@@ -1891,7 +1891,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
         flow_data += field_length;
         break;
 
-      case IPFIX_IDP:
+      case IPFIX_COLLECT_IDP:
         if (flag_var_field && (field_length != 0)) {
           /*
            * We have actual IDP data to process
@@ -1962,6 +1962,9 @@ static uint16_t exporter_template_id = 256;
 
 #define ipfix_exp_template_field_macro(a, b) \
   ((struct ipfix_exporter_template_field) {a, b, 0})
+
+#define ipfix_exp_template_ent_field_macro(a, b) \
+  ((struct ipfix_exporter_template_field) {a, b, 9})
 
 
 /*
@@ -3320,6 +3323,13 @@ static void ipfix_exp_template_add_field(struct ipfix_exporter_template *t,
     t->length += 4;
 }
 
+static void ipfix_exp_template_add_ent_field(struct ipfix_exporter_template *t,
+                                             struct ipfix_exporter_template_field f) {
+    t->fields[t->hdr.field_count] = f;
+    t->hdr.field_count++;
+    t->length += 8;
+}
+
 
 /*
  * @brief Create a simple 5-tuple template.
@@ -3418,8 +3428,8 @@ static struct ipfix_exporter_template *ipfix_exp_create_idp_template(void) {
     ipfix_exp_template_add_field(template,
         ipfix_exp_template_field_macro(IPFIX_FLOW_END_MICROSECONDS, 8));
 
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_IDP, 65535));
+    ipfix_exp_template_add_ent_field(template,
+        ipfix_exp_template_ent_field_macro(IPFIX_IDP, 65535));
 
   } else {
     loginfo("error: template is null");
@@ -3551,6 +3561,7 @@ static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set
     for (i = 0; i < current->hdr.field_count; i++) {
       uint16_t bigend_field_id = htons(current->fields[i].info_elem_id);
       uint16_t bigend_field_len = htons(current->fields[i].fixed_length);
+      uint32_t bigend_ent_num = htonl(current->fields[i].enterprise_num);
 
       /* Encode the field element into message */
       memcpy(data_ptr, (const void *)&bigend_field_id, 2);
@@ -3561,7 +3572,12 @@ static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set
       data_ptr += 2;
       *msg_length += 2;
 
-      /* TODO enterprise bit */
+      /* Enterprise number */
+      if (bigend_ent_num) {
+        memcpy(data_ptr, (const void *)&bigend_ent_num, sizeof(uint32_t));
+        data_ptr += sizeof(uint32_t);
+        *msg_length += sizeof(uint32_t);
+      }
     }
 
     current = current->next;

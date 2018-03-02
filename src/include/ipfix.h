@@ -596,6 +596,7 @@ enum ipfix_entities {
   IPFIX_FLOW_START_MICROSECONDS =                   154,
   IPFIX_FLOW_END_MICROSECONDS =                     155,
   IPFIX_BASIC_LIST =                                291,
+  IPFIX_COLLECT_IDP =                               12172,
   IPFIX_IDP =                                       44940,
   IPFIX_BYTE_DISTRIBUTION_FORMAT =                  44943,
   IPFIX_BYTE_DISTRIBUTION =                         44944,
