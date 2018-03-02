@@ -48,7 +48,10 @@
 #define dns_usage "  dns=1                      report DNS response information\n"
 
 /** dns filter key */
-#define dns_filter(key) ((key->prot == 17) && (key->dp == 53 || key->sp == 53))
+#define dns_filter(record) \
+    ((record->key.prot == 17) && \
+     (record->app == 53 || (record->key.dp == 53 || record->key.sp == 53)) \
+    )
 
 /** maximum number of DNS packets */
 #define MAX_NUM_DNS_PKT 200

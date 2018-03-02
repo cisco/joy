@@ -52,7 +52,10 @@
 
 #define ssh_usage "  ssh=1                      report ssh information\n"
 
-#define ssh_filter(key) ((key->prot == 6) && (key->dp == 22 || key->sp == 22))
+#define ssh_filter(record) \
+    ((record->key.prot == 6) && \
+     (record->app == 22 || (record->key.dp == 22 || record->key.sp == 22)) \
+    )
 
 #define MAX_SSH_STRING_LEN 512
 #define MAX_SSH_KEX_MESSAGES 2 /* large enough for DH, RSA, and GEX key exchanges */

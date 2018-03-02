@@ -1794,7 +1794,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
   const unsigned char *payload = NULL;
   unsigned int size_payload = 0;
   struct flow_record *record = ix_record;
-  struct flow_key *key = &ix_record->key;
+  //struct flow_key *key = &ix_record->key;
   int i;
 
   for (i = 0; i < cur_template->hdr.field_count; i++) {

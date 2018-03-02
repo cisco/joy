@@ -48,7 +48,10 @@
 
 #define http_usage "  http=1                     report http information\n"
 
-#define http_filter(key) ((key->prot == 6) && (key->sp == 80 || key->dp == 80))
+#define http_filter(record) \
+    ((record->key.prot == 6) && \
+     (record->app == 80 || (record->key.sp == 80 || record->key.dp == 80)) \
+    )
 
 /** http data structure */
 typedef struct http {

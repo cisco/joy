@@ -539,6 +539,36 @@ static enum status process_nfv9 (const struct pcap_pkthdr *header, const char *s
     return ok;
 }
 
+struct protocol_identifier {
+    char *str;
+    uint8_t str_len;
+};
+
+#define TLS_PI_COUNT 2
+struct tls_pi_container {
+    struct protocol_identifier pi[TLS_PI_COUNT];
+};
+
+static struct tls_pi_container tls_pi_container = {
+    .pi = {
+            {"\x16\x03\x00\x00", 4},
+            {"\x16\x03\x01\x01", 4}
+    }
+};
+
+uint16_t identify_tcp_protocol(const char *tcp_data, unsigned int len) {
+    int k = 0;
+
+    for (k = 0; k < TLS_PI_COUNT; k++) {
+        struct protocol_identifier *pi = &tls_pi_container.pi[k];
+        if (memcmp(tcp_data, pi->str, pi->str_len) == 0) {
+            return 443;
+        }
+    }
+
+    return 0;
+}
+
 static struct flow_record *
 process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, struct flow_key *key) {
     unsigned int tcp_hdr_len;
@@ -641,6 +671,9 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     }
 
     record->ob += size_payload;
+
+    /* Estimate the TCP application protocol */
+    record->app = identify_tcp_protocol(payload, size_payload);
 
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
