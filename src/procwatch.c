@@ -644,6 +644,7 @@ int host_flow_table_add_sessions (int sockets) {
 #include "errno.h"
 
 #define BUFSIZE 32
+#define PID_MAX_LEN 32
 #define RBUFSIZE 128
 #define PLIST_FILE_MAX 256
 
@@ -739,6 +740,46 @@ int lsof_set_addrs_ports(char **sptr) {
     return lsof_status;
 }
 
+static char* get_process_uptime (unsigned long pid) {
+    unsigned long ps_pid = 0;
+    char PS_COMMAND[PID_MAX_LEN];
+    char ps_etime[PID_MAX_LEN];
+    char dummy_string[PID_MAX_LEN];
+    int rc = 0;
+    char *process_uptime = NULL;
+    FILE *ps_file = NULL;
+
+    /* set up the command to execute */
+    sprintf(PS_COMMAND,"ps -p \"%lu\" -opid,etime",pid);
+
+    ps_file = popen(PS_COMMAND, "r");
+    if (ps_file == NULL) {
+        joy_log_err("popen returned null (command(%d): %s)\n", rc, PS_COMMAND);
+        return NULL;
+    }
+
+    /* skip the header line */
+    rc = fscanf(ps_file,"%[^\n]\n", dummy_string);
+
+    /* process ps data */
+    while (1) {
+        /* clean out the variables */
+        ps_pid = 0;
+        memset(&ps_etime, 0x00, PID_MAX_LEN);
+
+        /* process ps output 1 line at a time */
+        rc = fscanf(ps_file,"%lu %s\n",&ps_pid,ps_etime);
+        if ((pid == ps_pid) && (strlen(ps_etime) > 0)) {
+            process_uptime = malloc(strlen(ps_etime)+1);
+            strcpy(process_uptime,ps_etime);
+        }
+        if (feof(ps_file)) {
+            pclose(ps_file);
+            return process_uptime;
+        }
+    }
+    return NULL;
+}
 char* get_full_path_from_pid (long pid) {
     int ret;
     char *pbuf = NULL;
@@ -848,6 +889,7 @@ void lsof_process_output(char *s, int sockets) {
                                         }
                                     }
                                     hf->file_version = get_application_version(hf->full_path);
+                                    hf->proc_uptime = get_process_uptime(hf->pid);
                                 }
                             }
                         }
