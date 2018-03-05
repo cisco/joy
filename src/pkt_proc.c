@@ -544,25 +544,84 @@ struct protocol_identifier {
     uint8_t str_len;
 };
 
-#define TLS_PI_COUNT 2
-struct tls_pi_container {
-    struct protocol_identifier pi[TLS_PI_COUNT];
+#define MAX_PI_COUNT 10
+struct pi_container {
+    uint16_t app_port;
+    uint8_t count;
+    struct protocol_identifier pi[MAX_PI_COUNT];
 };
 
-static struct tls_pi_container tls_pi_container = {
-    .pi = {
-            {"\x16\x03\x00\x00", 4},
-            {"\x16\x03\x01\x01", 4}
-    }
+#define MAX_PI_DB 16
+struct pi_db {
+    uint16_t count;
+    struct pi_container containers[MAX_PI_DB];
 };
+
+static struct pi_db pi_db;
+static uint8_t pi_db_initialized = 0;
+
+static void pi_db_init(void) {
+    struct pi_container *container = NULL;
+
+    memset(&pi_db, 0, sizeof(struct pi_db));
+
+    /*
+     * Assign TLS
+     */
+    container = &pi_db.containers[pi_db.count];
+    container->app_port = 443;
+
+    container->pi[container->count].str = "\x16\x03\x00\x00";
+    container->pi[container->count].str_len = 4;
+    container->count++;
+
+    container->pi[container->count].str = "\x16\x03\x01\x01";
+    container->pi[container->count].str_len = 4;
+    container->count++;
+
+    /* Increment the count of database entries */
+    pi_db.count++;
+
+    /*
+     * Assign HTTP
+     */
+    container = &pi_db.containers[pi_db.count];
+    container->app_port = 80;
+
+    container->pi[container->count].str = "\x47\x45\x54\x20";
+    container->pi[container->count].str_len = 4;
+    container->count++;
+
+    container->pi[container->count].str = "\x50\x4f\x53\x54\x20\x2f";
+    container->pi[container->count].str_len = 6;
+    container->count++;
+
+    /* Increment the count of database entries */
+    pi_db.count++;
+
+    /* Database is ready */
+    pi_db_initialized = 1;
+}
 
 uint16_t identify_tcp_protocol(const char *tcp_data, unsigned int len) {
-    int k = 0;
+    int k, m = 0;
 
-    for (k = 0; k < TLS_PI_COUNT; k++) {
-        struct protocol_identifier *pi = &tls_pi_container.pi[k];
-        if (memcmp(tcp_data, pi->str, pi->str_len) == 0) {
-            return 443;
+    /* Load the database if not already done so */
+    if (! pi_db_initialized) {
+        pi_db_init();
+    }
+
+    /* Iterate over all the protocol containers */
+    for (k = 0; k < pi_db.count; k++) {
+        struct pi_container *container = &pi_db.containers[k];
+
+        /* Try to match the protocol strings */
+        for (m = 0; m < container->count; m++) {
+            struct protocol_identifier *pi = &container->pi[m];
+
+            if (memcmp(tcp_data, pi->str, pi->str_len) == 0) {
+                return container->app_port;
+            }
         }
     }
 
@@ -672,12 +731,21 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
 
     record->ob += size_payload;
 
-    /* Estimate the TCP application protocol */
-    record->app = identify_tcp_protocol(payload, size_payload);
-
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
+
+    /*
+     * Estimate the TCP application protocol
+     * Optimization: stop after first 2 packets that have non-zero payload
+     */
+    if ((!record->app) && record->op <= 2) {
+        record->app = identify_tcp_protocol(payload, size_payload);
+    }
+
+    /*
+     * Run protocol modules!
+     */
     update_all_features(payload_feature_list);
 
     /*
