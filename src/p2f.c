@@ -875,6 +875,7 @@ int flow_key_set_process_info(const struct flow_key *key, const struct host_flow
                     if (data->hash)
 			r->file_hash = strdup(data->hash);
 		}
+		r->uptime_seconds = data->uptime_seconds;
 		return ok;
 	}
 	return failure;
@@ -1057,6 +1058,14 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
                 zprintf(output, ",\"hash\":\"%s\"", rec->file_hash);
             } else {
                 zprintf(output, "\"hash\":\"%s\"", rec->file_hash);
+                comma = 1;
+            }
+        }
+        if (rec->uptime_seconds > 0) {
+            if (comma) {
+                zprintf(output, ",\"uptime\":%lu", rec->uptime_seconds);
+            } else {
+                zprintf(output, "\"uptime\":%lu", rec->uptime_seconds);
                 comma = 1;
             }
         }

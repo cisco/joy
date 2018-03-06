@@ -56,6 +56,7 @@ struct host_flow {
 	struct flow_key key;
 	unsigned long pid;
 	unsigned long parent_pid;
+	unsigned long uptime_seconds;
 	unsigned int threads;
 	char *exe_name;
 	char *full_path;
