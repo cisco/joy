@@ -45,95 +45,273 @@
 #include <string.h>
 
 #include "proto_identify.h"
+#include "err.h"
 
-struct protocol_identifier {
-    char *str;
-    uint8_t str_len;
-};
 
-#define MAX_PI_COUNT 10
+/* Values indicating direction of the flow */
+#define DIR_UNKNOWN 0
+#define DIR_CLIENT 1
+#define DIR_SERVER 2
+
 struct pi_container {
-    uint16_t app_port;
-    uint8_t count;
-    struct protocol_identifier pi[MAX_PI_COUNT];
+    uint8_t dir; /* Flow direction */
+    uint16_t app; /* Application protocol prediction */
 };
 
-#define MAX_PI_DB 16
-struct pi_db {
-    uint16_t count;
-    struct pi_container containers[MAX_PI_DB];
+#define MAX_CHILDREN 257 /**< Full range of 1 byte, plus an extra slot for "wildcard" */
+
+struct keyword_dict_node {
+    uint16_t edge[MAX_CHILDREN]; /**< 16bit value, so that it can hold "wildcard"
+                                      in addition to full-range of single byte (0-255) */
+    struct keyword_dict_node *children; /* Pointer to first child */
+    struct keyword_dict_node *sibling; /* Pointer to next sibling */
+    uint16_t num_children; /* Number of children under this node */
+    struct pi_container pi;
 };
 
-static struct pi_db pi_db;
-static uint8_t pi_db_initialized = 0;
 
-static void pi_db_init(void) {
-    struct pi_container *container = NULL;
+static struct keyword_dict_node *alloc_kdn(void) {
 
-    memset(&pi_db, 0, sizeof(struct pi_db));
+    return calloc(1, sizeof(struct keyword_dict_node));
+}
 
-    /*
-     * Assign TLS
-     */
-    container = &pi_db.containers[pi_db.count];
-    container->app_port = 443;
+static void destroy_kdn(struct keyword_dict_node *node) {
 
-    container->pi[container->count].str = "\x16\x03\x00\x00";
-    container->pi[container->count].str_len = 4;
-    container->count++;
+    struct keyword_dict_node *child = NULL;
+    struct keyword_dict_node *sibling = NULL;
 
-    container->pi[container->count].str = "\x16\x03\x01\x01";
-    container->pi[container->count].str_len = 4;
-    container->count++;
+    if (node == NULL) {
+        return;
+    }
 
-    /* Increment the count of database entries */
-    pi_db.count++;
+    if (node->children == NULL || node->num_children == 0) {
+        free(node);
+        return;
+    }
 
-    /*
-     * Assign HTTP
-     */
-    container = &pi_db.containers[pi_db.count];
-    container->app_port = 80;
+    /* The first child */
+    child = node->children;
 
-    container->pi[container->count].str = "\x47\x45\x54\x20";
-    container->pi[container->count].str_len = 4;
-    container->count++;
+    while (child != NULL) {
+        /* Get the next child node before deleting this one */
+        sibling = child->sibling;
 
-    container->pi[container->count].str = "\x50\x4f\x53\x54\x20\x2f";
-    container->pi[container->count].str_len = 6;
-    container->count++;
+        /* Recurse */
+        destroy_kdn(child);
 
-    /* Increment the count of database entries */
-    pi_db.count++;
+        /* Tee up the next one */
+        child = sibling;
+    }
 
-    /* Database is ready */
-    pi_db_initialized = 1;
+    /* Now delete the parent */
+    free(node);
+    return;
+}
+
+#if 0
+static struct keyword_dict_node *kdn_append_child(struct keyword_dict_node *node,
+                                                  uint16_t edge) {
+    struct keyword_dict_node *new_child = NULL;
+
+    if (node == NULL) {
+        return NULL;
+    }
+
+    if (node->children) {
+        /*
+         * This node already has at least one child.
+         * We need to create a sibling instead :)
+         */
+        struct keyword_dict_node *child = NULL;
+
+        if (node->num_children == (MAX_CHILDREN - 1)) {
+            joy_log_err("already at MAX_CHILDREN(%d)", MAX_CHILDREN);
+            return NULL;
+        }
+
+        child = node->children;
+        while (child->sibling) {
+            /* Get the sibling node if it exists */
+            child = child->sibling;
+        }
+
+        /*
+         * We now have the "last" child.
+         * Create a sibling for them.
+         */
+        child->sibling = alloc_kdn();
+        new_child = child->sibling;
+    } else {
+        /* The first one! */
+        node->children = alloc_kdn();
+        new_child = node->children;
+    }
+
+    /* Set the edge value corresponding to this child */
+    node->edge[node->num_children] = edge;
+
+    /* Increment household count */
+    node->num_children++;
+
+    return new_child;
+}
+#endif
+
+static struct keyword_dict_node *kdn_create_child(struct keyword_dict_node *node,
+                                                  uint16_t edge) {
+    if (node == NULL) {
+        return NULL;
+    }
+
+    if (node->children || (node->num_children != 0)) {
+        joy_log_err("child already exists");
+        return NULL;
+    }
+
+    node->children = alloc_kdn();
+
+    /* Set the edge value corresponding to this child */
+    node->edge[node->num_children] = edge;
+
+    /* Increment household count */
+    node->num_children++;
+
+    return node->children;
+}
+
+static struct keyword_dict_node *kdn_create_sibling(struct keyword_dict_node *parent,
+                                                    struct keyword_dict_node *child,
+                                                    uint16_t edge) {
+    if (parent == NULL || child == NULL) {
+        return NULL;
+    }
+
+    if (child->sibling != NULL) {
+        joy_log_err("child already has a sibling");
+    }
+
+    if (parent->num_children == (MAX_CHILDREN - 1)) {
+        joy_log_err("already at MAX_CHILDREN(%d)", MAX_CHILDREN);
+        return NULL;
+    }
+
+    /* The first one! */
+    child->sibling = alloc_kdn();
+
+    /* Set the edge value corresponding to this child */
+    parent->edge[parent->num_children] = edge;
+
+    /* Increment household count */
+    parent->num_children++;
+
+    return child->sibling;
+}
+
+static int keyword_dict_add_string(struct keyword_dict_node *root,
+                                   const uint16_t *str,
+                                   unsigned int str_len) {
+    struct keyword_dict_node *node = NULL;
+    int i = 0;
+
+    if (root == NULL) {
+        return 0;
+    }
+
+    if (str == NULL || str_len == 0) {
+        return 0;
+    }
+
+    /* The root node of the tree */
+    node = root;
+
+    for (i = 0; i < str_len; i++) {
+        /* Grab the next value of string for comparison */
+        uint16_t val = *(str + i);
+
+        if (node->children) {
+            struct keyword_dict_node *child = node->children;
+            int match = 0;
+            int k = 0;
+
+            while (k < node->num_children) {
+                /*
+                 * Compare this character to all the children edges
+                 */
+                if (val == node->edge[k]) {
+                    /* Matches the edge to this child */
+                    match = 1;
+                    break;
+                }
+
+                /* Point to the next child */
+                child = child->sibling;
+            }
+
+            if (match) {
+                node = child;
+            } else {
+                /* Make a new sibling node/edge */
+                node = kdn_create_sibling(node, child, val);
+            }
+        } else {
+            /*
+             * No existing children.
+             * Make a new child node/edge.
+             */
+            node = kdn_create_child(node, val);
+        }
+    }
+
+    return 0;
+}
+
+#define WILDCARD 0x100
+
+static struct keyword_dict_node *construct_keyword_dict(void) {
+    struct keyword_dict_node *root = NULL;
+    const uint16_t str[] = {0x16, 0x03, 0x01, WILDCARD, WILDCARD};
+    unsigned int str_len = sizeof(str) / sizeof(uint16_t);
+    int ret = 0;
+
+    root = alloc_kdn();
+
+    /* TODO loop through adding all strings */
+    ret = keyword_dict_add_string(root, str, str_len);
+    if (ret != 0) {
+        joy_log_err("couldn't add string");
+    }
+
+    return root;
+}
+
+struct keyword_dict_node *kd_root = NULL;
+
+int proto_identify_init_keyword_dict(void) {
+    if (kd_root != NULL) {
+        return 1;
+    }
+
+    kd_root = construct_keyword_dict();
+
+    return 0;
+}
+
+void proto_identify_destroy_keyword_dict(void) {
+    if (kd_root == NULL) {
+        return;
+    }
+
+    destroy_kdn(kd_root);
 }
 
 uint16_t identify_tcp_protocol(const char *tcp_data, unsigned int len) {
-    int k, m = 0;
 
     if (len == 0) {
         return 0;
     }
 
-    /* Load the database if not already done so */
-    if (! pi_db_initialized) {
-        pi_db_init();
-    }
-
-    /* Iterate over all the protocol containers */
-    for (k = 0; k < pi_db.count; k++) {
-        struct pi_container *container = &pi_db.containers[k];
-
-        /* Try to match the protocol strings */
-        for (m = 0; m < container->count; m++) {
-            struct protocol_identifier *pi = &container->pi[m];
-
-            if (memcmp(tcp_data, pi->str, pi->str_len) == 0) {
-                return container->app_port;
-            }
-        }
+    if (kd_root == NULL) {
+        kd_root = construct_keyword_dict();
     }
 
     return 0;

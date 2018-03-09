@@ -45,6 +45,9 @@
 
 #include <stdint.h>
 
+int proto_identify_init_keyword_dict(void);
+void proto_identify_destroy_keyword_dict(void);
+
 uint16_t identify_tcp_protocol(const char *tcp_data, unsigned int len);
 
 #endif /* JOY_PROTO_IDENTIFY_H */
