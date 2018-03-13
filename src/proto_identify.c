@@ -173,7 +173,9 @@ static int init_keywords(void) {
     memset(&keywords, 0, sizeof(keywords));
 
     /* Populate the keywords array */
-    populate_keyword_identifiers();
+    if(populate_keyword_identifiers()) {
+        return 1;
+    }
 
     return 0;
 }
@@ -192,7 +194,7 @@ static int init_keywords(void) {
 struct keyword_dict_node {
     uint16_t edge[MAX_CHILDREN]; /**< 16bit value, so that it can hold "wildcard"
                                       in addition to full-range of single byte (0-255) */
-    struct keyword_dict_node *children; /* Pointer to first child */
+    struct keyword_dict_node *child; /* Pointer to first child */
     struct keyword_dict_node *sibling; /* Pointer to next sibling */
     uint16_t num_children; /* Number of children under this node */
     struct pi_container pi; /* Protocol inference */
@@ -224,13 +226,13 @@ static void destroy_kdn(struct keyword_dict_node *node) {
         return;
     }
 
-    if (node->children == NULL || node->num_children == 0) {
+    if (node->child == NULL || node->num_children == 0) {
         free(node);
         return;
     }
 
     /* The first child */
-    child = node->children;
+    child = node->child;
 
     while (child != NULL) {
         /* Get the next child node before deleting this one */
@@ -254,12 +256,12 @@ static struct keyword_dict_node *kdn_create_child(struct keyword_dict_node *node
         return NULL;
     }
 
-    if (node->children || (node->num_children != 0)) {
+    if (node->child || (node->num_children != 0)) {
         joy_log_err("child already exists");
         return NULL;
     }
 
-    node->children = alloc_kdn();
+    node->child = alloc_kdn();
 
     /* Set the edge value corresponding to this child */
     node->edge[node->num_children] = edge;
@@ -267,7 +269,7 @@ static struct keyword_dict_node *kdn_create_child(struct keyword_dict_node *node
     /* Increment household count */
     node->num_children++;
 
-    return node->children;
+    return node->child;
 }
 
 static struct keyword_dict_node *kdn_create_sibling(struct keyword_dict_node *parent,
@@ -315,8 +317,8 @@ static int keyword_dict_add_keyword(struct keyword_dict_node *root,
         /* Grab the next value of string for comparison */
         uint16_t val = *(kc->value + i);
 
-        if (node->children) {
-            struct keyword_dict_node *child = node->children;
+        if (node->child) {
+            struct keyword_dict_node *child = node->child;
             int match = 0;
             int k = 0;
 
@@ -360,12 +362,63 @@ static int keyword_dict_add_keyword(struct keyword_dict_node *root,
     return 0;
 }
 
+static const struct pi_container *search_keyword_dict(const struct keyword_dict_node *root,
+                                                      const char *data,
+                                                      unsigned int data_len) {
 
-static struct keyword_dict_node *construct_keyword_dict(void) {
-    struct keyword_dict_node *root = NULL;
+    const struct keyword_dict_node *node = root;
+    const struct keyword_dict_node *child = NULL;
     int i = 0;
 
-    root = alloc_kdn();
+    if (root == NULL || data == NULL || data_len == 0) {
+        return NULL;
+    }
+
+    /* The first child (may be null) */
+    child = node->child;
+
+    /*
+     * Check to see if any children are an "end" node.
+     * If no children exist, this loop will be skipped.
+     */
+    for (i = 0; i < node->num_children; i++) {
+        if ((node->edge[i] == WILDCARD) || (*data == node->edge[i])) {
+            if (child->pi.app) {
+                /*
+                 * Match!
+                 * We've reached a node that contains
+                 * protocol inference information.
+                 */
+                return &child->pi;
+            } else {
+                /*
+                 * Compare next layer node
+                 */
+                if (data_len == 1) {
+                    /* No more data to compare */
+                    return NULL;
+                }
+
+                return search_keyword_dict(child, (data + 1), (data_len - 1));
+            }
+        }
+
+        /* Get the next child */
+        child = child->sibling;
+    }
+
+    /* No more children */
+    return NULL;
+}
+
+static int construct_keyword_dict(struct keyword_dict_node **root) {
+    int i = 0;
+
+    if (root == NULL || *root != NULL) {
+        return 1;
+    }
+
+    *root = alloc_kdn();
 
     /*
      * Looping over the list of keywords,
@@ -375,12 +428,12 @@ static struct keyword_dict_node *construct_keyword_dict(void) {
         /* Pointer to the latest keyword */
         struct keyword_container *kc = &keywords[i];
 
-        if (keyword_dict_add_keyword(root, kc)) {
+        if (keyword_dict_add_keyword(*root, kc)) {
             joy_log_err("couldn't add keywords[%d]", i);
         }
     }
 
-    return root;
+    return 0;
 }
 
 
@@ -397,7 +450,8 @@ int proto_identify_init_keyword_dict(void) {
         }
     }
 
-    kd_root = construct_keyword_dict();
+    /* Create the tree graph */
+    construct_keyword_dict(&kd_root);
 
     return 0;
 }
@@ -412,14 +466,22 @@ void proto_identify_destroy_keyword_dict(void) {
 
 uint16_t identify_tcp_protocol(const char *tcp_data, unsigned int len) {
 
+    uint16_t port = 0;
+    const struct pi_container *pi = NULL;
+
     if (len == 0) {
         return 0;
     }
 
     if (kd_root == NULL) {
-        kd_root = construct_keyword_dict();
+        proto_identify_init_keyword_dict();
     }
 
-    return 0;
+    pi = search_keyword_dict(kd_root, tcp_data, len) ;
+    if (pi != NULL) {
+        port = pi->app;
+    }
+
+    return port;
 }
 
