@@ -71,6 +71,9 @@ struct pi_container {
 #define MAX_VAL_LEN 32
 #define MAX_VAL_BYTES (2 * MAX_VAL_LEN)
 
+/**
+ * \brief Struct that holds the keyword value and inference data.
+ */
 struct keyword_container {
     uint16_t value[MAX_VAL_LEN]; /**< The keyword value (array of uint16_t) */
     unsigned int value_len; /**< The length of val (number of uint16_t elements) */
@@ -92,6 +95,15 @@ static struct keyword_container keywords[MAX_KEYWORDS];
  */
 #define WILDCARD 0x100
 
+/*
+ * \brief Add the keyword to the list.
+ *
+ * \param[in] value Pointer to array of uint16_t values
+ * \param[in] value_bytes_len Length of value array in bytes
+ * \param[in] pi Pointer to the struct holding protocol inference
+ *
+ * \return 0 for success, 1 for failure
+ */
 static int add_keyword(const uint16_t *value,
                        unsigned int value_bytes_len,
                        const struct pi_container *pi) {
@@ -129,6 +141,13 @@ static int add_keyword(const uint16_t *value,
     return 0;
 }
 
+/*
+ * \brief Add TLS keyword identifiers.
+ *
+ * \param none
+ *
+ * \return 0 for success, 1 for failure
+ */
 static int add_tls_identifiers(void) {
     struct pi_container pi;
 
@@ -159,6 +178,13 @@ static int add_tls_identifiers(void) {
     return 0;
 }
 
+/*
+ * \brief Add all protocol keyword identifiers.
+ *
+ * \param none
+ *
+ * \return 0 for success, 1 for failure
+ */
 static int populate_keyword_identifiers(void) {
     if (add_tls_identifiers()) {
         joy_log_err("problem populating tls keywords");
@@ -168,6 +194,13 @@ static int populate_keyword_identifiers(void) {
     return 0;
 }
 
+/*
+ * \brief Initialize and setup the keywords list.
+ *
+ * \param none
+ *
+ * \return 0 for success, 1 for failure
+ */
 static int init_keywords(void) {
     /* Zero out the keywords array */
     memset(&keywords, 0, sizeof(keywords));
@@ -217,6 +250,13 @@ static struct keyword_dict_node *alloc_kdn(void) {
     return calloc(1, sizeof(struct keyword_dict_node));
 }
 
+/**
+ * \brief Free the node, and all children nodes underneath.
+ *
+ * \param[in] node Pointer to the root keyword_dict_node
+ *
+ * \return none
+ */
 static void destroy_kdn(struct keyword_dict_node *node) {
 
     struct keyword_dict_node *child = NULL;
@@ -250,28 +290,48 @@ static void destroy_kdn(struct keyword_dict_node *node) {
     return;
 }
 
-static struct keyword_dict_node *kdn_create_child(struct keyword_dict_node *node,
+/**
+ * \brief Create a child node under the parent \p node.
+ *
+ * This function should only be used to generate the first child.
+ * Use kdn_create_sibling for making more children.
+ *
+ * \param[in] parent Pointer to the parent node
+ * \param[in] edge Integer value representing the child node
+ *
+ * \return Pointer to child, or NULL
+ */
+static struct keyword_dict_node *kdn_create_child(struct keyword_dict_node *parent,
                                                   uint16_t edge) {
-    if (node == NULL) {
+    if (parent == NULL) {
         return NULL;
     }
 
-    if (node->child || (node->num_children != 0)) {
+    if (parent->child || (parent->num_children != 0)) {
         joy_log_err("child already exists");
         return NULL;
     }
 
-    node->child = alloc_kdn();
+    parent->child = alloc_kdn();
 
     /* Set the edge value corresponding to this child */
-    node->edge[node->num_children] = edge;
+    parent->edge[parent->num_children] = edge;
 
     /* Increment household count */
-    node->num_children++;
+    parent->num_children++;
 
-    return node->child;
+    return parent->child;
 }
 
+/**
+ * \brief Create a sibling node, parallel to the \p child, under the \p parent.
+ *
+ * \param[in] parent Pointer to the parent node
+ * \param[in] child Pointer to the child node
+ * \param[in] edge Integer value representing the sibling node
+ *
+ * \return Pointer to sibling, or NULL
+ */
 static struct keyword_dict_node *kdn_create_sibling(struct keyword_dict_node *parent,
                                                     struct keyword_dict_node *child,
                                                     uint16_t edge) {
@@ -300,6 +360,14 @@ static struct keyword_dict_node *kdn_create_sibling(struct keyword_dict_node *pa
     return child->sibling;
 }
 
+/**
+ * \brief Add a keyword to the keyword_dictionary tree.
+ *
+ * \param[in] root Pointer to the root node of the dictionary tree
+ * \param[in] kc Pointer to the keyword_container, representing the keyword
+ *
+ * \return 0 for success, 1 for failure
+ */
 static int keyword_dict_add_keyword(struct keyword_dict_node *root,
                                     const struct keyword_container *kc) {
 
@@ -362,6 +430,48 @@ static int keyword_dict_add_keyword(struct keyword_dict_node *root,
     return 0;
 }
 
+/**
+ * \brief Construct the keyword dictionary tree, adding all keywords in the list.
+ *
+ * \param[in] root Handle to the root node of the dictionary tree
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int construct_keyword_dict(struct keyword_dict_node **root) {
+
+    int i = 0;
+
+    if (root == NULL || *root != NULL) {
+        return 1;
+    }
+
+    *root = alloc_kdn();
+
+    /*
+     * Looping over the list of keywords,
+     * construct the keyword_dictionary tree.
+     */
+    for (i = 0; i < num_keywords; i++) {
+        /* Pointer to the latest keyword */
+        struct keyword_container *kc = &keywords[i];
+
+        if (keyword_dict_add_keyword(*root, kc)) {
+            joy_log_err("couldn't add keywords[%d]", i);
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * \brief Search the tree, beginning at \p root, for any keywords that match the \p data.
+ *
+ * \param[in] root Pointer to the root node of the dictionary tree
+ * \param[in] data Pointer to the data
+ * \param[in] data_len Length of the data in bytes
+ *
+ * \return Pointer to protocol inference container, or NULL
+ */
 static const struct pi_container *search_keyword_dict(const struct keyword_dict_node *root,
                                                       const char *data,
                                                       unsigned int data_len) {
@@ -411,32 +521,13 @@ static const struct pi_container *search_keyword_dict(const struct keyword_dict_
     return NULL;
 }
 
-static int construct_keyword_dict(struct keyword_dict_node **root) {
-    int i = 0;
-
-    if (root == NULL || *root != NULL) {
-        return 1;
-    }
-
-    *root = alloc_kdn();
-
-    /*
-     * Looping over the list of keywords,
-     * construct the keyword_dictionary tree.
-     */
-    for (i = 0; i < num_keywords; i++) {
-        /* Pointer to the latest keyword */
-        struct keyword_container *kc = &keywords[i];
-
-        if (keyword_dict_add_keyword(*root, kc)) {
-            joy_log_err("couldn't add keywords[%d]", i);
-        }
-    }
-
-    return 0;
-}
-
-
+/**
+ * \brief Initialize and setup the proto_identify keyword dictionary.
+ *
+ * \param none
+ *
+ * \return 0 for success, 1 for failure
+ */
 int proto_identify_init_keyword_dict(void) {
     if (kd_root != NULL) {
         return 1;
@@ -456,6 +547,13 @@ int proto_identify_init_keyword_dict(void) {
     return 0;
 }
 
+/**
+ * \brief Teardown the proto_identify keyword dictionary, and all associated memory.
+ *
+ * \param none
+ *
+ * \return none
+ */
 void proto_identify_destroy_keyword_dict(void) {
     if (kd_root == NULL) {
         return;
