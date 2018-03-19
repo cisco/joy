@@ -31,13 +31,12 @@
 ###### 01-22-2018
 
 #### Changes
-
 * Renamed `joyq` to `sleuth`.
   (PR #140)
 
 * More robust TLS module that can now handle messages spread
   across multiple packets.
-  (Issue #130, PR #145)
+  (Issue #130, PR #141, #145)
 
 * Hide configuration stderr output behind `show_config` option.
   By default this is turned off.
@@ -55,13 +54,15 @@
   during "online" mode.
   (PR #152)
 
+#### Bugfixes
+* Check for bad sizes of TLS message length.
+  (PR #148)
+
 
 ## 1.73
-
 ###### 11-30-2017
 
 #### Changes
-
 * Ability to create binaries for linux and macos.
 
 * New runtime option, `preemptive_timeout`.
@@ -77,7 +78,6 @@
   (PR #135)
 
 #### Bugfixes
-
 * Fix building with older versions of OpenSSL.
   (PR #132, Issue #121)
 
@@ -86,11 +86,9 @@
 
 
 ## 1.72
-
 ###### 10-30-2017
 
 #### Changes
-
 * Support for Windows.
   (PR #64)
 
@@ -106,6 +104,9 @@
 * Converted HTTP module into a feature.
   (PR #101)
 
+* TLS crypto audit for Sleuth.
+  (PR #92)
+
 * Support building with OpenSSL 1.1.0
   (PR #122, Issue #121)
 
@@ -119,7 +120,6 @@
   (PR #67)
 
 #### Bugfixes
-
 * Fix unit test memory leaks.
   (PR #125)
 
@@ -131,13 +131,78 @@
 
 
 ## 1.71
-
-###### 07-05-2017
+###### 07-13-2017
 
 #### Changes
 
-#### Bugfixes
+* Created Sleuth python package consisting of
+  generic functions/classes from Joyq.
+  (PR #59)
 
+#### Bugfixes
 * Fix joyq pretty identation.
   (PR #61)
+
+* Fix config ssl header path option.
+  (PR #58)
+
+
+## 1.7
+###### 06-15-2017
+
+#### Changes
+* Updated nfv9 and ipfix numbers
+  (Commit cfe94bf)
+
+#### Bugfixes
+None
+
+
+## 1.6
+###### 06-15-2017
+#### Changes
+
+* X509 certificate parsing for the TLS protocol module.
+  (PR #44, #52)
+
+* Ability for Joyq to consume pcap files directly.
+  (PR #49)
+
+#### Bugfixes
+* Fix joyq ingestion of whitespace and floats
+  for select option.
+  (PR #55)
+
+
+## 1.5
+###### 02-16-2017
+#### Changes
+
+* New IPFIX collector.
+  (PR #17)
+
+* New IPFIX exporter.
+  (PR #19)
+
+* More robust file uploading.
+  (PR #24)
+
+* Use systemd for daemon install, if available.
+  (PR #30)
+
+* Blackbox testing framework for Joy.
+  (PR #25, #35)
+
+* Prototype TLS fingerprinting in Joy.
+  (PR #23)
+
+* Converted readme file to markdown format.
+  (PR #22)
+
+* Ability to update classifier parameters from url.
+  (PR #20)
+
+#### Bugfixes
+* Use the correct flow end-time.
+  (PR #26)
 
