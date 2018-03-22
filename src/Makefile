@@ -127,10 +127,10 @@ libjoy.a: $(LIBJOY_OBJ)
 	@rm $(LIBJOY_OBJ)
 
 joy_api_test: $(LIBDIR)/libjoy.a joy_api_test.c
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c $(LIBRARYPATH) -lcrypto -lpcap -L$(LIBDIR) -ljoy
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c $(LIBRARYPATH) -lm -lcrypto -lpcap -L$(LIBDIR) -ljoy
 
 joy_api_test2: $(LIBDIR)/libjoy.a joy_api_test2.c
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c $(LIBRARYPATH) -lcrypto -L$(LIBDIR) -ljoy
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c $(LIBRARYPATH) -lm -lcrypto -L$(LIBDIR) -ljoy
 
 
 ##
