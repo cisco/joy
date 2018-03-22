@@ -131,6 +131,9 @@ static struct in_addr hex2addr (unsigned int x) {
     return a;
 }
 
+/** mutex used to ensure the radix_trie isn't being accessed by another thread */
+pthread_mutex_t radix_trie_lock = PTHREAD_MUTEX_INITIALIZER;
+
 /* 
  * radix trie memory allocation function
  * returns pointer to memory allocated

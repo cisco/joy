@@ -189,6 +189,7 @@ FILE* joy_utils_open_test_file(const char *filename) {
     return fp;
 }
 
+#ifndef JOY_LIB_API
 /*
  *
  * \brief Open a pcap from the source test/pcaps/ directory.
@@ -228,6 +229,7 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
 
     return handle;
 }
+#endif
 
 /**
  * \brief Converts the character string into a JSON-safe, NULL-terminated printable string.

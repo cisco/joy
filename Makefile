@@ -47,6 +47,7 @@ $(error error is "Please run ./config first.")
 endif
 
 export BINDIR = $(ROOT_PATH)/bin
+export LIBDIR = $(ROOT_PATH)/lib
 export TESTDIR = $(ROOT_PATH)/test
 export DOCDIR = $(ROOT_PATH)/doc
 
@@ -55,11 +56,26 @@ export DOCDIR = $(ROOT_PATH)/doc
 ##
 all:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
 joy:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS) joy
+
+joy_api_test:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) joy_api_test
+
+joy_api_test2:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) joy_api_test2
+
+libjoy.a:
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) libjoy.a
 
 unit_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;

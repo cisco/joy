@@ -46,10 +46,14 @@ LIBRARYPATH = $(LIBPATH)
 endif
 
 ##
-# make sure we have a definition for BINDIR
+# make sure we have a definition for BINDIR, LIBDIR, TESTDIR
 ##
 ifndef BINDIR
 BINDIR = ../bin
+endif
+
+ifndef LIBDIR
+LIBDIR = ../lib
 endif
 
 ifndef TESTDIR
@@ -69,6 +73,8 @@ JOY_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c ra
 JFDANON_SRC = anon.c addr.c str_match.c acsm.c
 ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h updater.h ipfix.h ssh.h ike.h salt.h parson.h fingerprint.h ppi.h utils.h dhcp.h payload.h
 ALL_FILES = joy.c jfd-anon.c unit_test.c str_match_test.c $(JOY_SRC) $(JFDANON_SRC) $(ALL_HEADER_FILES)
+LIBJOY_SRC = joy_api.c p2f.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c ipfix.c ssh.c ike.c salt.c parson.c fingerprint.c ppi.c utils.c dhcp.c payload.c config.c
+LIBJOY_OBJ = joy_api.o p2f.o osdetect.o anon.o pkt_proc.o nfv9.o tls.o classify.o radix_trie.o hdr_dsc.o procwatch.o addr_attr.o addr.o wht.o http.o str_match.o acsm.o dns.o example.o ipfix.o ssh.o ike.o salt.o parson.o fingerprint.o ppi.o utils.o dhcp.o payload.o config.o
 
 ##
 # additional CFLAG options
@@ -113,6 +119,19 @@ unit_test: unit_test.c $(JOY_SRC)
 str_match_test: str_match_test.c $(JOY_SRC)
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 
+$(LIBJOY_OBJ): $(LIBJOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DJOY_LIB_API -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -c $(LIBJOY_SRC)
+	
+libjoy.a: $(LIBJOY_OBJ)
+	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
+	@rm $(LIBJOY_OBJ)
+
+joy_api_test: $(LIBDIR)/libjoy.a joy_api_test.c
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c $(LIBRARYPATH) -lcrypto -lpcap -L$(LIBDIR) -ljoy
+
+joy_api_test2: $(LIBDIR)/libjoy.a joy_api_test2.c
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c $(LIBRARYPATH) -lcrypto -L$(LIBDIR) -ljoy
+
 
 ##
 # STATIC ANALYSIS
@@ -127,7 +146,9 @@ splint: $(ALL_FILES)
 	splint $(SPLINT_OPT) $(ALL_FILES) $(INCLUDEDIR) # $(CFLAGS) $(CDEFS)  $(LIBRARYPATH) $(LIBS) 
 
 clean: 
-	rm -rf "$(BINDIR)/*"
+	rm -rf *.o
+	rm -rf "$(BINDIR)/"*
+	rm -rf "$(LIBDIR)/"*
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 
 # EOF

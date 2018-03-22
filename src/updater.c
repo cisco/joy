@@ -78,7 +78,6 @@ static FILE *print_dest = NULL;
       fprintf(print_dest,"%s: ", __FUNCTION__); \
       fprintf(print_dest, __VA_ARGS__); }
 
-pthread_mutex_t radix_trie_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t work_in_process = PTHREAD_MUTEX_INITIALIZER;
 
 /** radix_trie built from new information and used to replace existing radix_trie */
