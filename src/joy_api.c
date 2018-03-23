@@ -53,6 +53,9 @@
 #include "config.h"
 #include "pcap.h"
 #include "p2f.h"
+#include "anon.h"
+#include "radix_trie.h"
+#include "classify.h"
 #include "joy_api.h"
 
 /* All of the global varibales are defined in p2f.c
@@ -80,6 +83,9 @@ extern char *ipfix_export_remote_host;
 extern char *ipfix_export_template;
 extern char *aux_resource_path;
 extern unsigned int verbosity;
+extern unsigned int num_subnets;
+extern unsigned short compact_bd_mapping[16];
+extern radix_trie_t rt;
 
 define_all_features_config_extern_uint(feature_list)
 
@@ -101,7 +107,7 @@ extern void process_packet(unsigned char *ignore, const struct pcap_pkthdr *head
  *      additional items related to the export. The caller
  *      has the option to change the output destinations.
  *
- * Parameters: 
+ * Parameters:
  *      init_data - structure of Joy options
  *      output_dir - the destination output directory
  *      output_file - the destination outputfile name
@@ -109,7 +115,7 @@ extern void process_packet(unsigned char *ignore, const struct pcap_pkthdr *head
  *
  * Returns:
  *      ok or failure
- *      
+ *
  */
 int joy_initialize(struct joy_init *init_data,
         char *output_dir, char *output_file, char *logfile)
@@ -184,8 +190,12 @@ int joy_initialize(struct joy_init *init_data,
     config.report_ike = ((init_data->bitmask & JOY_IKE_ON) ? 1 : 0);
     config.report_payload = ((init_data->bitmask & JOY_PAYLOAD_ON) ? 1 : 0);
     config.report_exe = ((init_data->bitmask & JOY_EXE_ON) ? 1 : 0);
-    config.report_wht = ((init_data->bitmask & JOY_WHT_ON) ? 1 : 0);
-    config.report_example = ((init_data->bitmask & JOY_EXAMPLE_ON) ? 1 : 0);
+    config.include_zeroes = ((init_data->bitmask & JOY_ZERO_ON) ? 1 : 0);
+    config.include_retrans = ((init_data->bitmask & JOY_RETRANS_ON) ? 1 : 0);
+    config.byte_distribution = ((init_data->bitmask & JOY_BYTE_DIST_ON) ? 1 : 0);
+    config.report_entropy = ((init_data->bitmask & JOY_ENTROPY_ON) ? 1 : 0);
+    config.report_hd = ((init_data->bitmask & JOY_HEADER_ON) ? 1 : 0);
+    config.preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
 
     /* check for IPFix export option */
     if (init_data->bitmask & JOY_IPFIX_EXPORT_ON) {
@@ -202,10 +212,10 @@ int joy_initialize(struct joy_init *init_data,
             config.ipfix_export_remote_host = "127.0.0.1";
         }
         if (init_data->ipfix_port > 0) {
-            config.ipfix_export_port = init_data->ipfix_port;
+            config.ipfix_export_port = init_data->ipfix_port - 1;
             config.ipfix_export_remote_port = init_data->ipfix_port;
         } else {
-            config.ipfix_export_port = DEFAULT_IPFIX_EXPORT_PORT;
+            config.ipfix_export_port = DEFAULT_IPFIX_EXPORT_PORT - 1;
             config.ipfix_export_remote_port = DEFAULT_IPFIX_EXPORT_PORT;
         }
     }
@@ -245,20 +255,233 @@ int joy_initialize(struct joy_init *init_data,
 }
 
 /*
+ * Function: joy_anon_subnets
+ *
+ * Description: This function processes a file of subnets to
+ *      anonymized when processing the packet/flow data.
+ *
+ * Parameters:
+ *      anon_file - file of subnets to anonymize
+ *
+ * Expected format of the file:
+ *
+ * # subnets for address anonymization
+ * 10.0.0.0/8         #  RFC 1918 address space
+ * 172.16.0.0/12      #  RFC 1918 address space
+ * 192.168.0.0/16     #  RFC 1918 address space
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+int joy_anon_subnets(char *anon_file)
+{
+    if (anon_file != NULL) {
+        config.anon_addrs_file = anon_file;
+        if (anon_init(config.anon_addrs_file, info) == 1) {
+            joy_log_err("could not initialize anonymization subnets from file %s",
+                            config.anon_addrs_file);
+            return 1;
+        }
+    } else {
+        /* no file specified */
+        joy_log_err("could not initialize anonymization subnets - no file specified");
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * Function: joy_anon_http_usernames
+ *
+ * Description: This function processes a file of usernames
+ *      to anonymized when processing the packet/flow http data.
+ *
+ * Parameters:
+ *      anon_http_file - file of usernames to anonymize
+ *
+ * Expected format of the file:
+ * username1
+ * username2
+ *     .
+ *     .
+ *     .
+ * usernameN
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+int joy_anon_http_usernames(char *anon_http_file)
+{
+    if (anon_http_file != NULL) {
+        config.anon_http_file = anon_http_file;
+        if (anon_http_init(config.anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == 1) {
+            joy_log_err("could not initialize anonymization for http usernames from file %s",
+                            config.anon_http_file);
+            return 1;
+        }
+    } else {
+        /* no file specified */
+        joy_log_err("could not initialize anonymization for http usernames - no file specified");
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * Function: joy_update_splt_bd_params
+ *
+ * Description: This function processes two files to update the
+ *      values used for SPLT and BD processing in the machine learning
+ *      classifer. The format of the file should match the format
+ *      produced from the python program (model.py) from the
+ *      Joy repository.
+ *
+ * Parameters:
+ *      splt_filename - file of SPLT values
+ *      bd_filename - file of BD values
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
+{
+    if ((splt_filename == NULL) || (bd_filename == NULL)) {
+        /* no file specified */
+        joy_log_err("could not update SPLT/BD parameters - missing update file(s)");
+        return 1;
+    } else {
+        update_params(SPLT_PARAM_TYPE, splt_filename);
+        update_params(BD_PARAM_TYPE, bd_filename);
+    }
+
+    return 0;
+}
+
+/*
+ * Function: joy_get_compact_bd
+ *
+ * Description: This function processes a file to update the
+ *      compact BD values used for processing in the machine learning
+ *      classifer.
+ *
+ * Parameters:
+ *      filename - file of compact BD values
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+int joy_get_compact_bd(char *filename)
+{
+    FILE *fp;
+    int count = 0;
+    unsigned short b_value, map_b_value;
+
+    if (filename == NULL) {
+        joy_log_err("couldn't update compact BD values - no file specified");
+        return 1;
+    }
+
+    memset(compact_bd_mapping, 0, sizeof(compact_bd_mapping));
+
+    fp = fopen(filename, "r");
+    if (fp != NULL) {
+        while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
+            compact_bd_mapping[b_value] = map_b_value;
+            count++;
+            if (count >= 256) {
+                break;
+            }
+        }
+        fclose(fp);
+        config.compact_byte_distribution = filename;
+        compact_byte_distribution = config.compact_byte_distribution;
+    } else {
+        joy_log_err("could not open compact BD file %s", filename);
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * Function: joy_label_subnets
+ *
+ * Description: This function applies the label to the subnets specified
+ *      in the subnet file.
+ *
+ * Parameters:
+ *      label - label to be output for the subnets
+ *      filename - file of subnets the label applies to
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+int joy_label_subnets(char *label, char *filename)
+{
+    attr_flags subnet_flag;
+    enum status err;
+
+    /* see if we need a new radix_trie */
+    if (rt == NULL) {
+        rt = radix_trie_alloc();
+        if (rt == NULL) {
+            joy_log_err("could not allocate memory for labeled subnets");
+            return 1;
+        }
+
+        /* initialize our new radix_trie */
+        err = radix_trie_init(rt);
+        if (err != ok) {
+            joy_log_err("could not initialize subnet labels (radix_trie)");
+            return 1;
+        }
+    }
+
+    /* processing the subnet file now */
+    subnet_flag = radix_trie_add_attr_label(rt, label);
+    if (subnet_flag == 0) {
+          joy_log_err("could not add subnet label %s to radix_trie", label);
+          return 1;
+    }
+
+    err = radix_trie_add_subnets_from_file(rt, filename, subnet_flag, info);
+    if (err != ok) {
+          joy_log_err("could not add labeled subnets from file %s", filename);
+          return 1;
+    }
+
+    /* increment the number of subnets we have configured */
+    ++config.num_subnets;
+    return 0;
+}
+
+/*
  * Function: joy_process_packet
  *
  * Description: This function is formatted to match the libpcap
  *      prototype for processing packets. This is essentially
  *      wrapper function for the code used within the Joy library.
  *
- * Parameters: 
+ * Parameters:
  *      ignore - Joy does not use this paramter
  *      header - libpcap header which contains timestamp, cap lenth and length
  *      packet - the actual data packet
  *
  * Returns:
  *      none
- *      
+ *
  */
 void joy_process_packet(unsigned char *ignore,
         const struct pcap_pkthdr *header,
@@ -277,12 +500,12 @@ void joy_process_packet(unsigned char *ignore,
  *      Part this operation will check to see if there is any
  *      host flow data to collect, if the option is turned on.
  *
- * Parameters: 
- *      type - PRINT_EXPIRED_FLOWS or PRINT_ALL_FLOWS
+ * Parameters:
+ *      type - JOY_EXPIRED_FLOWS or JOY_PRINT_ALL_FLOWS
  *
  * Returns:
  *      none
- *      
+ *
  */
 void joy_print_flow_data(int type)
 {
@@ -299,18 +522,39 @@ void joy_print_flow_data(int type)
 }
 
 /*
+ * Function: joy_export_flows_ipfix
+ *
+ * Description: This function is exports the flow data from
+ *      the Joy data structres to the destination specified
+ *      in the joy_initialize call. The flow data is exported
+ *      as IPFix packets to the destination.
+ *
+ * Parameters:
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_export_flows_ipfix(int type)
+{
+    /* export the flow records */
+    flow_record_export_as_ipfix(type);
+}
+
+/*
  * Function: joy_cleanup
  *
  * Description: This function cleans up any lefotover data that maybe
  *      hanging around. If IPFix exporting is turned on, then it also
  *      flushes any remaining records out to the destination.
  *
- * Parameters: 
+ * Parameters:
  *      none
  *
  * Returns:
  *      none
- *      
+ *
  */
 void joy_cleanup(void)
 {

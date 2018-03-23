@@ -159,7 +159,7 @@ int main (int argc, char **argv)
     process_hardcoded_packets();
     
     /* print the flows */
-    joy_print_flow_data(PRINT_ALL_FLOWS);
+    joy_print_flow_data(JOY_ALL_FLOWS);
 
     /* cleanup */
     joy_cleanup();

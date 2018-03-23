@@ -1697,6 +1697,7 @@ static void flow_record_print_and_delete (struct flow_record *record) {
      */
     flow_record_print_json(record);
 
+#ifndef JOY_LIB_API
     /*
      * Export this record before deletion if running in
      * IPFIX exporter mode.
@@ -1704,8 +1705,8 @@ static void flow_record_print_and_delete (struct flow_record *record) {
     if (ipfix_export_port) {
         ipfix_export_main(record);
     }
-
-    /* 
+#endif
+    /*
      * Delete twin, if there is one
      */
     if (record->twin != NULL) {
@@ -1716,6 +1717,53 @@ static void flow_record_print_and_delete (struct flow_record *record) {
     /* Remove record from chrono list, then delete from flow_record_list_array */
     flow_record_chrono_list_remove(record);
     flow_record_delete(record);
+}
+
+/**
+ * \brief Does IPFix sending of flow record data.
+ *
+ * \param export_all Flag whether to indiscriminately print all flow_records.
+ *                  1 to print all of them, 0 to perform expiration check
+ *
+ * \return none
+ */
+void flow_record_export_as_ipfix (unsigned int export_all) {
+    struct flow_record *record = NULL;
+
+    /* The head of chrono record list */
+    record = flow_record_chrono_first;
+
+    while (record != NULL) {
+        if (!export_all) {
+            /* Avoid printing flows that might still be active */
+            if (!flow_record_is_expired(record)) {
+                break;
+            }
+        }
+
+        /*
+         * Export this record before deletion if running in
+         * IPFIX exporter mode.
+         */
+        if (ipfix_export_port) {
+            ipfix_export_main(record);
+        }
+
+        /*
+         * Delete twin, if there is one
+         */
+        if (record->twin != NULL) {
+            debug_printf("LIST deleting twin\n");
+            flow_record_delete(record->twin);
+        }
+
+        /* Remove record from chrono list, then delete from flow_record_list_array */
+        flow_record_chrono_list_remove(record);
+        flow_record_delete(record);
+
+        /* Advance to next record on chrono list */
+        record = flow_record_chrono_first;
+    }
 }
 
 /**

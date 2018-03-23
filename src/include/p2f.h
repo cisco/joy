@@ -234,6 +234,8 @@ void flow_record_list_init();
 
 void flow_record_list_free(); 
 
+void flow_record_export_as_ipfix(unsigned int print_all);
+
 void flow_record_list_print_json(unsigned int print_all);
 
 int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);

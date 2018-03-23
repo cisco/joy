@@ -85,7 +85,7 @@ int process_pcap_file (char *file_name) {
         /* Loop over all packets in capture file */
         more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_process_packet, NULL);
         /* Print out expired flows */
-        joy_print_flow_data(PRINT_EXPIRED_FLOWS);
+        joy_print_flow_data(JOY_EXPIRED_FLOWS);
     }
 
     /* Cleanup */
@@ -96,16 +96,35 @@ int process_pcap_file (char *file_name) {
 int main (int argc, char **argv)
 {
     int rc = 0;
+    int ipfix_export = 0;
     struct joy_init init_data;
+
+    /* see if we want to do IPFix exporting
+     * simple check, this is an example program only!
+     */
+    if (argc == 3) {
+        /* shell-1> joy_api_test export <pcap filename> */
+        ipfix_export = 1;
+    }
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(struct joy_init));
-    init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
-    init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
-    init_data.idp = 1300;                     /* number of bytes of idp to report */
-    init_data.ipfix_host = "10.83.109.53";    /* Host to send IPFix data to */
-    init_data.ipfix_port = 30999;             /* port to send IPFix data to */
-    init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_TLS_ON | JOY_HTTP_ON);
+
+    if (ipfix_export) {
+        /* this setup is for IPFix exporting */
+        init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
+        init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
+        init_data.idp = 1300;                     /* number of bytes of idp to report */
+        init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
+        init_data.ipfix_port = 4739;              /* port to send IPFix data to */
+        init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_TLS_ON | JOY_HTTP_ON);
+
+    } else {
+        /* this setup is for general processing */
+        init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
+        init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
+        init_data.bitmask = (JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
+    }
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
@@ -114,11 +133,28 @@ int main (int argc, char **argv)
         return -1;
     }
 
-    /* process the file from the command line */
-    process_pcap_file(argv[1]);
+    /* setup anonymization of subnets */
+    joy_anon_subnets("internal.net");
 
-    /* print the flows */
-    joy_print_flow_data(PRINT_ALL_FLOWS);
+    /* setup anonymization of http usernames */
+    joy_anon_http_usernames("anon_http.txt");
+
+
+    /* setup subnet labels */
+    joy_label_subnets("JoyLabTest","internal.net");
+
+    /* process the file from the command line */
+    if (argc == 2) process_pcap_file(argv[1]);
+    else if (argc == 3) process_pcap_file(argv[2]);
+
+    if (ipfix_export) {
+        /* export the flows */
+        joy_export_flows_ipfix(JOY_ALL_FLOWS);
+
+    } else {
+        /* print the flows */
+        joy_print_flow_data(JOY_ALL_FLOWS);
+    }
 
     /* cleanup */
     joy_cleanup();
