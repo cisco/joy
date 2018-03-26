@@ -64,6 +64,7 @@
 #include "output.h"     /* compressed output             */
 #include "salt.h"  // Because Windows!
 #include "ipfix.h" /* ipfix protocol */
+#include "proto_identify.h"
 #include "err.h" /* errors and logging */
 #include "osdetect.h"
 #include "utils.h"
@@ -1256,6 +1257,28 @@ static const struct flow_record *tcp_client_flow(const struct flow_record *a,
     return NULL;
 }
 
+static const struct flow_record *get_client_flow(const struct flow_record *a,
+                                                 const struct flow_record *b) {
+    /* See if either is client */
+    if (a->dir == DIR_CLIENT) {
+        return a;
+    } else if (b->dir == DIR_CLIENT) {
+        return b;
+    }
+
+    /* See if either is server, then the twin is client */
+    if (a->dir == DIR_SERVER) {
+        return b;
+    } else if (b->dir == DIR_SERVER) {
+        return a;
+    }
+
+    /*
+     * Try identifying by tcp flags.
+     */
+    return tcp_client_flow(a, b);
+}
+
 #define OUT "<"
 #define IN  ">"
 
@@ -1286,9 +1309,9 @@ static void flow_record_print_json (const struct flow_record *record) {
         if (joy_timer_eq(&record->start, &record->twin->start)) {
             /*
              * The start times are equal.
-             * Try to resolve using TCP flags (if they exist)
+             * Try to resolve direction.
              */
-            rec = tcp_client_flow(record, record->twin);
+            rec = get_client_flow(record, record->twin);
             if (rec != NULL) {
                 compare_start_times = 0;
                 ts_start = rec->start;
@@ -1296,8 +1319,11 @@ static void flow_record_print_json (const struct flow_record *record) {
         }
 
         if (compare_start_times) {
+            /*
+             * Get start time.
+             * Use the smaller of the 2 time values.
+             */
             if (joy_timer_lt(&record->start, &record->twin->start)) {
-                // Use the smaller of the 2 time values
                 ts_start = record->start;
                 rec = record;
             } else {
@@ -1306,9 +1332,11 @@ static void flow_record_print_json (const struct flow_record *record) {
             }
         }
 
-        /* Get the end time of the flow */
+        /*
+         * Get end time.
+         * Use the larger of the 2 time values.
+         */
         if (joy_timer_lt(&record->end, &record->twin->end)) {
-            // Use the larger of the 2 time values
             ts_end = record->twin->end;
         } else {
             ts_end = record->end;

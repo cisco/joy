@@ -48,19 +48,6 @@
 #include "err.h"
 
 
-/* Values indicating direction of the flow */
-#define DIR_UNKNOWN 0
-#define DIR_CLIENT 1
-#define DIR_SERVER 2
-
-/**
- * \brief Protocol Inference container
- */
-struct pi_container {
-    uint8_t dir; /* Flow direction */
-    uint16_t app; /* Application protocol prediction */
-};
-
 /* --------------------------------------------------
  * --------------------------------------------------
  * KEYWORDS LIST
@@ -562,9 +549,9 @@ void proto_identify_destroy_keyword_dict(void) {
     destroy_kdn(kd_root);
 }
 
-uint16_t identify_tcp_protocol(const char *tcp_data, unsigned int len) {
+const struct pi_container *proto_identify_tcp(const char *tcp_data,
+                                              unsigned int len) {
 
-    uint16_t port = 0;
     const struct pi_container *pi = NULL;
 
     if (len == 0) {
@@ -576,10 +563,7 @@ uint16_t identify_tcp_protocol(const char *tcp_data, unsigned int len) {
     }
 
     pi = search_keyword_dict(kd_root, tcp_data, len) ;
-    if (pi != NULL) {
-        port = pi->app;
-    }
 
-    return port;
+    return pi;
 }
 

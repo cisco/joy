@@ -652,7 +652,11 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
      * Optimization: stop after first 2 packets that have non-zero payload
      */
     if ((!record->app) && record->op <= 2) {
-        record->app = identify_tcp_protocol(payload, size_payload);
+        const struct pi_container *pi = proto_identify_tcp(payload, size_payload);
+        if (pi != NULL) {
+            record->app = pi->app;
+            record->dir = pi->dir;
+        }
     }
 
     /*
