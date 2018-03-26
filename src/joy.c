@@ -1172,15 +1172,12 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
+    char input_path[256];
+    char input_file_base_name[136];
 
 #ifdef WIN32
-    char input_path[256];
     char fname[128];
     char ext[8];
-    char input_file_base_name[136];
-#else
-    char *input_path = NULL;
-    char *input_file_base_name = NULL;;
 #endif
 
     /* initialize variables */
@@ -1198,10 +1195,13 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
         }
     }
 
+    /* copy input filename path */
+    strncpy(input_path,input_filename,255);
+
 #ifdef WIN32
-    strncpy(input_path, input_filename, 255);
+    /* get the input basename */
     _splitpath_s(input_path,NULL,0,NULL,0,fname,_MAX_FNAME,ext,_MAX_EXT);
-    sprintf(input_file_base_name, "%s%s", fname, ext);
+    snprintf(input_file_base_name,128, "%s%s", fname, ext);
 
     /* full name for the new output file including directory */
     if (config.filename) {
@@ -1209,11 +1209,9 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
         ++fc_cnt;
     }
 #else
-    /* copy input filename path */
-    input_path = strdup(input_filename);
 
     /* get the input basename */
-    input_file_base_name = basename(input_path);
+    snprintf(input_file_base_name, 128, "%s", basename(input_path));
 
     /* full name for the new output file including directory */
     if (config.filename) {
