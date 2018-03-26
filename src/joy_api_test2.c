@@ -155,6 +155,9 @@ int main (int argc, char **argv)
         return -1;
     }
 
+    /* print out the config */
+    joy_print_config(JOY_JSON_FORMAT);
+
     /* process the hardcoded packets */
     process_hardcoded_packets();
     

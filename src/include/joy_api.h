@@ -51,6 +51,8 @@
 /* Definitions of contants used in the Joy Library API */
 #define JOY_EXPIRED_FLOWS 0
 #define JOY_ALL_FLOWS 1
+#define JOY_TERMINAL_FORMAT 0
+#define JOY_JSON_FORMAT 1
 #define MAX_FILENAME_LEN 1024
 #define DEFAULT_IPFIX_EXPORT_PORT 4739
 #define DEFAULT_IDP_SIZE 1300
@@ -60,7 +62,7 @@
  * 
  *    Bitmask values for turning on various network data features.
  *    Each value represents a feature within the Joy Library and
- *    whether of not it is turned on.
+ *    whether or not it is turned on.
  * 
  */
 #define JOY_BIDIR_ON           0x01
@@ -98,10 +100,13 @@ struct joy_init {
  * Function: joy_initialize 
  *
  * Description: This function initializes the Joy library
- *      to analize the data features defined in the bitmask.
+ *      to analyze the data features defined in the bitmask.
  *      If the IPFIX_EXPORT option is turned on, we will set
  *      additional items related to the export. The caller
  *      has the option to change the output destinations.
+ *
+ *      joy_initialize must be called before using any of the other
+ *      API functions.
  *
  * Parameters:
  *      init_data - structure of Joy options
@@ -115,6 +120,21 @@ struct joy_init {
  */
 extern int joy_initialize (struct joy_init *data, char *output_dir,
       char *output_file, char *logfile);
+
+/*
+ * Function: joy_print_config
+ *
+ * Description: This function prints out the configuration
+ *      of the Joy library in either JSON or terminal format.
+ *
+ * Parameters:
+ *      format - JOY_JSON_FORMAT or JOY_TERMINAL_FORMAT
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_print_config (int format);
 
 /*
  * Function: joy_anon_subnets
@@ -168,7 +188,7 @@ extern int joy_anon_http_usernames (char *anon_http_file);
  *
  * Description: This function processes two files to update the
  *      values used for SPLT and BD processing in the machine learning
- *      classifer. The format of the file should match the format
+ *      classifier. The format of the file should match the format
  *      produced from the python program (model.py) from the
  *      Joy repository.
  *
@@ -187,8 +207,8 @@ extern int joy_update_splt_bd_params (char *splt_filename, char *bd_filename);
  * Function: joy_get_compact_bd
  *
  * Description: This function processes a file to update the
- *      compact BD values used for processing in the machine learning
- *      classifer.
+ *      compact BD values used for counting the distribution 
+ *      in a given flow.
  *
  * Parameters:
  *      filename - file of compact BD values
@@ -226,7 +246,8 @@ extern int joy_label_subnets (char *label, char* filename);
  *
  * Parameters:
  *      ignore - Joy does not use this paramter
- *      header - libpcap header which contains timestamp, cap lenth and length
+ *      header - libpcap header which contains timestamp, cap length
+ *               and length
  *      packet - the actual data packet
  *
  * Returns:

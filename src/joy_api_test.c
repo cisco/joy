@@ -143,6 +143,13 @@ int main (int argc, char **argv)
     /* setup subnet labels */
     joy_label_subnets("JoyLabTest","internal.net");
 
+    /* print out the configuration */
+    if (ipfix_export) {
+        joy_print_config(JOY_TERMINAL_FORMAT);
+    } else {
+        joy_print_config(JOY_JSON_FORMAT);
+    }
+
     /* process the file from the command line */
     if (argc == 2) process_pcap_file(argv[1]);
     else if (argc == 3) process_pcap_file(argv[2]);

@@ -98,14 +98,20 @@ extern int ipfix_export_flush_message(void);
 extern void ipfix_module_cleanup(void);
 extern void process_packet(unsigned char *ignore, const struct pcap_pkthdr *header, const unsigned char *packet);
 
+/* global library intialization flag */
+static int joy_library_initialized = 0;
+
 /*
  * Function: joy_initialize
  *
  * Description: This function initializes the Joy library
- *      to analize the data features defined in the bitmask.
+ *      to analyze the data features defined in the bitmask.
  *      If the IPFIX_EXPORT option is turned on, we will set
  *      additional items related to the export. The caller
  *      has the option to change the output destinations.
+ *
+ *      joy_initialize must be called before using any of the other
+ *      API functions.
  *
  * Parameters:
  *      init_data - structure of Joy options
@@ -169,7 +175,9 @@ int joy_initialize(struct joy_init *init_data,
 
     /* set the configuration defaults */
     config_set_defaults(&config);
-    config.type = init_data->type;
+    if ((init_data->type > 0) && (init_data->type < 3)) {
+        config.type = init_data->type;
+    }
     config.verbosity = init_data->verbosity;
 
     /* setup joy with the output options */
@@ -212,10 +220,10 @@ int joy_initialize(struct joy_init *init_data,
             config.ipfix_export_remote_host = "127.0.0.1";
         }
         if (init_data->ipfix_port > 0) {
-            config.ipfix_export_port = init_data->ipfix_port - 1;
+            config.ipfix_export_port = init_data->ipfix_port;
             config.ipfix_export_remote_port = init_data->ipfix_port;
         } else {
-            config.ipfix_export_port = DEFAULT_IPFIX_EXPORT_PORT - 1;
+            config.ipfix_export_port = DEFAULT_IPFIX_EXPORT_PORT;
             config.ipfix_export_remote_port = DEFAULT_IPFIX_EXPORT_PORT;
         }
     }
@@ -248,10 +256,39 @@ int joy_initialize(struct joy_init *init_data,
     flow_record_list_init();
     flocap_stats_timer_init();
 
-    /* print the configuration in the output */
-    config_print_json(output, &config);
-
+    /* set library init flag */
+    joy_library_initialized = 1;
     return ok;
+}
+
+/*
+ * Function: joy_print_config
+ *
+ * Description: This function prints out the configuration
+ *      of the Joy library in either JSON or terminal format.
+ *
+ * Parameters:
+ *      format - JOY_JSON_FORMAT or JOY_TERMINAL_FORMAT
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_print_config(int format)
+{
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    if (format == JOY_TERMINAL_FORMAT) {
+        /* print the configuration in the output */
+        config_print(output, &config);
+    } else {
+        /* print the configuration in the output */
+        config_print_json(output, &config);
+    }
 }
 
 /*
@@ -277,6 +314,12 @@ int joy_initialize(struct joy_init *init_data,
  */
 int joy_anon_subnets(char *anon_file)
 {
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return 1;
+    }
+
     if (anon_file != NULL) {
         config.anon_addrs_file = anon_file;
         if (anon_init(config.anon_addrs_file, info) == 1) {
@@ -317,6 +360,12 @@ int joy_anon_subnets(char *anon_file)
  */
 int joy_anon_http_usernames(char *anon_http_file)
 {
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return 1;
+    }
+
     if (anon_http_file != NULL) {
         config.anon_http_file = anon_http_file;
         if (anon_http_init(config.anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == 1) {
@@ -338,7 +387,7 @@ int joy_anon_http_usernames(char *anon_http_file)
  *
  * Description: This function processes two files to update the
  *      values used for SPLT and BD processing in the machine learning
- *      classifer. The format of the file should match the format
+ *      classifier. The format of the file should match the format
  *      produced from the python program (model.py) from the
  *      Joy repository.
  *
@@ -353,6 +402,12 @@ int joy_anon_http_usernames(char *anon_http_file)
  */
 int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
 {
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return 1;
+    }
+
     if ((splt_filename == NULL) || (bd_filename == NULL)) {
         /* no file specified */
         joy_log_err("could not update SPLT/BD parameters - missing update file(s)");
@@ -370,7 +425,7 @@ int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
  *
  * Description: This function processes a file to update the
  *      compact BD values used for processing in the machine learning
- *      classifer.
+ *      classifier.
  *
  * Parameters:
  *      filename - file of compact BD values
@@ -385,6 +440,12 @@ int joy_get_compact_bd(char *filename)
     FILE *fp;
     int count = 0;
     unsigned short b_value, map_b_value;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return 1;
+    }
 
     if (filename == NULL) {
         joy_log_err("couldn't update compact BD values - no file specified");
@@ -433,6 +494,12 @@ int joy_label_subnets(char *label, char *filename)
     attr_flags subnet_flag;
     enum status err;
 
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return 1;
+    }
+
     /* see if we need a new radix_trie */
     if (rt == NULL) {
         rt = radix_trie_alloc();
@@ -476,7 +543,8 @@ int joy_label_subnets(char *label, char *filename)
  *
  * Parameters:
  *      ignore - Joy does not use this paramter
- *      header - libpcap header which contains timestamp, cap lenth and length
+ *      header - libpcap header which contains timestamp, cap length
+ *               and length
  *      packet - the actual data packet
  *
  * Returns:
@@ -487,6 +555,12 @@ void joy_process_packet(unsigned char *ignore,
         const struct pcap_pkthdr *header,
         const unsigned char *packet)
 {
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
     process_packet(ignore, header, packet);
 }
 
@@ -509,6 +583,12 @@ void joy_process_packet(unsigned char *ignore,
  */
 void joy_print_flow_data(int type)
 {
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
     /* see if we should collect host information */
     if (config.report_exe) {
         joy_log_info("retrieveing process information\n");
@@ -538,6 +618,12 @@ void joy_print_flow_data(int type)
  */
 void joy_export_flows_ipfix(int type)
 {
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
     /* export the flow records */
     flow_record_export_as_ipfix(type);
 }
@@ -558,6 +644,12 @@ void joy_export_flows_ipfix(int type)
  */
 void joy_cleanup(void)
 {
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
     /* Flush any unsent exporter messages in Ipfix module */
     if (config.ipfix_export_port) {
         ipfix_export_flush_message();
@@ -569,4 +661,3 @@ void joy_cleanup(void)
     /* free up the flow records */
     flow_record_list_free();
 }
-
