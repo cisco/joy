@@ -357,7 +357,7 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *
 					SystemTimeToFileTime(&currentTime, &stopTime);
 					elapsedTime.li = stopTime.li - createTime.li;
 					FileTimeToSystemTime(&elapsedTime.ft, &upTime);
-					seconds = (uTime.wDay * 86400) + (upTime.wHour * 3600) + (upTime.wMinute * 60) + upTime.wSecond;
+					seconds = (upTime.wDay * 86400) + (upTime.wHour * 3600) + (upTime.wMinute * 60) + upTime.wSecond;
 					record->uptime_seconds = seconds;
 				}
 				CloseHandle(hProcess);
