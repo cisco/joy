@@ -46,6 +46,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "pcap.h"
 
 /* Definitions of contants used in the Joy Library API */
