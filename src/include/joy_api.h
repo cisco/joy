@@ -54,6 +54,8 @@
 #define JOY_ALL_FLOWS 1
 #define JOY_TERMINAL_FORMAT 0
 #define JOY_JSON_FORMAT 1
+#define JOY_SINGLE_SUBNET 0
+#define JOY_FILE_SUBNET 1
 #define MAX_FILENAME_LEN 1024
 #define DEFAULT_IPFIX_EXPORT_PORT 4739
 #define DEFAULT_IDP_SIZE 1300
@@ -229,14 +231,15 @@ extern int joy_get_compact_bd (char *filename);
  *
  * Parameters:
  *      label - label to be output for the subnets
- *      filename - file of subnets the label applies to
+ *      type - JOY_SINGLE_SUBNET or JOY_FILE_SUBNET
+ *      subnet_str - a subnet address or a filename that contains subnets
  *
  * Returns:
  *      0 - success
  *      1 - failure
  *
  */
-extern int joy_label_subnets (char *label, char* filename);
+extern int joy_label_subnets (char *label, int type, char* subnet_str);
 
 /*
  * Function: joy_process_packet
@@ -246,7 +249,7 @@ extern int joy_label_subnets (char *label, char* filename);
  *      wrapper function for the code used within the Joy library.
  *
  * Parameters:
- *      ignore - Joy does not use this paramter
+ *      ignore - Joy does not use this parameter
  *      header - libpcap header which contains timestamp, cap length
  *               and length
  *      packet - the actual data packet
@@ -262,7 +265,7 @@ extern void joy_process_packet (unsigned char *ignore,
  * Function: joy_print_flow_data
  *
  * Description: This function is prints out the flow data from
- *      the Joy data structres to the output destination specified
+ *      the Joy data structures to the output destination specified
  *      in the joy_initialize call. The output is formatted as
  *      Joy JSON objects.
  *      Part this operation will check to see if there is any
@@ -281,7 +284,7 @@ extern void joy_print_flow_data (int type);
  * Function: joy_export_flows_ipfix
  *
  * Description: This function is exports the flow data from
- *      the Joy data structres to the destination specified
+ *      the Joy data structures to the destination specified
  *      in the joy_initialize call. The flow data is exported
  *      as IPFix packets to the destination.
  *

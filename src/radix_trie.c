@@ -587,7 +587,7 @@ enum status radix_trie_free (struct radix_trie *r) {
  * returns success
  * returns failure
  */
-static enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo) {
+enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo) {
     int i, masklen = 0;
     char *mask = NULL;
     struct in_addr a;

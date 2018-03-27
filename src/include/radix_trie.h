@@ -84,6 +84,8 @@ enum status radix_trie_free(struct radix_trie *rt);
  */
 enum status radix_trie_init(struct radix_trie *rt);
 
+enum status radix_trie_add_subnet_from_string(struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo);
+
 /** reads the file, parsing each line to find subnet (address/netmask) */
 enum status radix_trie_add_subnets_from_file(struct radix_trie *rt,
      const char *pathname, attr_flags attr, FILE *logfile);

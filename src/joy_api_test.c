@@ -139,9 +139,8 @@ int main (int argc, char **argv)
     /* setup anonymization of http usernames */
     joy_anon_http_usernames("anon_http.txt");
 
-
     /* setup subnet labels */
-    joy_label_subnets("JoyLabTest","internal.net");
+    joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
 
     /* print out the configuration */
     if (ipfix_export) {

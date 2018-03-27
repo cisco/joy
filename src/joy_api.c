@@ -482,17 +482,19 @@ int joy_get_compact_bd(char *filename)
  *
  * Parameters:
  *      label - label to be output for the subnets
- *      filename - file of subnets the label applies to
+ *      type - JOY_SINGLE_SUBNET or JOY_FILE_SUBNET
+ *      subnet_str - a subnet address or a filename that contains subnets
  *
  * Returns:
  *      0 - success
  *      1 - failure
  *
  */
-int joy_label_subnets(char *label, char *filename)
+int joy_label_subnets(char *label, int type, char *subnet_str)
 {
     attr_flags subnet_flag;
     enum status err;
+    char single_addr[64];
 
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -516,20 +518,34 @@ int joy_label_subnets(char *label, char *filename)
         }
     }
 
-    /* processing the subnet file now */
+    /* add the label to the radix_trie */
     subnet_flag = radix_trie_add_attr_label(rt, label);
     if (subnet_flag == 0) {
           joy_log_err("could not add subnet label %s to radix_trie", label);
           return 1;
     }
 
-    err = radix_trie_add_subnets_from_file(rt, filename, subnet_flag, info);
-    if (err != ok) {
-          joy_log_err("could not add labeled subnets from file %s", filename);
-          return 1;
+    /* see if we are adding a file of subnets or just a single subnet address */
+    if (type == JOY_SINGLE_SUBNET) {
+        /* processing just a single subnet address */
+        memset(single_addr,0x00,64);
+        strncpy(single_addr,subnet_str,63);
+        err = radix_trie_add_subnet_from_string(rt, single_addr, subnet_flag, info);
+        if (err != ok) {
+            joy_log_err("could not add labeled subnet for %s", single_addr);
+            return 1;
+        }
+    } else {
+        /* processing the subnet file now */
+        err = radix_trie_add_subnets_from_file(rt, subnet_str, subnet_flag, info);
+        if (err != ok) {
+            joy_log_err("could not add labeled subnets from file %s", subnet_str);
+            return 1;
+        }
     }
 
     /* increment the number of subnets we have configured */
+    config.subnet[config.num_subnets] = strdup(label);
     ++config.num_subnets;
     return 0;
 }
@@ -542,7 +558,7 @@ int joy_label_subnets(char *label, char *filename)
  *      wrapper function for the code used within the Joy library.
  *
  * Parameters:
- *      ignore - Joy does not use this paramter
+ *      ignore - Joy does not use this parameter
  *      header - libpcap header which contains timestamp, cap length
  *               and length
  *      packet - the actual data packet
@@ -568,7 +584,7 @@ void joy_process_packet(unsigned char *ignore,
  * Function: joy_print_flow_data
  *
  * Description: This function is prints out the flow data from
- *      the Joy data structres to the output destination specified
+ *      the Joy data structures to the output destination specified
  *      in the joy_initialize call. The output is formatted as
  *      Joy JSON objects.
  *      Part this operation will check to see if there is any
@@ -605,7 +621,7 @@ void joy_print_flow_data(int type)
  * Function: joy_export_flows_ipfix
  *
  * Description: This function is exports the flow data from
- *      the Joy data structres to the destination specified
+ *      the Joy data structures to the destination specified
  *      in the joy_initialize call. The flow data is exported
  *      as IPFix packets to the destination.
  *
