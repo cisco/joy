@@ -139,7 +139,7 @@ static int add_tls_identifiers(void) {
     struct pi_container pi;
 
     {
-        /* TEMPLATE adding a keyword */
+        /* Client Hello */
         uint16_t string[] = {0x16, 0x03, 0x01, WILDCARD, WILDCARD, 0x01};
         pi.app = 443;
         pi.dir = DIR_CLIENT;
@@ -151,9 +151,48 @@ static int add_tls_identifiers(void) {
     }
 
     {
+        /* Server Hello */
         uint16_t string[] = {0x16, 0x03, 0x01, WILDCARD, WILDCARD, 0x02};
         pi.app = 443;
         pi.dir = DIR_SERVER;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+
+    return 0;
+}
+
+/*
+ * \brief Add HTTP keyword identifiers.
+ *
+ * \param none
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int add_http_identifiers(void) {
+    struct pi_container pi;
+
+    {
+        /* Ascii: GET */
+        uint16_t string[] = {0x47, 0x45, 0x54, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Ascii: POST */
+        uint16_t string[] = {0x50, 0x4f, 0x53, 0x54};
+        pi.app = 80;
+        pi.dir = DIR_UNKNOWN;
 
         if (add_keyword(string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
@@ -549,6 +588,14 @@ void proto_identify_destroy_keyword_dict(void) {
     destroy_kdn(kd_root);
 }
 
+/**
+ * \brief Identify the TCP application protocol.
+ *
+ * \param tcp_data Pointer to the tcp application data
+ * \param length Length in bytes of \p tcp_data
+ *
+ * \return Pointer to protocol inference container
+ */
 const struct pi_container *proto_identify_tcp(const char *tcp_data,
                                               unsigned int len) {
 
