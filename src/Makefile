@@ -119,12 +119,11 @@ unit_test: unit_test.c $(JOY_SRC)
 str_match_test: str_match_test.c $(JOY_SRC)
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 
-$(LIBJOY_OBJ): $(LIBJOY_SRC)
+libjoy.a: $(LIBJOY_SRC)
+	@rm -f $(LIBDIR)/libjoy.a
 	gcc $(CFLAGS) $(CDEFS) -fPIC $(COMPDEF) -DJOY_LIB_API -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -c $(LIBJOY_SRC)
-	
-libjoy.a: $(LIBJOY_OBJ)
 	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
-	@rm $(LIBJOY_OBJ)
+	@rm -f $(LIBJOY_OBJ)
 
 joy_api_test: $(LIBDIR)/libjoy.a joy_api_test.c
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) -lpcap -lm -lcrypto

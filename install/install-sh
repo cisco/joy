@@ -124,7 +124,7 @@ if [ ! -x ${APP_ROOT}/bin/joy ]; then
     exit 1
 fi
 
-if [ ! -x ${APP_ROOT}/lib/libjoy.a ]; then
+if [ ! -e ${APP_ROOT}/lib/libjoy.a ]; then
     echo "error: could not find joy library file (libjoy.a) (please run \"make\")"
     exit 1
 fi
@@ -304,8 +304,8 @@ if [ "$sysname" == "Darwin" ]; then
     # Create ${PREFIX}/lib directory if it does not currently exist
     create_directory ${PREFIX}/lib
 
-    # Create ${PREFIX}/joy/include directory if it does not currently exist
-    create_directory ${PREFIX}/joy/include
+    # Create ${PREFIX}/include/joy directory if it does not currently exist
+    create_directory ${PREFIX}/include/joy
 
     # Create ${PREFIX}/var directory if it does not currently exist
     create_directory ${PREFIX}/var
@@ -356,10 +356,10 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install the header files
-    cp ${APP_ROOT}/src/include/joy_api.h ${PREFIX}/joy/include
+    cp ${APP_ROOT}/src/include/joy_api.h ${PREFIX}/include/joy
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy joy header files to ${PREFIX}/joy/include"
+        echo "error: could not copy joy header files to ${PREFIX}/include/joy"
         exit 1
     fi
 
@@ -544,8 +544,8 @@ elif [ "$sysname" == "Linux" ]; then
     # Create ${PREFIX}/lib directory if it does not currently exist
     create_directory ${PREFIX}/lib
 
-    # Create ${PREFIX}/joy/include directory if it does not currently exist
-    create_directory ${PREFIX}/joy/include
+    # Create ${PREFIX}/include/joy directory if it does not currently exist
+    create_directory ${PREFIX}/include/joy
 
     # Create ${PREFIX}/var directory if it does not currently exist
     create_directory ${PREFIX}/var
@@ -612,10 +612,10 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the Joy header files
-    cp ${APP_ROOT}/src/include/joy_api.h ${PREFIX}/joy/include
+    cp ${APP_ROOT}/src/include/joy_api.h ${PREFIX}/include/joy
     retval=$?
     if [ $retval -ne "0" ]; then
-        echo "error: could not copy joy header files to ${PREFIX}/joy/include"
+        echo "error: could not copy joy header files to ${PREFIX}/include/joy"
         exit 1
     fi
 
@@ -836,7 +836,7 @@ elif [ "$sysname" == "Linux" ]; then
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
         ls -l ${PREFIX}/lib/libjoy.a
-        ls -l ${PREFIX}/joy/include/joy_api.h
+        ls -l ${PREFIX}/include/joy/joy_api.h
         ls -l ${PREFIX}/bin/sleuth
         ls -l ${PREFIX}/etc/joy/*
         ls -l ${PREFIX}/share/man/man1/joy.1

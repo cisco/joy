@@ -126,15 +126,15 @@ clean:
 # remove everything not under version control
 ##
 clobber: clean
-	rm -rf bin/ joy.bin config.vars test/unit_test
+	rm -rf bin/ lib/ joy.bin config.vars test/unit_test
 
 ##
 # installation via shell script
 ##
-install: $(BINDIR)/joy $(BINDIR)/unit_test test $(LIBDIR)/libjoy.a
+install: $(BINDIR)/joy $(BINDIR)/unit_test test libjoy.a
 	./install/install-sh
  
-pkg: $(BINDIR)/joy $(BINDIR)/unit_test test $(LIBDIR)/libjoy.a
+pkg: $(BINDIR)/joy $(BINDIR)/unit_test test libjoy.a
 	./install/install-sh -r $(BUILDROOT) -p $(DESTDIR)
 
 # EOF

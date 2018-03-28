@@ -65,6 +65,8 @@ if [ "$sysname" == "Darwin" ]; then
 
     delete_file /usr/local/bin/sleuth
 
+    delete_directory /usr/local/include/joy
+
     delete_directory /usr/local/etc/joy
 
     delete_file /Library/LaunchDaemons/joy.plist
@@ -117,6 +119,8 @@ elif [ "$sysname" == "Linux" ]; then
     delete_file /usr/local/include/joy/joy_api.h
 
     delete_file /usr/local/bin/sleuth
+
+    delete_directory /usr/local/include/joy
 
     delete_directory /usr/local/etc/joy
 
