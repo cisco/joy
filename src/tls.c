@@ -1875,6 +1875,11 @@ void tls_update (struct tls *r,
     unsigned int msg_len = 0;
     int rem_len = len;
 
+    /* see if we are configured to process TLS */
+    if (!report_tls) {
+        return;
+    }
+
     if (len == 0) {
         return;
     }
