@@ -93,7 +93,7 @@ endif
 
 .PHONY: print
 
-all:	print joy jfd-anon unit_test str_match_test joy-anon
+all:	print joy jfd-anon unit_test str_match_test joy-anon libjoy.a joy_api_test joy_api_test2
 
 print:
 	@echo "Makefile variables:"
@@ -120,7 +120,7 @@ str_match_test: str_match_test.c $(JOY_SRC)
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
 
 $(LIBJOY_OBJ): $(LIBJOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DJOY_LIB_API -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -c $(LIBJOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) -fPIC $(COMPDEF) -DJOY_LIB_API -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -c $(LIBJOY_SRC)
 	
 libjoy.a: $(LIBJOY_OBJ)
 	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
