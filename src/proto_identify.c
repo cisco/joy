@@ -190,9 +190,9 @@ static int add_http_identifiers(void) {
 
     {
         /* Ascii: POST */
-        uint16_t string[] = {0x50, 0x4f, 0x53, 0x54};
+        uint16_t string[] = {0x50, 0x4f, 0x53, 0x54, 0x20};
         pi.app = 80;
-        pi.dir = DIR_UNKNOWN;
+        pi.dir = DIR_CLIENT;
 
         if (add_keyword(string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
@@ -200,6 +200,89 @@ static int add_http_identifiers(void) {
         }
     }
 
+    {
+        /* Ascii: OPTIONS */
+        uint16_t string[] = {0x4f, 0x50, 0x54, 0x49, 0x4f, 0x4e, 0x53, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Ascii: HEAD */
+        uint16_t string[] = {0x48, 0x45, 0x41, 0x44, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Ascii: PUT */
+        uint16_t string[] = {0x50, 0x55, 0x54, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Ascii: DELETE */
+        uint16_t string[] = {0x44, 0x45, 0x4c, 0x45, 0x54, 0x45, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Ascii: TRACE */
+        uint16_t string[] = {0x54, 0x52, 0x41, 0x43, 0x45, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Ascii: CONNECT */
+        uint16_t string[] = {0x43, 0x4f, 0x4e, 0x4e, 0x45, 0x43, 0x54, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* All HTTP 1.1 responses (server to client) start with the following */
+        uint16_t string[] = {0x48, 0x54, 0x54, 0x50, 0x2f, 0x31, 0x2e, 0x31, 0x20};
+        pi.app = 80;
+        pi.dir = DIR_SERVER;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
 
     return 0;
 }
@@ -214,6 +297,11 @@ static int add_http_identifiers(void) {
 static int populate_keyword_identifiers(void) {
     if (add_tls_identifiers()) {
         joy_log_err("problem populating tls keywords");
+        return 1;
+    }
+
+    if (add_http_identifiers()) {
+        joy_log_err("problem populating http keywords");
         return 1;
     }
 
