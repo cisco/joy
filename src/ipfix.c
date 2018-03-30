@@ -3039,7 +3039,7 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   /* Generate the global observation domain id if not done already */
   if (!exporter_obs_dom_id) {
     uint8_t rand_buf[4];
-    if (!RAND_pseudo_bytes(rand_buf, sizeof(rand_buf))) {
+    if (!RAND_bytes(rand_buf, sizeof(rand_buf))) {
       loginfo("error: observation domain id prng failure");
     }
     exporter_obs_dom_id = bytes_to_u32(rand_buf);
