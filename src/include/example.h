@@ -60,6 +60,8 @@ typedef struct example {
 } example_t;
 
 
+declare_feature(example);
+
 /** initialization function */
 void example_init(struct example **example_handle);
 

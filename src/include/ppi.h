@@ -80,6 +80,8 @@ void tcp_opt_print_json(zfile f,
                         const unsigned char *options,
                         unsigned int total_len);
 
+declare_feature(ppi);
+
 /** initialization function */
 void ppi_init(struct ppi **ppi_handle);
 

@@ -193,6 +193,8 @@ typedef struct ike {
     struct vector *buffer;
 } ike_t;
 
+declare_feature(ike);
+
 void ike_init(struct ike **ike_handle);
 
 void ike_update(struct ike *ike,

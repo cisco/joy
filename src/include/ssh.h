@@ -95,6 +95,8 @@ typedef struct ssh {
     int unencrypted;
 } ssh_t;
 
+declare_feature(ssh);
+
 void ssh_init(struct ssh **ssh_handle);
 
 void ssh_update(struct ssh *ssh,

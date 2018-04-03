@@ -63,6 +63,8 @@ typedef struct payload {
 } payload_t;
 
 
+declare_feature(payload);
+
 /** initialization function */
 void payload_init(struct payload **payload_handle);
 

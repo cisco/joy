@@ -70,6 +70,8 @@ typedef struct salt {
 } salt_t;
 
 
+declare_feature(salt);
+
 #if 0
 /** initialization function */
 /**
