@@ -49,10 +49,10 @@
 #include "err.h"
 
 /** user name match structure */
-extern str_match_ctx  usernames_ctx;
+extern str_match_ctx usernames_ctx;
 
 /** max http length */
-#define HTTP_LEN 2048
+#define HTTP_MAX_LEN 2048
 
 /** MAGIC determines the number of bytes of the HTTP message body that
  * will be grabbed off of the wire; the idea here is that the initial
@@ -64,8 +64,11 @@ extern str_match_ctx  usernames_ctx;
 /*
  * declarations of functions that are internal to this file
  */
+static int http_parse_message(struct http_message *message,
+                              char *data,
+                              unsigned int length);
 static unsigned int memcpy_up_to_crlfcrlf_plus_magic(char *dst, const char *src, unsigned int length);
-static void http_print_header(zfile f, char *header, unsigned length);
+static void http_print_message(zfile f, const struct http_message *msg);
 
 /**
  *
@@ -106,22 +109,40 @@ void http_update(struct http *http,
                  const void *data,
                  unsigned int data_len,
                  unsigned int report_http) {
+
+    struct http_message *message = NULL;
+    char raw_header[HTTP_MAX_LEN] = {0};
+    unsigned int tmp_len = 0;
+    int rc = 0;
+
     if (!report_http || data_len == 0) {
         return;
     }
+
+    if (http == NULL) {
+        return;
+    }
+
+    if (http->num_messages >= HTTP_MAX_MESSAGES - 1) {
+        /* Already at maximum message capacity */
+        return;
+    }
+
+    /* Get the current message datastore */
+    message = &http->messages[http->num_messages];
   
-    if (http->header == NULL) {
-        unsigned int len = (data_len + MAGIC) < HTTP_LEN ? (data_len + MAGIC) : HTTP_LEN;
-        /*
-         * note: we leave room for null termination in the data buffer
-         */
-       
-        http->header = malloc(len);
-        if (http->header == NULL) {
-            return; 
-        }
-        memset(http->header, 0x0, len);
-        http->header_length = memcpy_up_to_crlfcrlf_plus_magic(http->header, data, len);
+    /*
+     * Leave room for null termination in the data buffer
+     */
+    tmp_len = (data_len + MAGIC) < HTTP_MAX_LEN ? (data_len + MAGIC) : HTTP_MAX_LEN;
+
+    memcpy_up_to_crlfcrlf_plus_magic(raw_header, data, tmp_len);
+
+    rc = http_parse_message(message, raw_header, tmp_len);
+
+    /* Increment */
+    if (rc != -1) {
+        http->num_messages++;
     }
 } 
 
@@ -137,7 +158,9 @@ void http_update(struct http *http,
 void http_print_json(const struct http *h1,
                      const struct http *h2,
                      zfile f) {
-    int comma = 0;
+
+    unsigned int total_messages = 0;
+    int i = 0;
 
     /* Sanity check */
     if (h1 == NULL) {
@@ -146,41 +169,71 @@ void http_print_json(const struct http *h1,
 
     /* Check if there's data to print */
     if (h2 != NULL) {
-        if (h1->header == NULL && h2->header == NULL) {
+        if (h1->num_messages == 0 && h2->num_messages == 0) {
             /* No data to print */
             return;
         }
     } else {
-        if (h1->header == NULL) {
+        if (h1->num_messages == 0) {
             /* No data to print */
             return;
         }
     }
 
-    /* Start http array */
-    // TODO support multiple pair objects
-    zprintf(f, ",\"http\":[{");
-
-    if (h1->header && h1->header_length && (h1->header_length < HTTP_LEN)) {
-        zprintf(f, "\"out\":");
-        http_print_header(f, h1->header, h1->header_length);
-        comma = 1;
+    /* Get the highest message count */
+    if (h2) {
+        if (h1->num_messages > h2->num_messages) {
+            total_messages = h1->num_messages;
+        } else {
+            total_messages = h2->num_messages;
+        }
+    } else {
+        total_messages = h1->num_messages;
     }
 
-    if (h2) {
-        /* Twin */
-        if (h2->header && h2->header_length && (h2->header_length < HTTP_LEN)) {
-            if (comma) {
-                zprintf(f, ",\"in\":");
-            } else {
-                zprintf(f, "\"in\":");
-            }
-            http_print_header(f, h2->header, h2->header_length);
+    /* Start http array */
+    zprintf(f, ",\"http\":[");
+
+    for (i = 0; i < total_messages; i++) {
+        int comma = 0;
+
+        zprintf(f, "{");
+
+        if (h1->num_messages > i) {
+            const struct http_message *msg = &h1->messages[i];
+
+            zprintf(f, "\"out\":");
+
+            http_print_message(f, msg);
+
+            comma = 1;
         }
+
+        if (h2) {
+            /* Twin */
+            if (h2->num_messages > i) {
+                const struct http_message *msg = &h2->messages[i];
+
+                if (comma) {
+                    zprintf(f, ",\"in\":");
+                } else {
+                    zprintf(f, "\"in\":");
+                }
+
+                http_print_message(f, msg);
+            }
+        }
+
+        if (i == total_messages - 1) {
+            zprintf(f, "}");
+        } else {
+            zprintf(f, "},");
+        }
+
     }
 
     /* End http array */
-    zprintf(f, "}]");
+    zprintf(f, "]");
 }
 
 /**
@@ -190,13 +243,43 @@ void http_print_json(const struct http *h1,
  */
 void http_delete (struct http **http_handle) {
     struct http *http = *http_handle;
+    struct http_message *msg = NULL;
+    int i = 0;
 
     if (http == NULL) {
         return;
     }
 
-    if (http->header) {
-        free(http->header);
+
+    for (i = 0; i < http->num_messages; i++) {
+        int k = 0;
+        msg = &http->messages[i];
+
+        if (msg->header.line_type == HTTP_LINE_STATUS) {
+            struct http_header_status_line *line = &msg->header.line.status;
+
+            if (line->version) free(line->version);
+            if (line->code) free(line->code);
+            if (line->reason) free(line->reason);
+        }
+        else if (msg->header.line_type == HTTP_LINE_REQUEST) {
+            struct http_header_request_line *line = &msg->header.line.request;
+
+            if (line->method) free(line->method);
+            if (line->uri) free(line->uri);
+            if (line->version) free(line->version);
+        }
+
+        for (k = 0; k < msg->header.num_elements; k++) {
+            struct http_header_element *elem = &msg->header.elements[k];
+
+            if (elem->name) free(elem->name);
+            if (elem->value) free(elem->value);
+        }
+
+        if (msg->body) {
+            free(msg->body);
+        }
     }
 
     /* Free the memory and set to NULL */
@@ -204,8 +287,11 @@ void http_delete (struct http **http_handle) {
     *http_handle = NULL;
 }
 
-/*
- * internal functions
+/* ************************
+ * **********************
+ * Internal Functions
+ * **********************
+ * ************************
  */
 
 /*
@@ -354,11 +440,9 @@ static unsigned int memcpy_up_to_crlfcrlf_plus_magic (char *dst, const char *src
     return i;
 }
 
-
-
-
-/*
- * lexer for http headers
+/****************************
+ * Lexer for http headers
+ ****************************
  */
 
 enum http_type {
@@ -553,102 +637,187 @@ static int http_header_select (char *h) {
 }
 
 #define PRINT_USERNAMES 1
+#define MAX_STRLEN 2048
 
-static void http_print_header(zfile f, char *header, unsigned length) {
-    char *token1, *token2, *token3, *saveptr;  
-    unsigned int not_first_header = 0;
-    enum http_type type = http_done;  
-    struct matches matches;
+static int http_parse_message(struct http_message *msg,
+                             char *data,
+                             unsigned int length) {
 
-    token1 = token2 = NULL; /* initialize just to avoid compiler warnings */
-
-    /* Start req/resp array */
-    zprintf(f, "[");
+    struct http_header *hdr = NULL;
+    char *token1, *token2, *token3, *saveptr = NULL;
+    enum http_type type = http_done;
+    unsigned int str_len = 0;
+    int i = 0;
 
     if (length < 4) {
-        /* End req/resp array */
-        zprintf(f, "]");
-        return;
+        return -1;
     }
 
+    if (msg == NULL) {
+        return -1;
+    }
 
     /*
-     * parse start-line, and print as request/status as appropriate
+     * Parse start-line, and get request/status lines.
      */
-    saveptr = header;
+    saveptr = data;
+
+    /* Easy access to the header storage */
+    hdr = &msg->header;
+
+    /* Try to get the start line of (header) data */
     type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
-    if (type == http_request_line) {    
-    
-        zprintf(f, "{\"method\":\"%s\"},", token1);
+
+    if (type == http_malformed) {
+        return -1;
+    }
+
+    if (type == http_request_line) {
+        hdr->line_type = HTTP_LINE_REQUEST;
+
+        str_len = strnlen(token1, MAX_STRLEN);
+        hdr->line.request.method = calloc(str_len + 1, sizeof(char));
+        strncpy(hdr->line.request.method, token1, str_len);
+
+        str_len = strnlen(token2, MAX_STRLEN);
+        hdr->line.request.uri = calloc(str_len + 1, sizeof(char));
+        strncpy(hdr->line.request.uri, token2, str_len);
+
+        str_len = strnlen(token3, MAX_STRLEN);
+        hdr->line.request.version = calloc(str_len + 1, sizeof(char));
+        strncpy(hdr->line.request.version, token3, str_len);
+
+    } else if (type == http_status_line) {
+        hdr->line_type = HTTP_LINE_STATUS;
+
+        str_len = strnlen(token1, MAX_STRLEN);
+        hdr->line.status.version = calloc(str_len + 1, sizeof(char));
+        strncpy(hdr->line.status.version, token1, str_len);
+
+        str_len = strnlen(token2, MAX_STRLEN);
+        hdr->line.status.code = calloc(str_len + 1, sizeof(char));
+        strncpy(hdr->line.status.code, token2, str_len);
+
+        str_len = strnlen(token3, MAX_STRLEN);
+        hdr->line.status.reason = calloc(str_len + 1, sizeof(char));
+        strncpy(hdr->line.status.reason, token3, str_len);
+    }
+
+    if (type != http_done) {
+        /*
+         * Get the header elements
+         */
+        for (i = 0; i < HTTP_MAX_HEADER_ELEMENTS; i++) {
+            type = http_get_next_line(&saveptr, &length, &token1, &token2);
+
+            if (type != http_header) {
+                if (type == http_malformed) {
+                    return 1;
+                }
+                break;
+            }
+
+            if (http_header_select(token1)) {
+                struct http_header_element *elem = &hdr->elements[hdr->num_elements];
+
+                str_len = strnlen(token1, MAX_STRLEN);
+                elem->name = calloc(str_len + 1, sizeof(char));
+                strncpy(elem->name, token1, str_len);
+
+                str_len = strnlen(token2, MAX_STRLEN);
+                elem->value = calloc(str_len + 1, sizeof(char));
+                strncpy(elem->value, token2, str_len);
+            }
+
+            hdr->num_elements++;
+        }
+    }
+
+    /*
+     * Copy the initial bytes of the HTTP body
+     */
+    if (type == http_done && (MAGIC != 0)) {
+        msg->body = calloc(length, sizeof(char));
+        memcpy(msg->body, saveptr, length);
+        msg->body_length = length;
+    }
+
+    return 0;
+}
+
+static void http_print_message(zfile f,
+                               const struct http_message *msg) {
+
+    struct matches matches;
+    int comma = 0;
+    int i = 0;
+
+    /*
+     * Start req/resp array
+     */
+    zprintf(f, "[");
+
+    if (msg->header.line_type == HTTP_LINE_STATUS) {
+        const struct http_header_status_line *line = &msg->header.line.status;
+
+        zprintf(f, "{\"version\":\"%s\"},"
+                "{\"code\":\"%s\"},"
+                "{\"reason\":\"%s\"}",
+                line->version, line->code, line->reason);
+
+        comma = 1;
+    }
+    else if (msg->header.line_type == HTTP_LINE_REQUEST) {
+        const struct http_header_request_line *line = &msg->header.line.request;
+
+        zprintf(f, "{\"method\":\"%s\"},", line->method);
         zprintf(f, "{\"uri\":\"");
         if (usernames_ctx) {
-            str_match_ctx_find_all_longest(usernames_ctx, (unsigned char*)token2, strlen(token2), &matches);      
-            anon_print_uri_pseudonym(f, &matches, token2);
+            str_match_ctx_find_all_longest(usernames_ctx,
+                                           (unsigned char*)line->uri,
+                                           strlen(line->uri), &matches);
+            anon_print_uri_pseudonym(f, &matches, line->uri);
         } else {
-            zprintf(f, "%s", token2);
+            zprintf(f, "%s", line->uri);
         }
         zprintf(f, "\"},");
-        zprintf(f, "{\"version\":\"%s\"}", token3);
+        zprintf(f, "{\"version\":\"%s\"}", line->version);
 
 #if PRINT_USERNAMES
         /*
-         * print out (anonymized) usernames found in URI
+         * Print out (anonymized) usernames found in URI
          */
         if (usernames_ctx) {
             zprintf(f, ",{");
-            zprintf_usernames(f, &matches, token2, is_special, anon_string);
+            zprintf_usernames(f, &matches, line->uri, is_special, anon_string);
             zprintf(f, "}");
         }
 #endif
-
-        not_first_header = 1;
-    } else if (type == http_status_line) {    
-        zprintf(f, "{\"version\":\"%s\"},"
-	          "{\"code\":\"%s\"}," "{\"reason\":\"%s\"}",
-	          token1, token2, token3);
-        not_first_header = 1;
+        comma = 1;
     }
 
-    if (type != http_malformed && type != http_done) {
+    for (i = 0; i < msg->header.num_elements; i++) {
+        const struct http_header_element *elem = &msg->header.elements[i];
 
-        /*
-         * parse and print headers
-         */ 
-        do { 
-            type = http_get_next_line(&saveptr, &length, &token1, &token2);
-            if (type != http_malformed && http_header_select(token1)) {
-	              if (not_first_header) {
-	                  zprintf(f, ",");
-	              } else {
-	                  not_first_header = 1;
-	              }
-	              zprintf(f, "{\"%s\":\"%s\"}", token1, token2);
-            }
-
-        } while (type == http_header);
-    }
-
-    /*
-     * part or all of the header is malformed, so print out that fact
-     */
-    if (type == http_malformed) {
-        if (not_first_header) {
-           zprintf(f, ",");
+        if (comma) {
+	        zprintf(f, ",{\"%s\":\"%s\"}", elem->name, elem->value);
         } else {
-           not_first_header = 1;
+	        zprintf(f, "{\"%s\":\"%s\"}", elem->name, elem->value);
         }
-        zprintf(f, "{\"malformed\":%u}", length);
+
+        comma = 1;
     }
 
     /*
-     * print out the initial bytes of the HTTP body
+     * Print out the body
      */
-    if (type == http_done && (MAGIC != 0)) {
-        if (not_first_header) {
-            zprintf(f, ",");
-        } 
-        zprintf(f, "{\"body\":");
-        zprintf_raw_as_hex(f, (unsigned char*)saveptr, length); 
+    if (msg->body) {
+        if (comma) {
+            zprintf(f, ",{\"body\":");
+        } else {
+            zprintf(f, "{\"body\":");
+        }
+        zprintf_raw_as_hex(f, (unsigned char*)msg->body, msg->body_length);
         zprintf(f, "}");
     }
 
@@ -663,7 +832,6 @@ static void http_print_header(zfile f, char *header, unsigned length) {
  */
 void http_unit_test()
 {
-    // NYI
 #if 0
     int num_fails = 0;
 
