@@ -177,6 +177,7 @@
     <ClCompile Include="..\..\src\pkt_proc.c" />
     <ClCompile Include="..\..\src\ppi.c" />
     <ClCompile Include="..\..\src\procwatch.c" />
+    <ClCompile Include="..\..\src\proto_identify.c" />
     <ClCompile Include="..\..\src\radix_trie.c" />
     <ClCompile Include="..\..\src\salt.c" />
     <ClCompile Include="..\..\src\ssh.c" />
@@ -215,6 +216,7 @@
     <ClInclude Include="..\..\src\include\pkt_proc.h" />
     <ClInclude Include="..\..\src\include\ppi.h" />
     <ClInclude Include="..\..\src\include\procwatch.h" />
+    <ClInclude Include="..\..\src\include\proto_identify.h" />
     <ClInclude Include="..\..\src\include\radix_trie.h" />
     <ClInclude Include="..\..\src\include\salt.h" />
     <ClInclude Include="..\..\src\include\ssh.h" />

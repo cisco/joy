@@ -89,6 +89,7 @@
 #include "output.h"     /* compressed output             */
 #include "updater.h"    /* updater thread for classifer and label subnets */
 #include "ipfix.h"    /* IPFIX cleanup */
+#include "proto_identify.h"
 #include "pcap.h"
 
 /**
@@ -419,6 +420,8 @@ static void sig_close (int signal_arg) {
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
     ipfix_module_cleanup();
 
+    proto_identify_destroy_keyword_dict();
+
     fprintf(info, "got signal %d, shutting down\n", signal_arg); 
     exit(EXIT_SUCCESS);
 }
@@ -628,6 +631,9 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
 
     /* Set log to file or console */
     if (set_logfile()) return 1;
+
+    /* Initialize the protocol identification keyword dictionary */
+    if (proto_identify_init_keyword_dict()) return 1;
 
     if (glb_config->show_config) {
         /* Print running configuration */
@@ -1083,15 +1089,12 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
+    char input_path[256];
+    char input_file_base_name[136];
 
 #ifdef WIN32
-    char input_path[256];
     char fname[128];
     char ext[8];
-    char input_file_base_name[136];
-#else
-    char *input_path = NULL;
-    char *input_file_base_name = NULL;;
 #endif
 
     /* initialize variables */
@@ -1109,10 +1112,13 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
         }
     }
 
+    /* copy input filename path */
+    strncpy(input_path,input_filename,255);
+
 #ifdef WIN32
-    strncpy(input_path, input_filename, 255);
+    /* get the input basename */
     _splitpath_s(input_path,NULL,0,NULL,0,fname,_MAX_FNAME,ext,_MAX_EXT);
-    sprintf(input_file_base_name, "%s%s", fname, ext);
+    snprintf(input_file_base_name,128, "%s%s", fname, ext);
 
     /* full name for the new output file including directory */
     if (glb_config->filename) {
@@ -1120,11 +1126,9 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
         ++fc_cnt;
     }
 #else
-    /* copy input filename path */
-    input_path = strdup(input_filename);
 
     /* get the input basename */
-    input_file_base_name = basename(input_path);
+    snprintf(input_file_base_name, 128, "%s", basename(input_path));
 
     /* full name for the new output file including directory */
     if (glb_config->filename) {
@@ -1619,6 +1623,8 @@ int main (int argc, char **argv) {
     }
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
     ipfix_module_cleanup();
+
+    proto_identify_destroy_keyword_dict();
 
     /* close the output file if it is still open */
     if (output) {

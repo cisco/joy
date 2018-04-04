@@ -225,7 +225,7 @@ void F##_print_json(const F##_t *F,      \
  * the feature context
  */
 #define update_feature(f) \
-    if (f##_filter(key) && (glb_config->report_##f)) { \
+    if (f##_filter(record) && (glb_config->report_##f)) { \
         if (record->f == NULL) f##_init(&record->f); \
         f##_update(record->f, header, payload, size_payload, glb_config->report_##f); \
     }
@@ -245,7 +245,7 @@ void F##_print_json(const F##_t *F,      \
  * a pointer to the TCP header, and updates the feature context
  */
 #define update_tcp_feature(f) \
-    if (f##_filter(key) && (glb_config->report_##f)) { \
+    if (f##_filter(record) && (glb_config->report_##f)) { \
         if (record->f == NULL) f##_init(&record->f); \
         f##_update(record->f, header, transport_start, transport_len, glb_config->report_##f); \
     }

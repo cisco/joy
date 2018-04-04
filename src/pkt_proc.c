@@ -53,6 +53,7 @@
 #include "nfv9.h"
 #include "ipfix.h"
 #include "utils.h"
+#include "proto_identify.h"
 
 /*
  * external variables, defined in joy
@@ -632,6 +633,22 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
+
+    /*
+     * Estimate the TCP application protocol
+     * Optimization: stop after first 2 packets that have non-zero payload
+     */
+    if ((!record->app) && record->op <= 2) {
+        const struct pi_container *pi = proto_identify_tcp(payload, size_payload);
+        if (pi != NULL) {
+            record->app = pi->app;
+            record->dir = pi->dir;
+        }
+    }
+
+    /*
+     * Run protocol modules!
+     */
     update_all_features(payload_feature_list);
 
     /*

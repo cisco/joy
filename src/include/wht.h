@@ -56,7 +56,7 @@
 #define wht_usage "  wht=1                      include walsh-hadamard transform\n"
 
 /** walsh-hadamard filter key */
-#define wht_filter(key) 1
+#define wht_filter(record) 1
 
 /** walsh-hadamard structure */
 typedef struct wht {

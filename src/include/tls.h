@@ -52,7 +52,7 @@
 #define tls_usage "  tls=1                      report TLS data (ciphersuites, record lengths and times, ...)\n"
 
 /** tls filter key */
-#define tls_filter(key) ((key->dp == 443 || key->sp == 443))
+#define tls_filter(record) (record->app == 443 || (record->key.dp == 443 || record->key.sp == 443))
 
 /* constants for TLS awareness */
 #define MAX_CS 256
