@@ -69,7 +69,10 @@ int main (int argc, char *argv[]) {
      * use stdout/stderr for output 
      */
     info = stderr; 
-    output = stdout;
+    output = zattach(stdout,"w");
+    if (output == NULL) {
+        fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
+    }
 
     /* Set logging to warning level */
     glb_config->verbosity = JOY_LOG_WARN;

@@ -92,13 +92,7 @@ static void anon_print (zfile f, struct matches *matches, char *text) {
 
 static void str_match_test (str_match_ctx ctx, char *search) {
     struct matches matches;
-    zfile output;
 
-    output = zattach(stdout, "w");
-    if (output == NULL) {
-        fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
-    }
-  
     str_match_ctx_find_all_longest(ctx, (const unsigned char *)search, strlen(search), &matches);
   
     matches_print(&matches, (char *)search);
@@ -141,7 +135,11 @@ int main (int argc, char* argv[]) {
 
     memset(&glb_config, 0x00, sizeof(struct configuration));
     info = stderr;
-    output = stdout;
+    output = zattach(stdout, "w");
+    if (output == NULL) {
+        fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
+    }
+
 
 #if !defined(DARWIN) && !defined(WIN32)
     struct mallinfo mem_info;

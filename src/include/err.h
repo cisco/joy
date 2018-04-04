@@ -106,7 +106,7 @@ enum joy_log_level {
 }
 
 /** printf debug macro */
-#define zprintf_debug(...) zprintf(info, ",\"DEBUG\": \""  __VA_ARGS__);
+#define zprintf_debug(...) zprintf(output, ",\"DEBUG\": \""  __VA_ARGS__);
 
 /** debug flag */
 #define P2F_DEBUG 0
