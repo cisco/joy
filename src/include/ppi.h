@@ -54,7 +54,7 @@
 #define ppi_usage "  ppi=1                      include per-packet info (ppi)\n"
 
 /** ppi filter key */
-#define ppi_filter(key) 1
+#define ppi_filter(record) 1
 
 #define TCP_OPT_LEN 24
   

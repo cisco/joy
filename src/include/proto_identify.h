@@ -1,24 +1,24 @@
 /*
- *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ *
+ * Copyright (c) 2018 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -33,56 +33,35 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
 /**
- * \file dns.h
+ * \file proto_identify.h
  *
- * \brief interface file for DNS code
+ * \brief Protocol identification (header)
  */
-#ifndef DNS_H
-#define DNS_H
 
-#include <pcap.h>
-#include "output.h"
+#ifndef JOY_PROTO_IDENTIFY_H
+#define JOY_PROTO_IDENTIFY_H
 
-/** usage string */
-#define dns_usage "  dns=1                      report DNS response information\n"
+#include <stdint.h>
 
-/** dns filter key */
-#define dns_filter(record) \
-    ((record->key.prot == 17) && \
-     (record->app == 53 || (record->key.dp == 53 || record->key.sp == 53)) \
-    )
+/* Values indicating direction of the flow */
+#define DIR_UNKNOWN 0
+#define DIR_CLIENT 1
+#define DIR_SERVER 2
 
-/** maximum number of DNS packets */
-#define MAX_NUM_DNS_PKT 200
+/**
+ * \brief Protocol Inference container
+ */
+struct pi_container {
+    uint8_t dir; /* Flow direction */
+    uint16_t app; /* Application protocol prediction */
+};
 
-/** maximum DNS name length */
-#define MAX_DNS_NAME_LEN 256
+int proto_identify_init_keyword_dict(void);
+void proto_identify_destroy_keyword_dict(void);
 
-/** DNS structure */
-typedef struct dns {
-  unsigned int pkt_count;                      /*!< packet count       */
-  char *dns_name[MAX_NUM_DNS_PKT];             /*!< DNS packets        */
-  unsigned short int pkt_len[MAX_NUM_DNS_PKT]; /*!< DNS packet lengths */
-} dns_t;
+const struct pi_container *proto_identify_tcp(const char *tcp_data,
+                                              unsigned int len);
 
-/** initialize DNS structure */
-void dns_init(struct dns **dns_handle);
-
-/** DNS structure update */
-void dns_update(struct dns *dns, 
-		const struct pcap_pkthdr *header,
-		const void *data, 
-		unsigned int len, 
-		unsigned int report_dns);
-
-/** print DNS data out in JSON format */
-void dns_print_json(const struct dns *dns1, const struct dns *dns2, zfile f);
-
-/** remove a DNS entry */
-void dns_delete(struct dns **dns_handle);
-
-/** main entry point for DNS unit testing */
-void dns_unit_test();
-
-#endif /* DNS_H */
+#endif /* JOY_PROTO_IDENTIFY_H */

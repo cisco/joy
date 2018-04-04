@@ -58,7 +58,12 @@
 
 #define dhcp_usage "  dhcp=1                     report dhcp information\n"
 
-#define dhcp_filter(key) ((key->prot == 17) && ((key->sp == 68 && key->dp == 67) || (key->sp == 67 && key->dp == 68)))
+#define dhcp_filter(record) \
+    ((record->key.prot == 17) && \
+     (record->app == 68 || \
+      ((record->key.sp == 68 && record->key.dp == 67) || (record->key.sp == 67 && record->key.dp == 68)) \
+     ) \
+    )
 
 #define MAX_DHCP_LEN 16
 #define MAX_DHCP_CHADDR 16

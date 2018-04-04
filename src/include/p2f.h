@@ -107,6 +107,8 @@ struct flow_key {
 
 struct flow_record {
     struct flow_key key;                  /*!< identifies flow by 5-tuple          */
+    uint16_t app;                         /*!< application protocol prediction     */
+    uint8_t dir;                          /*!< direction of the flow               */
     unsigned int np;                      /*!< number of packets                   */
     unsigned int op;                      /*!< number of packets (w/nonzero data)  */
     unsigned int ob;                      /*!< number of bytes of application data */
