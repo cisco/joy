@@ -40,6 +40,7 @@
  * \brief unit test for multiple string matching functions
  */
 #include <stdarg.h>
+#include <string.h>
 
 #if !defined(DARWIN) && !defined(WIN32)
 #include <malloc.h>
@@ -47,6 +48,11 @@
 
 #include "str_match.h"
 #include "anon.h"
+#include "config.h"
+
+struct configuration glb_config;
+zfile output = NULL;
+FILE *info = NULL;
 
 static void matches_print (struct matches *matches, char *text) {
     unsigned int i;
@@ -133,11 +139,15 @@ static char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400
 int main (int argc, char* argv[]) {
     str_match_ctx ctx;
 
-#if !defined(DARWIN) && !defined(WIN32)
-    struct mallinfo info;
+    memset(&glb_config, 0x00, sizeof(struct configuration));
+    info = stderr;
+    output = stdout;
 
-    info = mallinfo();
-    printf ("allocated space before loading context:  %d bytes\n", info.uordblks);
+#if !defined(DARWIN) && !defined(WIN32)
+    struct mallinfo mem_info;
+
+    mem_info = mallinfo();
+    printf ("allocated space before loading context:  %d bytes\n", mem_info.uordblks);
 #endif
   
     ctx = str_match_ctx_alloc();
@@ -151,8 +161,8 @@ int main (int argc, char* argv[]) {
     }
   
 #if !defined(DARWIN) && !defined(WIN32)
-	info = mallinfo();
-    printf ("allocated space after loading context:  %d bytes\n", info.uordblks);
+	mem_info = mallinfo();
+    printf ("allocated space after loading context:  %d bytes\n", mem_info.uordblks);
 #endif
 
     if (key_init(ANON_KEYFILE_DEFAULT) != ok) {

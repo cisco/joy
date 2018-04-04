@@ -45,7 +45,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "wht.h"     
+#include "config.h"
 #include "err.h"
+
+/* external definitions from joy.c */
+extern struct configuration *glb_config;
+extern zfile output;
+extern FILE *info;
 
 /**
  * \brief Initialize the memory of WHT struct.

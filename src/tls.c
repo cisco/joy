@@ -63,6 +63,7 @@
 #include "fingerprint.h"
 #include "pkt.h"
 #include "utils.h"
+#include "config.h"
 #include "err.h"
 
 /*
@@ -80,7 +81,9 @@
 /*
  * External objects, defined in joy.c
  */
-extern unsigned int ipfix_collect_port;
+extern struct configuration *glb_config;
+extern zfile output;
+extern FILE *info;
 
 #if 0
 /* Store the tls_fingerprint.json data */
@@ -1944,7 +1947,7 @@ void tls_update (struct tls *r,
         hdr = (const struct tls_header *)data;
         msg_len = tls_header_get_length(hdr);
 
-        if (msg_len > rem_len && !ipfix_collect_port) {
+        if (msg_len > rem_len && !glb_config->ipfix_collect_port) {
             /* The message has been split into segments */
             r->seg_offset = msg_len - (rem_len - TLS_HDR_LEN);
         }

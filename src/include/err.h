@@ -59,9 +59,6 @@ enum joy_log_level {
     JOY_LOG_CRIT = 5
 };
 
-extern FILE *info;
-extern unsigned int verbosity;
-
 #define JOY_LOG_DEBUG_STR "DEBUG"
 #define JOY_LOG_INFO_STR "INFO"
 #define JOY_LOG_WARN_STR "WARN"
@@ -69,7 +66,7 @@ extern unsigned int verbosity;
 #define JOY_LOG_CRIT_STR "CRIT"
 
 #define joy_log_debug(...) { \
-        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_DEBUG) { \
+        if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_DEBUG) { \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_DEBUG_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -77,7 +74,7 @@ extern unsigned int verbosity;
 }
 
 #define joy_log_info(...) { \
-        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_INFO) { \
+        if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_INFO) { \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_INFO_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -85,7 +82,7 @@ extern unsigned int verbosity;
 }
 
 #define joy_log_warn(...) { \
-        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_WARN) { \
+        if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_WARN) { \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_WARN_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -93,7 +90,7 @@ extern unsigned int verbosity;
 }
 
 #define joy_log_err(...) { \
-        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_ERR) { \
+        if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_ERR) { \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_ERR_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -101,7 +98,7 @@ extern unsigned int verbosity;
 }
 
 #define joy_log_crit(...) { \
-        if (verbosity != JOY_LOG_OFF && verbosity <= JOY_LOG_CRIT) { \
+        if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_CRIT) { \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_CRIT_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -109,7 +106,7 @@ extern unsigned int verbosity;
 }
 
 /** printf debug macro */
-#define zprintf_debug(...) zprintf(output, ",\"DEBUG\": \""  __VA_ARGS__);
+#define zprintf_debug(...) zprintf(info, ",\"DEBUG\": \""  __VA_ARGS__);
 
 /** debug flag */
 #define P2F_DEBUG 0

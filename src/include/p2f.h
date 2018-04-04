@@ -96,6 +96,14 @@ struct flow_key {
 };
 
 #include "procwatch.h"
+#include "config.h"
+
+/* external declaration of the global config */
+extern struct configuration *glb_config;
+
+/* external declaration of the file destinations */
+extern zfile output;
+extern FILE *info;
 
 /*
  * default and maximum number of packets on which to report
@@ -293,15 +301,6 @@ void flocap_stats_timer_init();
 * that record to the provided data
 */
 int flow_key_set_process_info(const struct flow_key *key, const struct host_flow *data);
-
-
-enum SALT_algorithm { 
-  reserved = 0,
-  raw = 1,
-  aggregated = 2,
-  defragmented = 3,
-  rle = 4
-};
 
 /** Main entry point for the uploader thread */
 void *uploader_main(void* ptr);

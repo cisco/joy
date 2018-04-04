@@ -52,27 +52,14 @@
 #include "tls.h"
 #include "nfv9.h"
 #include "ipfix.h"
-#include "config.h"
 #include "utils.h"
 
 /*
  * external variables, defined in joy
  */
-extern FILE *info;
 extern struct timeval global_time;
 extern unsigned int num_pkt_len;
-extern unsigned int include_zeroes;
-extern unsigned int include_retrans;
-extern unsigned int report_idp;
-extern unsigned int report_hd;
-extern unsigned int nfv9_capture_port;
-extern unsigned int ipfix_collect_port;
-extern unsigned int ipfix_export_port;
-extern enum SALT_algorithm salt_algo;
 extern struct flocap_stats stats;
-extern struct configuration config;
-
-define_all_features_config_extern_uint(feature_list);
 
 /** maximum number of templates allowed */
 #define MAX_TEMPLATES 100
@@ -197,9 +184,9 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
         return;  /* no more room */
     }
 
-    switch(salt_algo) {
+    switch(glb_config->salt_algo) {
         case rle:
-            if (include_zeroes || length != 0) {
+            if (glb_config->include_zeroes || length != 0) {
                 if (length == record->last_pkt_len) {
 	                  if (record->pkt_len[record->op] < 32768) {
 	                      record->op++;
@@ -220,7 +207,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
             break;
 
         case aggregated:
-            if (include_zeroes || length != 0) {
+            if (glb_config->include_zeroes || length != 0) {
                 record->pkt_len[record->op] += length;
                 record->pkt_time[record->op] = *time;
             }
@@ -232,7 +219,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
             break;
 
         case defragmented:
-            if (include_zeroes || length != 0) {
+            if (glb_config->include_zeroes || length != 0) {
                 if (length == record->last_pkt_len) {
 	                  record->op--;
 	                  record->pkt_len[record->op] += length;
@@ -255,7 +242,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
 
         default:
         case raw:
-            if (include_zeroes || (length != 0)) {
+            if (glb_config->include_zeroes || (length != 0)) {
                 record->pkt_len[record->op] = length;
                 record->pkt_time[record->op] = *time;
                 record->op++;
@@ -600,13 +587,13 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
         if (ntohl(tcp->tcp_seq) < record->tcp.seq) {
             joy_log_debug("retransmission detected");
             record->tcp.retrans++;
-            if (!include_retrans) {
+            if (!glb_config->include_retrans) {
                 // do not process TCP retransmissions
                 return NULL;
             }
         }
     }
-    if (include_zeroes || size_payload > 0) {
+    if (glb_config->include_zeroes || size_payload > 0) {
           flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
     }
 
@@ -650,8 +637,8 @@ process_tcp (const struct pcap_pkthdr *header, const char *tcp_start, int tcp_le
     /*
      * update header description
      */
-    if (size_payload >= report_hd) {
-        header_description_update(&record->hd, payload, report_hd);
+    if (size_payload >= glb_config->report_hd) {
+        header_description_update(&record->hd, payload, glb_config->report_hd);
     }
 
     return record;
@@ -701,7 +688,7 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
         return NULL;
     }
     if (record->op < num_pkt_len) {
-        if (include_zeroes || (size_payload != 0)) {
+        if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
             record->op++;
@@ -714,11 +701,11 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
     update_all_features(payload_feature_list);
 
-    if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {
+    if (glb_config->nfv9_capture_port && (key->dp == glb_config->nfv9_capture_port)) {
         process_nfv9(header, payload, size_payload, record);
     }
 
-    if (ipfix_collect_port && (key->dp == ipfix_collect_port)) {
+    if (glb_config->ipfix_collect_port && (key->dp == glb_config->ipfix_collect_port)) {
       process_ipfix(payload, size_payload, record);
     }
 
@@ -773,7 +760,7 @@ process_icmp (const struct pcap_pkthdr *header, const char *start, int len, stru
         return NULL;
     }
     if (record->op < num_pkt_len) {
-        if (include_zeroes || (size_payload != 0)) {
+        if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
             record->op++;
@@ -818,7 +805,7 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
         return NULL;
     }
     if (record->op < num_pkt_len) {
-        if (include_zeroes || (size_payload != 0)) {
+        if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
             record->op++;
@@ -837,7 +824,7 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
 /**
  * \fn void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
                      const unsigned char *packet)
- * \param ignore currently unused
+ * \param ignore currently ignored
  * \param header pointer to the packer header structure
  * \param packet pointer to the packet
  * \return none
@@ -1015,11 +1002,11 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
      * copy initial data packet, if configured to report idp, and this
      * is the first packet in the flow with nonzero data payload
      */
-    if ((report_idp) && record->op && (record->idp_len == 0)) {
+    if ((glb_config->report_idp) && record->op && (record->idp_len == 0)) {
         if (record->idp != NULL) {
             free(record->idp);
         }
-        record->idp_len = (ntohs(ip->ip_len) < report_idp ? ntohs(ip->ip_len) : report_idp);
+        record->idp_len = (ntohs(ip->ip_len) < glb_config->report_idp ? ntohs(ip->ip_len) : glb_config->report_idp);
         record->idp = malloc(record->idp_len);
         memcpy(record->idp, ip, record->idp_len);
         joy_log_debug("Stashed %u bytes of IDP", record->idp_len);

@@ -47,8 +47,14 @@
 #include <string.h>   /* for memset()    */
 #include "pkt.h"      /* for tcp macros  */
 #include "utils.h"    /* for enum role   */
+#include "config.h"
 #include "ppi.h"     
 #include "err.h"
+
+/* external definitions from joy.c */
+extern struct configuration *glb_config;
+extern zfile output;
+extern FILE *info;
 
 /* helper functions defined below */
 

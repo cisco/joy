@@ -116,17 +116,17 @@
 #define feature_list payload_feature_list, tcp_feature_list
 //#define feature_list payload_feature_list, ip_feature_list, tcp_feature_list
 
-#define define_feature_config_uint(f) unsigned int report_##f = 0;
-#define define_all_features_config_uint(flist) MAP(define_feature_config_uint, flist)
+//#define define_feature_config_uint(f) unsigned int report_##f = 0;
+//#define define_all_features_config_uint(flist) MAP(define_feature_config_uint, flist)
 
-#define define_feature_config_extern_uint(f) extern unsigned int report_##f;
-#define define_all_features_config_extern_uint(flist) MAP(define_feature_config_extern_uint, flist)
+//#define define_feature_config_extern_uint(f) extern unsigned int report_##f;
+//#define define_all_features_config_extern_uint(flist) MAP(define_feature_config_extern_uint, flist)
 
 #define declare_feature_config_uint(f) unsigned int report_##f;
 #define declare_all_features_config_uint(flist)  MAP(declare_feature_config_uint, flist)
 
-#define set_config_feature(F) report_##F = config.report_##F;
-#define set_config_all_features(flist) MAP(set_config_feature, flist)
+//#define set_config_feature(F) report_##F = glb_config->report_##F;
+//#define set_config_all_features(flist) MAP(set_config_feature, flist)
 
 
 /** The function feature_init(ptr) is invoked on a pointer to a data
@@ -225,9 +225,9 @@ void F##_print_json(const F##_t *F,      \
  * the feature context
  */
 #define update_feature(f) \
-    if (f##_filter(key) && (report_##f)) { \
+    if (f##_filter(key) && (glb_config->report_##f)) { \
         if (record->f == NULL) f##_init(&record->f); \
-        f##_update(record->f, header, payload, size_payload, report_##f); \
+        f##_update(record->f, header, payload, size_payload, glb_config->report_##f); \
     }
 
 /** The macro update_ip_feature(f) processes a single packet, given
@@ -235,9 +235,9 @@ void F##_print_json(const F##_t *F,      \
  */
 #if 0
 #define update_ip_feature(f) \
-    if (f##_filter(key) && (report_##f)) { \
+    if (f##_filter(key) && (glb_config->report_##f)) { \
         if (record->f == NULL) f##_init(&record->f); \
-        f##_update(record->f, header, ip, ip_hdr_len, report_##f); \
+        f##_update(record->f, header, ip, ip_hdr_len, glb_config->report_##f); \
     }
 #endif
 
@@ -245,9 +245,9 @@ void F##_print_json(const F##_t *F,      \
  * a pointer to the TCP header, and updates the feature context
  */
 #define update_tcp_feature(f) \
-    if (f##_filter(key) && (report_##f)) { \
+    if (f##_filter(key) && (glb_config->report_##f)) { \
         if (record->f == NULL) f##_init(&record->f); \
-        f##_update(record->f, header, transport_start, transport_len, report_##f); \
+        f##_update(record->f, header, transport_start, transport_len, glb_config->report_##f); \
     }
 
 /** The macro print_feature(f) prints the feature as JSON 

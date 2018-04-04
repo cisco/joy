@@ -58,39 +58,13 @@
 #include "classify.h"
 #include "joy_api.h"
 
-/* All of the global varibales are defined in p2f.c
- * they are refenced here for usage purposes.
- */
-extern enum SALT_algorithm salt_algo;
-extern FILE *info;
-extern zfile output;
-extern unsigned int bidir;
-extern unsigned int include_zeroes;
-extern unsigned int include_retrans;
-extern unsigned int byte_distribution;
-extern char *compact_byte_distribution;
-extern unsigned int report_entropy;
-extern unsigned int report_idp;
-extern unsigned int report_hd;
-extern unsigned int include_classifier;
-extern unsigned int nfv9_capture_port;
-extern unsigned int ipfix_collect_port;
-extern unsigned int ipfix_collect_online;
-extern unsigned int ipfix_export_port;
-extern unsigned int ipfix_export_remote_port;
-extern unsigned int preemptive_timeout;
-extern char *ipfix_export_remote_host;
-extern char *ipfix_export_template;
-extern char *aux_resource_path;
-extern unsigned int verbosity;
-extern unsigned int num_subnets;
-extern unsigned short compact_bd_mapping[16];
-extern radix_trie_t rt;
+/* file destination variables */
+zfile output = NULL;
+FILE *info = NULL;
 
-define_all_features_config_extern_uint(feature_list)
-
-/* config is the global configuration */
-extern struct configuration config;
+/* config is the global library configuration */
+struct configuration active_config;
+struct configuration *glb_config = NULL;
 
 /* external prototypes not included */
 extern int data_sanity_check();
@@ -129,7 +103,11 @@ int joy_initialize(struct joy_init *init_data,
     char output_filename[MAX_FILENAME_LEN];
 
     /* clear out the configuration structure */
-    memset(&config, 0x00, sizeof(struct configuration));
+    memset(&active_config, 0x00, sizeof(struct configuration));
+    glb_config = &active_config;
+
+    /* set 'info' to stderr as a precaution */
+    info = stderr;
 
     /* sanity check the expected values for the packet headers */
     if (data_sanity_check() != ok) {
@@ -143,9 +121,6 @@ int joy_initialize(struct joy_init *init_data,
             joy_log_err("could not open log file %s (%s)", logfile, strerror(errno));
             return failure;
         }
-    } else {
-        /* set 'info' to stderr as a precaution */
-        info = stderr;
     }
 
     /* set the output directory */
@@ -174,83 +149,58 @@ int joy_initialize(struct joy_init *init_data,
     }
 
     /* set the configuration defaults */
-    config_set_defaults(&config);
     if ((init_data->type > 0) && (init_data->type < 3)) {
-        config.type = init_data->type;
+        glb_config->type = init_data->type;
     }
-    config.verbosity = init_data->verbosity;
+    glb_config->verbosity = init_data->verbosity;
 
     /* setup joy with the output options */
     if (output_dir)
-        config.outputdir = strdup(output_dir);
+        glb_config->outputdir = strdup(output_dir);
     if (output_file)
-        config.filename = strdup(output_file);
+        glb_config->filename = strdup(output_file);
     if (logfile)
-        config.logfile = strdup(logfile);
+        glb_config->logfile = strdup(logfile);
 
     /* data features */
-    config.bidir = ((init_data->bitmask & JOY_BIDIR_ON) ? 1 : 0);
-    config.report_dns = ((init_data->bitmask & JOY_DNS_ON) ? 1 : 0);
-    config.report_ssh = ((init_data->bitmask & JOY_SSH_ON) ? 1 : 0);
-    config.report_tls = ((init_data->bitmask & JOY_TLS_ON) ? 1 : 0);
-    config.report_dhcp = ((init_data->bitmask & JOY_DHCP_ON) ? 1 : 0);
-    config.report_http = ((init_data->bitmask & JOY_HTTP_ON) ? 1 : 0);
-    config.report_ike = ((init_data->bitmask & JOY_IKE_ON) ? 1 : 0);
-    config.report_payload = ((init_data->bitmask & JOY_PAYLOAD_ON) ? 1 : 0);
-    config.report_exe = ((init_data->bitmask & JOY_EXE_ON) ? 1 : 0);
-    config.include_zeroes = ((init_data->bitmask & JOY_ZERO_ON) ? 1 : 0);
-    config.include_retrans = ((init_data->bitmask & JOY_RETRANS_ON) ? 1 : 0);
-    config.byte_distribution = ((init_data->bitmask & JOY_BYTE_DIST_ON) ? 1 : 0);
-    config.report_entropy = ((init_data->bitmask & JOY_ENTROPY_ON) ? 1 : 0);
-    config.report_hd = ((init_data->bitmask & JOY_HEADER_ON) ? 1 : 0);
-    config.preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
+    glb_config->bidir = ((init_data->bitmask & JOY_BIDIR_ON) ? 1 : 0);
+    glb_config->report_dns = ((init_data->bitmask & JOY_DNS_ON) ? 1 : 0);
+    glb_config->report_ssh = ((init_data->bitmask & JOY_SSH_ON) ? 1 : 0);
+    glb_config->report_tls = ((init_data->bitmask & JOY_TLS_ON) ? 1 : 0);
+    glb_config->report_dhcp = ((init_data->bitmask & JOY_DHCP_ON) ? 1 : 0);
+    glb_config->report_http = ((init_data->bitmask & JOY_HTTP_ON) ? 1 : 0);
+    glb_config->report_ike = ((init_data->bitmask & JOY_IKE_ON) ? 1 : 0);
+    glb_config->report_payload = ((init_data->bitmask & JOY_PAYLOAD_ON) ? 1 : 0);
+    glb_config->report_exe = ((init_data->bitmask & JOY_EXE_ON) ? 1 : 0);
+    glb_config->include_zeroes = ((init_data->bitmask & JOY_ZERO_ON) ? 1 : 0);
+    glb_config->include_retrans = ((init_data->bitmask & JOY_RETRANS_ON) ? 1 : 0);
+    glb_config->byte_distribution = ((init_data->bitmask & JOY_BYTE_DIST_ON) ? 1 : 0);
+    glb_config->report_entropy = ((init_data->bitmask & JOY_ENTROPY_ON) ? 1 : 0);
+    glb_config->report_hd = ((init_data->bitmask & JOY_HEADER_ON) ? 1 : 0);
+    glb_config->preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
 
     /* check for IPFix export option */
     if (init_data->bitmask & JOY_IPFIX_EXPORT_ON) {
-        config.ipfix_export_template = "idp";
+        glb_config->ipfix_export_template = "idp";
         if (init_data->idp > 0) {
-            config.idp = init_data->idp;
+            glb_config->idp = init_data->idp;
         } else {
-            config.idp = DEFAULT_IDP_SIZE;
+            glb_config->idp = DEFAULT_IDP_SIZE;
         }
         if (init_data->ipfix_host != NULL) {
-            config.ipfix_export_remote_host =  strdup(init_data->ipfix_host);
+            glb_config->ipfix_export_remote_host =  strdup(init_data->ipfix_host);
         } else {
             /* default to the loopback address */
-            config.ipfix_export_remote_host = "127.0.0.1";
+            glb_config->ipfix_export_remote_host = "127.0.0.1";
         }
         if (init_data->ipfix_port > 0) {
-            config.ipfix_export_port = init_data->ipfix_port;
-            config.ipfix_export_remote_port = init_data->ipfix_port;
+            glb_config->ipfix_export_port = init_data->ipfix_port;
+            glb_config->ipfix_export_remote_port = init_data->ipfix_port;
         } else {
-            config.ipfix_export_port = DEFAULT_IPFIX_EXPORT_PORT;
-            config.ipfix_export_remote_port = DEFAULT_IPFIX_EXPORT_PORT;
+            glb_config->ipfix_export_port = DEFAULT_IPFIX_EXPORT_PORT;
+            glb_config->ipfix_export_remote_port = DEFAULT_IPFIX_EXPORT_PORT;
         }
     }
-
-    /* setup the globals used within the Joy library itself */
-    bidir = config.bidir;
-    include_zeroes = config.include_zeroes;
-    include_retrans = config.include_retrans;
-    byte_distribution = config.byte_distribution;
-    compact_byte_distribution = config.compact_byte_distribution;
-    report_entropy = config.report_entropy;
-    report_hd = config.report_hd;
-    include_classifier = config.include_classifier;
-    report_idp = config.idp;
-    salt_algo = config.type;
-    nfv9_capture_port = config.nfv9_capture_port;
-    ipfix_collect_port = config.ipfix_collect_port;
-    ipfix_collect_online = config.ipfix_collect_online;
-    ipfix_export_port = config.ipfix_export_port;
-    ipfix_export_remote_port = config.ipfix_export_remote_port;
-    ipfix_export_remote_host = config.ipfix_export_remote_host;
-    ipfix_export_template = config.ipfix_export_template;
-    preemptive_timeout = config.preemptive_timeout;
-    aux_resource_path = config.aux_resource_path;
-    verbosity = config.verbosity;
-
-    set_config_all_features(feature_list)
 
     /* intialize the data structures */
     flow_record_list_init();
@@ -284,10 +234,10 @@ void joy_print_config(int format)
 
     if (format == JOY_TERMINAL_FORMAT) {
         /* print the configuration in the output */
-        config_print(output, &config);
+        config_print(output, glb_config);
     } else {
         /* print the configuration in the output */
-        config_print_json(output, &config);
+        config_print_json(output, glb_config);
     }
 }
 
@@ -321,10 +271,10 @@ int joy_anon_subnets(char *anon_file)
     }
 
     if (anon_file != NULL) {
-        config.anon_addrs_file = anon_file;
-        if (anon_init(config.anon_addrs_file, info) == 1) {
+        glb_config->anon_addrs_file = anon_file;
+        if (anon_init(glb_config->anon_addrs_file, info) == 1) {
             joy_log_err("could not initialize anonymization subnets from file %s",
-                            config.anon_addrs_file);
+                            glb_config->anon_addrs_file);
             return 1;
         }
     } else {
@@ -367,10 +317,10 @@ int joy_anon_http_usernames(char *anon_http_file)
     }
 
     if (anon_http_file != NULL) {
-        config.anon_http_file = anon_http_file;
-        if (anon_http_init(config.anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == 1) {
+        glb_config->anon_http_file = anon_http_file;
+        if (anon_http_init(glb_config->anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == 1) {
             joy_log_err("could not initialize anonymization for http usernames from file %s",
-                            config.anon_http_file);
+                            glb_config->anon_http_file);
             return 1;
         }
     } else {
@@ -452,20 +402,19 @@ int joy_get_compact_bd(char *filename)
         return 1;
     }
 
-    memset(compact_bd_mapping, 0, sizeof(compact_bd_mapping));
+    memset(glb_config->compact_bd_mapping, 0, sizeof(glb_config->compact_bd_mapping));
 
     fp = fopen(filename, "r");
     if (fp != NULL) {
         while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
-            compact_bd_mapping[b_value] = map_b_value;
+            glb_config->compact_bd_mapping[b_value] = map_b_value;
             count++;
             if (count >= 256) {
                 break;
             }
         }
         fclose(fp);
-        config.compact_byte_distribution = filename;
-        compact_byte_distribution = config.compact_byte_distribution;
+        glb_config->compact_byte_distribution = filename;
     } else {
         joy_log_err("could not open compact BD file %s", filename);
         return 1;
@@ -503,15 +452,15 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
     }
 
     /* see if we need a new radix_trie */
-    if (rt == NULL) {
-        rt = radix_trie_alloc();
-        if (rt == NULL) {
+    if (glb_config->rt == NULL) {
+        glb_config->rt = radix_trie_alloc();
+        if (glb_config->rt == NULL) {
             joy_log_err("could not allocate memory for labeled subnets");
             return 1;
         }
 
         /* initialize our new radix_trie */
-        err = radix_trie_init(rt);
+        err = radix_trie_init(glb_config->rt);
         if (err != ok) {
             joy_log_err("could not initialize subnet labels (radix_trie)");
             return 1;
@@ -519,7 +468,7 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
     }
 
     /* add the label to the radix_trie */
-    subnet_flag = radix_trie_add_attr_label(rt, label);
+    subnet_flag = radix_trie_add_attr_label(glb_config->rt, label);
     if (subnet_flag == 0) {
           joy_log_err("could not add subnet label %s to radix_trie", label);
           return 1;
@@ -530,14 +479,14 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
         /* processing just a single subnet address */
         memset(single_addr,0x00,64);
         strncpy(single_addr,subnet_str,63);
-        err = radix_trie_add_subnet_from_string(rt, single_addr, subnet_flag, info);
+        err = radix_trie_add_subnet_from_string(glb_config->rt, single_addr, subnet_flag, info);
         if (err != ok) {
             joy_log_err("could not add labeled subnet for %s", single_addr);
             return 1;
         }
     } else {
         /* processing the subnet file now */
-        err = radix_trie_add_subnets_from_file(rt, subnet_str, subnet_flag, info);
+        err = radix_trie_add_subnets_from_file(glb_config->rt, subnet_str, subnet_flag, info);
         if (err != ok) {
             joy_log_err("could not add labeled subnets from file %s", subnet_str);
             return 1;
@@ -545,8 +494,8 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
     }
 
     /* increment the number of subnets we have configured */
-    config.subnet[config.num_subnets] = strdup(label);
-    ++config.num_subnets;
+    glb_config->subnet[glb_config->num_subnets] = strdup(label);
+    ++glb_config->num_subnets;
     return 0;
 }
 
@@ -606,7 +555,7 @@ void joy_print_flow_data(int type)
     }
 
     /* see if we should collect host information */
-    if (config.report_exe) {
+    if (glb_config->report_exe) {
         joy_log_info("retrieveing process information\n");
         if (get_host_flow_data() != 0) {
             joy_log_warn("Could not obtain host/process flow data\n");
@@ -667,7 +616,7 @@ void joy_cleanup(void)
     }
 
     /* Flush any unsent exporter messages in Ipfix module */
-    if (config.ipfix_export_port) {
+    if (glb_config->ipfix_export_port) {
         ipfix_export_flush_message();
     }
 

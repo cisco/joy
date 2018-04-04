@@ -65,8 +65,7 @@
 /*
  * External objects, defined in joy
  */
-extern struct configuration config;
-define_all_features_config_extern_uint(feature_list);
+extern struct configuration *glb_config;
 
 struct nfv9_field_type nfv9_fields[] = {                                 
     { "RESERVED",                      0,   0  },                       

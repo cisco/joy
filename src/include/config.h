@@ -57,6 +57,14 @@
 
 #define NULL_KEYWORD "none"
 
+enum SALT_algorithm {
+  reserved = 0,
+  raw = 1,
+  aggregated = 2,
+  defragmented = 3,
+  rle = 4
+};
+
 /** structure for the configuration parameters */
 struct configuration {
     unsigned int bidir;
@@ -66,6 +74,7 @@ struct configuration {
     unsigned int report_entropy;
     unsigned int report_hd;
     unsigned int report_exe;
+    unsigned int report_idp;
     unsigned int include_classifier;
     unsigned int idp;
     unsigned int promisc;
@@ -73,6 +82,7 @@ struct configuration {
     unsigned int type;           /*!< 1=SPLT, 2=SALT */
     unsigned int retain_local;
     unsigned int max_records;
+    unsigned int records_in_file;
     unsigned int nfv9_capture_port;
     unsigned int ipfix_collect_port;
     unsigned int ipfix_collect_online;
@@ -83,6 +93,8 @@ struct configuration {
     unsigned int verbosity;
     unsigned int show_config;
     unsigned int show_interfaces;
+    enum SALT_algorithm salt_algo;
+
   
     declare_all_features_config_uint(feature_list) 
   
@@ -105,6 +117,8 @@ struct configuration {
     char *ipfix_export_template;
     char *aux_resource_path;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
+    unsigned short compact_bd_mapping[16];
+    radix_trie_t rt;
 };
 
 

@@ -82,6 +82,7 @@
 #include <ctype.h>
 #include "radix_trie.h"
 #include "addr.h"
+#include "config.h"
 #include "output.h"
 #include "updater.h"
 
@@ -92,6 +93,11 @@ size_t getline(char **lineptr, size_t *n, FILE *stream);
 
 #endif
 
+/* external definitions from joy.c */
+extern struct configuration *glb_config;
+extern zfile output;
+extern FILE *info;
+
 /** maximum label string length */
 #define MAX_LABEL_LEN 256
 
@@ -100,7 +106,7 @@ size_t getline(char **lineptr, size_t *n, FILE *stream);
 
 /** values for node types */
 enum radix_trie_node_type {
-    reserved = 0,
+    reservd = 0,
     internal = 1,
     leaf = 2
 };

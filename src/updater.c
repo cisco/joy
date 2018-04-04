@@ -57,6 +57,11 @@
 #include "windows.h"
 #endif
 
+/* external definitions from joy.c */
+extern struct configuration *glb_config;
+extern zfile output;
+extern FILE *info;
+
 /** select destination for printing out information
  *
  **  TO_SCREEN = 0 for 'info' file
@@ -356,8 +361,8 @@ static upd_return_codes_t update_radix_trie ()
 
     /* swap tree pointers */
     pthread_mutex_lock(&radix_trie_lock);
-    tmp_rt = rt;
-    rt = updater_trie;
+    tmp_rt = glb_config->rt;
+    glb_config->rt = updater_trie;
     updater_trie = NULL;
     pthread_mutex_unlock(&radix_trie_lock);
 

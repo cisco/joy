@@ -562,7 +562,7 @@ void update_params (classifier_type_codes_t param_type, char *param_file) {
             break;
     
         default:
-            fprintf(info, "error: unknown paramerter type (%d)", param_type);
+            joy_log_err("error: unknown paramerter type (%d)", param_type);
             break;
     }
 }

@@ -58,7 +58,6 @@
 #include "tls.h"
 #include "pkt_proc.h"
 #include "p2f.h"
-#include "config.h"
 
 /********************************************
  *********
@@ -153,18 +152,6 @@ enum ipfix_template_type export_template_type;
 
 
 /*
- * External objects, defined in joy
- */
-extern unsigned int ipfix_collect_port;
-extern unsigned int ipfix_export_port;
-extern unsigned int ipfix_export_remote_port;
-extern char *ipfix_export_remote_host;
-extern char *ipfix_export_template;
-extern struct configuration config;
-define_all_features_config_extern_uint(feature_list);
-
-
-/*
  * Local ipfix.c prototypes
  */
 static int ipfix_cts_search(struct ipfix_template_key needle,
@@ -231,7 +218,7 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
   /* Set local (collector) address */
   c->clctr_addr.sin_family = AF_INET;
   c->clctr_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  c->clctr_addr.sin_port = htons(ipfix_collect_port);
+  c->clctr_addr.sin_port = htons(glb_config->ipfix_collect_port);
 
   /* Bind the socket */
   if (bind(c->socket, (struct sockaddr *)&c->clctr_addr,
@@ -241,7 +228,7 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
   }
 
   loginfo("IPFIX collector configured...");
-  loginfo("Host Port: %u", ipfix_collect_port);
+  loginfo("Host Port: %u", glb_config->ipfix_collect_port);
   loginfo("Ready!\n");
 
   return 0;
@@ -3006,7 +2993,7 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
   /* Set local (exporter) address */
   e->exprt_addr.sin_family = AF_INET;
   e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  e->exprt_addr.sin_port = htons(ipfix_export_port);
+  e->exprt_addr.sin_port = htons(glb_config->ipfix_export_port);
   if (bind(e->socket, (struct sockaddr *)&e->exprt_addr,
            sizeof(e->exprt_addr)) < 0) {
     loginfo("error: bind address failed");
@@ -3015,8 +3002,8 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 
   /* Set remote (collector) address */
   e->clctr_addr.sin_family = AF_INET;
-  if (ipfix_export_remote_port) {
-    remote_port = ipfix_export_remote_port;
+  if (glb_config->ipfix_export_remote_port) {
+    remote_port = glb_config->ipfix_export_remote_port;
     e->clctr_addr.sin_port = htons(remote_port);
   } else {
     remote_port = IPFIX_COLLECTOR_DEFAULT_PORT;
@@ -3047,16 +3034,16 @@ static int ipfix_exporter_init(struct ipfix_exporter *e,
 
   loginfo("IPFIX exporter configured...");
   loginfo("Observation Domain ID: %u", exporter_obs_dom_id);
-  loginfo("Host Port: %u", ipfix_export_port);
+  loginfo("Host Port: %u", glb_config->ipfix_export_port);
   loginfo("Remote IP Address: %s", host_desc);
   loginfo("Remote Port: %u", remote_port);
 
   /* Set the template type to use */
-  if (ipfix_export_template) {
-      if (!strncmp(ipfix_export_template, "simple", TEMPLATE_NAME_MAX_SIZE)) {
+  if (glb_config->ipfix_export_template) {
+      if (!strncmp(glb_config->ipfix_export_template, "simple", TEMPLATE_NAME_MAX_SIZE)) {
           export_template_type = IPFIX_SIMPLE_TEMPLATE;
           loginfo("Template Type: %s", "simple");
-      } else if (!strncmp(ipfix_export_template, "idp", TEMPLATE_NAME_MAX_SIZE)) {
+      } else if (!strncmp(glb_config->ipfix_export_template, "idp", TEMPLATE_NAME_MAX_SIZE)) {
           export_template_type = IPFIX_IDP_TEMPLATE;
           loginfo("Template Type: %s", "idp");
       } else {
@@ -4340,7 +4327,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
 
     /* Init the exporter for use, if not done already */
     if (gateway_export.socket == 0) {
-        ipfix_exporter_init(&gateway_export, ipfix_export_remote_host);
+        ipfix_exporter_init(&gateway_export, glb_config->ipfix_export_remote_host);
     }
 
     /* Create and init the IPFIX message */

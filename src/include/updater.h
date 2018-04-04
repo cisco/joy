@@ -77,12 +77,6 @@ extern pthread_mutex_t radix_trie_lock;
 /** mutex used to let other threads know the updater is currently doing work */
 extern pthread_mutex_t work_in_process;
 
-/** external reference to the radix_trie used by joy */
-extern radix_trie_t rt;
-
-/** external reference to the file used for dumping out errors, warning, info */
-extern FILE *info;
-
 /** Main entry point for the updater thread */
 void *updater_main(void* ptr);
 

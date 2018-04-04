@@ -48,6 +48,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include "p2f.h"
+#include "config.h"
 #include "procwatch.h"
 #include "err.h"
 

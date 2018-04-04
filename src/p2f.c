@@ -67,10 +67,7 @@
 #include "err.h" /* errors and logging */
 #include "osdetect.h"
 #include "utils.h"
-
-/*
- *  global variables
- */
+#include "config.h"
 
 /*
  * The VERSION variable should be set by a compiler directive, based
@@ -80,70 +77,6 @@
 #ifndef VERSION
 # define VERSION "unknown"
 #endif
-
-/*
- * configuration state
- */
-define_all_features_config_uint(feature_list);
-
-unsigned int bidir = 0;
-
-unsigned int include_zeroes = 0;
-
-unsigned int include_retrans = 0;
-
-unsigned int byte_distribution = 0;
-
-char *compact_byte_distribution = NULL;
-
-unsigned int report_entropy = 0;
-
-unsigned int report_idp = 0;
-
-unsigned int report_hd = 0;
-
-unsigned int include_classifier = 0;
-
-unsigned int nfv9_capture_port = 0;
-
-unsigned int ipfix_collect_port = 0;
-
-unsigned int ipfix_collect_online = 0;
-
-unsigned int ipfix_export_port = 0;
-
-unsigned int ipfix_export_remote_port = 0;
-
-unsigned int preemptive_timeout = 0;
-
-char *ipfix_export_remote_host = NULL;
-
-char *ipfix_export_template = NULL;
-
-char *aux_resource_path = NULL;
-
-zfile output = NULL;
-
-FILE *info = NULL;
-
-unsigned int records_in_file = 0;
-
-unsigned int verbosity = 0;
-
-unsigned int show_config = 0;
-
-unsigned int show_interfaces = 0;
-
-unsigned short compact_bd_mapping[16];
-
-radix_trie_t rt = NULL;
-
-enum SALT_algorithm salt_algo = raw;
-
-/*
- * config is the global configuration
- */
-struct configuration config = { 0, };
 
 /*
  * by default, we use a 10-second flow inactivity timeout window
@@ -261,7 +194,7 @@ void flocap_stats_timer_init () {
  */
 static unsigned int flow_key_hash (const struct flow_key *f) {
 
-    if (config.flow_key_match_method == exact) {
+    if (glb_config->flow_key_match_method == exact) {
           return (((unsigned int)f->sa.s_addr * 0xef6e15aa)
 	    ^ ((unsigned int)f->da.s_addr * 0x65cd52a0)
 	    ^ ((unsigned int)f->sp * 0x8216)
@@ -367,7 +300,7 @@ static int flow_key_is_eq (const struct flow_key *a,
  */
 static int flow_key_is_twin (const struct flow_key *a,
                              const struct flow_key *b) {
-    if (config.flow_key_match_method == near_match) {
+    if (glb_config->flow_key_match_method == near_match) {
         /*
          * Require that only one address match, so that we can find twins
          * even in the presence of NAT; that is, (sa, da) equals either
@@ -644,7 +577,7 @@ static int flow_record_is_active_expired(struct flow_record *record,
          * Preemptive Timeout
          * Check the new incoming packet to see if it will expire the record
          */
-        if (header->ts.tv_sec > (record->start.tv_sec + active_max) && preemptive_timeout) {
+        if (header->ts.tv_sec > (record->start.tv_sec + active_max) && glb_config->preemptive_timeout) {
             if ((record->twin == NULL) || (header->ts.tv_sec > (record->twin->start.tv_sec + active_max))) {
                 return 1;
             }
@@ -769,7 +702,7 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
          * twin, then set both twin pointers; otherwise, enter the
          * record into the chronological list
          */
-        if (bidir) {
+        if (glb_config->bidir) {
             record->twin = flow_key_get_twin(key);
             debug_printf("LIST record %p is twin of %p\n", record, record->twin);
         }
@@ -892,7 +825,7 @@ void flow_record_update_byte_count (struct flow_record *f, const void *x, unsign
     const unsigned char *data = x;
     int i;
 
-    if (byte_distribution || report_entropy) {
+    if (glb_config->byte_distribution || glb_config->report_entropy) {
         for (i=0; i<len; i++) {
             f->byte_count[data[i]]++;
         }
@@ -917,9 +850,9 @@ void flow_record_update_compact_byte_count (struct flow_record *f, const void *x
     const unsigned char *data = x;
     int i;
 
-    if (compact_byte_distribution) {
+    if (glb_config->compact_byte_distribution) {
         for (i=0; i<len; i++) {
-            f->compact_byte_count[compact_bd_mapping[data[i]]]++;
+            f->compact_byte_count[glb_config->compact_bd_mapping[data[i]]]++;
         }
     }
 }
@@ -936,7 +869,7 @@ void flow_record_update_byte_dist_mean_var (struct flow_record *f, const void *x
     double delta;
     int i;
 
-    if (byte_distribution || report_entropy) {
+    if (glb_config->byte_distribution || glb_config->report_entropy) {
         for (i=0; i<len; i++) {
             f->num_bytes += 1;
             delta = ((double)data[i] - f->bd_mean);
@@ -1283,7 +1216,7 @@ static void flow_record_print_json (const struct flow_record *record) {
     char *dir;
 
     flocap_stats_incr_records_output();
-    records_in_file++;
+    glb_config->records_in_file++;
 
     if (record->twin != NULL) {
         /*
@@ -1364,13 +1297,13 @@ static void flow_record_print_json (const struct flow_record *record) {
      * if src or dst address matches a subnets associated with labels,
      * then print out those labels
      */
-    if (config.num_subnets) {
+    if (glb_config->num_subnets) {
         attr_flags flag;
 
-        flag = radix_trie_lookup_addr(rt, rec->key.sa);
-        attr_flags_json_print_labels(rt, flag, "sa_labels", output);
-        flag = radix_trie_lookup_addr(rt, rec->key.da);
-        attr_flags_json_print_labels(rt, flag, "da_labels", output);
+        flag = radix_trie_lookup_addr(glb_config->rt, rec->key.sa);
+        attr_flags_json_print_labels(glb_config->rt, flag, "sa_labels", output);
+        flag = radix_trie_lookup_addr(glb_config->rt, rec->key.da);
+        attr_flags_json_print_labels(glb_config->rt, flag, "da_labels", output);
     }
 
     /*
@@ -1464,7 +1397,7 @@ static void flow_record_print_json (const struct flow_record *record) {
         zprintf(output, "]");
     }
 
-    if (byte_distribution || report_entropy || compact_byte_distribution) {
+    if (glb_config->byte_distribution || glb_config->report_entropy || glb_config->compact_byte_distribution) {
         const unsigned int *array;
         const unsigned int *compact_array;
         unsigned int tmp[256];
@@ -1523,7 +1456,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             }
         }
 
-        if (byte_distribution) {
+        if (glb_config->byte_distribution) {
             reduce_bd_bits(tmp, 256);
             array = tmp;
 
@@ -1541,7 +1474,7 @@ static void flow_record_print_json (const struct flow_record *record) {
 
         }
 
-        if (compact_byte_distribution) {
+        if (glb_config->compact_byte_distribution) {
             reduce_bd_bits(compact_tmp, 16);
             compact_array = compact_tmp;
 
@@ -1552,7 +1485,7 @@ static void flow_record_print_json (const struct flow_record *record) {
             zprintf(output, "%u]", (unsigned char)compact_array[i]);
         }
 
-        if (report_entropy) {
+        if (glb_config->report_entropy) {
             if (num_bytes != 0) {
                 double entropy = flow_record_get_byte_count_entropy(array, num_bytes);
 
@@ -1565,19 +1498,19 @@ static void flow_record_print_json (const struct flow_record *record) {
     /*
      * Inline classification of flows
      */
-    if (include_classifier) {
+    if (glb_config->include_classifier) {
         float score = 0.0;
 
         if (rec->twin) {
             score = classify(rec->pkt_len, rec->pkt_time, rec->twin->pkt_len, rec->twin->pkt_time,
 		                     rec->start, rec->twin->start,
 		                     NUM_PKT_LEN, rec->key.sp, rec->key.dp, rec->np, rec->twin->np, rec->op, rec->twin->op,
-		                     rec->ob, rec->twin->ob, byte_distribution,
+		                     rec->ob, rec->twin->ob, glb_config->byte_distribution,
 		                     rec->byte_count, rec->twin->byte_count);
         } else {
             score = classify(rec->pkt_len, rec->pkt_time, NULL, NULL,	rec->start, rec->start,
 		                     NUM_PKT_LEN, rec->key.sp, rec->key.dp, rec->np, 0, rec->op, 0,
-		                     rec->ob, 0, byte_distribution,
+		                     rec->ob, 0, glb_config->byte_distribution,
 		                     rec->byte_count, NULL);
         }
 
@@ -1602,13 +1535,13 @@ static void flow_record_print_json (const struct flow_record *record) {
      */
     print_executable_json(output, rec);
 
-    if (report_hd) {
+    if (glb_config->report_hd) {
         /*
          * TODO: this should be bidirectional, but it is not!  This will
          * be changed sometime soon, but for now, this will give some
          * experience with this type of data
          */
-        header_description_printf(&rec->hd, output, report_hd);
+        header_description_printf(&rec->hd, output, glb_config->report_hd);
     }
 
     /*
@@ -1625,7 +1558,7 @@ static void flow_record_print_json (const struct flow_record *record) {
     /*
      * Initial data packet (IDP)
      */
-    if (report_idp) {
+    if (glb_config->report_idp) {
         if (rec->idp != NULL) {
             zprintf(output, ",\"idp_out\":");
             zprintf_raw_as_hex(output, rec->idp, rec->idp_len);
@@ -1702,7 +1635,7 @@ static void flow_record_print_and_delete (struct flow_record *record) {
      * Export this record before deletion if running in
      * IPFIX exporter mode.
      */
-    if (ipfix_export_port) {
+    if (glb_config->ipfix_export_port) {
         ipfix_export_main(record);
     }
 #endif
@@ -1745,7 +1678,7 @@ void flow_record_export_as_ipfix (unsigned int export_all) {
          * Export this record before deletion if running in
          * IPFIX exporter mode.
          */
-        if (ipfix_export_port) {
+        if (glb_config->ipfix_export_port) {
             ipfix_export_main(record);
         }
 
@@ -1806,7 +1739,7 @@ void flow_record_list_print_json (unsigned int print_all) {
  * \return The twin flow_key, or NULL
  */
 struct flow_record *flow_key_get_twin (const struct flow_key *key) {
-    if (config.flow_key_match_method == exact) {
+    if (glb_config->flow_key_match_method == exact) {
         struct flow_key twin;
 
         /*

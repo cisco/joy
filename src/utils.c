@@ -42,12 +42,17 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include "config.h"
 #include "utils.h"
 #include "err.h"
 
 #define JOY_UTILS_MAX_FILEPATH 128
 
-extern char *aux_resource_path;
+/* external definitions from joy.c */
+extern struct configuration *glb_config;
+extern zfile output;
+extern FILE *info;
 
 #ifdef USE_BZIP2
 
@@ -116,11 +121,11 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
     /* Allocate memory to store constructed file path */
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
 
-    if (aux_resource_path) {
+    if (glb_config->aux_resource_path) {
         /*
          * Use the path that was given in Joy cli
          */
-        strncpy(filepath, aux_resource_path, JOY_UTILS_MAX_FILEPATH);
+        strncpy(filepath, glb_config->aux_resource_path, JOY_UTILS_MAX_FILEPATH);
         /* Place "/" before file name in case user left it out */
         strncat(filepath, "/", JOY_UTILS_MAX_FILEPATH - 1);
         strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);

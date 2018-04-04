@@ -41,18 +41,17 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "radix_trie.h"
 #include "modules.h"
 #include "p2f.h"
+#include "config.h"
 #include "err.h"
 
-/*
- * use the "info" output stream to represent secondary output - it is
- * called by debug_printf()
- */
-FILE *info;
-
-extern unsigned int verbosity;
+struct configuration active_config;
+struct configuration *glb_config;
+zfile output = NULL;
+FILE *info = NULL;
 
 /**
  * \fn int main (int argc, char *argv[]) 
@@ -63,13 +62,17 @@ extern unsigned int verbosity;
  */
 int main (int argc, char *argv[]) {
 
+    memset(&active_config, 0x00, sizeof(struct configuration));
+    glb_config = &active_config;
+
     /*
-     * use stderr for debug output 
+     * use stdout/stderr for output 
      */
     info = stderr; 
+    output = stdout;
 
     /* Set logging to warning level */
-    verbosity = JOY_LOG_WARN;
+    glb_config->verbosity = JOY_LOG_WARN;
 
     if (radix_trie_unit_test() != 0) {
         printf("error: radix_trie test failed\n");
