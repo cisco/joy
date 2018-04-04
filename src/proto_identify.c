@@ -42,11 +42,16 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "proto_identify.h"
+#include "config.h"
 #include "err.h"
 
+extern struct configuration *glb_config;
+extern zfile output;
+extern FILE *info;
 
 /* --------------------------------------------------
  * --------------------------------------------------
