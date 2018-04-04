@@ -493,6 +493,7 @@ static int tls_x509_get_validity_period(X509 *cert,
         if (not_before_data_len > 0) {
             /* Prepare the record */
             record->validity_not_before = malloc(not_before_data_len + 1);
+            record->validity_not_before[not_before_data_len] = 0;
             record->validity_not_before_length = not_before_data_len;
 
             /* Copy notBefore into record */
@@ -524,6 +525,7 @@ static int tls_x509_get_validity_period(X509 *cert,
         if (not_after_data_len > 0) {
             /* Prepare the record */
             record->validity_not_after = malloc(not_after_data_len + 1);
+            record->validity_not_after[not_after_data_len] = 0;
             record->validity_not_after_length = not_after_data_len;
             /* Copy notAfter into record */
             memcpy(record->validity_not_after, bio_mem_ptr->data,
@@ -628,6 +630,7 @@ static int tls_x509_get_subject(X509 *cert,
          * Give extra byte for manual null-termination.
          */
         cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data[entry_data_len] = 0;
         cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
@@ -738,6 +741,7 @@ static int tls_x509_get_issuer(X509 *cert,
          * Give extra byte for manual null-termination.
          */
         cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data[entry_data_len] = 0;
         cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
