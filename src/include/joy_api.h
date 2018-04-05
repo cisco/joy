@@ -90,7 +90,7 @@
 
 /* structure used to initialize joy through the API Library */
 struct joy_init {
-    int num_threads;             /* number of threads the caller wants to use */
+    int num_contexts;            /* number of processing contexts to use */
     int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
     int idp;                     /* idp size to report, recommend 1300 */
@@ -255,7 +255,7 @@ extern int joy_label_subnets (char *label, int type, char* subnet_str);
  *      wrapper function for the code used within the Joy library.
  *
  * Parameters:
- *      ctx_index - index of the thread context to use
+ *      ctx_index - index of the context to use
  *      header - libpcap header which contains timestamp, cap length
  *               and length
  *      packet - the actual data packet
@@ -308,7 +308,7 @@ extern void joy_export_flows_ipfix (int index, int type);
 /*
  * Function: joy_cleanup
  *
- * Description: This function cleans up any lefotover data that maybe
+ * Description: This function cleans up any leftover data that maybe
  *      hanging around. If IPFix exporting is turned on, then it also
  *      flushes any remaining records out to the destination.
  *

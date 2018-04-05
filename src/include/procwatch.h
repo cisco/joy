@@ -78,6 +78,6 @@ struct host_flow {
  */
 
 /** main function for host process to flow mapping */
-int get_host_flow_data();
+int get_host_flow_data(joy_ctx_data *ctx);
 
 #endif /* PROCWATCH_H */

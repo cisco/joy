@@ -141,7 +141,7 @@ int main (int argc, char **argv)
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(struct joy_init));
-    init_data.num_threads = 1;                /* number of library instances to use */
+    init_data.num_contexts = 1;               /* number of library contexts to use */
     init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
     init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
     init_data.idp = 1300;                     /* number of bytes of idp to report */
@@ -163,7 +163,7 @@ int main (int argc, char **argv)
     joy_print_config(JOY_JSON_FORMAT);
 
     /* process the hardcoded packets */
-    process_hardcoded_packets(0);
+    process_hardcoded_packets(0); /* just using 1 context -> 0 */
     
     /* export the flows */
     joy_export_flows_ipfix(0, JOY_ALL_FLOWS);

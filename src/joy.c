@@ -1479,7 +1479,7 @@ int main (int argc, char **argv) {
                   /*
                    * periodically obtain host/process flow data
                    */ 
-                  if (get_host_flow_data() != 0) {
+                  if (get_host_flow_data(&main_ctx) != 0) {
                       joy_log_warn("Could not obtain host/process flow data\n");
                   }
            }

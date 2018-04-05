@@ -85,7 +85,7 @@ struct joy_ctx_data  {
     unsigned long int reserved_ctx;
 };
 
-struct joy_ctx_data thread_data[MAX_LIB_CONTEXTS];
+struct joy_ctx_data ctx_data[MAX_LIB_CONTEXTS];
 
 /*
  * Function: joy_initialize
@@ -121,7 +121,7 @@ int joy_initialize(struct joy_init *init_data,
     glb_config = &active_config;
 
     /* clear out the thread context data */
-    memset(&thread_data, 0x00, sizeof(thread_data));
+    memset(&ctx_data, 0x00, sizeof(ctx_data));
 
     /* set 'info' to stderr as a precaution */
     info = stderr;
@@ -220,15 +220,15 @@ int joy_initialize(struct joy_init *init_data,
     }
 
     /* sanity check the thread count */
-    if (init_data->num_threads < 1) 
-        init_data->num_threads = 1;
-    if (init_data->num_threads > MAX_LIB_CONTEXTS)
-        init_data->num_threads = MAX_LIB_CONTEXTS;
+    if (init_data->num_contexts < 1) 
+        init_data->num_contexts = 1;
+    if (init_data->num_contexts > MAX_LIB_CONTEXTS)
+        init_data->num_contexts = MAX_LIB_CONTEXTS;
 
     /* intialize the data structures */
-    for (i=0; i < init_data->num_threads; ++i) {
-        flow_record_list_init(&thread_data[i]);
-        flocap_stats_timer_init(&thread_data[i]);
+    for (i=0; i < init_data->num_contexts; ++i) {
+        flow_record_list_init(&ctx_data[i]);
+        flocap_stats_timer_init(&ctx_data[i]);
     }
 
     /* set library init flag */
@@ -564,7 +564,7 @@ void joy_process_packet(unsigned char *ctx_index,
         return;
     }
 
-    ctx = &thread_data[index];
+    ctx = &ctx_data[index];
     process_packet((unsigned char*)ctx, header, packet);
 }
 
@@ -597,13 +597,13 @@ void joy_print_flow_data(int index, int type)
     /* see if we should collect host information */
     if (glb_config->report_exe) {
         joy_log_info("retrieveing process information\n");
-        if (get_host_flow_data() != 0) {
+        if (get_host_flow_data(&ctx_data[index]) != 0) {
             joy_log_warn("Could not obtain host/process flow data\n");
         }
     }
 
     /* print the flow records */
-    flow_record_list_print_json(&thread_data[index], type);
+    flow_record_list_print_json(&ctx_data[index], type);
 }
 
 /*
@@ -631,7 +631,7 @@ void joy_export_flows_ipfix(int index, int type)
     }
 
     /* export the flow records */
-    flow_record_export_as_ipfix(&thread_data[index], type);
+    flow_record_export_as_ipfix(&ctx_data[index], type);
 }
 
 /*
@@ -665,5 +665,5 @@ void joy_cleanup(int index)
     ipfix_module_cleanup();
 
     /* free up the flow records */
-    flow_record_list_free(&(thread_data[index]));
+    flow_record_list_free(&(ctx_data[index]));
 }
