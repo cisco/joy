@@ -144,7 +144,7 @@ static int add_tls_identifiers(void) {
     struct pi_container pi;
 
     {
-        /* Client Hello */
+        /* Client Hello 1.0 */
         uint16_t string[] = {0x16, 0x03, 0x01, WILDCARD, WILDCARD, 0x01};
         pi.app = 443;
         pi.dir = DIR_CLIENT;
@@ -156,7 +156,7 @@ static int add_tls_identifiers(void) {
     }
 
     {
-        /* Server Hello */
+        /* Server Hello 1.0*/
         uint16_t string[] = {0x16, 0x03, 0x01, WILDCARD, WILDCARD, 0x02};
         pi.app = 443;
         pi.dir = DIR_SERVER;
@@ -167,6 +167,53 @@ static int add_tls_identifiers(void) {
         }
     }
 
+    {
+        /* Client Hello 1.1 */
+        uint16_t string[] = {0x16, 0x03, 0x02, WILDCARD, WILDCARD, 0x01};
+        pi.app = 443;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Server Hello 1.1*/
+        uint16_t string[] = {0x16, 0x03, 0x02, WILDCARD, WILDCARD, 0x02};
+        pi.app = 443;
+        pi.dir = DIR_SERVER;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Client Hello 1.2 */
+        uint16_t string[] = {0x16, 0x03, 0x03, WILDCARD, WILDCARD, 0x01};
+        pi.app = 443;
+        pi.dir = DIR_CLIENT;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    {
+        /* Server Hello 1.2*/
+        uint16_t string[] = {0x16, 0x03, 0x03, WILDCARD, WILDCARD, 0x02};
+        pi.app = 443;
+        pi.dir = DIR_SERVER;
+
+        if (add_keyword(string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
 
     return 0;
 }
