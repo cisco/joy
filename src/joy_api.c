@@ -545,7 +545,7 @@ void joy_process_packet(unsigned char *ctx_index,
         const struct pcap_pkthdr *header,
         const unsigned char *packet)
 {
-    int index = 0;
+    unsigned long int index = 0;
     joy_ctx_data *ctx = NULL;
 
     /* check library initialization */
@@ -557,10 +557,10 @@ void joy_process_packet(unsigned char *ctx_index,
     /* ctx_index has the int value of the thread context
      * This number is between 0 and MAX_LIB_CONTEXTS
      */
-    index = (int)ctx_index;
+    index = (unsigned long int)ctx_index;
 
     if ((index < 0) || (index >= MAX_LIB_CONTEXTS )) {
-        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
         return;
     }
 
