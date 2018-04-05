@@ -559,7 +559,7 @@ void joy_process_packet(unsigned char *ctx_index,
      */
     index = (unsigned long int)ctx_index;
 
-    if ((index < 0) || (index >= MAX_LIB_CONTEXTS )) {
+    if (index >= MAX_LIB_CONTEXTS ) {
         joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
         return;
     }
