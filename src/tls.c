@@ -489,7 +489,7 @@ static int tls_x509_get_validity_period(X509 *cert,
 
         if (not_before_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_before = malloc(not_before_data_len + 1);
+            record->validity_not_before = calloc(not_before_data_len + 1, sizeof(unsigned char));
             record->validity_not_before_length = not_before_data_len;
 
             /* Copy notBefore into record */
@@ -520,7 +520,7 @@ static int tls_x509_get_validity_period(X509 *cert,
 
         if (not_after_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_after = malloc(not_after_data_len + 1);
+            record->validity_not_after = calloc(not_after_data_len + 1, sizeof(unsigned char));
             record->validity_not_after_length = not_after_data_len;
             /* Copy notAfter into record */
             memcpy(record->validity_not_after, bio_mem_ptr->data,
@@ -624,7 +624,7 @@ static int tls_x509_get_subject(X509 *cert,
          * Prepare the subject entry in the certificate record.
          * Give extra byte for manual null-termination.
          */
-        cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data = calloc(entry_data_len + 1, sizeof(unsigned char));
         cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
@@ -734,7 +734,7 @@ static int tls_x509_get_issuer(X509 *cert,
          * Prepare the issuer entry in the certificate record.
          * Give extra byte for manual null-termination.
          */
-        cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data = calloc(entry_data_len + 1, sizeof(unsigned char));
         cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
@@ -1052,8 +1052,7 @@ static int tls_x509_get_extensions(X509 *cert,
         /*
          * Prepare the extension entry in the certificate record.
          */
-        cert_record_entry->data = malloc(ext_data_len + 1);
-        memset(cert_record_entry->data, 0, ext_data_len + 1);
+        cert_record_entry->data = calloc(ext_data_len + 1, sizeof(unsigned char));
         cert_record_entry->data_length = ext_data_len;
 
         if (nid == NID_undef) {
@@ -1903,10 +1902,14 @@ void tls_update (struct tls *r,
             r->handshake_buffer = calloc(len, sizeof(unsigned char));
         } else {
             /* Reallocate memory to fit more */
-            r->handshake_buffer = realloc(r->handshake_buffer,
-                                          r->handshake_length + (len*sizeof(unsigned char)));
+            unsigned char *tmp_ptr = NULL;
 
-            if (!r->handshake_buffer) {
+            tmp_ptr = realloc(r->handshake_buffer,
+                              r->handshake_length + (len*sizeof(unsigned char)));
+
+            if (tmp_ptr) {
+                r->handshake_buffer = tmp_ptr;
+            } else {
                 joy_log_err("realloc for handshake data failed");
                 return;
             }
