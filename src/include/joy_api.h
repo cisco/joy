@@ -59,6 +59,7 @@
 #define MAX_FILENAME_LEN 1024
 #define DEFAULT_IPFIX_EXPORT_PORT 4739
 #define DEFAULT_IDP_SIZE 1300
+#define MAX_LIB_CONTEXTS 10
 
 /*
  * Joy Library Bitmask Values
@@ -89,6 +90,7 @@
 
 /* structure used to initialize joy through the API Library */
 struct joy_init {
+    int num_threads;             /* number of threads the caller wants to use */
     int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
     int idp;                     /* idp size to report, recommend 1300 */
@@ -97,10 +99,13 @@ struct joy_init {
     uint32_t bitmask;            /* bitmask representing which features are on */
 };
 
+/* structure definition for the library context data */
+typedef struct joy_ctx_data joy_ctx_data;
+
 /* prototypes for the API interface */
 
 /*
- * Function: joy_initialize 
+ * Function: joy_initialize
  *
  * Description: This function initializes the Joy library
  *      to analyze the data features defined in the bitmask.
@@ -118,7 +123,8 @@ struct joy_init {
  *      logfile - the destination file for errors/info/debug messages
  *
  * Returns:
- *      ok or failure
+ *      0 - success
+ *      1 - failure
  *
  */
 extern int joy_initialize (struct joy_init *data, char *output_dir,
@@ -249,7 +255,7 @@ extern int joy_label_subnets (char *label, int type, char* subnet_str);
  *      wrapper function for the code used within the Joy library.
  *
  * Parameters:
- *      ignore - Joy does not use this parameter
+ *      ctx_index - index of the thread context to use
  *      header - libpcap header which contains timestamp, cap length
  *               and length
  *      packet - the actual data packet
@@ -272,13 +278,14 @@ extern void joy_process_packet (unsigned char *ignore,
  *      host flow data to collect, if the option is turned on.
  *
  * Parameters:
+ *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_PRINT_ALL_FLOWS
  *
  * Returns:
  *      none
  *
  */
-extern void joy_print_flow_data (int type);
+extern void joy_print_flow_data (int index, int type);
 
 /*
  * Function: joy_export_flows_ipfix
@@ -289,13 +296,14 @@ extern void joy_print_flow_data (int type);
  *      as IPFix packets to the destination.
  *
  * Parameters:
+ *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *
  * Returns:
  *      none
  *
  */
-extern void joy_export_flows_ipfix (int type);
+extern void joy_export_flows_ipfix (int index, int type);
 
 /*
  * Function: joy_cleanup
@@ -305,12 +313,12 @@ extern void joy_export_flows_ipfix (int type);
  *      flushes any remaining records out to the destination.
  *
  * Parameters:
- *      none
+ *      index - index of the context to use
  *
  * Returns:
  *      none
  *
  */
-extern void joy_cleanup (void);
+extern void joy_cleanup (int index);
 
 #endif /* JOY_API_H */

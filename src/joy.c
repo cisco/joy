@@ -120,8 +120,18 @@ static pcap_t *handle = NULL;
 static char *filter_exp = "ip or vlan";
 static char dir_output[MAX_FILENAME_LEN];
 
-/* Globals defined in p2f.c */
-extern struct flocap_stats stats;
+/* per instance context data */
+struct joy_ctx_data  {
+    struct flocap_stats stats;
+    struct flocap_stats last_stats;
+    struct timeval last_stats_output_time;
+    struct flow_record *flow_record_chrono_first;
+    struct flow_record *flow_record_chrono_last;
+    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
+    unsigned long int reserved_info;
+    unsigned long int reserved_ctx;
+};
+struct joy_ctx_data main_ctx;
 
 /* config is the global configuration */
 struct configuration active_config;
@@ -405,12 +415,12 @@ static void sig_close (int signal_arg) {
     if (handle) {
       pcap_breakloop(handle);
     }
-    flocap_stats_output(info);
+    flocap_stats_output(&main_ctx,info);
     /*
      * flush remaining flow records, and print them even though they are
      * not expired
      */
-    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
+    flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
     zclose(output);
 
     if (glb_config->ipfix_export_port) {
@@ -1052,8 +1062,8 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                         first_input_pcap_file = 0;
                     }
                 }
-                flow_record_list_init();
-                flocap_stats_timer_init();
+                flow_record_list_init(&main_ctx);
+                flocap_stats_timer_init(&main_ctx);
 
                 tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
@@ -1225,6 +1235,7 @@ int main (int argc, char **argv) {
 #endif
 
     /* initialize the config */
+    memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
     memset(&active_config, 0x00, sizeof(struct configuration));
     glb_config = &active_config;
 
@@ -1304,7 +1315,7 @@ int main (int argc, char **argv) {
          * Cheerful message to indicate the start of a new run of the program
          */
         fprintf(info, "--- Joy Initialization ---\n");
-        flocap_stats_output(info);
+        flocap_stats_output(&main_ctx,info);
     }
 
     /* 
@@ -1474,12 +1485,12 @@ int main (int argc, char **argv) {
            }
 
            /* Periodically report on progress */
-           if ((flocap_stats_get_num_packets() % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
-                  flocap_stats_output(info);
+           if ((main_ctx.stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
+                  flocap_stats_output(&main_ctx,info);
            }
 
            /* Print out expired flows */
-           flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
+           flow_record_list_print_json(&main_ctx, FLOW_LIST_CHECK_EXPIRE);
 
            if (glb_config->filename) {
     
@@ -1550,11 +1561,11 @@ int main (int argc, char **argv) {
           return -7;
         }
 
-        flow_record_list_init();
+        flow_record_list_init(&main_ctx);
 
-        ipfix_collect_main();
+        ipfix_collect_main(&main_ctx);
 
-        flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
+        flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
         fflush(info);
 
     } else { /* mode = mode_offline */
@@ -1584,8 +1595,8 @@ int main (int argc, char **argv) {
         }
 
         /* intialize the data structures */
-        flow_record_list_init();
-        flocap_stats_timer_init();
+        flow_record_list_init(&main_ctx);
+        flocap_stats_timer_init(&main_ctx);
 
         /* loop over remaining arguments to process files */
         for (i=1+opt_count; i<argc; i++) {
@@ -1613,7 +1624,7 @@ int main (int argc, char **argv) {
     }
 
     if (joy_mode != MODE_OFFLINE) {
-	flocap_stats_output(info);
+	flocap_stats_output(&main_ctx,info);
 	// config_print(info, &glb_config);
     }
     
@@ -1680,7 +1691,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
         /* Loop over all packets in capture file */
         more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
         /* Print out expired flows */
-        flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
+        flow_record_list_print_json(&main_ctx, FLOW_LIST_CHECK_EXPIRE);
     }
 
     joy_log_info("all flows processed");
@@ -1692,8 +1703,8 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     pcap_close(handle);
   
-    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
-    flow_record_list_free();
+    flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
+    flow_record_list_free(&main_ctx);
 
     return 0;
 }

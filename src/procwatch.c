@@ -72,6 +72,18 @@
 #include "err.h" 
 #include <openssl/sha.h>
 
+/* per instance context data */
+struct joy_ctx_data  {
+    struct flocap_stats stats;
+    struct flocap_stats last_stats;
+    struct timeval last_stats_output_time;
+    struct flow_record *flow_record_chrono_first;
+    struct flow_record *flow_record_chrono_last;
+    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
+    unsigned long int reserved_info;
+    unsigned long int reserved_ctx;
+};
+
 static struct host_flow host_proc_flow_table_array[HOST_PROC_FLOW_TABLE_LEN];
 
 int calculate_sha256_hash(unsigned char* path, unsigned char *output)
@@ -980,7 +992,7 @@ int host_flow_table_add_sessions (int sockets) {
 */
 static struct timeval last_refresh_time = {0, 0};
 
-int get_host_flow_data() {
+int get_host_flow_data(joy_ctx_data *ctx) {
     int i;
     struct timeval current_time;
     struct timeval delta_time;
@@ -1026,8 +1038,8 @@ int get_host_flow_data() {
         twin.dp = record->key.sp;
         twin.prot = record->key.prot;
 
-        flow_key_set_process_info(&record->key, record);
-        flow_key_set_process_info(&twin, record);
+        flow_key_set_process_info(ctx, &record->key, record);
+        flow_key_set_process_info(ctx, &twin, record);
     }
 
     return 0;

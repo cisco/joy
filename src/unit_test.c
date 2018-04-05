@@ -48,6 +48,19 @@
 #include "config.h"
 #include "err.h"
 
+/* per instance context data */
+struct joy_ctx_data  {
+    struct flocap_stats stats;
+    struct flocap_stats last_stats;
+    struct timeval last_stats_output_time;
+    struct flow_record *flow_record_chrono_first;
+    struct flow_record *flow_record_chrono_last;
+    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
+    unsigned long int reserved_info;
+    unsigned long int reserved_ctx;
+};
+struct joy_ctx_data main_ctx;
+
 struct configuration active_config;
 struct configuration *glb_config;
 zfile output = NULL;
@@ -62,6 +75,7 @@ FILE *info = NULL;
  */
 int main (int argc, char *argv[]) {
 
+    memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
     memset(&active_config, 0x00, sizeof(struct configuration));
     glb_config = &active_config;
 

@@ -534,7 +534,8 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
                          const struct flow_key rec_key);
 
 
-int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
+int ipfix_parse_data_set(joy_ctx_data *ctx,
+                         const struct ipfix_hdr *ipfix,
                          const void *data_start,
                          uint16_t set_len,
                          uint16_t set_id,
@@ -542,7 +543,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
                          struct flow_key *prev_key);
 
 
-int ipfix_collect_main(void);
+int ipfix_collect_main(joy_ctx_data *ctx);
 
 
 int ipfix_export_flush_message(void);

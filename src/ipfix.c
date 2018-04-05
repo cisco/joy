@@ -150,6 +150,17 @@ static struct ipfix_message *export_message = NULL;
 
 enum ipfix_template_type export_template_type;
 
+/* per instance context data */
+struct joy_ctx_data  {
+    struct flocap_stats stats;
+    struct flocap_stats last_stats;
+    struct timeval last_stats_output_time;
+    struct flow_record *flow_record_chrono_first;
+    struct flow_record *flow_record_chrono_last;
+    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
+    unsigned long int reserved_info;
+    unsigned long int reserved_ctx;
+};
 
 /*
  * Local ipfix.c prototypes
@@ -235,7 +246,8 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
 }
 
 
-static int ipfix_collect_process_socket(unsigned char *data,
+static int ipfix_collect_process_socket(joy_ctx_data *ctx,
+                                        unsigned char *data,
                                         unsigned int data_len,
                                         struct sockaddr_in *remote_addr) {
   struct flow_key key;
@@ -250,15 +262,15 @@ static int ipfix_collect_process_socket(unsigned char *data,
   key.dp = ntohs(gateway_collect.clctr_addr.sin_port);
   key.prot = IPPROTO_UDP;
 
-  record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
+  record = flow_key_get_record(ctx, &key, CREATE_RECORDS,NULL);
 
-  process_ipfix((char*)data, data_len, record);
+  process_ipfix(ctx, (char*)data, data_len, record);
 
   return 0;
 }
 
 
-static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
+static void ipfix_collect_socket_loop(joy_ctx_data *ctx, struct ipfix_collector *c) {
   struct sockaddr_in remote_addr;
   socklen_t remote_addrlen = 0;
   int recvlen = 0;
@@ -278,7 +290,7 @@ static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
     recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
                        (struct sockaddr *)&remote_addr, &remote_addrlen);
     if (recvlen > 0) {
-      ipfix_collect_process_socket(buf, recvlen, &remote_addr);
+      ipfix_collect_process_socket(ctx, buf, recvlen, &remote_addr);
     }
     loginfo("received %d bytes", recvlen);
 #if 0
@@ -295,7 +307,7 @@ static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
 }
 
 
-int ipfix_collect_main(void) {
+int ipfix_collect_main(joy_ctx_data *ctx) {
   /* Init the collector for use, if not done already */
   if (gateway_collect.socket == 0) {
     if (ipfix_collector_init(&gateway_collect)) {
@@ -305,7 +317,7 @@ int ipfix_collect_main(void) {
   }
 
   /* Loop on the socket waiting for data to process */
-  ipfix_collect_socket_loop(&gateway_collect);
+  ipfix_collect_socket_loop(ctx, &gateway_collect);
   /* Never returns from here */
 
   return 0;
@@ -972,6 +984,7 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
 /*
  * @brief Parse through the contents of an IPFIX Data Set.
  *
+ * @param ctx The joy flow record context.
  * @param ipfix The IPFIX message header.
  * @param template_start Beginning of the data set.
  * @param set_len Total length of the data set measured in octets.
@@ -984,7 +997,8 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
  *
  * @param 0 for success, 1 for failure
  */
-int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
+int ipfix_parse_data_set(joy_ctx_data *ctx,
+                         const struct ipfix_hdr *ipfix,
                          const void *data_start,
                          uint16_t set_len,
                          uint16_t set_id,
@@ -1034,7 +1048,7 @@ int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
       ipfix_flow_key_init(&key, cur_template, (const char*)data_ptr);
 
       /* Get a flow record related to ipfix data */
-      ix_record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
+      ix_record = flow_key_get_record(ctx, &key, CREATE_RECORDS,NULL);
 
 
       /* Fill out record */

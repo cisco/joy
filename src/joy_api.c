@@ -75,6 +75,18 @@ extern void process_packet(unsigned char *ignore, const struct pcap_pkthdr *head
 /* global library intialization flag */
 static int joy_library_initialized = 0;
 
+/* per instance context data */
+struct joy_ctx_data  {
+    struct flocap_stats stats;
+    struct flocap_stats last_stats;
+    struct timeval last_stats_output_time;
+    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
+    unsigned long int reserved_info;
+    unsigned long int reserved_ctx;
+};
+
+struct joy_ctx_data thread_data[MAX_LIB_CONTEXTS];
+
 /*
  * Function: joy_initialize
  *
@@ -94,17 +106,22 @@ static int joy_library_initialized = 0;
  *      logfile - the destination file for errors/info/debug messages
  *
  * Returns:
- *      ok or failure
+ *      0 - success
+ *      1 - failure
  *
  */
 int joy_initialize(struct joy_init *init_data,
         char *output_dir, char *output_file, char *logfile)
 {
+    int i = 0;
     char output_filename[MAX_FILENAME_LEN];
 
     /* clear out the configuration structure */
     memset(&active_config, 0x00, sizeof(struct configuration));
     glb_config = &active_config;
+
+    /* clear out the thread context data */
+    memset(&thread_data, 0x00, sizeof(thread_data));
 
     /* set 'info' to stderr as a precaution */
     info = stderr;
@@ -202,9 +219,17 @@ int joy_initialize(struct joy_init *init_data,
         }
     }
 
+    /* sanity check the thread count */
+    if (init_data->num_threads < 1) 
+        init_data->num_threads = 1;
+    if (init_data->num_threads > MAX_LIB_CONTEXTS)
+        init_data->num_threads = MAX_LIB_CONTEXTS;
+
     /* intialize the data structures */
-    flow_record_list_init();
-    flocap_stats_timer_init();
+    for (i=0; i < init_data->num_threads; ++i) {
+        flow_record_list_init(&thread_data[i]);
+        flocap_stats_timer_init(&thread_data[i]);
+    }
 
     /* set library init flag */
     joy_library_initialized = 1;
@@ -267,7 +292,7 @@ int joy_anon_subnets(char *anon_file)
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
-        return 1;
+        return failure;
     }
 
     if (anon_file != NULL) {
@@ -275,15 +300,15 @@ int joy_anon_subnets(char *anon_file)
         if (anon_init(glb_config->anon_addrs_file, info) == 1) {
             joy_log_err("could not initialize anonymization subnets from file %s",
                             glb_config->anon_addrs_file);
-            return 1;
+            return failure;
         }
     } else {
         /* no file specified */
         joy_log_err("could not initialize anonymization subnets - no file specified");
-        return 1;
+        return failure;
     }
 
-    return 0;
+    return ok;
 }
 
 /*
@@ -313,7 +338,7 @@ int joy_anon_http_usernames(char *anon_http_file)
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
-        return 1;
+        return failure;
     }
 
     if (anon_http_file != NULL) {
@@ -321,15 +346,15 @@ int joy_anon_http_usernames(char *anon_http_file)
         if (anon_http_init(glb_config->anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == 1) {
             joy_log_err("could not initialize anonymization for http usernames from file %s",
                             glb_config->anon_http_file);
-            return 1;
+            return failure;
         }
     } else {
         /* no file specified */
         joy_log_err("could not initialize anonymization for http usernames - no file specified");
-        return 1;
+        return failure;
     }
 
-    return 0;
+    return ok;
 }
 
 /*
@@ -355,19 +380,19 @@ int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
-        return 1;
+        return failure;
     }
 
     if ((splt_filename == NULL) || (bd_filename == NULL)) {
         /* no file specified */
         joy_log_err("could not update SPLT/BD parameters - missing update file(s)");
-        return 1;
+        return failure;
     } else {
         update_params(SPLT_PARAM_TYPE, splt_filename);
         update_params(BD_PARAM_TYPE, bd_filename);
     }
 
-    return 0;
+    return ok;
 }
 
 /*
@@ -394,12 +419,12 @@ int joy_get_compact_bd(char *filename)
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
-        return 1;
+        return failure;
     }
 
     if (filename == NULL) {
         joy_log_err("couldn't update compact BD values - no file specified");
-        return 1;
+        return failure;
     }
 
     memset(glb_config->compact_bd_mapping, 0, sizeof(glb_config->compact_bd_mapping));
@@ -417,10 +442,10 @@ int joy_get_compact_bd(char *filename)
         glb_config->compact_byte_distribution = filename;
     } else {
         joy_log_err("could not open compact BD file %s", filename);
-        return 1;
+        return failure;
     }
 
-    return 0;
+    return ok;
 }
 
 /*
@@ -448,7 +473,7 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
-        return 1;
+        return failure;
     }
 
     /* see if we need a new radix_trie */
@@ -456,14 +481,14 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
         glb_config->rt = radix_trie_alloc();
         if (glb_config->rt == NULL) {
             joy_log_err("could not allocate memory for labeled subnets");
-            return 1;
+            return failure;
         }
 
         /* initialize our new radix_trie */
         err = radix_trie_init(glb_config->rt);
         if (err != ok) {
             joy_log_err("could not initialize subnet labels (radix_trie)");
-            return 1;
+            return failure;
         }
     }
 
@@ -471,7 +496,7 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
     subnet_flag = radix_trie_add_attr_label(glb_config->rt, label);
     if (subnet_flag == 0) {
           joy_log_err("could not add subnet label %s to radix_trie", label);
-          return 1;
+          return failure;
     }
 
     /* see if we are adding a file of subnets or just a single subnet address */
@@ -482,21 +507,21 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
         err = radix_trie_add_subnet_from_string(glb_config->rt, single_addr, subnet_flag, info);
         if (err != ok) {
             joy_log_err("could not add labeled subnet for %s", single_addr);
-            return 1;
+            return failure;
         }
     } else {
         /* processing the subnet file now */
         err = radix_trie_add_subnets_from_file(glb_config->rt, subnet_str, subnet_flag, info);
         if (err != ok) {
             joy_log_err("could not add labeled subnets from file %s", subnet_str);
-            return 1;
+            return failure;
         }
     }
 
     /* increment the number of subnets we have configured */
     glb_config->subnet[glb_config->num_subnets] = strdup(label);
     ++glb_config->num_subnets;
-    return 0;
+    return ok;
 }
 
 /*
@@ -507,7 +532,7 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
  *      wrapper function for the code used within the Joy library.
  *
  * Parameters:
- *      ignore - Joy does not use this parameter
+ *      ctx_index - index of the thread context to use
  *      header - libpcap header which contains timestamp, cap length
  *               and length
  *      packet - the actual data packet
@@ -516,17 +541,31 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
  *      none
  *
  */
-void joy_process_packet(unsigned char *ignore,
+void joy_process_packet(unsigned char *ctx_index,
         const struct pcap_pkthdr *header,
         const unsigned char *packet)
 {
+    int index = 0;
+    joy_ctx_data *ctx = NULL;
+
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
         return;
     }
 
-    process_packet(ignore, header, packet);
+    /* ctx_index has the int value of the thread context
+     * This number is between 0 and MAX_LIB_CONTEXTS
+     */
+    index = (int)ctx_index;
+
+    if ((index < 0) || (index >= MAX_LIB_CONTEXTS )) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    ctx = &thread_data[index];
+    process_packet((unsigned char*)ctx, header, packet);
 }
 
 /*
@@ -540,13 +579,14 @@ void joy_process_packet(unsigned char *ignore,
  *      host flow data to collect, if the option is turned on.
  *
  * Parameters:
+ *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_PRINT_ALL_FLOWS
  *
  * Returns:
  *      none
  *
  */
-void joy_print_flow_data(int type)
+void joy_print_flow_data(int index, int type)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -563,7 +603,7 @@ void joy_print_flow_data(int type)
     }
 
     /* print the flow records */
-    flow_record_list_print_json(type);
+    flow_record_list_print_json(&thread_data[index], type);
 }
 
 /*
@@ -575,13 +615,14 @@ void joy_print_flow_data(int type)
  *      as IPFix packets to the destination.
  *
  * Parameters:
+ *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *
  * Returns:
  *      none
  *
  */
-void joy_export_flows_ipfix(int type)
+void joy_export_flows_ipfix(int index, int type)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -590,7 +631,7 @@ void joy_export_flows_ipfix(int type)
     }
 
     /* export the flow records */
-    flow_record_export_as_ipfix(type);
+    flow_record_export_as_ipfix(&thread_data[index], type);
 }
 
 /*
@@ -601,13 +642,13 @@ void joy_export_flows_ipfix(int type)
  *      flushes any remaining records out to the destination.
  *
  * Parameters:
- *      none
+ *      index - index of the context to use
  *
  * Returns:
  *      none
  *
  */
-void joy_cleanup(void)
+void joy_cleanup(int index)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -624,5 +665,5 @@ void joy_cleanup(void)
     ipfix_module_cleanup();
 
     /* free up the flow records */
-    flow_record_list_free();
+    flow_record_list_free(&(thread_data[index]));
 }

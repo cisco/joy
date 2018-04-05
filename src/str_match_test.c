@@ -47,12 +47,27 @@
 #endif
 
 #include "str_match.h"
+#include "p2f.h"
 #include "anon.h"
 #include "config.h"
 
-struct configuration glb_config;
+struct configuration main_config;
+struct configuration *glb_config = NULL;
 zfile output = NULL;
 FILE *info = NULL;
+
+/* per instance context data */
+struct joy_ctx_data  {
+    struct flocap_stats stats;
+    struct flocap_stats last_stats;
+    struct timeval last_stats_output_time;
+    struct flow_record *flow_record_chrono_first;
+    struct flow_record *flow_record_chrono_last;
+    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
+    unsigned long int reserved_info;
+    unsigned long int reserved_ctx;
+};
+struct joy_ctx_data main_ctx;
 
 static void matches_print (struct matches *matches, char *text) {
     unsigned int i;
@@ -133,7 +148,9 @@ static char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400
 int main (int argc, char* argv[]) {
     str_match_ctx ctx;
 
-    memset(&glb_config, 0x00, sizeof(struct configuration));
+    memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
+    memset(&main_config, 0x00, sizeof(struct configuration));
+    glb_config = &main_config;
     info = stderr;
     output = zattach(stdout, "w");
     if (output == NULL) {

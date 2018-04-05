@@ -70,67 +70,67 @@ char packet10[] = {0x08,0x00,0x27,0x36,0x24,0xd6,0x08,0x00,0x27,0xd8,0xca,0x49,0
 
 struct pcap_pkthdr header;
 
-void process_hardcoded_packets (void)
+void process_hardcoded_packets (unsigned long index)
 {
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 215234;
     header.caplen = sizeof(packet1);
     header.len = sizeof(packet1);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet1);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet1);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 215476;
     header.caplen = sizeof(packet2);
     header.len = sizeof(packet2);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet2);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet2);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 215497;
     header.caplen = sizeof(packet3);
     header.len = sizeof(packet3);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet3);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet3);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 215690;
     header.caplen = sizeof(packet4);
     header.len = sizeof(packet4);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet4);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet4);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 215856;
     header.caplen = sizeof(packet5);
     header.len = sizeof(packet5);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet5);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet5);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 218576;
     header.caplen = sizeof(packet6);
     header.len = sizeof(packet6);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet6);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet6);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 218615;
     header.caplen = sizeof(packet7);
     header.len = sizeof(packet7);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet7);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet7);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 219453;
     header.caplen = sizeof(packet8);
     header.len = sizeof(packet8);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet8);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet8);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 220071;
     header.caplen = sizeof(packet9);
     header.len = sizeof(packet9);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet9);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet9);
 
     header.ts.tv_sec = 1502118721;
     header.ts.tv_usec = 260674;
     header.caplen = sizeof(packet10);
     header.len = sizeof(packet10);
-    joy_process_packet(NULL, &header, (const unsigned char*)packet10);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet10);
 
 }
 
@@ -141,12 +141,13 @@ int main (int argc, char **argv)
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(struct joy_init));
+    init_data.num_threads = 1;                /* number of library instances to use */
     init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
     init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
     init_data.idp = 1300;                     /* number of bytes of idp to report */
-    init_data.ipfix_host = "10.83.109.53";    /* Host to send IPFix data to */
-    init_data.ipfix_port = 30999;             /* port to send IPFix data to */
-    init_data.bitmask = (JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
+    init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
+    init_data.ipfix_port = 0;                 /* use default IPFix port */
+    init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
@@ -162,13 +163,13 @@ int main (int argc, char **argv)
     joy_print_config(JOY_JSON_FORMAT);
 
     /* process the hardcoded packets */
-    process_hardcoded_packets();
+    process_hardcoded_packets(0);
     
-    /* print the flows */
-    joy_print_flow_data(JOY_ALL_FLOWS);
+    /* export the flows */
+    joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
 
     /* cleanup */
-    joy_cleanup();
+    joy_cleanup(0);
 
     return 0;
 }

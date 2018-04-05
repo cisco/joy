@@ -60,6 +60,12 @@
 #include "modules.h"      
 #include "feature.h"
 
+/* structure definition for the library context data */
+typedef struct joy_ctx_data joy_ctx_data;
+
+/* flow value definitions */
+#define flow_key_hash_mask 0x000fffff
+#define FLOW_RECORD_LIST_LEN (flow_key_hash_mask + 1)
 
 /**
  * The maximum number of IP ID fields that will be
@@ -227,7 +233,8 @@ typedef struct flow_record *flow_record_list;
  * "twin" pointer, and prints out bidirectional information.
  *
  */
-struct flow_record *flow_key_get_record(const struct flow_key *key,
+struct flow_record *flow_key_get_record(joy_ctx_data *ctx,
+                                        const struct flow_key *key,
                                         unsigned int create_new_records,
                                         const struct pcap_pkthdr *header);
 
@@ -240,13 +247,13 @@ void flow_record_update_compact_byte_count(struct flow_record *f, const void *x,
 
 void flow_record_update_byte_dist_mean_var(struct flow_record *f, const void *x, unsigned int len);
 
-void flow_record_list_init();
+void flow_record_list_init(joy_ctx_data *ctx);
 
-void flow_record_list_free(); 
+void flow_record_list_free(joy_ctx_data *ctx); 
 
-void flow_record_export_as_ipfix(unsigned int print_all);
+void flow_record_export_as_ipfix(joy_ctx_data *ctx, unsigned int print_all);
 
-void flow_record_list_print_json(unsigned int print_all);
+void flow_record_list_print_json(joy_ctx_data *ctx, unsigned int print_all);
 
 int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);
 
@@ -272,37 +279,37 @@ struct flocap_stats {
   unsigned long int malloc_fail;
 };
 
-#define flocap_stats_init() struct flocap_stats stats = {  0, 0, 0, 0 };
+//#define flocap_stats_init(c) struct flocap_stats stats = {  0, 0, 0, 0 };
 
-#define flocap_stats_get_num_packets() (stats.num_packets)
+#define flocap_stats_get_num_packets(c) (c->stats.num_packets)
 
-#define flocap_stats_incr_num_packets() (stats.num_packets++)
+#define flocap_stats_incr_num_packets(c) (c->stats.num_packets++)
 
-#define flocap_stats_incr_num_bytes(x) (stats.num_bytes += (x))
+#define flocap_stats_incr_num_bytes(c,x) (c->stats.num_bytes += (x))
 
-#define flocap_stats_add_packets(x) (stats.num_packets += (x))
+#define flocap_stats_add_packets(c,x) (c->stats.num_packets += (x))
 
-#define flocap_stats_incr_records_output() (stats.num_records_output++)
+#define flocap_stats_incr_records_output(c) (c->stats.num_records_output++)
 
-#define flocap_stats_incr_records_in_table() (stats.num_records_in_table++)
+#define flocap_stats_incr_records_in_table(c) (c->stats.num_records_in_table++)
 
-#define flocap_stats_decr_records_in_table() (stats.num_records_in_table--)
+#define flocap_stats_decr_records_in_table(c) (c->stats.num_records_in_table--)
 
-#define flocap_stats_incr_malloc_fail() (stats.malloc_fail++)
+#define flocap_stats_incr_malloc_fail(c) (c->stats.malloc_fail++)
 
 #define flocap_stats_format "packets: %lu\tcurrent records: %lu\toutput records: %lu"
 
 
-void flocap_stats_output(FILE *f);
+void flocap_stats_output(joy_ctx_data *ctx, FILE *f);
 
-void flocap_stats_timer_init();
+void flocap_stats_timer_init(joy_ctx_data *ctx);
 
 /**
 * \brief the function flow_key_set_process_info(key, data) finds the flow record
 * associated with key, if there is one, and then sets the process info of
 * that record to the provided data
 */
-int flow_key_set_process_info(const struct flow_key *key, const struct host_flow *data);
+int flow_key_set_process_info(joy_ctx_data *ctx, const struct flow_key *key, const struct host_flow *data);
 
 /** Main entry point for the uploader thread */
 void *uploader_main(void* ptr);

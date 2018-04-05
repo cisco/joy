@@ -48,9 +48,9 @@
 #include "pcap.h"
 
 /* test program variables */
-#define NUM_PACKETS_IN_LOOP 5
+#define NUM_PACKETS_IN_LOOP 20
 
-int process_pcap_file (char *file_name) {
+int process_pcap_file (unsigned long index, char *file_name) {
     int more = 1;
     pcap_t *handle = NULL;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
@@ -83,9 +83,9 @@ int process_pcap_file (char *file_name) {
 
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_process_packet, NULL);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_process_packet, (unsigned char*)index);
         /* Print out expired flows */
-        joy_print_flow_data(JOY_EXPIRED_FLOWS);
+        joy_print_flow_data(index,JOY_EXPIRED_FLOWS);
     }
 
     /* Cleanup */
@@ -96,35 +96,16 @@ int process_pcap_file (char *file_name) {
 int main (int argc, char **argv)
 {
     int rc = 0;
-    int ipfix_export = 0;
     struct joy_init init_data;
-
-    /* see if we want to do IPFix exporting
-     * simple check, this is an example program only!
-     */
-    if (argc == 3) {
-        /* shell-1> joy_api_test export <pcap filename> */
-        ipfix_export = 1;
-    }
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(struct joy_init));
 
-    if (ipfix_export) {
-        /* this setup is for IPFix exporting */
-        init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
-        init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
-        init_data.idp = 1300;                     /* number of bytes of idp to report */
-        init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
-        init_data.ipfix_port = 4739;              /* port to send IPFix data to */
-        init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_TLS_ON | JOY_HTTP_ON);
-
-    } else {
-        /* this setup is for general processing */
-        init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
-        init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
-        init_data.bitmask = (JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
-    }
+   /* this setup is for general processing */
+    init_data.num_threads = 2;                /* number of library instances to use */
+    init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
+    init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
+    init_data.bitmask = (JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
@@ -143,27 +124,19 @@ int main (int argc, char **argv)
     joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
 
     /* print out the configuration */
-    if (ipfix_export) {
-        joy_print_config(JOY_TERMINAL_FORMAT);
-    } else {
-        joy_print_config(JOY_JSON_FORMAT);
-    }
+    joy_print_config(JOY_JSON_FORMAT);
 
-    /* process the file from the command line */
-    if (argc == 2) process_pcap_file(argv[1]);
-    else if (argc == 3) process_pcap_file(argv[2]);
+    /* process the file(s) from the command line */
+    process_pcap_file(0,argv[1]);
+    process_pcap_file(1,argv[2]);
 
-    if (ipfix_export) {
-        /* export the flows */
-        joy_export_flows_ipfix(JOY_ALL_FLOWS);
-
-    } else {
-        /* print the flows */
-        joy_print_flow_data(JOY_ALL_FLOWS);
-    }
+    /* print the flows */
+    joy_print_flow_data(0, JOY_ALL_FLOWS);
+    joy_print_flow_data(1, JOY_ALL_FLOWS);
 
     /* cleanup */
-    joy_cleanup();
+    joy_cleanup(0);
+    joy_cleanup(1);
 
     return 0;
 }

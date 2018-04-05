@@ -101,28 +101,30 @@ int include_os = 1;
 #define expiration_type_active  'a'
 #define expiration_type_inactive 'i'
 
-#define flow_key_hash_mask 0x000fffff
-
-#define FLOW_RECORD_LIST_LEN (flow_key_hash_mask + 1)
-
-flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN] = { 0, };
-
 enum twins_match {
     exact = 0,
     near_match = 1,
 };
 
-struct flocap_stats stats = {  0, 0, 0, 0 };
-struct flocap_stats last_stats = { 0, 0, 0, 0 };
-struct timeval last_stats_output_time;
-
 unsigned int num_pkt_len = NUM_PKT_LEN;
+
+/* per instance context data */
+struct joy_ctx_data  {
+    struct flocap_stats stats;
+    struct flocap_stats last_stats;
+    struct timeval last_stats_output_time;
+    struct flow_record *flow_record_chrono_first;
+    struct flow_record *flow_record_chrono_last;
+    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
+    unsigned long int reserved_info;
+    unsigned long int reserved_ctx;
+};
 
 /*
  * Local prototypes
  */
-static void flow_record_delete(struct flow_record *r);
-static void flow_record_print_and_delete(struct flow_record *record);
+static void flow_record_delete(joy_ctx_data *ctx, struct flow_record *r);
+static void flow_record_print_and_delete(joy_ctx_data *ctx, struct flow_record *record);
 
 /* ***********************************************
  * -----------------------------------------------
@@ -136,7 +138,7 @@ static void flow_record_print_and_delete(struct flow_record *record);
  * \param f the output file
  * \return none
  */
-void flocap_stats_output (FILE *f) {
+void flocap_stats_output (joy_ctx_data *ctx, FILE *f) {
     char time_str[128];
     struct timeval now, tmp;
     float bps, pps, rps, seconds;
@@ -149,12 +151,12 @@ void flocap_stats_output (FILE *f) {
 	gettimeofday(&now, NULL);
 	memset(time_str, 0x00, sizeof(time_str));
 
-	joy_timer_sub(&now, &last_stats_output_time, &tmp);
+	joy_timer_sub(&now, &ctx->last_stats_output_time, &tmp);
     seconds = (float) joy_timeval_to_milliseconds(tmp) / 1000.0;
 
-    bps = (float) (stats.num_bytes - last_stats.num_bytes) / seconds;
-    pps = (float) (stats.num_packets - last_stats.num_packets) / seconds;
-    rps = (float) (stats.num_records_output - last_stats.num_records_output) / seconds;
+    bps = (float) (ctx->stats.num_bytes - ctx->last_stats.num_bytes) / seconds;
+    pps = (float) (ctx->stats.num_packets - ctx->last_stats.num_packets) / seconds;
+    rps = (float) (ctx->stats.num_records_output - ctx->last_stats.num_records_output) / seconds;
 
 #ifdef WIN32
 	strftime(time_str, sizeof(time_str) - 1, "%a %b %d %H:%M:%S %Z %Y", localtime(&win_now));
@@ -162,11 +164,15 @@ void flocap_stats_output (FILE *f) {
 	strftime(time_str, sizeof(time_str) - 1, "%a %b %d %H:%M:%S %Z %Y", localtime(&now.tv_sec));
 #endif
     fprintf(f, "%s info: %lu packets, %lu active records, %lu records output, %lu alloc fails, %.4e bytes/sec, %.4e packets/sec, %.4e records/sec\n",
-	      time_str, stats.num_packets, stats.num_records_in_table, stats.num_records_output, stats.malloc_fail, bps, pps, rps);
+	      time_str, ctx->stats.num_packets, ctx->stats.num_records_in_table, ctx->stats.num_records_output, ctx->stats.malloc_fail, bps, pps, rps);
     fflush(f);
 
-    last_stats_output_time = now;
-    last_stats = stats;
+    ctx->last_stats_output_time = now;
+    ctx->last_stats.num_packets = ctx->stats.num_packets;
+    ctx->last_stats.num_bytes = ctx->stats.num_bytes;
+    ctx->last_stats.num_records_in_table = ctx->stats.num_records_in_table;
+    ctx->last_stats.num_records_output = ctx->stats.num_records_output;
+    ctx->last_stats.malloc_fail = ctx->stats.malloc_fail;
 }
 
 /**
@@ -174,7 +180,7 @@ void flocap_stats_output (FILE *f) {
  * \param none
  * \return none
  */
-void flocap_stats_timer_init () {
+void flocap_stats_timer_init (joy_ctx_data *ctx) {
     struct timeval now;
 
 #ifdef WIN32
@@ -185,7 +191,7 @@ void flocap_stats_timer_init () {
 #else
 	gettimeofday(&now, NULL);
 #endif
-    last_stats_output_time = now;
+    ctx->last_stats_output_time = now;
 }
 
 /**
@@ -224,21 +230,17 @@ static unsigned int flow_key_hash (const struct flow_key *f) {
     }
 }
 
-/* Flow record list chronological head and tail */
-static struct flow_record *flow_record_chrono_first = NULL;
-static struct flow_record *flow_record_chrono_last = NULL;
-
 /**
  * \brief Initialize the flow_record_list.
  * \param none
  * \param return
  */
-void flow_record_list_init () {
+void flow_record_list_init (joy_ctx_data *ctx) {
     unsigned int i;
 
-    flow_record_chrono_first = flow_record_chrono_last = NULL;
+    ctx->flow_record_chrono_first = ctx->flow_record_chrono_last = NULL;
     for (i=0; i<FLOW_RECORD_LIST_LEN; i++) {
-        flow_record_list_array[i] = NULL;
+        ctx->flow_record_list_array[i] = NULL;
     }
 }
 
@@ -247,22 +249,22 @@ void flow_record_list_init () {
  * \param none
  * \return none
  */
-void flow_record_list_free () {
+void flow_record_list_free (joy_ctx_data *ctx) {
     struct flow_record *record, *tmp;
     unsigned int i, count = 0;
 
     for (i=0; i<FLOW_RECORD_LIST_LEN; i++) {
-        record = flow_record_list_array[i];
+        record = ctx->flow_record_list_array[i];
         while (record != NULL) {
             tmp = record->next;
-            flow_record_delete(record);
+            flow_record_delete(ctx, record);
             record = tmp;
             count++;
         }
-        flow_record_list_array[i] = NULL;
+        ctx->flow_record_list_array[i] = NULL;
     }
-    flow_record_chrono_first = NULL;
-    flow_record_chrono_last = NULL;
+    ctx->flow_record_chrono_first = NULL;
+    ctx->flow_record_chrono_last = NULL;
 }
 
 /**
@@ -355,7 +357,7 @@ static void flow_key_copy (struct flow_key *dst, const struct flow_key *src) {
 
 #define MAX_TTL 255
 
-struct flow_record *flow_key_get_twin(const struct flow_key *key);
+struct flow_record *flow_key_get_twin(joy_ctx_data *ctx, const struct flow_key *key);
 
 /**
  * \brief Initialize a flow_record.
@@ -363,11 +365,12 @@ struct flow_record *flow_key_get_twin(const struct flow_key *key);
  * \param[in] Flow key to be used for identifiying the record
  * \return none
  */
-static void flow_record_init (struct flow_record *record,
+static void flow_record_init (joy_ctx_data *ctx,
+                              struct flow_record *record,
                               const struct flow_key *key) {
 
     /* Increment the stats flow record count */
-    flocap_stats_incr_records_in_table();
+    flocap_stats_incr_records_in_table(ctx);
 
     /* Zero out the flow_record structure */
     memset(record, 0, sizeof(struct flow_record));
@@ -382,11 +385,11 @@ static void flow_record_init (struct flow_record *record,
  * \param record Flow_record
  * \return Valid pointer if in list, NULL otherwise
  */
-static inline unsigned int flow_record_is_in_chrono_list (const struct flow_record *record) {
+static inline unsigned int flow_record_is_in_chrono_list (joy_ctx_data *ctx, const struct flow_record *record) {
     if (record->time_next || record->time_prev) {
         return 1;
     }
-    if (record == flow_record_chrono_first) {
+    if (record == ctx->flow_record_chrono_first) {
         /* Corner case when there is a single record in the list */
         return 1;
     }
@@ -520,14 +523,14 @@ static unsigned int flow_record_list_remove (flow_record_list *head,
  * \param record The flow_record that will be appended to the list
  * \return none
  */
-static void flow_record_chrono_list_append (struct flow_record *record) {
-    if (flow_record_chrono_first == NULL) {
-        flow_record_chrono_first = record;
-        flow_record_chrono_last = record;
+static void flow_record_chrono_list_append (joy_ctx_data *ctx, struct flow_record *record) {
+    if (ctx->flow_record_chrono_first == NULL) {
+        ctx->flow_record_chrono_first = record;
+        ctx->flow_record_chrono_last = record;
     } else {
-        flow_record_chrono_last->time_next = record;
-        record->time_prev = flow_record_chrono_last;
-        flow_record_chrono_last = record;
+        ctx->flow_record_chrono_last->time_next = record;
+        record->time_prev = ctx->flow_record_chrono_last;
+        ctx->flow_record_chrono_last = record;
     }
 }
 
@@ -536,16 +539,16 @@ static void flow_record_chrono_list_append (struct flow_record *record) {
  * \param record The flow_record that will be removed from the list
  * \return none
  */
-static void flow_record_chrono_list_remove (struct flow_record *record) {
+static void flow_record_chrono_list_remove (joy_ctx_data *ctx, struct flow_record *record) {
     if (record == NULL) {
         return;
     }
 
-    if (record == flow_record_chrono_first) {
-        flow_record_chrono_first = record->time_next;
+    if (record == ctx->flow_record_chrono_first) {
+        ctx->flow_record_chrono_first = record->time_next;
     }
-    if (record == flow_record_chrono_last) {
-        flow_record_chrono_last = record->time_prev;
+    if (record == ctx->flow_record_chrono_last) {
+        ctx->flow_record_chrono_last = record->time_prev;
     }
 
     if (record->time_prev != NULL) {
@@ -654,7 +657,8 @@ static unsigned int flow_record_is_expired(struct flow_record *record) {
  * \return pointer to the flow record structure
  * \return NULL if expired or could not create or retrieve record
  */
-struct flow_record *flow_key_get_record (const struct flow_key *key,
+struct flow_record *flow_key_get_record (joy_ctx_data *ctx,
+                                         const struct flow_key *key,
                                          unsigned int create_new_records,
                                          const struct pcap_pkthdr *header) {
     struct flow_record *record;
@@ -662,17 +666,17 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
 
     /* Find a record matching the flow key, if it exists */
     hash_key = flow_key_hash(key);
-    record = flow_record_list_find_record_by_key(&flow_record_list_array[hash_key], key);
+    record = flow_record_list_find_record_by_key(&ctx->flow_record_list_array[hash_key], key);
 
     if (record != NULL) {
-       if (create_new_records && flow_record_is_in_chrono_list(record)
+       if (create_new_records && flow_record_is_in_chrono_list(ctx, record)
            && flow_record_is_active_expired(record, header)) {
             /*
              *  Active-timeout exceeded for this flow_record; print and delete
              *  it, then set record = NULL to cause the creation of a new
              *  flow_record to be used in further packet processing
              */
-           flow_record_print_and_delete(record);
+           flow_record_print_and_delete(ctx, record);
            record = NULL;
        } else {
            return record;
@@ -689,14 +693,14 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
 
         if (record == NULL) {
             joy_log_warn("could not allocate memory for flow_record");
-            flocap_stats_incr_malloc_fail();
+            flocap_stats_incr_malloc_fail(ctx);
             return NULL;
         }
 
-        flow_record_init(record, key);
+        flow_record_init(ctx, record, key);
 
         /* enter record into flow_record_list */
-        flow_record_list_prepend(&flow_record_list_array[hash_key], record);
+        flow_record_list_prepend(&ctx->flow_record_list_array[hash_key], record);
 
         /*
          * if we are tracking bidirectional flows, and if record has a
@@ -704,7 +708,7 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
          * record into the chronological list
          */
         if (glb_config->bidir) {
-            record->twin = flow_key_get_twin(key);
+            record->twin = flow_key_get_twin(ctx, key);
             debug_printf("LIST record %p is twin of %p\n", record, record->twin);
         }
         if (record->twin != NULL) {
@@ -717,14 +721,14 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
 	         * experimental - consider this record an orphan, add it to chrono list, but without its twin pointer set
 	         */
 	        record->twin = NULL;
-	        flow_record_chrono_list_append(record);
+	        flow_record_chrono_list_append(ctx, record);
             } else {
 	        record->twin->twin = record;
             }
         } else {
 
             /* this flow has no twin, so add it to chronological list */
-            flow_record_chrono_list_append(record);
+            flow_record_chrono_list_append(ctx, record);
         }
     }
 
@@ -736,14 +740,14 @@ struct flow_record *flow_key_get_record (const struct flow_key *key,
  * \param r The flow_record to delete
  * \return none
  */
-static void flow_record_delete (struct flow_record *r) {
+static void flow_record_delete (joy_ctx_data *ctx, struct flow_record *r) {
 
-    if (flow_record_list_remove(&flow_record_list_array[flow_key_hash(&r->key)], r) != 0) {
+    if (flow_record_list_remove(&ctx->flow_record_list_array[flow_key_hash(&r->key)], r) != 0) {
         joy_log_err("problem removing flow record %p from list", r);
         return;
     }
 
-    flocap_stats_decr_records_in_table();
+    flocap_stats_decr_records_in_table(ctx);
 
     /*
      * free the memory allocated inside of flow record
@@ -785,13 +789,13 @@ static void flow_record_delete (struct flow_record *r) {
 * \return failure
 * \return ok
 */
-int flow_key_set_process_info(const struct flow_key *key, const struct host_flow *data) {
+int flow_key_set_process_info(joy_ctx_data *ctx, const struct flow_key *key, const struct host_flow *data) {
 	struct flow_record *r;
 
 	if (data->exe_name == NULL) {
 		return failure;   /* no point in looking for flow_record */
 	}
-	r = flow_key_get_record(key, DONT_CREATE_RECORDS, NULL);
+	r = flow_key_get_record(ctx, key, DONT_CREATE_RECORDS, NULL);
 	// flow_key_print(key);
 	if (r) {
 		if (r->exe_name == NULL) {
@@ -1231,14 +1235,14 @@ static const struct flow_record *get_client_flow(const struct flow_record *a,
  *
  * \return none
  */
-static void flow_record_print_json (const struct flow_record *record) {
+static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record *record) {
     unsigned int i, j, imax, jmax;
     struct timeval ts, ts_last, ts_start, ts_end, tmp;
     const struct flow_record *rec = NULL;
     unsigned int pkt_len;
     char *dir;
 
-    flocap_stats_incr_records_output();
+    flocap_stats_incr_records_output(ctx);
     glb_config->records_in_file++;
 
     if (record->twin != NULL) {
@@ -1652,11 +1656,11 @@ static void flow_record_print_json (const struct flow_record *record) {
  *
  * \return none
  */
-static void flow_record_print_and_delete (struct flow_record *record) {
+static void flow_record_print_and_delete (joy_ctx_data *ctx, struct flow_record *record) {
     /*
      * Print the record to JSON output
      */
-    flow_record_print_json(record);
+    flow_record_print_json(ctx, record);
 
 #ifndef JOY_LIB_API
     /*
@@ -1672,12 +1676,12 @@ static void flow_record_print_and_delete (struct flow_record *record) {
      */
     if (record->twin != NULL) {
         debug_printf("LIST deleting twin\n");
-        flow_record_delete(record->twin);
+        flow_record_delete(ctx, record->twin);
     }
 
     /* Remove record from chrono list, then delete from flow_record_list_array */
-    flow_record_chrono_list_remove(record);
-    flow_record_delete(record);
+    flow_record_chrono_list_remove(ctx, record);
+    flow_record_delete(ctx, record);
 }
 
 /**
@@ -1688,11 +1692,11 @@ static void flow_record_print_and_delete (struct flow_record *record) {
  *
  * \return none
  */
-void flow_record_export_as_ipfix (unsigned int export_all) {
+void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_all) {
     struct flow_record *record = NULL;
 
     /* The head of chrono record list */
-    record = flow_record_chrono_first;
+    record = ctx->flow_record_chrono_first;
 
     while (record != NULL) {
         if (!export_all) {
@@ -1715,15 +1719,15 @@ void flow_record_export_as_ipfix (unsigned int export_all) {
          */
         if (record->twin != NULL) {
             debug_printf("LIST deleting twin\n");
-            flow_record_delete(record->twin);
+            flow_record_delete(ctx, record->twin);
         }
 
         /* Remove record from chrono list, then delete from flow_record_list_array */
-        flow_record_chrono_list_remove(record);
-        flow_record_delete(record);
+        flow_record_chrono_list_remove(ctx, record);
+        flow_record_delete(ctx, record);
 
         /* Advance to next record on chrono list */
-        record = flow_record_chrono_first;
+        record = ctx->flow_record_chrono_first;
     }
 }
 
@@ -1735,11 +1739,11 @@ void flow_record_export_as_ipfix (unsigned int export_all) {
  *
  * \return none
  */
-void flow_record_list_print_json (unsigned int print_all) {
+void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_all) {
     struct flow_record *record = NULL;
 
     /* The head of chrono record list */
-    record = flow_record_chrono_first;
+    record = ctx->flow_record_chrono_first;
 
     while (record != NULL) {
         if (!print_all) {
@@ -1749,10 +1753,10 @@ void flow_record_list_print_json (unsigned int print_all) {
             }
         }
 
-        flow_record_print_and_delete(record);
+        flow_record_print_and_delete(ctx, record);
 
         /* Advance to next record on chrono list */
-        record = flow_record_chrono_first;
+        record = ctx->flow_record_chrono_first;
     }
 
     // note: we might need to call flush in the future
@@ -1766,7 +1770,7 @@ void flow_record_list_print_json (unsigned int print_all) {
  *
  * \return The twin flow_key, or NULL
  */
-struct flow_record *flow_key_get_twin (const struct flow_key *key) {
+struct flow_record *flow_key_get_twin (joy_ctx_data *ctx, const struct flow_key *key) {
     if (glb_config->flow_key_match_method == exact) {
         struct flow_key twin;
 
@@ -1783,10 +1787,10 @@ struct flow_record *flow_key_get_twin (const struct flow_key *key) {
         twin.dp = key->sp;
         twin.prot = key->prot;
 
-        return flow_record_list_find_record_by_key(&flow_record_list_array[flow_key_hash(&twin)], &twin);
+        return flow_record_list_find_record_by_key(&ctx->flow_record_list_array[flow_key_hash(&twin)], &twin);
 
     } else {
-        return flow_record_list_find_twin_by_key(&flow_record_list_array[flow_key_hash(key)], key);
+        return flow_record_list_find_twin_by_key(&ctx->flow_record_list_array[flow_key_hash(key)], key);
     }
 }
 
@@ -1797,7 +1801,7 @@ struct flow_record *flow_key_get_twin (const struct flow_key *key) {
  *
  * \return Number of failures
  */
-static int p2f_test_flow_record_list() {
+static int p2f_test_flow_record_list(joy_ctx_data *ctx) {
     flow_record_list list = NULL;
     struct flow_record a, b, c, d;
     struct flow_record *rp;
@@ -1805,10 +1809,10 @@ static int p2f_test_flow_record_list() {
     struct flow_key k2 = { { 0xdead }, { 0xbeef }, 0xfa, 0xce, 0xdd };
     int num_fails = 0;
 
-    flow_record_init(&a, &k1);
-    flow_record_init(&b, &k2);
-    flow_record_init(&c, &k1);
-    flow_record_init(&d, &k1);
+    flow_record_init(ctx, &a, &k1);
+    flow_record_init(ctx, &b, &k2);
+    flow_record_init(ctx, &c, &k1);
+    flow_record_init(ctx, &d, &k1);
 
     flow_record_list_prepend(&list, &a);
     rp = flow_record_list_find_record_by_key(&list, &k1);
@@ -1879,11 +1883,13 @@ static int p2f_test_flow_record_list() {
 
 void p2f_unit_test() {
     int num_fails = 0;
+    joy_ctx_data main_ctx;
 
+    memset(&main_ctx, 0x00, sizeof(joy_ctx_data));
     fprintf(info, "\n******************************\n");
     fprintf(info, "P2F Unit Test starting...\n");
 
-    num_fails += p2f_test_flow_record_list();
+    num_fails += p2f_test_flow_record_list(&main_ctx);
 
     if (num_fails) {
         fprintf(info, "Finished - failures: %d\n", num_fails);

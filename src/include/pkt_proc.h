@@ -50,7 +50,7 @@
 /** main packet processing entry point */
 void process_packet(unsigned char *ignore, const struct pcap_pkthdr *header, const unsigned char *packet);
 
-enum status process_ipfix(const char *start, int len, struct flow_record *r);
+enum status process_ipfix(joy_ctx_data *ctx, const char *start, int len, struct flow_record *r);
 
 /** sanity check the header structure sizes */
 int data_sanity_check();
