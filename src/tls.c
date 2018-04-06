@@ -370,6 +370,9 @@ static void tls_client_hello_get_extensions (const unsigned char *y,
     y += 1+compression_method_len;
     len -= 1+compression_method_len;
 
+    // might not have extensions...
+    if (len < 2) return;
+
     // extensions length
     extensions_len = raw_to_uint16(y);
     if (len < extensions_len) {
@@ -1331,6 +1334,9 @@ static void tls_server_hello_get_extensions (const unsigned char *y,
         len -= 1+compression_method_len;
     }
 
+    // might not have extensions...
+    if (len < 2) return;
+
     /* Extensions length */
     extensions_len = raw_to_uint16(y);
     if (len < extensions_len) {
@@ -1682,7 +1688,7 @@ static int tls_handshake_hello_get_version(struct tls *tls_info,
  */
 static void tls_handshake_buffer_parse(struct tls *r) {
     unsigned char *data = NULL;
-	uint16_t data_len = 0;
+    int data_len = 0;
     unsigned int msg_count = 0;
 
 	if (r == NULL) {
@@ -1696,6 +1702,11 @@ static void tls_handshake_buffer_parse(struct tls *r) {
         const struct tls_header *tls_hdr = NULL;
         const struct tls_handshake *handshake = NULL;
         int tls_len = 0;
+
+        if (data_len < TLS_HDR_LEN) {
+            /* Not enough data to possibly have a header */
+            return;
+        }
 
         tls_hdr = (const struct tls_header*)data;
         tls_len = tls_header_get_length(tls_hdr);
@@ -1722,8 +1733,16 @@ static void tls_handshake_buffer_parse(struct tls *r) {
         data += TLS_HDR_LEN;
         data_len -= TLS_HDR_LEN;
 
+        /* Sanity check */
+        if (data_len <= 0) return;
+
         while (tls_len > 0) {
             unsigned int body_len = 0;
+
+            if (data_len < TLS_HANDSHAKE_HDR_LEN) {
+                /* Not enough data to possibly have a header */
+                return;
+            }
 
             /* Get the header of this handshake message */
             handshake = (const struct tls_handshake *)data;
@@ -1752,6 +1771,9 @@ static void tls_handshake_buffer_parse(struct tls *r) {
 
             data += TLS_HANDSHAKE_HDR_LEN;
             data_len -= TLS_HANDSHAKE_HDR_LEN;
+
+            /* Sanity check */
+            if (data_len <= 0) return;
 
             /*
              * Match to a handshake type we are interested in.
@@ -1900,6 +1922,11 @@ void tls_update (struct tls *r,
         if (r->handshake_buffer == NULL) {
             /* Allocate memory */
             r->handshake_buffer = calloc(len, sizeof(unsigned char));
+
+            if (r->handshake_buffer == NULL) {
+                joy_log_err("malloc for handshake data failed");
+                return;
+            }
         } else {
             /* Reallocate memory to fit more */
             unsigned char *tmp_ptr = NULL;
@@ -1947,7 +1974,7 @@ void tls_update (struct tls *r,
             r->seg_offset = msg_len - (rem_len - TLS_HDR_LEN);
         }
 
-        if (r->done_handshake == 0 &&
+        if (r->done_handshake == 0 && r->handshake_buffer &&
             (hdr->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC ||
              hdr->content_type == TLS_CONTENT_ALERT ||
              hdr->content_type == TLS_CONTENT_APPLICATION_DATA)) {
