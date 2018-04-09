@@ -1471,7 +1471,7 @@ int main (int argc, char **argv) {
             /* 
              * Loop over packets captured from interface.
              */
-            pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
+            pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, (unsigned char*)&main_ctx);
       
             joy_log_info("PCAP processing loop done");
 
@@ -1689,7 +1689,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, (unsigned char *)&main_ctx);
         /* Print out expired flows */
         flow_record_list_print_json(&main_ctx, FLOW_LIST_CHECK_EXPIRE);
     }

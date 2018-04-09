@@ -70,7 +70,7 @@ struct configuration *glb_config = NULL;
 extern int data_sanity_check();
 extern int ipfix_export_flush_message(void);
 extern void ipfix_module_cleanup(void);
-extern void process_packet(unsigned char *ignore, const struct pcap_pkthdr *header, const unsigned char *packet);
+extern void process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
 
 /* global library intialization flag */
 static int joy_library_initialized = 0;

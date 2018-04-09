@@ -855,27 +855,26 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 }
 
 /**
- * \fn void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
+ * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
                      const unsigned char *packet)
- * \param ignore currently used to store the context data pointer
+ * \param ctx_ptr currently used to store the context data pointer
  * \param header pointer to the packer header structure
  * \param packet pointer to the packet
  * \return none
  */
-void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
+void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
                      const unsigned char *packet) {
     //  static int packet_count = 1;
     struct flow_record *record;
     unsigned char proto = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0;
 
-#ifdef JOY_LIB_API
-    /* the library uses the ignore pointer to store the threading context data */
-    joy_ctx_data *ctx = (joy_ctx_data*)ignore;
-#else
-    /* use context in joy.c */
-    joy_ctx_data *ctx = &main_ctx;
-#endif
+    /* grab the context for this packet */
+    joy_ctx_data *ctx = (joy_ctx_data*)ctx_ptr;
+    if (ctx == NULL) {
+        joy_log_err("NULL Data Context Pointer");
+        return
+    }
 
     /* declare pointers to packet headers */
     const struct ip_hdr *ip;
