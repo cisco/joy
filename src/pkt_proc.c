@@ -873,7 +873,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
     joy_ctx_data *ctx = (joy_ctx_data*)ctx_ptr;
     if (ctx == NULL) {
         joy_log_err("NULL Data Context Pointer");
-        return
+        return;
     }
 
     /* declare pointers to packet headers */
