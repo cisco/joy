@@ -219,14 +219,8 @@ int joy_initialize(struct joy_init *init_data,
         }
     }
 
-    /* sanity check the thread count */
-    if (init_data->num_contexts < 1) 
-        init_data->num_contexts = 1;
-    if (init_data->num_contexts > MAX_LIB_CONTEXTS)
-        init_data->num_contexts = MAX_LIB_CONTEXTS;
-
-    /* intialize the data structures */
-    for (i=0; i < init_data->num_contexts; ++i) {
+    /* initialize all the data context structures */
+    for (i=0; i < MAX_LIB_CONTEXTS; ++i) {
         flow_record_list_init(&ctx_data[i]);
         flocap_stats_timer_init(&ctx_data[i]);
     }
@@ -554,7 +548,7 @@ void joy_process_packet(unsigned char *ctx_index,
         return;
     }
 
-    /* ctx_index has the int value of the thread context
+    /* ctx_index has the int value of the data context
      * This number is between 0 and MAX_LIB_CONTEXTS
      */
     index = (unsigned long int)ctx_index;
@@ -586,11 +580,17 @@ void joy_process_packet(unsigned char *ctx_index,
  *      none
  *
  */
-void joy_print_flow_data(int index, int type)
+void joy_print_flow_data(unsigned int index, int type)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= MAX_LIB_CONTEXTS ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
 
@@ -622,11 +622,17 @@ void joy_print_flow_data(int index, int type)
  *      none
  *
  */
-void joy_export_flows_ipfix(int index, int type)
+void joy_export_flows_ipfix(unsigned int index, int type)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= MAX_LIB_CONTEXTS ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
 
@@ -648,11 +654,17 @@ void joy_export_flows_ipfix(int index, int type)
  *      none
  *
  */
-void joy_cleanup(int index)
+void joy_cleanup(unsigned int index)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= MAX_LIB_CONTEXTS ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
 

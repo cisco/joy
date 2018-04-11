@@ -72,62 +72,74 @@ struct pcap_pkthdr header;
 
 void process_hardcoded_packets (unsigned long index)
 {
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 215234;
+    struct timeval now;
+
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet1);
     header.len = sizeof(packet1);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet1);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 215476;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet2);
     header.len = sizeof(packet2);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet2);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 215497;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet3);
     header.len = sizeof(packet3);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet3);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 215690;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet4);
     header.len = sizeof(packet4);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet4);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 215856;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet5);
     header.len = sizeof(packet5);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet5);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 218576;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet6);
     header.len = sizeof(packet6);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet6);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 218615;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet7);
     header.len = sizeof(packet7);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet7);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 219453;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet8);
     header.len = sizeof(packet8);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet8);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 220071;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet9);
     header.len = sizeof(packet9);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet9);
 
-    header.ts.tv_sec = 1502118721;
-    header.ts.tv_usec = 260674;
+    gettimeofday(&now,NULL);
+    header.ts.tv_sec = now.tv_sec;
+    header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet10);
     header.len = sizeof(packet10);
     joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet10);
@@ -141,7 +153,6 @@ int main (int argc, char **argv)
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(struct joy_init));
-    init_data.num_contexts = 1;               /* number of library contexts to use */
     init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
     init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
     init_data.idp = 1300;                     /* number of bytes of idp to report */

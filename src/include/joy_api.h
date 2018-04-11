@@ -90,7 +90,6 @@
 
 /* structure used to initialize joy through the API Library */
 struct joy_init {
-    int num_contexts;            /* number of processing contexts to use */
     int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
     int idp;                     /* idp size to report, recommend 1300 */
@@ -264,7 +263,7 @@ extern int joy_label_subnets (char *label, int type, char* subnet_str);
  *      none
  *
  */
-extern void joy_process_packet (unsigned char *ignore,
+extern void joy_process_packet (unsigned char *ctx_idx,
     const struct pcap_pkthdr *header, const unsigned char *packet);
 
 /*
@@ -285,7 +284,7 @@ extern void joy_process_packet (unsigned char *ignore,
  *      none
  *
  */
-extern void joy_print_flow_data (int index, int type);
+extern void joy_print_flow_data (unsigned int index, int type);
 
 /*
  * Function: joy_export_flows_ipfix
@@ -303,7 +302,7 @@ extern void joy_print_flow_data (int index, int type);
  *      none
  *
  */
-extern void joy_export_flows_ipfix (int index, int type);
+extern void joy_export_flows_ipfix (unsigned int index, int type);
 
 /*
  * Function: joy_cleanup
@@ -319,6 +318,6 @@ extern void joy_export_flows_ipfix (int index, int type);
  *      none
  *
  */
-extern void joy_cleanup (int index);
+extern void joy_cleanup (unsigned int index);
 
 #endif /* JOY_API_H */

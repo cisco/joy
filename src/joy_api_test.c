@@ -102,7 +102,6 @@ int main (int argc, char **argv)
     memset(&init_data, 0x00, sizeof(struct joy_init));
 
    /* this setup is for general processing */
-    init_data.num_contexts = 2;               /* number of library contexts to use */
     init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
     init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
     init_data.bitmask = (JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
@@ -115,13 +114,13 @@ int main (int argc, char **argv)
     }
 
     /* setup anonymization of subnets */
-    joy_anon_subnets("internal.net");
+    //joy_anon_subnets("internal.net");
 
     /* setup anonymization of http usernames */
     //joy_anon_http_usernames("anon_http.txt");
 
     /* setup subnet labels */
-    joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
+    //joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
 
     /* print out the configuration */
     joy_print_config(JOY_JSON_FORMAT);
