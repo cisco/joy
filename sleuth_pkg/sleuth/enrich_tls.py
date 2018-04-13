@@ -116,8 +116,8 @@ def audit_certs_issuer(certs, trusted_ca_list):
 
         org_name = None
         for entry in top_cert_issuer:
-            if entry["entry_id"] == "organizationName":
-                org_name = entry["entry_data"]
+            if "organizationName" in entry:
+                org_name = entry["organizationName"]
                 break
     except KeyError:
         return None
@@ -306,11 +306,11 @@ def enrich_tls(flow, kwargs):
     except KeyError:
         scs = None
 
-    if 'server_cert' in tls:
+    if 's_cert' in tls:
         certs = list()
-        for x in tls['server_cert']:
+        for x in tls['s_cert']:
             tmp = dict()
-            tmp['cert_sig_alg'] = x['signature_algorithm']
+            tmp['cert_sig_alg'] = x['signature_algo']
             tmp['sig_key_size'] = x['signature_key_size']
             tmp['issuer'] = x['issuer']
             certs.append(tmp)
