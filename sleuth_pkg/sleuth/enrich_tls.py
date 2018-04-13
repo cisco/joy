@@ -111,8 +111,6 @@ def audit_certs_issuer(certs, trusted_ca_list):
     As implemented now, we will get the tls certs in order, the root cert is at the end. We check to see if the issuer
     is in our trusted_ca_list; if not, we report it as a concern
     """
-    # print(certs)
-    # exit(0)
     try:
         top_cert_issuer = certs[-1]["issuer"]
 
