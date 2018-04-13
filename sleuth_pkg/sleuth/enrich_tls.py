@@ -111,13 +111,15 @@ def audit_certs_issuer(certs, trusted_ca_list):
     As implemented now, we will get the tls certs in order, the root cert is at the end. We check to see if the issuer
     is in our trusted_ca_list; if not, we report it as a concern
     """
+    # print(certs)
+    # exit(0)
     try:
         top_cert_issuer = certs[-1]["issuer"]
 
         org_name = None
         for entry in top_cert_issuer:
-            if "organizationName" in entry:
-                org_name = entry["organizationName"]
+            if entry["entry_id"] == "organizationName":
+                org_name = entry["entry_data"]
                 break
     except KeyError:
         return None
@@ -306,11 +308,11 @@ def enrich_tls(flow, kwargs):
     except KeyError:
         scs = None
 
-    if 's_cert' in tls:
+    if 'server_cert' in tls:
         certs = list()
-        for x in tls['s_cert']:
+        for x in tls['server_cert']:
             tmp = dict()
-            tmp['cert_sig_alg'] = x['signature_algo']
+            tmp['cert_sig_alg'] = x['signature_algorithm']
             tmp['sig_key_size'] = x['signature_key_size']
             tmp['issuer'] = x['issuer']
             certs.append(tmp)
