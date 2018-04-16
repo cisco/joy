@@ -3,53 +3,128 @@
   <?if $(var.Platform) = x64 ?>
     <?define bitness = "(x64)" ?>
     <?define Win64 = "yes" ?>
-    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+    <?define system_folder = [System64Folder] ?>
+    <?define programs_folder = "ProgramFiles64Folder" ?>
   <?else ?>
     <?define bitness = "(x86)" ?>
     <?define Win64 = "no" ?>
-    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+    <?define system_folder = [SystemFolder] ?>
+    <?define programs_folder = "ProgramFilesFolder" ?>
   <?endif ?>
   
   <!--
-      ====================================================================================
-      JOY PRODUCT/PACKAGE
-      ====================================================================================
+  ====================================================================================
+  JOY PRODUCT/PACKAGE
+  ====================================================================================
    -->
-	<Product Id="*" Name="Joy $(var.bitness)" Language="1033" Version="1.73.0.0" Manufacturer="JoyTeam" UpgradeCode="150cd1a4-afe0-4e9a-af16-0088b3b116f5">
-		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+	<Product Id="*" Name="Joy $(var.bitness)" Language="1033" Version="1.74.0.0" Manufacturer="JoyTeam" UpgradeCode="150cd1a4-afe0-4e9a-af16-0088b3b116f5">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"  Description="Joy Installer"/>
 
     <!-- IF perUser is needed
     <Property Id="ALLUSERS" Secure="yes" Value="2"/>
     <Property Id="MSIINSTALLPERUSER" Secure="yes" Value="1" />
     -->
-    
+
     <Property Id="ARPHELPLINK" Value="https://github.com/cisco/joy" />
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes"/>
 
-    <!-- Create Scheduled Task to start Joy -->
-	  <!--
-    <CustomAction Id="CreateScheduledTask" Return="check" Impersonate="no" Execute="deferred" Directory="TARGETDIR"
-                  ExeCommand="&quot;[SystemFolder]SCHTASKS.EXE&quot; /CREATE /SC ONSTART /TN &quot;Joy&quot;  /TR &quot;&quot;[INSTALLFOLDER]\win-joy.exe -x win-options.cfg&quot;&quot; /RU &quot;NT Authority\LocalService&quot; /RP " />
-    
-    Delete Joy Scheduled Task
-    <CustomAction Id="DeleteScheduledTask" Return="check" Impersonate="no" Execute="deferred" Directory="TARGETDIR"
-                  ExeCommand="&quot;[SystemFolder]SCHTASKS.EXE&quot; /DELETE /TN &quot;Joy&quot; /F"/>
-
-    Custom action sequence
-    <InstallExecuteSequence>
-      <Custom Action="CreateScheduledTask" After="InstallFiles">NOT Installed</Custom>
-      <Custom Action="DeleteScheduledTask" After="RemoveFiles">Installed</Custom>
-    </InstallExecuteSequence>
-	  -->
-
-    <Feature Id="ProductFeature" Title="Joy" Level="1">
-      <ComponentRef Id="MainExecutable"/>
-      <ComponentGroupRef Id="RequiredDlls" />
-      <ComponentRef Id="JoyConfig_comp" />
-      <ComponentRef Id="DeleteAppFolder_comp" />
+    <Feature Id="Complete" Title="Joy" Description="The complete package"
+             Display="expand" Level="1" ConfigurableDirectory="INSTALLFOLDER" >
+      <Feature Id="MainProgram" Title="Program" Description="The main program components." Level="1">
+        <ComponentGroupRef Id="MainBinaries" />
+        <ComponentRef Id="JoyConfig_comp" />
+        <ComponentRef Id="DeleteAppFolder_comp" />
+      </Feature>
+      <Feature Id="ScheduleTask" Title="Run Automatically"
+               Description="Create a scheduled task to auto-run on logon. Requires Powershell >= 3.0" Level='1'>
+        <ComponentRef Id="ScheduleTask_comp" />
+      </Feature>
     </Feature>
+
+    <Icon Id="icon.ico" SourceFile="icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <UIRef Id="WixUI_FeatureTree" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <!--
+    ==================
+    Special Conditions
+    ==================
+    -->
+    <!-- Make sure Powershell 3.0 is available.
+    Needed for scheduledtasks Powershell module
+    -->
+    <Property Id="POWERSHELL30">
+      <RegistrySearch Id="POWERSHELL30"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\Powershell\3"
+                      Name="Install"
+                      Type="raw" />
+    </Property>
+    <!--
+    The condition will pass during install if:
+      * The ScheduleTask feature is NOT selected.
+      * OR Powershell version >= 3.0 is available.
+    -->
+    <Condition Message="Install requires Windows PowerShell version 3.0 or greater.">
+      <![CDATA[( (NOT Installed) AND (NOT &ScheduleTask=3) ) OR POWERSHELL30]]>
+    </Condition>
+    <!--
+    The condition will pass during uninstall if:
+      * The ScheduleTask feature is not installed.
+      * OR Powershell version >= 3.0 is available.
+    -->
+    <Condition Message="Uninstall requires Windows PowerShell version 3.0 or greater.">
+      <![CDATA[( Installed AND (NOT !ScheduleTask=3) ) OR POWERSHELL30]]>
+    </Condition>
+
+    <!--
+    =====================
+    Define Custom Actions
+    =====================
+    -->
+    <!-- Create Scheduled Task to start Joy -->
+    <CustomAction Id="CreateScheduledTask"
+                  Return="check"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Directory="JoyAppFolder"
+                  ExeCommand="&quot;$(var.system_folder)CMD.EXE&quot; /C &quot;powershell -ExecutionPolicy ByPass -Command &quot;[JoyAppFolder]schedule-task.ps1&quot; -Start&quot;" />
+
+    <!-- Delete Joy Scheduled Task -->
+    <CustomAction Id="DeleteScheduledTask"
+                  Return="check"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Directory="JoyAppFolder"
+                  ExeCommand="&quot;$(var.system_folder)CMD.EXE&quot; /C &quot;powershell -ExecutionPolicy ByPass -Command &quot;[JoyAppFolder]schedule-task.ps1&quot; -Unregister&quot;"/>
+
+    <!--
+    =======================
+    Custom Action Sequence
+    =======================
+    -->
+    <InstallExecuteSequence>
+      <!--
+      Create the scheduled task if the Joy package is NOT installed
+      AND the ScheduleTask feature has been selected.
+      -->
+      <Custom Action="CreateScheduledTask" After="InstallFiles">
+        <![CDATA[(NOT Installed) AND (&ScheduleTask=3)]]>
+      </Custom>
+
+      <!--
+      Delete the scheduled task if the Joy package is installed
+      AND the ScheduleTask feature is installed.
+      -->
+      <Custom Action="DeleteScheduledTask" Before="RemoveFiles">
+        <![CDATA[(Installed) AND (!ScheduleTask=3)]]>
+      </Custom>
+    </InstallExecuteSequence>
+
   </Product>
 
   <!--
@@ -63,7 +138,7 @@
   -->
   <Fragment>
     <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="$(var.PlatformProgramFilesFolder)">
+      <Directory Id="$(var.programs_folder)">
         <Directory Id="INSTALLFOLDER" Name="Joy" />
       </Directory>
       <Directory Id="LocalAppDataFolder">
@@ -100,20 +175,23 @@
       <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]'
                       Type='string' Name='JoyConfigFile' Value='[JoyAppFolder]\win-options.cfg' KeyPath='yes'/>
     </Component>
+    <Component Id="ScheduleTask_comp" Directory="JoyAppFolder" Guid="2CE28E37-237F-4ACB-98B2-2072E1752D87">
+      <File Name="schedule-task.ps1" Source="$(var.SolutionDir)\schedule-task.ps1" />
+      <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]'
+                      Type='string' Name='ScheduleTaskFile' Value='[JoyAppFolder]\schedule-task.ps1' KeyPath='yes'/>
+    </Component>
   </Fragment>
 
   <!--
   ====================================================================================
   Main Binary Files
+  ====================================================================================
    -->
   <Fragment>
-    <Component Id="MainExecutable" Directory="INSTALLFOLDER" Win64="$(var.Win64)">
-      <File Source="$(var.win-joy.TargetPath)" KeyPath="yes"/>
-    </Component>
-  </Fragment>
-  
-  <Fragment>
-    <ComponentGroup Id="RequiredDlls" Directory="INSTALLFOLDER">
+    <ComponentGroup Id="MainBinaries" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable" Win64="$(var.Win64)">
+        <File Source="$(var.win-joy.TargetPath)" KeyPath="yes"/>
+      </Component>
       <Component Id="GetoptLibrary" Win64="$(var.Win64)">
         <File Name="getopt.dll" Source="..\..\windows\64\DLL\getopt.dll" KeyPath="yes" />
       </Component>
