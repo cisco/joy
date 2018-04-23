@@ -47,7 +47,7 @@ string_has ()
 find_ssl_headers ()
 {
     if [ $1 ]; then
-        ssl_crypto=`find "$1" -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+        ssl_crypto=`find "$1" -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
         if [ "$ssl_crypto" != "" ]; then
            echo "Searching for OpenSSL headers...found"
            ## remove /openssl/crypto.h from the end of the path
@@ -56,7 +56,7 @@ find_ssl_headers ()
         fi
     fi
 
-    ssl_crypto=`find /usr -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+    ssl_crypto=`find /usr -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -64,7 +64,7 @@ find_ssl_headers ()
         return
     fi
 
-    ssl_crypto=`find /include -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+    ssl_crypto=`find /include -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -72,7 +72,7 @@ find_ssl_headers ()
         return
     fi
 
-    ssl_crypto=`find /opt -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+    ssl_crypto=`find /opt -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -100,7 +100,7 @@ find_ssl_headers ()
 ##
 find_curl_headers ()
 {
-    curl_header=`find /usr -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    curl_header=`find /usr -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
     if [ "$curl_header" != "" ]; then
         echo "Searching for Curl headers...found"
         ## remove /curl/curl.h from the end of the path
@@ -108,7 +108,7 @@ find_curl_headers ()
         return
     fi
 
-    curl_header=`find /include -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    curl_header=`find /include -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
     if [ "$curl_header" != "" ]; then
         echo "Searching for Curl headers...found"
         ## remove /curl/curl.h from the end of the path
@@ -116,7 +116,7 @@ find_curl_headers ()
         return
     fi
 
-    curl_header=`find /opt -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    curl_header=`find /opt -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
     if [ "$curl_header" != "" ]; then
         echo "Searching for Curl headers...found"
         ## remove /curl/curl.h from the end of the path
@@ -125,7 +125,7 @@ find_curl_headers ()
     fi
 
     if [ $1 ]; then
-        curl_header=`find "$1" -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+        curl_header=`find "$1" -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
         if [ "$curl_header" != "" ]; then
             echo "Searching for Curl headers...found"
             ## remove /curl/curl.h from the end of the path

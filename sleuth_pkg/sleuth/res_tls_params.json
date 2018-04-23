@@ -1,5 +1,25 @@
 {
     "tls_params": {
+        "1301": {
+            "enc": "AES_128_GCM",
+            "hash": "SHA256"
+        },
+        "1302": {
+            "enc": "AES_256_GCM",
+            "hash": "SHA384"
+        },
+        "1303": {
+            "enc": "CHACHA20_POLY1305",
+            "hash": "SHA256"
+        },
+        "1304": {
+            "enc": "AES_128_CCM",
+            "hash": "SHA256"
+        },
+        "1305": {
+            "enc": "AES_128_CCM_8",
+            "hash": "SHA256"
+        },
         "c005": {
             "enc": "AES_256_CBC", 
             "hash": "SHA", 
