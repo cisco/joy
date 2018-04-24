@@ -121,12 +121,12 @@ str_match_test: str_match_test.c $(JOY_SRC)
 
 libjoy.a: $(LIBJOY_SRC)
 	@rm -f $(LIBDIR)/libjoy.a
-	gcc $(CFLAGS) $(CDEFS) -fPIC $(COMPDEF) -DJOY_LIB_API -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -c $(LIBJOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) -fPIC -pthread $(COMPDEF) -DJOY_LIB_API -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -c $(LIBJOY_SRC)
 	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
 	@rm -f $(LIBJOY_OBJ)
 
 joy_api_test: $(LIBDIR)/libjoy.a joy_api_test.c
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) -lpcap -lm -lcrypto
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -pthread $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) -lpcap -lm -lcrypto -lpthread
 
 joy_api_test2: $(LIBDIR)/libjoy.a joy_api_test2.c
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) -lm -lcrypto 

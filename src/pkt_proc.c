@@ -58,7 +58,6 @@
 /*
  * external variables, defined in joy
  */
-extern struct timeval global_time;
 extern unsigned int num_pkt_len;
 
 /** maximum number of templates allowed */
@@ -72,6 +71,7 @@ u_short num_templates = 0;
 
 /* per instance context data */
 struct joy_ctx_data  {
+    struct timeval global_time;
     struct flocap_stats stats;
     struct flocap_stats last_stats;
     struct timeval last_stats_output_time;
@@ -965,8 +965,8 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
      * in situations where we can't use the real time, such as offline PCAP processing
      * because the time is contextual based.
      */
-    if (joy_timer_lt(&global_time, &header->ts)) {
-        global_time = header->ts;
+    if (joy_timer_lt(&ctx->global_time, &header->ts)) {
+        ctx->global_time = header->ts;
     }
 
     /* determine transport protocol and handle appropriately */

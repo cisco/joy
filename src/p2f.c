@@ -87,8 +87,6 @@
 #define T_WINDOW 10
 #define T_ACTIVE 20
 
-struct timeval global_time = {0, 0};
-
 struct timeval time_window = { T_WINDOW, 0 };
 
 struct timeval active_timeout = { T_ACTIVE, 0 };
@@ -110,6 +108,7 @@ unsigned int num_pkt_len = NUM_PKT_LEN;
 
 /* per instance context data */
 struct joy_ctx_data  {
+    struct timeval global_time;
     struct flocap_stats stats;
     struct flocap_stats last_stats;
     struct timeval last_stats_output_time;
@@ -614,11 +613,11 @@ static int flow_record_is_active_expired(struct flow_record *record,
  * \param record - A flow_record
  * \return int - 1 if expired, 0 otherwise
  */
-static unsigned int flow_record_is_expired(struct flow_record *record) {
+static unsigned int flow_record_is_expired(joy_ctx_data *ctx, struct flow_record *record) {
     struct timeval inactive_cutoff;
     struct timeval active_cutoff;
 
-    joy_timer_sub(&global_time, &time_window, &inactive_cutoff);
+    joy_timer_sub(&ctx->global_time, &time_window, &inactive_cutoff);
     joy_timer_sub(&inactive_cutoff, &active_timeout, &active_cutoff);
 
     /*
@@ -1705,7 +1704,7 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_all) {
     while (record != NULL) {
         if (!export_all) {
             /* Avoid printing flows that might still be active */
-            if (!flow_record_is_expired(record)) {
+            if (!flow_record_is_expired(ctx,record)) {
                 break;
             }
         }
@@ -1752,7 +1751,7 @@ void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_all) {
     while (record != NULL) {
         if (!print_all) {
             /* Avoid printing flows that might still be active */
-            if (!flow_record_is_expired(record)) {
+            if (!flow_record_is_expired(ctx,record)) {
                 break;
             }
         }

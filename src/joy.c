@@ -122,6 +122,7 @@ static char dir_output[MAX_FILENAME_LEN];
 
 /* per instance context data */
 struct joy_ctx_data  {
+    struct timeval global_time;
     struct flocap_stats stats;
     struct flocap_stats last_stats;
     struct timeval last_stats_output_time;

@@ -57,10 +57,17 @@
 #include "radix_trie.h"
 #include "classify.h"
 #include "joy_api.h"
+#include "pthread.h"
 
 /* file destination variables */
 zfile output = NULL;
 FILE *info = NULL;
+
+/* Thread locks */
+pthread_mutex_t pkt_proc_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pkt_print_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pkt_export_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t pkt_cleanup_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* config is the global library configuration */
 struct configuration active_config;
@@ -77,6 +84,7 @@ static int joy_library_initialized = 0;
 
 /* per instance context data */
 struct joy_ctx_data  {
+    struct timeval global_time;
     struct flocap_stats stats;
     struct flocap_stats last_stats;
     struct timeval last_stats_output_time;
@@ -551,15 +559,18 @@ void joy_process_packet(unsigned char *ctx_index,
     /* ctx_index has the int value of the data context
      * This number is between 0 and MAX_LIB_CONTEXTS
      */
+    pthread_mutex_lock(&pkt_proc_lock);
     index = (unsigned long int)ctx_index;
 
     if (index >= MAX_LIB_CONTEXTS ) {
         joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
+        pthread_mutex_unlock(&pkt_proc_lock);
         return;
     }
 
     ctx = &ctx_data[index];
     process_packet((unsigned char*)ctx, header, packet);
+    pthread_mutex_unlock(&pkt_proc_lock);
 }
 
 /*
@@ -595,6 +606,7 @@ void joy_print_flow_data(unsigned int index, int type)
     }
 
     /* see if we should collect host information */
+    pthread_mutex_lock(&pkt_print_lock);
     if (glb_config->report_exe) {
         joy_log_info("retrieveing process information\n");
         if (get_host_flow_data(&ctx_data[index]) != 0) {
@@ -604,6 +616,7 @@ void joy_print_flow_data(unsigned int index, int type)
 
     /* print the flow records */
     flow_record_list_print_json(&ctx_data[index], type);
+    pthread_mutex_unlock(&pkt_print_lock);
 }
 
 /*
@@ -637,7 +650,9 @@ void joy_export_flows_ipfix(unsigned int index, int type)
     }
 
     /* export the flow records */
+    pthread_mutex_lock(&pkt_export_lock);
     flow_record_export_as_ipfix(&ctx_data[index], type);
+    pthread_mutex_unlock(&pkt_export_lock);
 }
 
 /*
@@ -669,6 +684,7 @@ void joy_cleanup(unsigned int index)
     }
 
     /* Flush any unsent exporter messages in Ipfix module */
+    pthread_mutex_lock(&pkt_cleanup_lock);
     if (glb_config->ipfix_export_port) {
         ipfix_export_flush_message();
     }
@@ -678,4 +694,5 @@ void joy_cleanup(unsigned int index)
 
     /* free up the flow records */
     flow_record_list_free(&(ctx_data[index]));
+    pthread_mutex_unlock(&pkt_cleanup_lock);
 }
