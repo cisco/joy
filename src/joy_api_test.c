@@ -44,6 +44,8 @@
 #include <stdlib.h>  
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include "pthread.h"
 #include "joy_api.h"
 #include "pcap.h"
 
@@ -93,10 +95,33 @@ int process_pcap_file (unsigned long index, char *file_name) {
     return 0;
 }
 
+void *thread_main1 (void *file)
+{
+    sleep(1);
+    printf("Thread 1 Starting\n");
+    process_pcap_file(1, file);
+    joy_print_flow_data(1, JOY_ALL_FLOWS);
+    joy_cleanup(1);
+    printf("Thread 1 Finished\n");
+    return NULL;
+}
+
+void *thread_main2 (void *file)
+{
+    sleep(1);
+    printf("Thread 2 Starting\n");
+    process_pcap_file(2, file);
+    joy_print_flow_data(2, JOY_ALL_FLOWS);
+    joy_cleanup(2);
+    printf("Thread 2 Finished\n");
+    return NULL;
+}
+
 int main (int argc, char **argv)
 {
     int rc = 0;
     struct joy_init init_data;
+    pthread_t thread1, thread2;
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(struct joy_init));
@@ -125,18 +150,21 @@ int main (int argc, char **argv)
     /* print out the configuration */
     joy_print_config(JOY_JSON_FORMAT);
 
-    /* process the file(s) from the command line */
-    process_pcap_file(0,argv[1]);
-    process_pcap_file(1,argv[2]);
+    /* start up thread1 for processing */
+    rc = pthread_create(&thread1, NULL, thread_main1, (char*)argv[1]);
+    if (rc) {
+         printf("error: could not thread1 pthread_create() rc: %d\n", rc);
+         return -6;
+    }
 
-    /* print the flows */
-    joy_print_flow_data(0, JOY_ALL_FLOWS);
-    joy_print_flow_data(1, JOY_ALL_FLOWS);
+    /* start up thread2 for processing */
+    rc = pthread_create(&thread2, NULL, thread_main2, (char*)argv[2]);
+    if (rc) {
+         printf("error: could not thread2 pthread_create() rc: %d\n", rc);
+         return -6;
+    }
 
-    /* cleanup */
-    joy_cleanup(0);
-    joy_cleanup(1);
-
+    sleep(10);
     return 0;
 }
 

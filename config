@@ -154,7 +154,16 @@ find_curl_headers ()
 ##
 check_libraries ()
 {
-    if ls /lib/$1.* 1> /dev/null 2>&1; then
+    if ls /usr/local/lib/$1.* 1> /dev/null 2>&1; then
+       echo "Checking for $1...exists"
+       string_has "$library_path" "/usr/local/lib"
+       if [ $string_has_result -eq 0 ]; then
+           library_path=$library_path" -L \"/usr/local/lib\""
+       fi
+       return
+    fi
+
+    if ls /usr/lib/$1.* 1> /dev/null 2>&1; then
        echo "Checking for $1...exists"
        string_has "$library_path" "/lib"
        if [ $string_has_result -eq 0 ]; then
@@ -163,20 +172,11 @@ check_libraries ()
        return
     fi
 
-    if ls /usr/lib/$1.* 1> /dev/null 2>&1; then
+    if ls /lib/$1.* 1> /dev/null 2>&1; then
        echo "Checking for $1...exists"
        string_has "$library_path" "/usr/lib"
        if [ $string_has_result -eq 0 ]; then
            library_path=$library_path" -L \"/usr/lib\""
-       fi
-       return
-    fi
-
-    if ls /usr/local/lib/$1.* 1> /dev/null 2>&1; then
-       echo "Checking for $1...exists"
-       string_has "$library_path" "/usr/local/lib"
-       if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L \"/usr/local/lib\""
        fi
        return
     fi
