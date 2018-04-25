@@ -65,6 +65,7 @@
 #include "utils.h"
 #include "config.h"
 #include "err.h"
+#include "pthread.h"
 
 /*
  * The maxiumum allowed length of a serial number is 20 octets
@@ -77,6 +78,9 @@
 
 #define TLS_HDR_LEN 5
 #define TLS_HANDSHAKE_HDR_LEN 4
+
+/* TLS mutex lock */
+pthread_mutex_t tls_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  * External objects, defined in joy.c
@@ -1829,7 +1833,9 @@ static void tls_handshake_buffer_parse(struct tls *r) {
                 /* 
                  * Parse certificate(s)
                  */
+                pthread_mutex_lock(&tls_lock);
                 tls_certificate_parse(&handshake->body, body_len, r);
+                pthread_mutex_unlock(&tls_lock);
             }
 
             if (msg_count < MAX_NUM_RCD_LEN &&
@@ -2110,7 +2116,6 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
     unsigned int pkt_len;
     char *dir;
     struct tls_message_stat stat;
-    unsigned int num_pkt_len_tls = NUM_PKT_LEN_TLS;
 
     zprintf(f, ",\"srlt\":[");
 
@@ -2118,7 +2123,7 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
       
         ts_start = *time;
 
-        imax = op > num_pkt_len_tls ? num_pkt_len_tls : op;
+        imax = op > NUM_PKT_LEN_TLS ? NUM_PKT_LEN_TLS : op;
         if (imax == 0) { 
             ; /* no packets had data, so we print out nothing */
         } else {
@@ -2146,8 +2151,8 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
             ts_start = *time2;
         }
 
-        imax = op > num_pkt_len_tls ? num_pkt_len_tls : op;
-        jmax = op2 > num_pkt_len_tls ? num_pkt_len_tls : op2;
+        imax = op > NUM_PKT_LEN_TLS ? NUM_PKT_LEN_TLS : op;
+        jmax = op2 > NUM_PKT_LEN_TLS ? NUM_PKT_LEN_TLS : op2;
         i = j = 0;
         ts_last = ts_start;
         while ((i < imax) || (j < jmax)) {      

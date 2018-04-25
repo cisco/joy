@@ -47,6 +47,8 @@
 #include "p2f.h"
 #include "err.h"
 
+#define MAX_TEMPLATES 100
+
 /** main packet processing entry point */
 void process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
 

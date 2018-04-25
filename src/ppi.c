@@ -190,8 +190,6 @@ void ppi_unit_test () {
  */
 
 #include "p2f.h"
-#define NUM_PKT_LEN 50  // should be defined somewhere else
-unsigned int num_pkts = NUM_PKT_LEN;
 
 #define OUT "<"
 #define IN  ">"
@@ -462,7 +460,7 @@ static void pkt_info_print_interleaved(zfile f,
     struct tcp_state tcp_state = { 0, };
     struct tcp_state rev_tcp_state = { 0, };
 
-    imax = np  > num_pkts ? num_pkts : np;
+    imax = np  > NUM_PKT_LEN ? NUM_PKT_LEN : np;
 
     if (pkt_info2 == NULL) {  /* unidirectional tcp flow, no interleaving needed */
 
@@ -488,7 +486,7 @@ static void pkt_info_print_interleaved(zfile f,
             ts_last = pkt_info2[0].time;
         }
 
-        jmax = np2 > num_pkts ? num_pkts : np2;
+        jmax = np2 > NUM_PKT_LEN ? NUM_PKT_LEN : np2;
 	if (!imax || !jmax) {
 	  return;   /* nothing to output */
 	}

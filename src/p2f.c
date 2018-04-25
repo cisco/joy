@@ -87,13 +87,13 @@
 #define T_WINDOW 10
 #define T_ACTIVE 20
 
-struct timeval time_window = { T_WINDOW, 0 };
+const struct timeval time_window = { T_WINDOW, 0 };
 
-struct timeval active_timeout = { T_ACTIVE, 0 };
+const struct timeval active_timeout = { T_ACTIVE, 0 };
 
-unsigned int active_max = (T_WINDOW + T_ACTIVE);
+const unsigned int active_max = (T_WINDOW + T_ACTIVE);
 
-int include_os = 1;
+const int include_os = 1;
 
 #define expiration_type_reserved 'z'
 #define expiration_type_active  'a'
@@ -103,8 +103,6 @@ enum twins_match {
     exact = 0,
     near_match = 1,
 };
-
-unsigned int num_pkt_len = NUM_PKT_LEN;
 
 /* per instance context data */
 struct joy_ctx_data  {
@@ -118,6 +116,8 @@ struct joy_ctx_data  {
     unsigned long int reserved_info;
     unsigned long int reserved_ctx;
 };
+
+pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #ifndef JOY_LIB_API
 extern joy_ctx_data main_ctx;
@@ -1366,7 +1366,7 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
 
     if (rec->twin == NULL) {
 
-        imax = rec->op > num_pkt_len ? num_pkt_len : rec->op;
+        imax = rec->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->op;
         if (imax == 0) {
             ; /* no packets had data, so we print out nothing */
         } else {
@@ -1387,8 +1387,8 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
         }
         zprintf(output, "]");
     } else {
-        imax = rec->op > num_pkt_len ? num_pkt_len : rec->op;
-        jmax = rec->twin->op > num_pkt_len ? num_pkt_len : rec->twin->op;
+        imax = rec->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->op;
+        jmax = rec->twin->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->twin->op;
         i = j = 0;
         ts_last = ts_start;
 
@@ -1663,7 +1663,9 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, struct flow_record 
     /*
      * Print the record to JSON output
      */
+    pthread_mutex_lock(&print_lock);
     flow_record_print_json(ctx, record);
+    pthread_mutex_unlock(&print_lock);
 
 #ifndef JOY_LIB_API
     /*

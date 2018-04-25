@@ -52,50 +52,7 @@
 /* test program variables */
 #define NUM_PACKETS_IN_LOOP 20
 
-int process_pcap_file1 (unsigned long index, char *file_name) {
-    int more = 1;
-    pcap_t *handle = NULL;
-    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
-    struct bpf_program fp;
-    char *filter_exp = "ip or vlan";
-    char errbuf[PCAP_ERRBUF_SIZE];
-
-    /* initialize fp structure */
-    memset(&fp, 0x00, sizeof(struct bpf_program));
-
-    handle = pcap_open_offline(file_name, errbuf);
-    if (handle == NULL) {
-        printf("Couldn't open pcap file %s: %s\n", file_name, errbuf);
-        return -1;
-    }
-
-    /* compile the filter expression */
-    if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-        fprintf(stderr, "error: could not parse filter %s: %s\n",
-                filter_exp, pcap_geterr(handle));
-        return -2;
-    }
-
-    /* apply the compiled filter */
-    if (pcap_setfilter(handle, &fp) == -1) {
-        fprintf(stderr, "error: could not install filter %s: %s\n",
-                filter_exp, pcap_geterr(handle));
-        return -3;
-    }
-
-    while (more) {
-        /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_process_packet, (unsigned char*)index);
-        /* Print out expired flows */
-        joy_print_flow_data(index,JOY_EXPIRED_FLOWS);
-    }
-
-    /* Cleanup */
-    pcap_close(handle);
-    return 0;
-}
-
-int process_pcap_file2 (unsigned long index, char *file_name) {
+int process_pcap_file (unsigned long index, char *file_name) {
     int more = 1;
     pcap_t *handle = NULL;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
@@ -142,9 +99,8 @@ void *thread_main1 (void *file)
 {
     sleep(1);
     printf("Thread 1 Starting\n");
-    process_pcap_file1(1, file);
+    process_pcap_file(1, file);
     joy_print_flow_data(1, JOY_ALL_FLOWS);
-    joy_cleanup(1);
     printf("Thread 1 Finished\n");
     return NULL;
 }
@@ -153,10 +109,19 @@ void *thread_main2 (void *file)
 {
     sleep(1);
     printf("Thread 2 Starting\n");
-    process_pcap_file2(2, file);
+    process_pcap_file(2, file);
     joy_print_flow_data(2, JOY_ALL_FLOWS);
-    joy_cleanup(2);
     printf("Thread 2 Finished\n");
+    return NULL;
+}
+
+void *thread_main3 (void *file)
+{
+    sleep(1);
+    printf("Thread 3 Starting\n");
+    process_pcap_file(3, file);
+    joy_print_flow_data(3, JOY_ALL_FLOWS);
+    printf("Thread 3 Finished\n");
     return NULL;
 }
 
@@ -164,7 +129,7 @@ int main (int argc, char **argv)
 {
     int rc = 0;
     struct joy_init init_data;
-    pthread_t thread1, thread2;
+    pthread_t thread1, thread2, thread3;
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(struct joy_init));
@@ -175,7 +140,7 @@ int main (int argc, char **argv)
     init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON);
 
     /* intialize joy */
-    rc = joy_initialize(&init_data, NULL, NULL, NULL);
+    rc = joy_initialize(&init_data, NULL, "joy.out", NULL);
     if (rc != 0) {
         printf(" -= Joy Initialized Failed =-\n");
         return -1;
@@ -207,7 +172,21 @@ int main (int argc, char **argv)
          return -6;
     }
 
+    /* start up thread3 for processing */
+    rc = pthread_create(&thread3, NULL, thread_main3, (char*)argv[3]);
+    if (rc) {
+         printf("error: could not thread3 pthread_create() rc: %d\n", rc);
+         return -6;
+    }
+
+    /* let the threads run */
     sleep(10);
+
+    /* clean up the data structures */
+    joy_cleanup(1);
+    joy_cleanup(2);
+    joy_cleanup(3);
+
     return 0;
 }
 

@@ -434,6 +434,7 @@ static void destroy_kdn(struct keyword_dict_node *node) {
 
     if (node->child == NULL || node->num_children == 0) {
         free(node);
+        node = NULL;
         return;
     }
 
@@ -453,6 +454,7 @@ static void destroy_kdn(struct keyword_dict_node *node) {
 
     /* Now delete the parent */
     free(node);
+    node = NULL;
     return;
 }
 
@@ -726,6 +728,7 @@ void proto_identify_destroy_keyword_dict(void) {
     }
 
     destroy_kdn(kd_root);
+    kd_root = NULL;
 }
 
 /**

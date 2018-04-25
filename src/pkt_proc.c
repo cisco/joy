@@ -54,20 +54,16 @@
 #include "ipfix.h"
 #include "utils.h"
 #include "proto_identify.h"
-
-/*
- * external variables, defined in joy
- */
-extern unsigned int num_pkt_len;
-
-/** maximum number of templates allowed */
-#define MAX_TEMPLATES 100
+#include "pthread.h"
 
 /** netflow version 9 structure templates */
-struct nfv9_template v9_templates[MAX_TEMPLATES];
+static struct nfv9_template v9_templates[MAX_TEMPLATES];
 
 /** number of templates in use */
-u_short num_templates = 0;
+static u_short num_templates = 0;
+
+pthread_mutex_t proto_ident_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t nfv9_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* per instance context data */
 struct joy_ctx_data  {
@@ -197,7 +193,7 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
 		    unsigned int length, const struct timeval *time,
 		    const struct tcp_hdr *tcp) {
 
-    if (record->op >= num_pkt_len) {
+    if (record->op >= NUM_PKT_LEN) {
         return;  /* no more room */
     }
 
@@ -655,7 +651,9 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
      * Optimization: stop after first 2 packets that have non-zero payload
      */
     if ((!record->app) && record->op <= 2) {
+        pthread_mutex_lock(&proto_ident_lock);
         const struct pi_container *pi = proto_identify_tcp(payload, size_payload);
+        pthread_mutex_unlock(&proto_ident_lock);
         if (pi != NULL) {
             record->app = pi->app;
             record->dir = pi->dir;
@@ -720,7 +718,7 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
     if (record == NULL) {
         return NULL;
     }
-    if (record->op < num_pkt_len) {
+    if (record->op < NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
@@ -735,7 +733,9 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
     update_all_features(payload_feature_list);
 
     if (glb_config->nfv9_capture_port && (key->dp == glb_config->nfv9_capture_port)) {
+        pthread_mutex_lock(&nfv9_lock);
         process_nfv9(ctx, header, payload, size_payload, record);
+        pthread_mutex_unlock(&nfv9_lock);
     }
 
     if (glb_config->ipfix_collect_port && (key->dp == glb_config->ipfix_collect_port)) {
@@ -792,7 +792,7 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
     if (record == NULL) {
         return NULL;
     }
-    if (record->op < num_pkt_len) {
+    if (record->op < NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
@@ -837,7 +837,7 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
     if (record == NULL) {
         return NULL;
     }
-    if (record->op < num_pkt_len) {
+    if (record->op < NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;

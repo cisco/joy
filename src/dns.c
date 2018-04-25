@@ -288,12 +288,6 @@ enum dns_class {
     class_HS = 4  /*!< Hesiod [Dyer 87] */
 };
 
-/**
- * \brief num_pkt_len can be set on command line, and it controls the maximum
- * number of DNS packets that will be captured
- */
-extern unsigned int num_pkt_len;
-
 #if 0
 static void dns_query_to_string(char *q, unsigned int len) {
     unsigned int i;
@@ -570,7 +564,7 @@ static enum status process_dns (const struct pcap_pkthdr *h, const void *start, 
     // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
     // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
 
-    if (r->op >= num_pkt_len) {
+    if (r->op >= NUM_PKT_LEN) {
         return failure;  /* no more room */
     }  
 
@@ -832,7 +826,7 @@ void dns_update (struct dns *dns, const struct pcap_pkthdr *header, const void *
         return;  /* we are not configured to report DNS information */
     }
 
-    if (dns->pkt_count >= num_pkt_len) {
+    if (dns->pkt_count >= NUM_PKT_LEN) {
         return;  /* no more room */
     }  
 
