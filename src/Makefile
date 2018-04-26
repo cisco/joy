@@ -121,22 +121,22 @@ unit_test: unit_test.c $(LIBDIR)/libjoy.a
 	ln -sf "$(BINDIR)/unit_test" "$(TESTDIR)/unit_test"
 	@echo
 
-joy_api_test: $(LIBDIR)/libjoy.a joy_api_test.c
+joy_api_test: joy_api_test.c $(LIBDIR)/libjoy.a
 	@echo "Building joy_api_test ..."
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -pthread $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) -lpcap -lm -lcrypto -lpthread
 	@echo
 
-joy_api_test2: $(LIBDIR)/libjoy.a joy_api_test2.c
+joy_api_test2: joy_api_test2.c $(LIBDIR)/libjoy.a
 	@echo "Building joy_api_test2 ..."
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) -lm -lcrypto -lpcap
 	@echo
 
-jfd-anon: jfd-anon.c $(JFDANON_SRC) $(LIBDIR)/libjoy.a
+jfd-anon: jfd-anon.c $(JFDANON_SRC)
 	@echo "Building jfd-anon ..."
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) -L $(LIBDIR) $(LIBRARYPATH) $(LIBS)
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 	@echo
 
-joy-anon: joy-anon.c $(JFDANON_SRC) $(LIBDIR)/libjoy.a
+joy-anon: joy-anon.c $(JFDANON_SRC)
 	@echo "Building joy-anon ..."
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
 	@echo
