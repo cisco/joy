@@ -530,7 +530,6 @@ void dhcp_print_json(const struct dhcp *d1,
     }
 }
 
-#ifndef JOY_LIB_API
 /**
  * \brief Skip over the L1/L2/L3 header of packet containing DHCP data.
  *
@@ -943,5 +942,4 @@ void dhcp_unit_test()
     }
     fprintf(info, "******************************\n\n");
 }
-#endif
 

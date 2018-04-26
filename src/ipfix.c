@@ -150,19 +150,6 @@ static struct ipfix_message *export_message = NULL;
 
 enum ipfix_template_type export_template_type;
 
-/* per instance context data */
-struct joy_ctx_data  {
-    struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
-    struct timeval last_stats_output_time;
-    struct flow_record *flow_record_chrono_first;
-    struct flow_record *flow_record_chrono_last;
-    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
-    unsigned long int reserved_info;
-    unsigned long int reserved_ctx;
-};
-
 /*
  * Local ipfix.c prototypes
  */

@@ -59,9 +59,17 @@ all:
 	@if [ ! -d "lib" ]; then mkdir lib; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
 
+libjoy.a:
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) libjoy.a
+
 joy:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS) joy
+
+unit_test:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) unit_test
 
 joy_api_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
@@ -73,17 +81,13 @@ joy_api_test2:
 	@if [ ! -d "lib" ]; then mkdir lib; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS) joy_api_test2
 
-libjoy.a:
-	@if [ ! -d "lib" ]; then mkdir lib; fi;
-	@cd src; $(MAKE) $(MAKEFLAGS) libjoy.a
-
-unit_test:
-	@if [ ! -d "bin" ]; then mkdir bin; fi;
-	@cd src; $(MAKE) $(MAKEFLAGS) unit_test
-
 jfd-anon:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS) jfd-anon
+
+joy-anon:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) joy-anon
 
 str_match_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;

@@ -72,19 +72,6 @@
 #include "err.h" 
 #include <openssl/sha.h>
 
-/* per instance context data */
-struct joy_ctx_data  {
-    struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
-    struct timeval last_stats_output_time;
-    struct flow_record *flow_record_chrono_first;
-    struct flow_record *flow_record_chrono_last;
-    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
-    unsigned long int reserved_info;
-    unsigned long int reserved_ctx;
-};
-
 static struct host_flow host_proc_flow_table_array[HOST_PROC_FLOW_TABLE_LEN];
 
 int calculate_sha256_hash(unsigned char* path, unsigned char *output)

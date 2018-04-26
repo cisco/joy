@@ -78,11 +78,6 @@ struct joy_ctx_data  {
     unsigned long int reserved_ctx;
 };
 
-#ifndef JOY_LIB_API
-    /* if not building library, use context in joy.c */
-    extern joy_ctx_data main_ctx;
-#endif
-
 /**
  * \fn int data_sanity_check ()
  * \param none

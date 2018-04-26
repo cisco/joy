@@ -47,25 +47,7 @@
 #include "p2f.h"
 #include "config.h"
 #include "err.h"
-
-/* per instance context data */
-struct joy_ctx_data  {
-    struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
-    struct timeval last_stats_output_time;
-    struct flow_record *flow_record_chrono_first;
-    struct flow_record *flow_record_chrono_last;
-    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
-    unsigned long int reserved_info;
-    unsigned long int reserved_ctx;
-};
-struct joy_ctx_data main_ctx;
-
-struct configuration active_config;
-struct configuration *glb_config;
-zfile output = NULL;
-FILE *info = NULL;
+#include "joy_api.h"
 
 /**
  * \fn int main (int argc, char *argv[]) 
@@ -75,22 +57,22 @@ FILE *info = NULL;
  * \return 0
  */
 int main (int argc, char *argv[]) {
+    int rc = 0;
+    struct joy_init init_data;
 
-    memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
-    memset(&active_config, 0x00, sizeof(struct configuration));
-    glb_config = &active_config;
-
-    /*
-     * use stdout/stderr for output 
-     */
-    info = stderr; 
-    output = zattach(stdout,"w");
-    if (output == NULL) {
-        fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
-    }
+    /* setup the joy options we want */
+    memset(&init_data, 0x00, sizeof(struct joy_init));
 
     /* Set logging to warning level */
-    glb_config->verbosity = JOY_LOG_WARN;
+    init_data.type = 1;
+    init_data.verbosity = JOY_LOG_WARN;
+
+    /* intialize joy */
+    rc = joy_initialize(&init_data, NULL, NULL, NULL);
+    if (rc != 0) {
+        printf(" -= Joy Initialized Failed =-\n");
+        return -1;
+    }
 
     if (radix_trie_unit_test() != 0) {
         printf("error: radix_trie test failed\n");
@@ -104,5 +86,8 @@ int main (int argc, char *argv[]) {
     /* Test all feature modules */
     unit_test_all_features(feature_list);
   
+    /* cleanup */
+    joy_cleanup(0);
+
     return 0;
 }

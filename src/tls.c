@@ -2657,7 +2657,6 @@ static int tls_test_client_fingerprint_match() {
 }
 #endif
 
-#ifndef JOY_LIB_API
 /*
  * \brief Test the internal TLS X509 certificate parsing api.
  *
@@ -3635,5 +3634,4 @@ void tls_unit_test() {
     }
     fprintf(info, "******************************\n\n");
 }
-#endif
 

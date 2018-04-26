@@ -119,10 +119,6 @@ struct joy_ctx_data  {
 
 pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;
 
-#ifndef JOY_LIB_API
-extern joy_ctx_data main_ctx;
-#endif
-
 /*
  * Local prototypes
  */
@@ -1799,7 +1795,6 @@ struct flow_record *flow_key_get_twin (joy_ctx_data *ctx, const struct flow_key 
     }
 }
 
-#ifndef JOY_LIB_API
 /**
  * \brief Unit test for the flow_record list functionality.
  *
@@ -1889,6 +1884,7 @@ static int p2f_test_flow_record_list(joy_ctx_data *ctx) {
 
 void p2f_unit_test() {
     int num_fails = 0;
+    joy_ctx_data main_ctx;
 
     memset(&main_ctx, 0x00, sizeof(joy_ctx_data));
     fprintf(info, "\n******************************\n");
@@ -1903,7 +1899,6 @@ void p2f_unit_test() {
     }
     fprintf(info, "******************************\n\n");
 }
-#endif
 
 /*********************************************************
  * -------------------------------------------------------
