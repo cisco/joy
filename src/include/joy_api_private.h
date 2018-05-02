@@ -85,6 +85,9 @@ struct joy_ctx_data  {
     flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
     unsigned long int reserved_info;
     unsigned long int reserved_ctx;
+#ifdef JOY_USE_VPP_OPT
+    CLIB_CACHE_LINE_ALIGN_MARK(pad);
+#endif
 };
 
 #endif /* JOY_API_PRV_H */
