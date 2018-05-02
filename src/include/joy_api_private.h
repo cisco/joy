@@ -50,7 +50,7 @@
 /* VPP optimized implementations */
 
 #define JOY_API_ALLOC_CONTEXT(a,b)   \
-    vec_validate_alinged(a, (b-1), CLIB_CAHCE_LINE_BYTES);
+    vec_validate_aligned(a, (b-1), CLIB_CACHE_LINE_BYTES);
 
 #define JOY_MAX_CTX_INDEX(a)   \
     vec_len(a);
