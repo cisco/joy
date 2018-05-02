@@ -44,7 +44,7 @@
 #ifndef JOY_API_PRV_H
 #define JOY_API_PRV_H
 
-#ifdef USE_VPP_OPT
+#ifdef JOY_USE_VPP_OPT
 #include "vppinfra/vec.h"
 
 /* VPP optimized implementations */
