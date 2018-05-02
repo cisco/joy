@@ -155,6 +155,7 @@ int main (int argc, char **argv)
     memset(&init_data, 0x00, sizeof(struct joy_init));
     init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
     init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
+    init_data.contexts = 1;                   /* just use 1 worker context */
     init_data.idp = 1300;                     /* number of bytes of idp to report */
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
     init_data.ipfix_port = 0;                 /* use default IPFix port */

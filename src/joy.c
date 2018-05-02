@@ -91,6 +91,7 @@
 #include "ipfix.h"    /* IPFIX cleanup */
 #include "proto_identify.h"
 #include "pcap.h"
+#include "joy_api_private.h"
 
 /**
  * \brief The supported operating modes that Joy can run in.
@@ -120,18 +121,6 @@ static pcap_t *handle = NULL;
 static char *filter_exp = "ip or vlan";
 static char dir_output[MAX_FILENAME_LEN];
 
-/* per instance context data */
-struct joy_ctx_data  {
-    struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
-    struct timeval last_stats_output_time;
-    struct flow_record *flow_record_chrono_first;
-    struct flow_record *flow_record_chrono_last;
-    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
-    unsigned long int reserved_info;
-    unsigned long int reserved_ctx;
-};
 struct joy_ctx_data main_ctx;
 
 /* config is the global configuration */

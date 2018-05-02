@@ -55,6 +55,7 @@
 #include "utils.h"
 #include "proto_identify.h"
 #include "pthread.h"
+#include "joy_api_private.h"
 
 /** netflow version 9 structure templates */
 static struct nfv9_template v9_templates[MAX_TEMPLATES];
@@ -64,19 +65,6 @@ static u_short num_templates = 0;
 
 pthread_mutex_t proto_ident_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t nfv9_lock = PTHREAD_MUTEX_INITIALIZER;
-
-/* per instance context data */
-struct joy_ctx_data  {
-    struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
-    struct timeval last_stats_output_time;
-    struct flow_record *flow_record_chrono_first;
-    struct flow_record *flow_record_chrono_last;
-    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
-    unsigned long int reserved_info;
-    unsigned long int reserved_ctx;
-};
 
 /**
  * \fn int data_sanity_check ()

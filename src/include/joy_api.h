@@ -92,6 +92,7 @@
 struct joy_init {
     int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
+    int contexts;                /* number of contexts the app wants to use */
     int idp;                     /* idp size to report, recommend 1300 */
     char *ipfix_host;            /* ip string of the host to send IPFix data to */
     uint32_t ipfix_port;         /* port to send IPFix to remote on */

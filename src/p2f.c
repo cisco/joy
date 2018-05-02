@@ -69,6 +69,7 @@
 #include "osdetect.h"
 #include "utils.h"
 #include "config.h"
+#include "joy_api_private.h"
 
 /*
  * The VERSION variable should be set by a compiler directive, based
@@ -102,19 +103,6 @@ const int include_os = 1;
 enum twins_match {
     exact = 0,
     near_match = 1,
-};
-
-/* per instance context data */
-struct joy_ctx_data  {
-    struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
-    struct timeval last_stats_output_time;
-    struct flow_record *flow_record_chrono_first;
-    struct flow_record *flow_record_chrono_last;
-    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
-    unsigned long int reserved_info;
-    unsigned long int reserved_ctx;
 };
 
 pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;

@@ -57,6 +57,7 @@
 #include "radix_trie.h"
 #include "classify.h"
 #include "joy_api.h"
+#include "joy_api_private.h"
 #include "pthread.h"
 #include "proto_identify.h"
 
@@ -77,18 +78,9 @@ extern void process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *hea
 /* global library intialization flag */
 static int joy_library_initialized = 0;
 
-/* per instance context data */
-struct joy_ctx_data  {
-    struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
-    struct timeval last_stats_output_time;
-    flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
-    unsigned long int reserved_info;
-    unsigned long int reserved_ctx;
-};
-
-struct joy_ctx_data ctx_data[MAX_LIB_CONTEXTS];
+/* global data for the context configuration */
+static int joy_num_contexts = 0;
+static struct joy_ctx_data *ctx_data = NULL;
 
 /*
  * Function: joy_initialize
@@ -119,12 +111,18 @@ int joy_initialize(struct joy_init *init_data,
     int i = 0;
     char output_filename[MAX_FILENAME_LEN];
 
+    /* sanity check the context information */
+    if (init_data->contexts < 1) {
+        init_data->contexts = 1; /* default to 1 context thread */
+    }
+
     /* clear out the configuration structure */
     memset(&active_config, 0x00, sizeof(struct configuration));
     glb_config = &active_config;
 
-    /* clear out the thread context data */
-    memset(&ctx_data, 0x00, sizeof(ctx_data));
+    /* allocate the context memory */
+    JOY_API_ALLOC_CONTEXT(ctx_data, init_data->contexts)
+    joy_num_contexts = init_data->contexts;
 
     /* set 'info' to stderr as a precaution */
     info = stderr;
@@ -229,9 +227,10 @@ int joy_initialize(struct joy_init *init_data,
     }
 
     /* initialize all the data context structures */
-    for (i=0; i < MAX_LIB_CONTEXTS; ++i) {
-        flow_record_list_init(&ctx_data[i]);
-        flocap_stats_timer_init(&ctx_data[i]);
+    for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data) ++i) {
+        struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i)
+        flow_record_list_init(this);
+        flocap_stats_timer_init(this);
     }
 
     /* set library init flag */
@@ -558,16 +557,16 @@ void joy_process_packet(unsigned char *ctx_index,
     }
 
     /* ctx_index has the int value of the data context
-     * This number is between 0 and MAX_LIB_CONTEXTS
+     * This number is between 0 and max configured contexts
      */
     index = (unsigned long int)ctx_index;
 
-    if (index >= MAX_LIB_CONTEXTS ) {
+    if (index >= joy_num_contexts ) {
         joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
         return;
     }
 
-    ctx = &ctx_data[index];
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
     process_packet((unsigned char*)ctx, header, packet);
 }
 
@@ -591,6 +590,8 @@ void joy_process_packet(unsigned char *ctx_index,
  */
 void joy_print_flow_data(unsigned int index, int type)
 {
+    joy_ctx_data *ctx = NULL;
+
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
@@ -598,7 +599,7 @@ void joy_print_flow_data(unsigned int index, int type)
     }
 
     /* sanity check the index value */
-    if (index >= MAX_LIB_CONTEXTS ) {
+    if (index >= joy_num_contexts ) {
         joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
@@ -612,7 +613,8 @@ void joy_print_flow_data(unsigned int index, int type)
     }
 
     /* print the flow records */
-    flow_record_list_print_json(&ctx_data[index], type);
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    flow_record_list_print_json(ctx, type);
 }
 
 /*
@@ -633,6 +635,8 @@ void joy_print_flow_data(unsigned int index, int type)
  */
 void joy_export_flows_ipfix(unsigned int index, int type)
 {
+    joy_ctx_data *ctx = NULL;
+
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
@@ -640,13 +644,14 @@ void joy_export_flows_ipfix(unsigned int index, int type)
     }
 
     /* sanity check the index value */
-    if (index >= MAX_LIB_CONTEXTS ) {
+    if (index >= joy_num_contexts ) {
         joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
 
     /* export the flow records */
-    flow_record_export_as_ipfix(&ctx_data[index], type);
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    flow_record_export_as_ipfix(ctx, type);
 }
 
 /*
@@ -665,6 +670,8 @@ void joy_export_flows_ipfix(unsigned int index, int type)
  */
 void joy_cleanup(unsigned int index)
 {
+    joy_ctx_data *ctx = NULL;
+
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
@@ -672,7 +679,7 @@ void joy_cleanup(unsigned int index)
     }
 
     /* sanity check the index value */
-    if (index >= MAX_LIB_CONTEXTS ) {
+    if (index >= joy_num_contexts ) {
         joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
@@ -689,5 +696,6 @@ void joy_cleanup(unsigned int index)
     proto_identify_destroy_keyword_dict();
 
     /* free up the flow records */
-    flow_record_list_free(&(ctx_data[index]));
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    flow_record_list_free(ctx);
 }

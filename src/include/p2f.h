@@ -59,9 +59,7 @@
 #include "hdr_dsc.h"      /* header description (proto id) */
 #include "modules.h"      
 #include "feature.h"
-
-/* structure definition for the library context data */
-typedef struct joy_ctx_data joy_ctx_data;
+#include "joy_api.h"
 
 /* flow value definitions */
 #define flow_key_hash_mask 0x000fffff
