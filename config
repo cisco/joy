@@ -154,11 +154,11 @@ find_curl_headers ()
 ##
 check_libraries ()
 {
-    if ls /lib/$1.* 1> /dev/null 2>&1; then
+    if ls /usr/local/lib/$1.* 1> /dev/null 2>&1; then
        echo "Checking for $1...exists"
-       string_has "$library_path" "/lib"
+       string_has "$library_path" "/usr/local/lib"
        if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L \"/lib\""
+           library_path=$library_path" -L \"/usr/local/lib\""
        fi
        return
     fi
@@ -172,11 +172,29 @@ check_libraries ()
        return
     fi
 
-    if ls /usr/local/lib/$1.* 1> /dev/null 2>&1; then
+    if ls /lib/$1.* 1> /dev/null 2>&1; then
        echo "Checking for $1...exists"
-       string_has "$library_path" "/usr/local/lib"
+       string_has "$library_path" "/lib"
        if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L \"/usr/local/lib\""
+           library_path=$library_path" -L \"/lib\""
+       fi
+       return
+    fi
+
+    if ls /usr/lib/x86_64-linux-gnu/$1.* 1> /dev/null 2>&1; then
+       echo "Checking for $1...exists"
+       string_has "$library_path" "/usr/lib/x86_64-linux-gnu"
+       if [ $string_has_result -eq 0 ]; then
+           library_path=$library_path" -L \"/usr/lib/x86_64-linux-gnu\""
+       fi
+       return
+    fi
+
+    if ls /usr/lib64/$1.* 1> /dev/null 2>&1; then
+       echo "Checking for $1...exists"
+       string_has "$library_path" "/usr/lib64"
+       if [ $string_has_result -eq 0 ]; then
+           library_path=$library_path" -L \"/usr/lib64\""
        fi
        return
     fi
@@ -193,9 +211,9 @@ check_libraries ()
     fi
 
     if [ $2 ]; then
-        echo "Checked paths [/lib, /usr/lib, /usr/local/lib, $2] for $1...missing!"
+        echo "Checked paths [/lib, /usr/lib, /usr/local/lib, /usr/lib/x86_64-linux-gnu, /usr/lib64 $2] for $1...missing!"
     else
-        echo "Checked paths [/lib, /usr/lib, /usr/local/lib] for $1...missing!"
+        echo "Checked paths [/lib, /usr/lib, /usr/local/lib, /usr/lib/x86_64-linux-gnu, /usr/lib64] for $1...missing!"
     fi
     echo "Some systems store libraries in the /usr/local/<arch-triplet> directory."
     echo "If your system does this, execute config command with the Library Path specified."
