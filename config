@@ -47,7 +47,7 @@ string_has ()
 find_ssl_headers ()
 {
     if [ $1 ]; then
-        ssl_crypto=`find "$1" -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+        ssl_crypto=`find "$1" -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
         if [ "$ssl_crypto" != "" ]; then
            echo "Searching for OpenSSL headers...found"
            ## remove /openssl/crypto.h from the end of the path
@@ -56,7 +56,7 @@ find_ssl_headers ()
         fi
     fi
 
-    ssl_crypto=`find /usr -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+    ssl_crypto=`find /usr -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -64,7 +64,7 @@ find_ssl_headers ()
         return
     fi
 
-    ssl_crypto=`find /include -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+    ssl_crypto=`find /include -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -72,7 +72,7 @@ find_ssl_headers ()
         return
     fi
 
-    ssl_crypto=`find /opt -name "crypto.h" 2>/dev/null | grep "openssl" | head -1`
+    ssl_crypto=`find /opt -name "crypto.h" 2>/dev/null | grep -m 1 "openssl"`
     if [ "$ssl_crypto" != "" ]; then
         echo "Searching for OpenSSL headers...found"
         ## remove /openssl/crypto.h from the end of the path
@@ -100,7 +100,7 @@ find_ssl_headers ()
 ##
 find_curl_headers ()
 {
-    curl_header=`find /usr -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    curl_header=`find /usr -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
     if [ "$curl_header" != "" ]; then
         echo "Searching for Curl headers...found"
         ## remove /curl/curl.h from the end of the path
@@ -108,7 +108,7 @@ find_curl_headers ()
         return
     fi
 
-    curl_header=`find /include -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    curl_header=`find /include -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
     if [ "$curl_header" != "" ]; then
         echo "Searching for Curl headers...found"
         ## remove /curl/curl.h from the end of the path
@@ -116,7 +116,7 @@ find_curl_headers ()
         return
     fi
 
-    curl_header=`find /opt -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+    curl_header=`find /opt -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
     if [ "$curl_header" != "" ]; then
         echo "Searching for Curl headers...found"
         ## remove /curl/curl.h from the end of the path
@@ -125,7 +125,7 @@ find_curl_headers ()
     fi
 
     if [ $1 ]; then
-        curl_header=`find "$1" -name "curl.h" 2>/dev/null | grep "curl/curl.h" | head -1`
+        curl_header=`find "$1" -name "curl.h" 2>/dev/null | grep -m 1 "curl/curl.h"`
         if [ "$curl_header" != "" ]; then
             echo "Searching for Curl headers...found"
             ## remove /curl/curl.h from the end of the path
@@ -154,11 +154,11 @@ find_curl_headers ()
 ##
 check_libraries ()
 {
-    if ls /lib/$1.* 1> /dev/null 2>&1; then
+    if ls /usr/local/lib/$1.* 1> /dev/null 2>&1; then
        echo "Checking for $1...exists"
-       string_has "$library_path" "/lib"
+       string_has "$library_path" "/usr/local/lib"
        if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L \"/lib\""
+           library_path=$library_path" -L \"/usr/local/lib\""
        fi
        return
     fi
@@ -172,11 +172,29 @@ check_libraries ()
        return
     fi
 
-    if ls /usr/local/lib/$1.* 1> /dev/null 2>&1; then
+    if ls /lib/$1.* 1> /dev/null 2>&1; then
        echo "Checking for $1...exists"
-       string_has "$library_path" "/usr/local/lib"
+       string_has "$library_path" "/lib"
        if [ $string_has_result -eq 0 ]; then
-           library_path=$library_path" -L \"/usr/local/lib\""
+           library_path=$library_path" -L \"/lib\""
+       fi
+       return
+    fi
+
+    if ls /usr/lib/x86_64-linux-gnu/$1.* 1> /dev/null 2>&1; then
+       echo "Checking for $1...exists"
+       string_has "$library_path" "/usr/lib/x86_64-linux-gnu"
+       if [ $string_has_result -eq 0 ]; then
+           library_path=$library_path" -L \"/usr/lib/x86_64-linux-gnu\""
+       fi
+       return
+    fi
+
+    if ls /usr/lib64/$1.* 1> /dev/null 2>&1; then
+       echo "Checking for $1...exists"
+       string_has "$library_path" "/usr/lib64"
+       if [ $string_has_result -eq 0 ]; then
+           library_path=$library_path" -L \"/usr/lib64\""
        fi
        return
     fi
@@ -193,9 +211,9 @@ check_libraries ()
     fi
 
     if [ $2 ]; then
-        echo "Checked paths [/lib, /usr/lib, /usr/local/lib, $2] for $1...missing!"
+        echo "Checked paths [/lib, /usr/lib, /usr/local/lib, /usr/lib/x86_64-linux-gnu, /usr/lib64 $2] for $1...missing!"
     else
-        echo "Checked paths [/lib, /usr/lib, /usr/local/lib] for $1...missing!"
+        echo "Checked paths [/lib, /usr/lib, /usr/local/lib, /usr/lib/x86_64-linux-gnu, /usr/lib64] for $1...missing!"
     fi
     echo "Some systems store libraries in the /usr/local/<arch-triplet> directory."
     echo "If your system does this, execute config command with the Library Path specified."

@@ -54,7 +54,7 @@
 #define payload_usage "  payload=N                  include N bytes of payload\n"
 
 /** payload filter key */
-#define payload_filter(key) 1
+#define payload_filter(record) 1
   
 /** payload structure */
 typedef struct payload {

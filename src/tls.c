@@ -370,6 +370,9 @@ static void tls_client_hello_get_extensions (const unsigned char *y,
     y += 1+compression_method_len;
     len -= 1+compression_method_len;
 
+    // might not have extensions...
+    if (len < 2) return;
+
     // extensions length
     extensions_len = raw_to_uint16(y);
     if (len < extensions_len) {
@@ -489,7 +492,7 @@ static int tls_x509_get_validity_period(X509 *cert,
 
         if (not_before_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_before = malloc(not_before_data_len + 1);
+            record->validity_not_before = calloc(not_before_data_len + 1, sizeof(unsigned char));
             record->validity_not_before_length = not_before_data_len;
 
             /* Copy notBefore into record */
@@ -520,7 +523,7 @@ static int tls_x509_get_validity_period(X509 *cert,
 
         if (not_after_data_len > 0) {
             /* Prepare the record */
-            record->validity_not_after = malloc(not_after_data_len + 1);
+            record->validity_not_after = calloc(not_after_data_len + 1, sizeof(unsigned char));
             record->validity_not_after_length = not_after_data_len;
             /* Copy notAfter into record */
             memcpy(record->validity_not_after, bio_mem_ptr->data,
@@ -624,7 +627,7 @@ static int tls_x509_get_subject(X509 *cert,
          * Prepare the subject entry in the certificate record.
          * Give extra byte for manual null-termination.
          */
-        cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data = calloc(entry_data_len + 1, sizeof(unsigned char));
         cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
@@ -734,7 +737,7 @@ static int tls_x509_get_issuer(X509 *cert,
          * Prepare the issuer entry in the certificate record.
          * Give extra byte for manual null-termination.
          */
-        cert_record_entry->data = malloc(entry_data_len + 1);
+        cert_record_entry->data = calloc(entry_data_len + 1, sizeof(unsigned char));
         cert_record_entry->data_length = entry_data_len;
 
         if (nid == NID_undef) {
@@ -1052,8 +1055,7 @@ static int tls_x509_get_extensions(X509 *cert,
         /*
          * Prepare the extension entry in the certificate record.
          */
-        cert_record_entry->data = malloc(ext_data_len + 1);
-        memset(cert_record_entry->data, 0, ext_data_len + 1);
+        cert_record_entry->data = calloc(ext_data_len + 1, sizeof(unsigned char));
         cert_record_entry->data_length = ext_data_len;
 
         if (nid == NID_undef) {
@@ -1331,6 +1333,9 @@ static void tls_server_hello_get_extensions (const unsigned char *y,
         y += 1+compression_method_len;
         len -= 1+compression_method_len;
     }
+
+    // might not have extensions...
+    if (len < 2) return;
 
     /* Extensions length */
     extensions_len = raw_to_uint16(y);
@@ -1683,7 +1688,7 @@ static int tls_handshake_hello_get_version(struct tls *tls_info,
  */
 static void tls_handshake_buffer_parse(struct tls *r) {
     unsigned char *data = NULL;
-	uint16_t data_len = 0;
+    int data_len = 0;
     unsigned int msg_count = 0;
 
 	if (r == NULL) {
@@ -1697,6 +1702,11 @@ static void tls_handshake_buffer_parse(struct tls *r) {
         const struct tls_header *tls_hdr = NULL;
         const struct tls_handshake *handshake = NULL;
         int tls_len = 0;
+
+        if (data_len < TLS_HDR_LEN) {
+            /* Not enough data to possibly have a header */
+            return;
+        }
 
         tls_hdr = (const struct tls_header*)data;
         tls_len = tls_header_get_length(tls_hdr);
@@ -1723,8 +1733,16 @@ static void tls_handshake_buffer_parse(struct tls *r) {
         data += TLS_HDR_LEN;
         data_len -= TLS_HDR_LEN;
 
+        /* Sanity check */
+        if (data_len <= 0) return;
+
         while (tls_len > 0) {
             unsigned int body_len = 0;
+
+            if (data_len < TLS_HANDSHAKE_HDR_LEN) {
+                /* Not enough data to possibly have a header */
+                return;
+            }
 
             /* Get the header of this handshake message */
             handshake = (const struct tls_handshake *)data;
@@ -1753,6 +1771,9 @@ static void tls_handshake_buffer_parse(struct tls *r) {
 
             data += TLS_HANDSHAKE_HDR_LEN;
             data_len -= TLS_HANDSHAKE_HDR_LEN;
+
+            /* Sanity check */
+            if (data_len <= 0) return;
 
             /*
              * Match to a handshake type we are interested in.
@@ -1901,12 +1922,21 @@ void tls_update (struct tls *r,
         if (r->handshake_buffer == NULL) {
             /* Allocate memory */
             r->handshake_buffer = calloc(len, sizeof(unsigned char));
+
+            if (r->handshake_buffer == NULL) {
+                joy_log_err("malloc for handshake data failed");
+                return;
+            }
         } else {
             /* Reallocate memory to fit more */
-            r->handshake_buffer = realloc(r->handshake_buffer,
-                                          r->handshake_length + (len*sizeof(unsigned char)));
+            unsigned char *tmp_ptr = NULL;
 
-            if (!r->handshake_buffer) {
+            tmp_ptr = realloc(r->handshake_buffer,
+                              r->handshake_length + (len*sizeof(unsigned char)));
+
+            if (tmp_ptr) {
+                r->handshake_buffer = tmp_ptr;
+            } else {
                 joy_log_err("realloc for handshake data failed");
                 return;
             }
@@ -1944,7 +1974,7 @@ void tls_update (struct tls *r,
             r->seg_offset = msg_len - (rem_len - TLS_HDR_LEN);
         }
 
-        if (r->done_handshake == 0 &&
+        if (r->done_handshake == 0 && r->handshake_buffer &&
             (hdr->content_type == TLS_CONTENT_CHANGE_CIPHER_SPEC ||
              hdr->content_type == TLS_CONTENT_ALERT ||
              hdr->content_type == TLS_CONTENT_APPLICATION_DATA)) {

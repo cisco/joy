@@ -469,7 +469,6 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
     const unsigned char *payload = NULL;
     unsigned int size_payload = 0;
     struct flow_record *record = nf_record;
-    struct flow_key *key = &nf_record->key;
     int i,j = 0;
 
     memset(&old_val_time, 0x0, sizeof(struct timeval));

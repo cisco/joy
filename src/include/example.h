@@ -52,7 +52,7 @@
 #define example_usage "  example=1                  include example feature\n"
 
 /** example filter key */
-#define example_filter(key) 1
+#define example_filter(record) 1
   
 /** example structure */
 typedef struct example {

@@ -58,7 +58,7 @@
 #define salt_usage "  salt=1                     include salt feature\n"
 
 /** salt filter key */
-#define salt_filter(key) 1
+#define salt_filter(record) 1
   
 /** salt structure */
 typedef struct salt {
