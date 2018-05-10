@@ -1338,8 +1338,8 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
 	zprintf(output, "\"time_start\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
 	zprintf(output, "\"time_end\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
 #else
-    zprintf(output, "\"time_start\":%zd.%06zd,", ts_start.tv_sec, ts_start.tv_usec);
-    zprintf(output, "\"time_end\":%zd.%06zd,", ts_end.tv_sec, ts_end.tv_usec);
+    zprintf(output, "\"time_start\":%zd.%06zd,", ts_start.tv_sec, (long)ts_start.tv_usec);
+    zprintf(output, "\"time_end\":%zd.%06zd,", ts_end.tv_sec, (long)ts_end.tv_usec);
 #endif
 
     /*****************************************************************
