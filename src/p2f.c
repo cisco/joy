@@ -597,7 +597,7 @@ static int flow_record_is_active_expired(struct flow_record *record,
  * \param record - A flow_record
  * \return int - 1 if expired, 0 otherwise
  */
-static unsigned int flow_record_is_expired(joy_ctx_data *ctx, struct flow_record *record) {
+unsigned int flow_record_is_expired(joy_ctx_data *ctx, struct flow_record *record) {
     struct timeval inactive_cutoff;
     struct timeval active_cutoff;
 
@@ -1751,6 +1751,33 @@ void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_all) {
     // note: we might need to call flush in the future
     // zflush(output);
 }
+
+/**
+ * \brief Removes the record and its twin from the list and the flow records
+ *     structure.
+ *
+ * \param ctx - the joy context to process with
+ * \param rec - the rec we are deleting
+ *
+ * \return none.
+ */
+void remove_record_and_update_list(joy_ctx_data *ctx, struct flow_record *rec)
+{
+    /* sanity check */
+    if ((ctx == NULL) || (rec == NULL)) {
+        return;
+    }
+
+    /* Delete twin, if there is one */
+    if (rec->twin != NULL) {
+        flow_record_delete(ctx, rec->twin);
+    }
+
+    /* Remove from chrono list, then delete from flow_record_list_array */
+    flow_record_chrono_list_remove(ctx, rec);
+    flow_record_delete(ctx, rec);
+}
+
 
 /**
  * \brief Get the twin of a flow_key.

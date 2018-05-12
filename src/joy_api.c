@@ -655,6 +655,67 @@ void joy_export_flows_ipfix(unsigned int index, int type)
 }
 
 /*
+ * Function: joy_flow_record_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow record.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the record.
+ *      Records that get processed will be removed from the flow
+ *      record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_flow_record_external_processing(unsigned int index,
+        int type, joy_flow_rec_callback callback_fn)
+{
+    struct flow_record *rec = NULL;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* get the correct context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* go through the records and let the callback function process */
+    rec = ctx->flow_record_chrono_first;
+    while (rec != NULL) {
+        if (type == JOY_EXPIRED_FLOWS) {
+            /* don't process active flow in this mode */
+            if (!flow_record_is_expired(ctx,rec)) {
+                break;
+            }
+        }
+
+        /* let the callback function process the record */
+        callback_fn(rec);
+
+        /* remove the record and advance to next record */
+        remove_record_and_update_list(ctx,rec);
+
+        /* start at the new head of the list */
+        rec = ctx->flow_record_chrono_first;
+    }
+}
+
+/*
  * Function: joy_cleanup
  *
  * Description: This function cleans up any lefotover data that maybe

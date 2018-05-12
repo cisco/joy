@@ -253,6 +253,10 @@ void flow_record_export_as_ipfix(joy_ctx_data *ctx, unsigned int print_all);
 
 void flow_record_list_print_json(joy_ctx_data *ctx, unsigned int print_all);
 
+unsigned int flow_record_is_expired(joy_ctx_data *ctx, struct flow_record *record);
+
+void remove_record_and_update_list(joy_ctx_data *ctx, struct flow_record *rec);
+
 int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);
 
 /* flocap_stats holds high-level statistics about packets and flow

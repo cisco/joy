@@ -102,6 +102,9 @@ struct joy_init {
 /* structure definition for the library context data */
 typedef struct joy_ctx_data joy_ctx_data;
 
+/* definition for external processing callback */
+typedef void (joy_flow_rec_callback)(void*);
+
 /* prototypes for the API interface */
 
 /*
@@ -304,6 +307,28 @@ extern void joy_print_flow_data (unsigned int index, int type);
  *
  */
 extern void joy_export_flows_ipfix (unsigned int index, int type);
+
+/*
+ * Function: joy_flow_record_external_processing
+ *
+ * Description: This function allows the calling application of
+ *      the Joy library to handle the processing of the flow record.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the record.
+ *      Records that get processed will be removed from the flow
+ *      record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_flow_record_external_processing(unsigned int index, 
+        int type, joy_flow_rec_callback callback_fn);
 
 /*
  * Function: joy_cleanup
