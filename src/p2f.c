@@ -1577,7 +1577,7 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
     /*
      * Initial data packet (IDP)
      */
-    if (glb_config->report_idp) {
+    if (glb_config->idp) {
         if (rec->idp != NULL) {
             zprintf(output, ",\"idp_out\":");
             zprintf_raw_as_hex(output, rec->idp, rec->idp_len);

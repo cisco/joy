@@ -1025,11 +1025,11 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
      * copy initial data packet, if configured to report idp, and this
      * is the first packet in the flow with nonzero data payload
      */
-    if ((glb_config->report_idp) && record->op && (record->idp_len == 0)) {
+    if ((glb_config->idp) && record->op && (record->idp_len == 0)) {
         if (record->idp != NULL) {
             free(record->idp);
         }
-        record->idp_len = (ntohs(ip->ip_len) < glb_config->report_idp ? ntohs(ip->ip_len) : glb_config->report_idp);
+        record->idp_len = (ntohs(ip->ip_len) < glb_config->idp ? ntohs(ip->ip_len) : glb_config->idp);
         record->idp = malloc(record->idp_len);
         memcpy(record->idp, ip, record->idp_len);
         joy_log_debug("Stashed %u bytes of IDP", record->idp_len);

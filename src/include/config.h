@@ -74,7 +74,6 @@ struct configuration {
     unsigned int report_entropy;
     unsigned int report_hd;
     unsigned int report_exe;
-    unsigned int report_idp;
     unsigned int include_classifier;
     unsigned int idp;
     unsigned int promisc;
