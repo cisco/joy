@@ -197,14 +197,24 @@ int joy_initialize(struct joy_init *init_data,
     glb_config->report_hd = ((init_data->bitmask & JOY_HEADER_ON) ? 1 : 0);
     glb_config->preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
 
-    /* check for IPFix export option */
-    if (init_data->bitmask & JOY_IPFIX_EXPORT_ON) {
+    /* check for IPFix simple export option and setup template */
+    if (init_data->bitmask & JOY_IPFIX_SIMPLE_EXPORT_ON) {
+        glb_config->ipfix_export_template = "simple";
+        glb_config->idp = 0;
+
+    /* check for IPFix IDP export option andsetup template */
+    } else if (init_data->bitmask & JOY_IPFIX_IDP_EXPORT_ON) {
         glb_config->ipfix_export_template = "idp";
         if (init_data->idp > 0) {
             glb_config->idp = init_data->idp;
         } else {
             glb_config->idp = DEFAULT_IDP_SIZE;
         }
+    }
+
+    /* setup the IPFix exporter configuration */
+    if ((init_data->bitmask & JOY_IPFIX_SIMPLE_EXPORT_ON) ||
+        (init_data->bitmask & JOY_IPFIX_IDP_EXPORT_ON)) {
         if (init_data->ipfix_host != NULL) {
             glb_config->ipfix_export_remote_host =  strdup(init_data->ipfix_host);
         } else {

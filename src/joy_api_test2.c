@@ -159,7 +159,7 @@ int main (int argc, char **argv)
     init_data.idp = 1300;                     /* number of bytes of idp to report */
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
     init_data.ipfix_port = 0;                 /* use default IPFix port */
-    init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
+    init_data.bitmask = (JOY_IPFIX_IDP_EXPORT_ON | JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);

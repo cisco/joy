@@ -69,23 +69,24 @@
  *    whether or not it is turned on.
  * 
  */
-#define JOY_BIDIR_ON           0x01
-#define JOY_DNS_ON             0x02
-#define JOY_SSH_ON             0x04
-#define JOY_TLS_ON             0x08
-#define JOY_DHCP_ON            0x10
-#define JOY_HTTP_ON            0x20
-#define JOY_IKE_ON             0x40
-#define JOY_PAYLOAD_ON         0x080
-#define JOY_EXE_ON             0x100
-#define JOY_ZERO_ON            0x200
-#define JOY_RETRANS_ON         0x400
-#define JOY_BYTE_DIST_ON       0x800
-#define JOY_ENTROPY_ON         0x1000
-#define JOY_CLASSIFY_ON        0x2000
-#define JOY_HEADER_ON          0x4000
-#define JOY_PREMPTIVE_TMO_ON   0x8000
-#define JOY_IPFIX_EXPORT_ON    0x10000
+#define JOY_BIDIR_ON               (1 << 0)
+#define JOY_DNS_ON                 (1 << 1)
+#define JOY_SSH_ON                 (1 << 2)
+#define JOY_TLS_ON                 (1 << 3)
+#define JOY_DHCP_ON                (1 << 4)
+#define JOY_HTTP_ON                (1 << 5)
+#define JOY_IKE_ON                 (1 << 6)
+#define JOY_PAYLOAD_ON             (1 << 7)
+#define JOY_EXE_ON                 (1 << 8)
+#define JOY_ZERO_ON                (1 << 9)
+#define JOY_RETRANS_ON             (1 << 10)
+#define JOY_BYTE_DIST_ON           (1 << 11)
+#define JOY_ENTROPY_ON             (1 << 12)
+#define JOY_CLASSIFY_ON            (1 << 13)
+#define JOY_HEADER_ON              (1 << 14)
+#define JOY_PREMPTIVE_TMO_ON       (1 << 15)
+#define JOY_IPFIX_SIMPLE_EXPORT_ON (1 << 16)
+#define JOY_IPFIX_IDP_EXPORT_ON    (1 << 17)
 
 
 /* structure used to initialize joy through the API Library */
