@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -61,6 +61,8 @@ extern str_match_ctx usernames_ctx;
  */
 #define MAGIC 16
 
+#define PARSE_FAIL (-1)
+
 /*
  * declarations of functions that are internal to this file
  */
@@ -111,8 +113,9 @@ void http_update(struct http *http,
                  unsigned int report_http) {
 
     struct http_message *message = NULL;
-    char raw_header[HTTP_MAX_LEN] = {0};
+    char *raw_header = NULL;
     unsigned int tmp_len = 0;
+    int success = 0;
     int rc = 0;
 
     if (!report_http || data_len == 0) {
@@ -136,12 +139,37 @@ void http_update(struct http *http,
      */
     tmp_len = (data_len + MAGIC) < HTTP_MAX_LEN ? (data_len + MAGIC) : HTTP_MAX_LEN;
 
-    memcpy_up_to_crlfcrlf_plus_magic(raw_header, data, tmp_len);
+    /* Temporary buffer for holding header */
+    raw_header = calloc(HTTP_MAX_LEN, sizeof(char));
+    if (raw_header == NULL) {
+        joy_log_err("calloc failed");
+        return;
+    }
 
+    /* Copy the header plus magic */
+    rc = memcpy_up_to_crlfcrlf_plus_magic(raw_header, data, tmp_len);
+    if (rc == 0) {
+        /* No data to parse */
+        goto end;
+    }
+
+    /*
+     * Sift through the header.
+     */
     rc = http_parse_message(message, raw_header, tmp_len);
+    if (rc != PARSE_FAIL) {
+        /* Parsing was a success */
+        success = 1;
+    }
 
-    /* Increment */
-    if (rc != -1) {
+end:
+    if (raw_header) {
+        free(raw_header);
+        raw_header = NULL;
+    }
+
+    if (success) {
+        /* Increment message count */
         http->num_messages++;
     }
 } 
@@ -236,6 +264,65 @@ void http_print_json(const struct http *h1,
     zprintf(f, "]");
 }
 
+void http_free_message(struct http_message *msg) {
+    int k = 0;
+
+    if (msg == NULL) {
+        return;
+    }
+
+    if (msg->header.line_type == HTTP_LINE_STATUS) {
+        struct http_header_status_line *line = &msg->header.line.status;
+
+        if (line->version) {
+            free(line->version);
+            line->version = NULL;
+        }
+        if (line->code) {
+            free(line->code);
+            line->code = NULL;
+        }
+        if (line->reason) {
+            free(line->reason);
+            line->reason = NULL;
+        }
+    }
+    else if (msg->header.line_type == HTTP_LINE_REQUEST) {
+        struct http_header_request_line *line = &msg->header.line.request;
+
+        if (line->method) {
+            free(line->method);
+            line->method = NULL;
+        }
+        if (line->uri) {
+            free(line->uri);
+            line->uri = NULL;
+        }
+        if (line->version) {
+            free(line->version);
+            line->version = NULL;
+        }
+    }
+
+    for (k = 0; k < msg->header.num_elements; k++) {
+        struct http_header_element *elem = &msg->header.elements[k];
+
+        if (elem->name) {
+            free(elem->name);
+            elem->name = NULL;
+        }
+        if (elem->value) {
+            free(elem->value);
+            elem->value = NULL;
+        }
+    }
+
+    if (msg->body) {
+        free(msg->body);
+        msg->body = NULL;
+    }
+}
+
 /**
  * \fn void http_delete (http_data_t *data)
  * \param data pointer to the http data structure
@@ -250,36 +337,9 @@ void http_delete (struct http **http_handle) {
         return;
     }
 
-
     for (i = 0; i < http->num_messages; i++) {
-        int k = 0;
         msg = &http->messages[i];
-
-        if (msg->header.line_type == HTTP_LINE_STATUS) {
-            struct http_header_status_line *line = &msg->header.line.status;
-
-            if (line->version) free(line->version);
-            if (line->code) free(line->code);
-            if (line->reason) free(line->reason);
-        }
-        else if (msg->header.line_type == HTTP_LINE_REQUEST) {
-            struct http_header_request_line *line = &msg->header.line.request;
-
-            if (line->method) free(line->method);
-            if (line->uri) free(line->uri);
-            if (line->version) free(line->version);
-        }
-
-        for (k = 0; k < msg->header.num_elements; k++) {
-            struct http_header_element *elem = &msg->header.elements[k];
-
-            if (elem->name) free(elem->name);
-            if (elem->value) free(elem->value);
-        }
-
-        if (msg->body) {
-            free(msg->body);
-        }
+        http_free_message(msg);
     }
 
     /* Free the memory and set to NULL */
@@ -648,13 +708,14 @@ static int http_parse_message(struct http_message *msg,
     enum http_type type = http_done;
     unsigned int str_len = 0;
     int i = 0;
+    int rc = 0;
 
     if (length < 4) {
-        return -1;
+        return PARSE_FAIL;
     }
 
     if (msg == NULL) {
-        return -1;
+        return PARSE_FAIL;
     }
 
     /*
@@ -669,7 +730,7 @@ static int http_parse_message(struct http_message *msg,
     type = http_get_start_line(&saveptr, &length, &token1, &token2, &token3);
 
     if (type == http_malformed) {
-        return -1;
+        return PARSE_FAIL;
     }
 
     if (type == http_request_line) {
@@ -677,14 +738,29 @@ static int http_parse_message(struct http_message *msg,
 
         str_len = strnlen(token1, MAX_STRLEN);
         hdr->line.request.method = calloc(str_len + 1, sizeof(char));
+        if (hdr->line.request.method == NULL) {
+            joy_log_err("calloc failed");
+            rc = PARSE_FAIL;
+            goto end;
+        }
         strncpy(hdr->line.request.method, token1, str_len);
 
         str_len = strnlen(token2, MAX_STRLEN);
         hdr->line.request.uri = calloc(str_len + 1, sizeof(char));
+        if (hdr->line.request.uri == NULL) {
+            joy_log_err("calloc failed");
+            rc = PARSE_FAIL;
+            goto end;
+        }
         strncpy(hdr->line.request.uri, token2, str_len);
 
         str_len = strnlen(token3, MAX_STRLEN);
         hdr->line.request.version = calloc(str_len + 1, sizeof(char));
+        if (hdr->line.request.version == NULL) {
+            joy_log_err("calloc failed");
+            rc = PARSE_FAIL;
+            goto end;
+        }
         strncpy(hdr->line.request.version, token3, str_len);
 
     } else if (type == http_status_line) {
@@ -692,14 +768,29 @@ static int http_parse_message(struct http_message *msg,
 
         str_len = strnlen(token1, MAX_STRLEN);
         hdr->line.status.version = calloc(str_len + 1, sizeof(char));
+        if (hdr->line.status.version == NULL) {
+            joy_log_err("calloc failed");
+            rc = PARSE_FAIL;
+            goto end;
+        }
         strncpy(hdr->line.status.version, token1, str_len);
 
         str_len = strnlen(token2, MAX_STRLEN);
         hdr->line.status.code = calloc(str_len + 1, sizeof(char));
+        if (hdr->line.status.code == NULL) {
+            joy_log_err("calloc failed");
+            rc = PARSE_FAIL;
+            goto end;
+        }
         strncpy(hdr->line.status.code, token2, str_len);
 
         str_len = strnlen(token3, MAX_STRLEN);
         hdr->line.status.reason = calloc(str_len + 1, sizeof(char));
+        if (hdr->line.status.reason == NULL) {
+            joy_log_err("calloc failed");
+            rc = PARSE_FAIL;
+            goto end;
+        }
         strncpy(hdr->line.status.reason, token3, str_len);
     }
 
@@ -712,7 +803,8 @@ static int http_parse_message(struct http_message *msg,
 
             if (type != http_header) {
                 if (type == http_malformed) {
-                    return 1;
+                    rc = 1;
+                    goto end;
                 }
                 break;
             }
@@ -721,15 +813,32 @@ static int http_parse_message(struct http_message *msg,
                 struct http_header_element *elem = &hdr->elements[hdr->num_elements];
 
                 str_len = strnlen(token1, MAX_STRLEN);
+                if (str_len == 0) {
+                    continue;
+                }
+
                 elem->name = calloc(str_len + 1, sizeof(char));
+                if (elem->name == NULL) {
+                    joy_log_err("calloc failed");
+                    rc = 1;
+                    goto end;
+                }
                 strncpy(elem->name, token1, str_len);
 
                 str_len = strnlen(token2, MAX_STRLEN);
                 elem->value = calloc(str_len + 1, sizeof(char));
+                if (elem->value == NULL) {
+                    joy_log_err("calloc failed");
+                    /* Don't want a dangling name */
+                    free(elem->name); elem->name = NULL;
+                    rc = 1;
+                    goto end;
+                }
                 strncpy(elem->value, token2, str_len);
-            }
 
-            hdr->num_elements++;
+                /* Increment number of header elements */
+                hdr->num_elements++;
+            }
         }
     }
 
@@ -738,11 +847,26 @@ static int http_parse_message(struct http_message *msg,
      */
     if (type == http_done && (MAGIC != 0)) {
         msg->body = calloc(length, sizeof(char));
+        if (msg->body == NULL) {
+            joy_log_err("calloc failed");
+            rc = 1;
+            goto end;
+        }
+
         memcpy(msg->body, saveptr, length);
         msg->body_length = length;
     }
 
-    return 0;
+end:
+    if (rc == PARSE_FAIL) {
+        /* 
+         * Failed to properly parse the message.
+         * Free any memory that was allocated.
+         */
+        http_free_message(msg);
+    }
+
+    return rc;
 }
 
 static void http_print_message(zfile f,
@@ -799,10 +923,12 @@ static void http_print_message(zfile f,
     for (i = 0; i < msg->header.num_elements; i++) {
         const struct http_header_element *elem = &msg->header.elements[i];
 
-        if (comma) {
-	        zprintf(f, ",{\"%s\":\"%s\"}", elem->name, elem->value);
-        } else {
-	        zprintf(f, "{\"%s\":\"%s\"}", elem->name, elem->value);
+        if (elem->name && elem->value) {
+            if (comma) {
+                zprintf(f, ",{\"%s\":\"%s\"}", elem->name, elem->value);
+            } else {
+                zprintf(f, "{\"%s\":\"%s\"}", elem->name, elem->value);
+            }
         }
 
         comma = 1;

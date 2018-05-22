@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@
     )
 
 enum http_line_type {
-    HTTP_LINE_RESERVED  = 0,
+    HTTP_LINE_INVALID  = 0,
     HTTP_LINE_REQUEST   = 1,
     HTTP_LINE_STATUS    = 2,
 };
