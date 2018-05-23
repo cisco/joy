@@ -171,6 +171,7 @@ int joy_initialize(struct joy_init *init_data,
         glb_config->type = init_data->type;
     }
     glb_config->verbosity = init_data->verbosity;
+    glb_config->flow_key_match_method = EXACT_MATCH;
 
     /* setup joy with the output options */
     if (output_dir)

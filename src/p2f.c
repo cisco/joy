@@ -100,11 +100,6 @@ const int include_os = 1;
 #define expiration_type_active  'a'
 #define expiration_type_inactive 'i'
 
-enum twins_match {
-    exact = 0,
-    near_match = 1,
-};
-
 pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
@@ -188,14 +183,14 @@ void flocap_stats_timer_init (joy_ctx_data *ctx) {
  */
 static unsigned int flow_key_hash (const struct flow_key *f) {
 
-    if (glb_config->flow_key_match_method == exact) {
+    if (glb_config->flow_key_match_method == EXACT_MATCH) {
           return (((unsigned int)f->sa.s_addr * 0xef6e15aa)
 	    ^ ((unsigned int)f->da.s_addr * 0x65cd52a0)
 	    ^ ((unsigned int)f->sp * 0x8216)
 	    ^ ((unsigned int)f->dp * 0xdda37)
 	    ^ ((unsigned int)f->prot * 0xbc06)) & flow_key_hash_mask;
 
-    } else {  /* flow_key_match_method == near_match */
+    } else {  /* flow_key_match_method == NEAR_MATCH */
         /*
          * To make it possible to identify NAT'ed twins, the hash of the
          * flows (sa, da, sp, dp, pr) and (*, *, dp, sp, pr) are identical.
@@ -290,7 +285,7 @@ static int flow_key_is_eq (const struct flow_key *a,
  */
 static int flow_key_is_twin (const struct flow_key *a,
                              const struct flow_key *b) {
-    if (glb_config->flow_key_match_method == near_match) {
+    if (glb_config->flow_key_match_method == NEAR_MATCH) {
         /*
          * Require that only one address match, so that we can find twins
          * even in the presence of NAT; that is, (sa, da) equals either
@@ -1787,7 +1782,7 @@ void remove_record_and_update_list(joy_ctx_data *ctx, struct flow_record *rec)
  * \return The twin flow_key, or NULL
  */
 struct flow_record *flow_key_get_twin (joy_ctx_data *ctx, const struct flow_key *key) {
-    if (glb_config->flow_key_match_method == exact) {
+    if (glb_config->flow_key_match_method == EXACT_MATCH) {
         struct flow_key twin;
 
         /*

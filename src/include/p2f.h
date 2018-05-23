@@ -65,6 +65,11 @@
 #define flow_key_hash_mask 0x000fffff
 #define FLOW_RECORD_LIST_LEN (flow_key_hash_mask + 1)
 
+enum twins_match {
+    EXACT_MATCH = 0,
+    NEAR_MATCH = 1,
+};
+
 /**
  * The maximum number of IP ID fields that will be
  * reported for a single flow.
