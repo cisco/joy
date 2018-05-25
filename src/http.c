@@ -563,10 +563,15 @@ static enum http_type http_get_next_line (char **saveptr,
         } else {
 
             if (state == first_lf) {
-	              src[i-2] = 0;    /* NULL terminate token */
-	              *length = *length - i;
-	              *saveptr = &src[i];
-	              return http_header;
+                if (header_state == got_value) {
+                    src[i-2] = 0;    /* NULL terminate token */
+                    *length = *length - i;
+                    *saveptr = &src[i];
+                    return http_header;
+                } else {
+                    /* Missing the complete name/value pair */
+                    return http_malformed;
+                }
             }
 
             if (header_state == got_header) {
@@ -803,7 +808,7 @@ static int http_parse_message(struct http_message *msg,
 
             if (type != http_header) {
                 if (type == http_malformed) {
-                    rc = 1;
+                    rc = PARSE_FAIL;
                     goto end;
                 }
                 break;
@@ -843,18 +848,18 @@ static int http_parse_message(struct http_message *msg,
     }
 
     /*
-     * Copy the initial bytes of the HTTP body
+     * Copy the initial "MAGIC" bytes of the HTTP body
      */
-    if (type == http_done && (MAGIC != 0)) {
-        msg->body = calloc(length, sizeof(char));
+    if (type == http_done && (MAGIC != 0) && (length >= MAGIC)) {
+        msg->body = calloc(MAGIC, sizeof(char));
         if (msg->body == NULL) {
             joy_log_err("calloc failed");
             rc = 1;
             goto end;
         }
 
-        memcpy(msg->body, saveptr, length);
-        msg->body_length = length;
+        memcpy(msg->body, saveptr, MAGIC);
+        msg->body_length = MAGIC;
     }
 
 end:
