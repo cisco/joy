@@ -127,8 +127,7 @@ struct joy_ctx_data main_ctx;
 struct configuration active_config;
 struct configuration *glb_config = NULL;
 
-/* logfile and output file definitions */
-zfile output = NULL;
+/* logfile definitions */
 FILE *info = NULL;
 
 /*
@@ -411,7 +410,7 @@ static void sig_close (int signal_arg) {
      * not expired
      */
     flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
-    zclose(output);
+    zclose(main_ctx.output);
 
     if (glb_config->ipfix_export_port) {
         /* Flush any unsent exporter messages in Ipfix module */
@@ -877,7 +876,7 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
 #endif
 
     if (!glb_config->filename) {
-        output = zattach(stdout, "w");
+        main_ctx.output = zattach(stdout, "w");
         return 0;
     }
 
@@ -957,8 +956,8 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
      * otherwise wait until after dropping root privileges.
      */
     if (joy_mode != MODE_ONLINE) { 
-        output = zopen(output_filename, "w");
-        if (output == NULL) {
+        main_ctx.output = zopen(output_filename, "w");
+        if (main_ctx.output == NULL) {
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
             joy_log_err("choose a new output name or move/remove the old data set");
             goto end;
@@ -1028,7 +1027,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 if (glb_config->filename) {
                     sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    output = zopen(dir_output, "w");
+                    main_ctx.output = zopen(dir_output, "w");
                 }
 #else
                 if (pcap_filename[strlen(pcap_filename)-1] != '/') {
@@ -1040,15 +1039,15 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 if (glb_config->filename) {
                     sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    output = zopen(dir_output, "w");
+                    main_ctx.output = zopen(dir_output, "w");
                 }
 #endif
                 /* initialize the outputfile and processing structures */
                 if (glb_config->filename) {
-                    config_print_json(output, glb_config);
+                    config_print_json(main_ctx.output, glb_config);
                 } else {
                     if (first_input_pcap_file) {
-                        config_print_json(output, glb_config);
+                        config_print_json(main_ctx.output, glb_config);
                         first_input_pcap_file = 0;
                     }
                 }
@@ -1062,8 +1061,8 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 
                 /* close the output file */
                 if (glb_config->filename) {
-                    zclose(output);
-                    output = NULL;
+                    zclose(main_ctx.output);
+                    main_ctx.output = NULL;
                 }
             }
         }
@@ -1139,15 +1138,15 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
 
     /* open new output file for multi-file processing */
     if (glb_config->filename) {
-        output = zopen(dir_output, "w");
+        main_ctx.output = zopen(dir_output, "w");
     }
 
     /* print the json config */
     if (glb_config->filename) {
-        config_print_json(output, glb_config);
+        config_print_json(main_ctx.output, glb_config);
     } else {
         if (first_input_pcap_file) {
-            config_print_json(output, glb_config);
+            config_print_json(main_ctx.output, glb_config);
             first_input_pcap_file = 0;
         }
     }
@@ -1160,8 +1159,8 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
 
     /* close output file */
     if (glb_config->filename) {
-        zclose(output);
-        output = NULL;
+        zclose(main_ctx.output);
+        main_ctx.output = NULL;
     }
     
     return tmp_ret;
@@ -1184,11 +1183,11 @@ int process_single_input_file (char *input_filename, char *output_filename) {
 
     /* open outputfile */
     if (glb_config->filename) {
-        output = zopen(output_filename,"w");
+        main_ctx.output = zopen(output_filename,"w");
     }
     
     /* print configuration */
-    config_print_json(output, glb_config);
+    config_print_json(main_ctx.output, glb_config);
 
     tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
     return tmp_ret;
@@ -1418,8 +1417,8 @@ int main (int argc, char **argv) {
 
         /* open output file */
         if (glb_config->filename) {
-            output = zopen(output_filename, "w");
-            if (output == NULL) {
+            main_ctx.output = zopen(output_filename, "w");
+            if (main_ctx.output == NULL) {
                 fprintf(info, "error: could not open output file %s (%s)\n", output_filename, strerror(errno));
                 return -1;
             }
@@ -1455,7 +1454,7 @@ int main (int argc, char **argv) {
         /* 
          * write out JSON preamble
          */ 
-        config_print_json(output, glb_config);
+        config_print_json(main_ctx.output, glb_config);
 
         while(1) {
             /* 
@@ -1490,7 +1489,7 @@ int main (int argc, char **argv) {
                       /*
                        * write JSON postamble
                        */
-                      zclose(output);
+                      zclose(main_ctx.output);
                       if (glb_config->upload_servername) {
                           upload_file(output_filename);
                       }
@@ -1499,8 +1498,8 @@ int main (int argc, char **argv) {
                       if (glb_config->max_records != 0) {
                           set_data_output_file(output_filename, capture_if, capture_mac);
                       }
-                      output = zopen(output_filename, "w");
-                      if (output == NULL) {
+                      main_ctx.output = zopen(output_filename, "w");
+                      if (main_ctx.output == NULL) {
                           perror("error: could not open output file");
                           return -1;
                       }
@@ -1512,7 +1511,7 @@ int main (int argc, char **argv) {
                    */
                   fflush(info);
            }
-           // fflush(output);
+           // fflush(main_ctx.output);
            // Close and reopen the log file if reopenLog flag is set
            if (reopenLog && glb_config->logfile && strcmp(glb_config->logfile, NULL_KEYWORD)) {
               fclose(info);
@@ -1580,7 +1579,7 @@ int main (int argc, char **argv) {
       
         /* close out the existing open output file and remove it */
         if (glb_config->filename) {
-            zclose(output);
+            zclose(main_ctx.output);
             remove(output_filename);
         }
 
@@ -1628,8 +1627,8 @@ int main (int argc, char **argv) {
     proto_identify_destroy_keyword_dict();
 
     /* close the output file if it is still open */
-    if (output) {
-        zclose(output);
+    if (main_ctx.output) {
+        zclose(main_ctx.output);
     }
 
     return 0;

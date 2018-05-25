@@ -100,8 +100,6 @@ const int include_os = 1;
 #define expiration_type_active  'a'
 #define expiration_type_inactive 'i'
 
-pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;
-
 /*
  * Local prototypes
  */
@@ -881,15 +879,16 @@ static float flow_record_get_byte_count_entropy (const unsigned int byte_count[2
     return sum / logf(2.0);
 }
 
-static void print_bytes_dir_time (unsigned short int pkt_len,
+static void print_bytes_dir_time (joy_ctx_data *ctx,
+                                  unsigned short int pkt_len,
                                   char *dir,
                                   struct timeval ts,
                                   char *term) {
     if (pkt_len < 32768) {
-        zprintf(output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
+        zprintf(ctx->output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
 	            pkt_len, dir, joy_timeval_to_milliseconds(ts), term);
     } else {
-        zprintf(output, "{\"rep\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
+        zprintf(ctx->output, "{\"rep\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
 	            65536-pkt_len, dir, joy_timeval_to_milliseconds(ts), term);
     }
 }
@@ -952,44 +951,44 @@ static void print_executable_json (zfile f, const struct flow_record *rec) {
     if (rec->exe_name || rec->full_path ||
         rec->file_version || rec->file_hash) {
 
-        zprintf(output, ",\"exe\":{");
+        zprintf(f, ",\"exe\":{");
         if (rec->exe_name) {
-            zprintf(output, "\"name\":\"%s\"", rec->exe_name);
+            zprintf(f, "\"name\":\"%s\"", rec->exe_name);
             comma = 1;
         }
         if (rec->full_path) {
             if (comma) {
-                zprintf(output, ",\"path\":\"%s\"", rec->full_path);
+                zprintf(f, ",\"path\":\"%s\"", rec->full_path);
             } else {
-                zprintf(output, "\"path\":\"%s\"", rec->full_path);
+                zprintf(f, "\"path\":\"%s\"", rec->full_path);
                 comma = 1;
             }
         }
         if (rec->file_version) {
             if (comma) {
-                zprintf(output, ",\"version\":\"%s\"", rec->file_version);
+                zprintf(f, ",\"version\":\"%s\"", rec->file_version);
             } else {
-                zprintf(output, "\"version\":\"%s\"", rec->file_version);
+                zprintf(f, "\"version\":\"%s\"", rec->file_version);
                 comma = 1;
             }
         }
         if (rec->file_hash) {
             if (comma) {
-                zprintf(output, ",\"hash\":\"%s\"", rec->file_hash);
+                zprintf(f, ",\"hash\":\"%s\"", rec->file_hash);
             } else {
-                zprintf(output, "\"hash\":\"%s\"", rec->file_hash);
+                zprintf(f, "\"hash\":\"%s\"", rec->file_hash);
                 comma = 1;
             }
         }
         if (rec->uptime_seconds > 0) {
             if (comma) {
-                zprintf(output, ",\"uptime\":%lu", rec->uptime_seconds);
+                zprintf(f, ",\"uptime\":%lu", rec->uptime_seconds);
             } else {
-                zprintf(output, "\"uptime\":%lu", rec->uptime_seconds);
+                zprintf(f, "\"uptime\":%lu", rec->uptime_seconds);
                 comma = 1;
             }
         }
-        zprintf(output, "}");
+        zprintf(f, "}");
     }
 }
 
@@ -1284,27 +1283,27 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
      * ---------------------------------------------------------------
      *****************************************************************
      */
-    zprintf(output, "{");
+    zprintf(ctx->output, "{");
 
     if (ipv4_addr_needs_anonymization(&rec->key.sa)) {
-        zprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->key.sa));
+        zprintf(ctx->output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->key.sa));
     } else {
-        zprintf(output, "\"sa\":\"%s\",", inet_ntoa(rec->key.sa));
+        zprintf(ctx->output, "\"sa\":\"%s\",", inet_ntoa(rec->key.sa));
     }
     if (ipv4_addr_needs_anonymization(&rec->key.da)) {
-        zprintf(output, "\"da\":\"%s\",", addr_get_anon_hexstring(&rec->key.da));
+        zprintf(ctx->output, "\"da\":\"%s\",", addr_get_anon_hexstring(&rec->key.da));
     } else {
-        zprintf(output, "\"da\":\"%s\",", inet_ntoa(rec->key.da));
+        zprintf(ctx->output, "\"da\":\"%s\",", inet_ntoa(rec->key.da));
     }
-    zprintf(output, "\"pr\":%u,", rec->key.prot);
+    zprintf(ctx->output, "\"pr\":%u,", rec->key.prot);
 
     if (rec->key.prot == 6 || rec->key.prot == 17) {
-        zprintf(output, "\"sp\":%u,", rec->key.sp);
-        zprintf(output, "\"dp\":%u,", rec->key.dp);
+        zprintf(ctx->output, "\"sp\":%u,", rec->key.sp);
+        zprintf(ctx->output, "\"dp\":%u,", rec->key.dp);
     } else {
         /* Make dp/sp null so that they can still be compared */
-        zprintf(output, "\"sp\":null,");
-        zprintf(output, "\"dp\":null,");
+        zprintf(ctx->output, "\"sp\":null,");
+        zprintf(ctx->output, "\"dp\":null,");
     }
 
     /*
@@ -1315,33 +1314,33 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
         attr_flags flag;
 
         flag = radix_trie_lookup_addr(glb_config->rt, rec->key.sa);
-        attr_flags_json_print_labels(glb_config->rt, flag, "sa_labels", output);
+        attr_flags_json_print_labels(glb_config->rt, flag, "sa_labels", ctx->output);
         flag = radix_trie_lookup_addr(glb_config->rt, rec->key.da);
-        attr_flags_json_print_labels(glb_config->rt, flag, "da_labels", output);
+        attr_flags_json_print_labels(glb_config->rt, flag, "da_labels", ctx->output);
     }
 
     /*
      * Flow stats
      */
-    zprintf(output, "\"bytes_out\":%u,", rec->ob);
-    zprintf(output, "\"num_pkts_out\":%u,", rec->np); /* not just packets with data */
+    zprintf(ctx->output, "\"bytes_out\":%u,", rec->ob);
+    zprintf(ctx->output, "\"num_pkts_out\":%u,", rec->np); /* not just packets with data */
     if (rec->twin != NULL) {
-        zprintf(output, "\"bytes_in\":%u,", rec->twin->ob);
-        zprintf(output, "\"num_pkts_in\":%u,", rec->twin->np);
+        zprintf(ctx->output, "\"bytes_in\":%u,", rec->twin->ob);
+        zprintf(ctx->output, "\"num_pkts_in\":%u,", rec->twin->np);
     }
 #ifdef WIN32
-	zprintf(output, "\"time_start\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
-	zprintf(output, "\"time_end\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
+	zprintf(ctx->output, "\"time_start\":%i.%06i,", ts_start.tv_sec, ts_start.tv_usec);
+	zprintf(ctx->output, "\"time_end\":%i.%06i,", ts_end.tv_sec, ts_end.tv_usec);
 #else
-    zprintf(output, "\"time_start\":%zd.%06zd,", ts_start.tv_sec, (long)ts_start.tv_usec);
-    zprintf(output, "\"time_end\":%zd.%06zd,", ts_end.tv_sec, (long)ts_end.tv_usec);
+    zprintf(ctx->output, "\"time_start\":%zd.%06zd,", ts_start.tv_sec, (long)ts_start.tv_usec);
+    zprintf(ctx->output, "\"time_end\":%zd.%06zd,", ts_end.tv_sec, (long)ts_end.tv_usec);
 #endif
 
     /*****************************************************************
      * Packet length and time array
      *****************************************************************
      */
-    zprintf(output, "\"packets\":[");
+    zprintf(ctx->output, "\"packets\":[");
 
     if (rec->twin == NULL) {
 
@@ -1355,16 +1354,16 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
                 } else {
                     joy_timer_clear(&ts);
                 }
-                print_bytes_dir_time(rec->pkt_len[i], OUT, ts, ",");
+                print_bytes_dir_time(ctx, rec->pkt_len[i], OUT, ts, ",");
             }
             if (i == 0) {        /* TODO this code could be simplified */
                 joy_timer_clear(&ts);
             } else {
                 joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
             }
-            print_bytes_dir_time(rec->pkt_len[i], OUT, ts, "");
+            print_bytes_dir_time(ctx, rec->pkt_len[i], OUT, ts, "");
         }
-        zprintf(output, "]");
+        zprintf(ctx->output, "]");
     } else {
         imax = rec->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->op;
         jmax = rec->twin->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->twin->op;
@@ -1400,15 +1399,15 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
             }
 
             joy_timer_sub(&ts, &ts_last, &tmp);
-            print_bytes_dir_time(pkt_len, dir, tmp, "");
+            print_bytes_dir_time(ctx, pkt_len, dir, tmp, "");
             ts_last = ts;
 
             if (!((i == imax) & (j == jmax))) {
                 /* Done */
-                zprintf(output, ",");
+                zprintf(ctx->output, ",");
             }
         }
-        zprintf(output, "]");
+        zprintf(ctx->output, "]");
     }
 
     if (glb_config->byte_distribution || glb_config->report_entropy || glb_config->compact_byte_distribution) {
@@ -1474,16 +1473,16 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
             reduce_bd_bits(tmp, 256);
             array = tmp;
 
-            zprintf(output, ",\"byte_dist\":[");
+            zprintf(ctx->output, ",\"byte_dist\":[");
             for (i = 0; i < 255; i++) {
-                zprintf(output, "%u,", (unsigned char)array[i]);
+                zprintf(ctx->output, "%u,", (unsigned char)array[i]);
             }
-            zprintf(output, "%u]", (unsigned char)array[i]);
+            zprintf(ctx->output, "%u]", (unsigned char)array[i]);
 
             /* Output the mean */
             if (num_bytes != 0) {
-                zprintf(output, ",\"byte_dist_mean\":%f", mean);
-                zprintf(output, ",\"byte_dist_std\":%f", variance);
+                zprintf(ctx->output, ",\"byte_dist_mean\":%f", mean);
+                zprintf(ctx->output, ",\"byte_dist_std\":%f", variance);
             }
 
         }
@@ -1492,19 +1491,19 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
             reduce_bd_bits(compact_tmp, 16);
             compact_array = compact_tmp;
 
-            zprintf(output, ",\"compact_byte_dist\":[");
+            zprintf(ctx->output, ",\"compact_byte_dist\":[");
             for (i = 0; i < 15; i++) {
-                zprintf(output, "%u,", (unsigned char)compact_array[i]);
+                zprintf(ctx->output, "%u,", (unsigned char)compact_array[i]);
             }
-            zprintf(output, "%u]", (unsigned char)compact_array[i]);
+            zprintf(ctx->output, "%u]", (unsigned char)compact_array[i]);
         }
 
         if (glb_config->report_entropy) {
             if (num_bytes != 0) {
                 double entropy = flow_record_get_byte_count_entropy(array, num_bytes);
 
-                zprintf(output, ",\"entropy\":%f", entropy);
-                zprintf(output, ",\"total_entropy\":%f", entropy * num_bytes);
+                zprintf(ctx->output, ",\"entropy\":%f", entropy);
+                zprintf(ctx->output, ",\"total_entropy\":%f", entropy * num_bytes);
             }
         }
     }
@@ -1528,15 +1527,15 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
 		                     rec->byte_count, NULL);
         }
 
-        zprintf(output, ",\"p_malware\":%f", score);
+        zprintf(ctx->output, ",\"p_malware\":%f", score);
     }
 
     /* IP object */
-    print_ip_json(output, rec);
+    print_ip_json(ctx->output, rec);
 
     if (rec->key.prot == 6) {
         /* TCP object */
-        print_tcp_json(output, rec);
+        print_tcp_json(ctx->output, rec);
     }
 
     /*
@@ -1547,7 +1546,7 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
     /*
      * Host executable
      */
-    print_executable_json(output, rec);
+    print_executable_json(ctx->output, rec);
 
     if (glb_config->report_hd) {
         /*
@@ -1555,7 +1554,7 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
          * be changed sometime soon, but for now, this will give some
          * experience with this type of data
          */
-        header_description_printf(&rec->hd, output, glb_config->report_hd);
+        header_description_printf(&rec->hd, ctx->output, glb_config->report_hd);
     }
 
     /*
@@ -1563,9 +1562,9 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
      */
     if (include_os) {
         if (rec->twin) {
-            os_printf(output, rec->ip.ttl, rec->tcp.first_window_size, rec->twin->ip.ttl, rec->twin->tcp.first_window_size);
+            os_printf(ctx->output, rec->ip.ttl, rec->tcp.first_window_size, rec->twin->ip.ttl, rec->twin->tcp.first_window_size);
         } else {
-            os_printf(output, rec->ip.ttl, rec->tcp.first_window_size, 0, 0);
+            os_printf(ctx->output, rec->ip.ttl, rec->tcp.first_window_size, 0, 0);
         }
     }
 
@@ -1574,14 +1573,14 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
      */
     if (glb_config->idp) {
         if (rec->idp != NULL) {
-            zprintf(output, ",\"idp_out\":");
-            zprintf_raw_as_hex(output, rec->idp, rec->idp_len);
-            zprintf(output, ",\"idp_len_out\":%u", rec->idp_len);
+            zprintf(ctx->output, ",\"idp_out\":");
+            zprintf_raw_as_hex(ctx->output, rec->idp, rec->idp_len);
+            zprintf(ctx->output, ",\"idp_len_out\":%u", rec->idp_len);
         }
         if (rec->twin && (rec->twin->idp != NULL)) {
-            zprintf(output, ",\"idp_in\":");
-            zprintf_raw_as_hex(output, rec->twin->idp, rec->twin->idp_len);
-            zprintf(output, ",\"idp_len_in\":%u", rec->twin->idp_len);
+            zprintf(ctx->output, ",\"idp_in\":");
+            zprintf_raw_as_hex(ctx->output, rec->twin->idp, rec->twin->idp_len);
+            zprintf(ctx->output, ",\"idp_len_in\":%u", rec->twin->idp_len);
         }
     }
 
@@ -1597,32 +1596,32 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
 
         if (retrans || invalid) {
             uint8_t comma = 0;
-            zprintf(output, ",\"debug\":{");
+            zprintf(ctx->output, ",\"debug\":{");
             if (retrans) {
-                zprintf(output, "\"tcp_retrans\":%u", retrans);
+                zprintf(ctx->output, "\"tcp_retrans\":%u", retrans);
                 comma = 1;
             }
             if (invalid) {
                 if (comma) {
-                    zprintf(output, ",\"invalid\":%u", invalid);
+                    zprintf(ctx->output, ",\"invalid\":%u", invalid);
                 } else {
-                    zprintf(output, "\"invalid\":%u", invalid);
+                    zprintf(ctx->output, "\"invalid\":%u", invalid);
                 }
             }
-            zprintf(output, "}");
+            zprintf(ctx->output, "}");
         }
 
     }
 
     if (rec->exp_type) {
-        zprintf(output, ",\"expire_type\":\"%c\"", rec->exp_type);
+        zprintf(ctx->output, ",\"expire_type\":\"%c\"", rec->exp_type);
     }
 
     /*****************************************************************
      * Flow Record object end
      *****************************************************************
      */
-    zprintf(output, "}\n");
+    zprintf(ctx->output, "}\n");
 }
 
 
@@ -1642,9 +1641,7 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, struct flow_record 
     /*
      * Print the record to JSON output
      */
-    pthread_mutex_lock(&print_lock);
     flow_record_print_json(ctx, record);
-    pthread_mutex_unlock(&print_lock);
 
 #ifndef JOY_LIB_API
     /*
@@ -1744,7 +1741,7 @@ void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_all) {
     }
 
     // note: we might need to call flush in the future
-    // zflush(output);
+    // zflush(ctx->output);
 }
 
 /**

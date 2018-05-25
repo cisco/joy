@@ -633,7 +633,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
     if (qdcount > 1) {
         err = dns_err_too_many;
         zprintf(output, "\"malformed\":%d", len);
-        zprintf_debug("qdcount=%u; err=%u\"}", qdcount, err);
+        zprintf_debug(output, "qdcount=%u; err=%u\"}", qdcount, err);
       return;
     }
     while (qdcount-- > 0) {
@@ -641,13 +641,13 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         err = dns_header_parse_name(rh, &r, &len, name, sizeof(name));
         if (err != dns_ok) { 
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug("question name err=%u; len=%u\"}]}", err, len);
+            zprintf_debug(output, "question name err=%u; len=%u\"}]}", err, len);
             return;
         }
         err = dns_question_parse(&question, &r, &len);
         if (err != dns_ok) {
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug("question err=%u; len=%u\"]}]", err, len);
+            zprintf_debug(output, "question err=%u; len=%u\"]}]", err, len);
             return;
         }
         zprintf(output, "\"%cn\":\"%s\"", qr, name + 1);
@@ -666,14 +666,14 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         if (err != dns_ok) { 
             char *d = r;
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug("rr name ancount=%u; err=%u; len=%u; data=0x%02x%02x%02x%02x\"}]}", ancount, err, len, d[0], d[1], d[2], d[3]);
+            zprintf_debug(output, "rr name ancount=%u; err=%u; len=%u; data=0x%02x%02x%02x%02x\"}]}", ancount, err, len, d[0], d[1], d[2], d[3]);
             return;
         }
         // zprintf(output, "\"name\":\"%s\"", name);
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
         if (err) {
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug("rr ancount=%u; err=%u; len=%u\"}]}", ancount, err, len);
+            zprintf_debug(output, "rr ancount=%u; err=%u; len=%u\"}]}", ancount, err, len);
             return;
         }
         err = dns_rdata_print(rh, rr, &r, &rdlength, output);

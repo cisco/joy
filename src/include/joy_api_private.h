@@ -44,6 +44,8 @@
 #ifndef JOY_API_PRV_H
 #define JOY_API_PRV_H
 
+#include "output.h"
+
 #ifdef JOY_USE_VPP_OPT
 #include "vppinfra/vec.h"
 
@@ -76,6 +78,7 @@
 
 /* per instance context data */
 struct joy_ctx_data  {
+    zfile output;
     struct timeval global_time;
     struct flocap_stats stats;
     struct flocap_stats last_stats;

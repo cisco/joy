@@ -99,6 +99,7 @@ void *thread_main1 (void *file)
 {
     sleep(1);
     printf("Thread 1 Starting\n");
+    joy_print_config(0, JOY_JSON_FORMAT);
     process_pcap_file(0, file);
     joy_print_flow_data(0, JOY_ALL_FLOWS);
     printf("Thread 1 Finished\n");
@@ -109,6 +110,7 @@ void *thread_main2 (void *file)
 {
     sleep(1);
     printf("Thread 2 Starting\n");
+    joy_print_config(1, JOY_JSON_FORMAT);
     process_pcap_file(1, file);
     joy_print_flow_data(1, JOY_ALL_FLOWS);
     printf("Thread 2 Finished\n");
@@ -119,6 +121,7 @@ void *thread_main3 (void *file)
 {
     sleep(1);
     printf("Thread 3 Starting\n");
+    joy_print_config(2, JOY_JSON_FORMAT);
     process_pcap_file(2, file);
     joy_print_flow_data(2, JOY_ALL_FLOWS);
     printf("Thread 3 Finished\n");
@@ -141,7 +144,7 @@ int main (int argc, char **argv)
     init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON);
 
     /* intialize joy */
-    rc = joy_initialize(&init_data, NULL, "joy.out", NULL);
+    rc = joy_initialize(&init_data, NULL, NULL, NULL);
     if (rc != 0) {
         printf(" -= Joy Initialized Failed =-\n");
         return -1;
@@ -155,9 +158,6 @@ int main (int argc, char **argv)
 
     /* setup subnet labels */
     //joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
-
-    /* print out the configuration */
-    joy_print_config(JOY_JSON_FORMAT);
 
     /* start up thread1 for processing */
     rc = pthread_create(&thread1, NULL, thread_main1, (char*)argv[1]);

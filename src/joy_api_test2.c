@@ -172,7 +172,7 @@ int main (int argc, char **argv)
     joy_label_subnets("JoyAPITest",JOY_SINGLE_SUBNET,"192.168.0.0/16");
 
     /* print out the config */
-    joy_print_config(JOY_JSON_FORMAT);
+    joy_print_config(0,JOY_JSON_FORMAT);
 
     /* process the hardcoded packets */
     process_hardcoded_packets(0); /* just using 1 context -> 0 */

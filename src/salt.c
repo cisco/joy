@@ -53,7 +53,6 @@
 
 /* external definitions from joy.c */
 extern struct configuration *glb_config;
-extern zfile output;
 extern FILE *info;
 
 /**

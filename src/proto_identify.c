@@ -50,7 +50,6 @@
 #include "err.h"
 
 extern struct configuration *glb_config;
-extern zfile output;
 extern FILE *info;
 
 /* --------------------------------------------------

@@ -141,13 +141,14 @@ extern int joy_initialize (struct joy_init *data, char *output_dir,
  *      of the Joy library in either JSON or terminal format.
  *
  * Parameters:
+ *      index - index of the context to print the config into
  *      format - JOY_JSON_FORMAT or JOY_TERMINAL_FORMAT
  *
  * Returns:
  *      none
  *
  */
-extern void joy_print_config (int format);
+extern void joy_print_config (int index, int format);
 
 /*
  * Function: joy_anon_subnets

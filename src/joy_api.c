@@ -60,9 +60,9 @@
 #include "joy_api_private.h"
 #include "pthread.h"
 #include "proto_identify.h"
+#include "output.h"
 
 /* file destination variables */
-zfile output = NULL;
 FILE *info = NULL;
 
 /* config is the global library configuration */
@@ -109,6 +109,7 @@ int joy_initialize(struct joy_init *init_data,
         char *output_dir, char *output_file, char *logfile)
 {
     int i = 0;
+    char output_dirname[MAX_FILENAME_LEN];
     char output_filename[MAX_FILENAME_LEN];
 
     /* sanity check the context information */
@@ -144,26 +145,12 @@ int joy_initialize(struct joy_init *init_data,
     /* set the output directory */
     if (output_dir != NULL) {
         int len = strlen(output_dir);
-        strcpy(output_filename, output_dir);
-        if (output_filename[len-1] != '/') {
-            strcat(output_filename, "/");
+        strcpy(output_dirname, output_dir);
+        if (output_dirname[len-1] != '/') {
+            strcat(output_dirname, "/");
         }
     } else {
-        strcpy(output_filename, "./");
-    }
-
-    /* setup the output file */
-    if (output_file != NULL) {
-        strcat(output_filename,output_file);
-        output = zopen(output_filename, "w");
-        if (output == NULL) {
-            joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
-            joy_log_err("choose a new output name or move/remove the old data set");
-            return failure;
-        }
-    } else {
-        /* attach output to the stdout */
-        output = zattach(stdout, "w");
+        strcpy(output_dirname, "/tmp/");
     }
 
     /* set the configuration defaults */
@@ -174,12 +161,15 @@ int joy_initialize(struct joy_init *init_data,
     glb_config->flow_key_match_method = EXACT_MATCH;
 
     /* setup joy with the output options */
-    if (output_dir)
-        glb_config->outputdir = strdup(output_dir);
+    glb_config->outputdir = strdup(output_dirname);
     if (output_file)
         glb_config->filename = strdup(output_file);
+    else
+        glb_config->filename = "joy-output";
     if (logfile)
         glb_config->logfile = strdup(logfile);
+    else
+        glb_config->logfile = "stderr";
 
     /* data features */
     glb_config->bidir = ((init_data->bitmask & JOY_BIDIR_ON) ? 1 : 0);
@@ -240,6 +230,21 @@ int joy_initialize(struct joy_init *init_data,
     /* initialize all the data context structures */
     for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data) ++i) {
         struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i)
+
+        /* setup the output file */
+        if (output_file != NULL) {
+            snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d%s",output_dirname,output_filename,(i+1),zsuffix);
+        } else {
+            snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d%s",output_dirname,(i+1),zsuffix);
+        }
+        printf("Context :%d Output:%s\n",i,output_filename);
+        this->output = zopen(output_filename, "w");
+        if (this->output == NULL) {
+            joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+            joy_log_err("choose a new output name or move/remove the old data set");
+            return failure;
+        }
+
         flow_record_list_init(this);
         flocap_stats_timer_init(this);
     }
@@ -256,26 +261,38 @@ int joy_initialize(struct joy_init *init_data,
  *      of the Joy library in either JSON or terminal format.
  *
  * Parameters:
+ *      index - index of the context to print the config into
  *      format - JOY_JSON_FORMAT or JOY_TERMINAL_FORMAT
  *
  * Returns:
  *      none
  *
  */
-void joy_print_config(int format)
+void joy_print_config(int index, int format)
 {
+    joy_ctx_data *ctx = NULL;
+
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
         return;
     }
 
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* get the context to print the config into */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
     if (format == JOY_TERMINAL_FORMAT) {
         /* print the configuration in the output */
-        config_print(output, glb_config);
+        config_print(info, glb_config);
     } else {
         /* print the configuration in the output */
-        config_print_json(output, glb_config);
+        config_print_json(ctx->output, glb_config);
     }
 }
 
@@ -615,16 +632,17 @@ void joy_print_flow_data(unsigned int index, int type)
         return;
     }
 
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
     /* see if we should collect host information */
     if (glb_config->report_exe) {
-        joy_log_info("retrieveing process information\n");
-        if (get_host_flow_data(&ctx_data[index]) != 0) {
+        joy_log_info("retrieving process information\n");
+        if (get_host_flow_data(ctx) != 0) {
             joy_log_warn("Could not obtain host/process flow data\n");
         }
     }
 
     /* print the flow records */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
     flow_record_list_print_json(ctx, type);
 }
 
@@ -759,10 +777,11 @@ void joy_cleanup(unsigned int index)
     /* Flush any unsent exporter messages in Ipfix module */
     if (glb_config->ipfix_export_port) {
         ipfix_export_flush_message();
+
+        /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
+        ipfix_module_cleanup();
     }
 
-    /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-    ipfix_module_cleanup();
 
     /* clean up the protocol idenitfication dictionary */
     proto_identify_destroy_keyword_dict();
@@ -770,4 +789,7 @@ void joy_cleanup(unsigned int index)
     /* free up the flow records */
     ctx = JOY_CTX_AT_INDEX(ctx_data,index)
     flow_record_list_free(ctx);
+ 
+    /* close the output file */
+    zclose(ctx->output);
 }

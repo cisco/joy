@@ -105,7 +105,7 @@ print:
 $(LIBDIR)/libjoy.a libjoy.a: $(LIBJOY_SRC)
 	@echo "Building libjoy.a ..."
 	@rm -f $(LIBDIR)/libjoy.a
-	gcc $(CFLAGS) $(CDEFS) -fPIC -pthread $(COMPDEF) -DJOY_LIB_API -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -c $(LIBJOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) -fPIC -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) -c $(LIBJOY_SRC)
 	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
 	@rm -f $(LIBJOY_OBJ)
 	@echo
@@ -123,12 +123,12 @@ unit_test: unit_test.c $(LIBDIR)/libjoy.a
 
 joy_api_test: joy_api_test.c $(LIBDIR)/libjoy.a
 	@echo "Building joy_api_test ..."
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -pthread $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) -lpcap -lm -lcrypto -lpthread
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -pthread $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) $(LIBS)
 	@echo
 
 joy_api_test2: joy_api_test2.c $(LIBDIR)/libjoy.a
 	@echo "Building joy_api_test2 ..."
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) -lm -lcrypto -lpcap
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) $(LIBS)
 	@echo
 
 jfd-anon: jfd-anon.c $(JFDANON_SRC)

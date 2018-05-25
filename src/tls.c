@@ -86,7 +86,6 @@ pthread_mutex_t tls_lock = PTHREAD_MUTEX_INITIALIZER;
  * External objects, defined in joy.c
  */
 extern struct configuration *glb_config;
-extern zfile output;
 extern FILE *info;
 
 #if 0

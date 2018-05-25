@@ -111,7 +111,6 @@ struct flow_key {
 extern struct configuration *glb_config;
 
 /* external declaration of the file destinations */
-extern zfile output;
 extern FILE *info;
 
 /*

@@ -95,7 +95,6 @@ size_t getline(char **lineptr, size_t *n, FILE *stream);
 
 /* external definitions from joy.c */
 extern struct configuration *glb_config;
-extern zfile output;
 extern FILE *info;
 
 /** maximum label string length */

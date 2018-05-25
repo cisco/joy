@@ -252,7 +252,7 @@ void F##_print_json(const F##_t *F,      \
 
 /** The macro print_feature(f) prints the feature as JSON 
  */
-#define print_feature(f) if (rec->f != NULL) f##_print_json(rec->f, (rec->twin ? rec->twin->f : NULL), output);
+#define print_feature(f) if (rec->f != NULL) f##_print_json(rec->f, (rec->twin ? rec->twin->f : NULL), ctx->output);
 
 
 /** The macro init_feature(f) initializes the element f in the

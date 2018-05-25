@@ -52,6 +52,8 @@
 #include "config.h"
 #include "joy_api.h"
 
+zfile output = NULL;
+
 static void matches_print (struct matches *matches, char *text) {
     unsigned int i;
     char tmp[1024];
@@ -146,6 +148,9 @@ int main (int argc, char* argv[]) {
         printf(" -= Joy Initialized Failed =-\n");
         return -1;
     }
+
+    /* set output to stdout */
+    output = zattach(stdout, "w");
 
 #if !defined(DARWIN) && !defined(WIN32)
     struct mallinfo mem_info;
