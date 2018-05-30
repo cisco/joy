@@ -1222,9 +1222,10 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
     const struct flow_record *rec = NULL;
     unsigned int pkt_len;
     char *dir;
+    char ipv4_addr[INET_ADDRSTRLEN];
 
     flocap_stats_incr_records_output(ctx);
-    glb_config->records_in_file++;
+    ctx->records_in_file++;
 
     if (record->twin != NULL) {
         /*
@@ -1288,12 +1289,14 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
     if (ipv4_addr_needs_anonymization(&rec->key.sa)) {
         zprintf(ctx->output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->key.sa));
     } else {
-        zprintf(ctx->output, "\"sa\":\"%s\",", inet_ntoa(rec->key.sa));
+        inet_ntop(AF_INET, &rec->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+        zprintf(ctx->output, "\"sa\":\"%s\",", ipv4_addr);
     }
     if (ipv4_addr_needs_anonymization(&rec->key.da)) {
         zprintf(ctx->output, "\"da\":\"%s\",", addr_get_anon_hexstring(&rec->key.da));
     } else {
-        zprintf(ctx->output, "\"da\":\"%s\",", inet_ntoa(rec->key.da));
+        inet_ntop(AF_INET, &rec->key.da, ipv4_addr, INET_ADDRSTRLEN);
+        zprintf(ctx->output, "\"da\":\"%s\",", ipv4_addr);
     }
     zprintf(ctx->output, "\"pr\":%u,", rec->key.prot);
 

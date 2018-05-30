@@ -193,6 +193,8 @@ int print_flow_table() {
 	char szAddr[128];
 	struct flow_key empty_key;
 	struct host_flow *record;
+	char ipv4_addr[INET_ADDRSTRLEN];
+
 
 	memset(&empty_key, 0, sizeof(struct flow_key));
 	for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
@@ -202,18 +204,22 @@ int print_flow_table() {
 			break;
 		}
 #ifdef WIN32
-		strcpy_s(szAddr, sizeof(szAddr), inet_ntoa(record->key.sa));
+		inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+		strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
 #else
-		strncpy(szAddr, inet_ntoa(record->key.sa), sizeof(szAddr));
+		inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+		strncpy(szAddr, ipv4_addr, sizeof(szAddr));
 #endif
 		printf("\t========================\n");
 		printf("\tTABLE Local Addr: %s\n", szAddr);
 		printf("\tTABLE Local Port: %d \n", ntohs(record->key.sp));
 
 #ifdef WIN32
-		strcpy_s(szAddr, sizeof(szAddr), inet_ntoa(record->key.da));
+		inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
+		strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
 #else
-		strncpy(szAddr, inet_ntoa(record->key.da), sizeof(szAddr));
+		inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
+		strncpy(szAddr, ipv4_addr, sizeof(szAddr));
 #endif
 		printf("\tTABLE Remote Addr: %s\n", szAddr);
 		printf("\tTABLE Remote Port: %d\n", ntohs(record->key.dp));

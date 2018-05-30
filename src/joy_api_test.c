@@ -102,6 +102,7 @@ void *thread_main1 (void *file)
     joy_print_config(0, JOY_JSON_FORMAT);
     process_pcap_file(0, file);
     joy_print_flow_data(0, JOY_ALL_FLOWS);
+    joy_cleanup(0);
     printf("Thread 1 Finished\n");
     return NULL;
 }
@@ -113,6 +114,7 @@ void *thread_main2 (void *file)
     joy_print_config(1, JOY_JSON_FORMAT);
     process_pcap_file(1, file);
     joy_print_flow_data(1, JOY_ALL_FLOWS);
+    joy_cleanup(1);
     printf("Thread 2 Finished\n");
     return NULL;
 }
@@ -124,6 +126,7 @@ void *thread_main3 (void *file)
     joy_print_config(2, JOY_JSON_FORMAT);
     process_pcap_file(2, file);
     joy_print_flow_data(2, JOY_ALL_FLOWS);
+    joy_cleanup(2);
     printf("Thread 3 Finished\n");
     return NULL;
 }
@@ -138,9 +141,10 @@ int main (int argc, char **argv)
     memset(&init_data, 0x00, sizeof(struct joy_init));
 
    /* this setup is for general processing */
-    init_data.type = 1;                       /* type 1 (SPLT) 2 (SALT) */
-    init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
-    init_data.contexts = 3;                   /* use 3 worker contexts for processing */
+    init_data.type = 1;           /* type 1 (SPLT) 2 (SALT) */
+    init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */
+    init_data.max_records = 0;    /* max records in output file, 0 means single output file */
+    init_data.contexts = 3;       /* use 3 worker contexts for processing */
     init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON);
 
     /* intialize joy */
@@ -182,12 +186,6 @@ int main (int argc, char **argv)
 
     /* let the threads run */
     sleep(10);
-
-    /* clean up the data structures */
-    joy_cleanup(0);
-    joy_cleanup(1);
-    joy_cleanup(2);
-
     return 0;
 }
 

@@ -69,12 +69,12 @@ extern FILE *info;
  *
  */
 #define BZ_MAX_SIZE 4096
-char BZ_buff[BZ_MAX_SIZE];
 int BZ2_bzprintf(BZFILE *b, const char * format, ...)
 {
     int BZ_sz; 
     int BZ_errnum;
     va_list arg;
+    char BZ_buff[BZ_MAX_SIZE];
 
     va_start(arg, format);
     BZ_sz = vsnprintf(BZ_buff, BZ_MAX_SIZE, format, arg);

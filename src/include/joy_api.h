@@ -56,10 +56,12 @@
 #define JOY_JSON_FORMAT 1
 #define JOY_SINGLE_SUBNET 0
 #define JOY_FILE_SUBNET 1
+#define MAX_DIRNAME_LEN 256
 #define MAX_FILENAME_LEN 1024
 #define DEFAULT_IPFIX_EXPORT_PORT 4739
 #define DEFAULT_IDP_SIZE 1300
 #define MAX_LIB_CONTEXTS 10
+#define MAX_RECORDS 2147483647
 
 /*
  * Joy Library Bitmask Values
@@ -93,6 +95,7 @@
 struct joy_init {
     int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
+    int max_records;             /* max record in output file */
     int contexts;                /* number of contexts the app wants to use */
     int idp;                     /* idp size to report, recommend 1300 */
     char *ipfix_host;            /* ip string of the host to send IPFix data to */

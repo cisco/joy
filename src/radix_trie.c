@@ -868,6 +868,7 @@ int radix_trie_unit_test () {
     unsigned int i;
     unsigned int test_failed = 0;
     unsigned int flag;
+    char ipv4_addr[INET_ADDRSTRLEN];
 
     for (i=0; i<32; i++) {
         flag = index_to_flag(i);
@@ -893,42 +894,48 @@ int radix_trie_unit_test () {
     flag = 1;
     for (i=0; i<3; i++) {
         if (radix_trie_add_subnet(rt, a[i], 32, af[i]) != ok) {
-			joy_log_err("could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=6; i<9; i++) {
         if (radix_trie_add_subnet(rt, a[i], 16, af[i]) != ok) {
-            joy_log_err("could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=0; i<3; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != af[i]) {
-            joy_log_err("could not lookup subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not lookup subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=6; i<9; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != af[i]) {
-            joy_log_err("could not lookup subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not lookup subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=3; i<6; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != 0) {
-            joy_log_err("false positive lookup subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("false positive lookup subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=0; i<3; i++) {
         if (radix_trie_add_subnet(rt, a[i], 14, 0x100) != ok) {
-            joy_log_err("14-bit add, could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("14-bit add, could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
@@ -936,8 +943,9 @@ int radix_trie_unit_test () {
     for (i=0; i<3; i++) {
         unsigned int f = radix_trie_lookup_addr(rt, a[i]);
         if (f != (af[i] | 0x100)) {
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
             joy_log_err("14-bit, could not lookup address %s (%x), got %x instead", 
-	                    inet_ntoa(a[i]), htonl(a[i].s_addr), f);
+	                    ipv4_addr, htonl(a[i].s_addr), f);
             test_failed = 1;
         }
     }
@@ -945,7 +953,8 @@ int radix_trie_unit_test () {
     printf("testing 15-bit add\n");
     for (i=0; i<3; i++) {
         if (radix_trie_add_subnet(rt, a[i], 15, 0x1000) != ok) {
-            joy_log_err("15-bit, could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("15-bit, could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
@@ -953,15 +962,17 @@ int radix_trie_unit_test () {
     for (i=0; i<3; i++) {
         unsigned int f = radix_trie_lookup_addr(rt, a[i]);
         if (f != (af[i] | 0x1000 | 0x100)) {
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
             joy_log_err("15-bit, could not lookup address %s (%x), got %x but expected %x", 
-	                    inet_ntoa(a[i]), htonl(a[i].s_addr), f, (af[i] | 0x1000 | 0x100));
+	                    ipv4_addr, htonl(a[i].s_addr), f, (af[i] | 0x1000 | 0x100));
             test_failed = 1;
         }
     }
 
     for (i=3; i<6; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != 0) {
-            joy_log_err("false positive lookup address %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("false positive lookup address %s", ipv4_addr);
             test_failed = 1;
         }
     }
@@ -993,7 +1004,8 @@ int radix_trie_unit_test () {
 
     addr = hex2addr(0xcafe0000);
     if (radix_trie_add_subnet(rt2, addr, 16, internal_attr) != ok) { 
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
@@ -1005,7 +1017,8 @@ int radix_trie_unit_test () {
 
     addr = hex2addr(0xdecaf000);
     if (radix_trie_add_subnet(rt2, addr, 20, internal_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
@@ -1017,7 +1030,8 @@ int radix_trie_unit_test () {
 
     addr = hex2addr(0xdadacafe);
     if (radix_trie_add_subnet(rt2, addr, 32, c2_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
@@ -1029,7 +1043,8 @@ int radix_trie_unit_test () {
 
     addr = hex2addr(0xdadacafe);
     if (radix_trie_add_subnet(rt2, addr, 8, watchlist_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
@@ -1041,7 +1056,8 @@ int radix_trie_unit_test () {
  
     addr = hex2addr(0xffffffff);
     if (radix_trie_add_subnet(rt2, addr, 1, watchlist_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 

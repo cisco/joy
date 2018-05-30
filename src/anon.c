@@ -293,6 +293,8 @@ static unsigned int bits_in_mask (void *a, unsigned int bytes) {
  * \return failure
  */
 int anon_print_subnets (FILE *f) {
+    char ipv4_addr[INET_ADDRSTRLEN];
+
     if (num_subnets > MAX_ANON_SUBNETS) {
         fprintf(f, "error: %u anonymous subnets configured, but maximum is %u\n", 
 	      num_subnets, MAX_ANON_SUBNETS);
@@ -301,8 +303,8 @@ int anon_print_subnets (FILE *f) {
         unsigned int i;
 
         for (i=0; i<num_subnets; i++) {
-            fprintf(f, "anon subnet %u: %s/%d\n", i, 
-	          inet_ntoa(anon_subnet[i].addr),
+            inet_ntop(AF_INET, &anon_subnet[i].addr, ipv4_addr, INET_ADDRSTRLEN);
+            fprintf(f, "anon subnet %u: %s/%d\n", i, ipv4_addr,
 	          bits_in_mask(&anon_subnet[i].mask, 4));
         }
     }
@@ -479,6 +481,7 @@ enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsi
     unsigned char c[16];
     unsigned char pt[16];
     struct in_addr *addr = (struct in_addr *)pt;
+    char ipv4_addr[INET_ADDRSTRLEN];
 
     if (len != 32 || outlen < 16) {
         return failure;
@@ -492,7 +495,8 @@ enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsi
     }
 
     AES_decrypt(c, pt, &key.dec_key);
-    strncpy(s, inet_ntoa(*addr), outlen);
+    inet_ntop(AF_INET, addr, ipv4_addr, INET_ADDRSTRLEN);
+    strncpy(s, ipv4_addr, outlen);
     return ok; 
 }
 

@@ -83,6 +83,33 @@ static int joy_num_contexts = 0;
 static struct joy_ctx_data *ctx_data = NULL;
 
 /*
+ * Function: format_output_filename
+ *
+ * Description: This function formats the output filename
+ *      using a timestamp. This is used for library initializations
+ *      set the record limits in an output file. This will get
+ *      called upon initial start up and then when output files
+ *      need to roll over to the new output file.
+ *
+ * Parameters:
+ *      basename - the destination output file base name
+ *      output_filename - the complete destination output file name
+ *
+ * Returns:
+ *      none, but rewrites output_filename to be the correct destination output file
+ *
+ */
+static void format_output_filename(char *basename, char *output_filename)
+{
+    time_t now = time(0);
+    struct tm *t = localtime(&now);
+    static int fud = 0; /* ensures unique name in case max_records is too small */
+
+    snprintf(output_filename, MAX_FILENAME_LEN, "%s-%.2d-%d%.2d%.2d%.2d%.2d%.2d%s", basename, ++fud,
+             t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, zsuffix);
+}
+
+/*
  * Function: joy_initialize
  *
  * Description: This function initializes the Joy library
@@ -109,7 +136,7 @@ int joy_initialize(struct joy_init *init_data,
         char *output_dir, char *output_file, char *logfile)
 {
     int i = 0;
-    char output_dirname[MAX_FILENAME_LEN];
+    char output_dirname[MAX_DIRNAME_LEN];
     char output_filename[MAX_FILENAME_LEN];
 
     /* sanity check the context information */
@@ -130,6 +157,7 @@ int joy_initialize(struct joy_init *init_data,
 
     /* sanity check the expected values for the packet headers */
     if (data_sanity_check() != ok) {
+        JOY_API_FREE_CONTEXT(ctx_data)
         return failure;
     }
 
@@ -138,19 +166,26 @@ int joy_initialize(struct joy_init *init_data,
         info = fopen(logfile, "a");
         if (info == NULL) {
             joy_log_err("could not open log file %s (%s)", logfile, strerror(errno));
+            JOY_API_FREE_CONTEXT(ctx_data)
             return failure;
         }
     }
 
     /* set the output directory */
+    memset(output_dirname, 0x00, MAX_DIRNAME_LEN);
     if (output_dir != NULL) {
         int len = strlen(output_dir);
-        strcpy(output_dirname, output_dir);
-        if (output_dirname[len-1] != '/') {
-            strcat(output_dirname, "/");
+        if (len > (MAX_DIRNAME_LEN-1)) {
+            /* output dir is too long, default to /tmp */
+            strncpy(output_dirname, "/tmp/", 5);
+        } else {
+            strncpy(output_dirname, output_dir, len);
+            if (output_dirname[len-1] != '/') {
+                strncat(output_dirname, "/", 1);
+            }
         }
     } else {
-        strcpy(output_dirname, "/tmp/");
+        strncpy(output_dirname, "/tmp/", 5);
     }
 
     /* set the configuration defaults */
@@ -170,6 +205,13 @@ int joy_initialize(struct joy_init *init_data,
         glb_config->logfile = strdup(logfile);
     else
         glb_config->logfile = "stderr";
+
+    /* setup the max records in a given output file */
+    if (init_data->max_records > MAX_RECORDS) {
+        glb_config->max_records = MAX_RECORDS;
+    } else {
+        glb_config->max_records = init_data->max_records;
+    }
 
     /* data features */
     glb_config->bidir = ((init_data->bitmask & JOY_BIDIR_ON) ? 1 : 0);
@@ -224,6 +266,7 @@ int joy_initialize(struct joy_init *init_data,
     /* initialize the protocol identification dictionary */
     if (proto_identify_init_keyword_dict()) {
         joy_log_err("could not initialize the protocol identification dictionary");
+        JOY_API_FREE_CONTEXT(ctx_data)
         return failure;
     }
 
@@ -231,17 +274,44 @@ int joy_initialize(struct joy_init *init_data,
     for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data) ++i) {
         struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i)
 
-        /* setup the output file */
+        /* setup the output file basename for the context */
+        memset(output_filename, 0x00, MAX_FILENAME_LEN);
         if (output_file != NULL) {
-            snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d%s",output_dirname,output_filename,(i+1),zsuffix);
+            if (strlen(output_file) > (MAX_FILENAME_LEN - strlen(output_dirname) - 16)) {
+                /* dirname + filename is too long, use default filename scheme */
+                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,(i+1));
+            } else {
+                snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d",output_dirname,output_file,(i+1));
+            }
         } else {
-            snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d%s",output_dirname,(i+1),zsuffix);
+            snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,(i+1));
+        }
+
+        /* store off the output file base name */
+        this->output_file_basename = malloc(strlen(output_filename)+1);
+        if (this->output_file_basename == NULL) {
+            joy_log_err("could not store off base output filename");
+            JOY_API_FREE_CONTEXT(ctx_data)
+            return failure;
+        } else {
+            memset(this->output_file_basename, 0x00, strlen(output_filename)+1);
+            strncpy(this->output_file_basename, output_filename, strlen(output_filename));
+        }
+
+        /* open the output file */
+        memset(output_filename, 0x00, MAX_FILENAME_LEN);
+        if (glb_config->max_records) {
+            format_output_filename(this->output_file_basename, output_filename);
+        } else {
+            snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
         }
         printf("Context :%d Output:%s\n",i,output_filename);
         this->output = zopen(output_filename, "w");
         if (this->output == NULL) {
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
             joy_log_err("choose a new output name or move/remove the old data set");
+            free(this->output_file_basename);
+            JOY_API_FREE_CONTEXT(ctx_data)
             return failure;
         }
 
@@ -644,6 +714,27 @@ void joy_print_flow_data(unsigned int index, int type)
 
     /* print the flow records */
     flow_record_list_print_json(ctx, type);
+
+    /* see if we need to rotate the output files */
+    if (glb_config->max_records) {
+        if (ctx->records_in_file >= glb_config->max_records) {
+            char output_filename[MAX_FILENAME_LEN];
+
+            zclose(ctx->output);
+            ctx->records_in_file = 0;
+            memset(output_filename, 0x00, MAX_FILENAME_LEN);
+            format_output_filename(ctx->output_file_basename, output_filename);
+            printf("Rolling Context :%d Output:%s\n",index,output_filename);
+            ctx->output = zopen(output_filename, "w");
+            if (ctx->output == NULL) {
+                joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+                joy_log_err("Rolling the output file failed!");
+                return;
+            }
+            /* print new JSON preamble */
+            joy_print_config(index, JOY_JSON_FORMAT);
+        }
+    }
 }
 
 /*
@@ -792,4 +883,5 @@ void joy_cleanup(unsigned int index)
  
     /* close the output file */
     zclose(ctx->output);
+    free(ctx->output_file_basename);
 }

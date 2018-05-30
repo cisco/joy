@@ -496,6 +496,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
     uint16_t class = ntohs(rr->class);
     uint16_t type = ntohs(rr->type);
     char name[256];
+    char ipv4_addr[INET_ADDRSTRLEN];
 
     if (class == class_IN) {    
         if (type == type_A) {
@@ -508,7 +509,8 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
             if (ipv4_addr_needs_anonymization(addr)) {
 	        zprintf(output, "\"a\":\"%s\"", addr_get_anon_hexstring(addr));
             } else {
-	        zprintf(output, "\"a\":\"%s\"", inet_ntoa(*addr));
+                inet_ntop(AF_INET, addr, ipv4_addr, INET_ADDRSTRLEN);
+	        zprintf(output, "\"a\":\"%s\"", ipv4_addr);
             }
         } else if (type == type_SOA  || type == type_PTR || type == type_CNAME) {
             char *typename;

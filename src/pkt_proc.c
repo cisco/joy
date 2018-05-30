@@ -268,6 +268,7 @@ enum status process_ipfix(joy_ctx_data *ctx, const char *start,
   uint16_t message_len = ntohs(ipfix->length);
   int set_num = 0;
   const struct flow_key rec_key = r->key;
+  char ipv4_addr[INET_ADDRSTRLEN];
 
   memset(&prev_key, 0, sizeof(struct flow_key));
 
@@ -280,7 +281,8 @@ enum status process_ipfix(joy_ctx_data *ctx, const char *start,
   }
 
     joy_log_info("Processing ipfix packet");
-    joy_log_debug(" Source IP: %s\n", inet_ntoa(r->key.sa));
+    inet_ntop(AF_INET, &r->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+    joy_log_debug(" Source IP: %s\n", ipv4_addr);
     joy_log_debug(" Observation Domain ID: %i", htonl(ipfix->observe_dom_id));
     joy_log_debug(" Packet len: %u", len);
 
@@ -353,10 +355,12 @@ static enum status process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *he
     const struct nfv9_hdr *nfv9 = (const struct nfv9_hdr*)start;
     struct flow_key prev_key;
     int flowset_num = 0;
+    char ipv4_addr[INET_ADDRSTRLEN];
 
     joy_log_info("Processing NFV9");
     joy_log_info("Source ID: %i", htonl(nfv9->SourceID));
-    joy_log_info("Source IP: %s", inet_ntoa(r->key.sa));
+    inet_ntop(AF_INET, &r->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+    joy_log_info("Source IP: %s", ipv4_addr);
     joy_log_debug("Packet len: %u", len);
 
 #if 0
@@ -851,6 +855,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
     struct flow_record *record;
     unsigned char proto = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0;
+    char ipv4_addr[INET_ADDRSTRLEN];
 
     /* grab the context for this packet */
     joy_ctx_data *ctx = (joy_ctx_data*)ctx_ptr;
@@ -916,8 +921,10 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
     transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
 
     /* print source and destination IP addresses */
-    joy_log_info("Source IP: %s", inet_ntoa(ip->ip_src));
-    joy_log_info("Dest IP: %s", inet_ntoa(ip->ip_dst));
+    inet_ntop(AF_INET, &ip->ip_src, ipv4_addr, INET_ADDRSTRLEN);
+    joy_log_info("Source IP: %s", ipv4_addr);
+    inet_ntop(AF_INET, &ip->ip_dst, ipv4_addr, INET_ADDRSTRLEN);
+    joy_log_info("Dest IP: %s", ipv4_addr);
     joy_log_info("Len: %u", ntohs(ip->ip_len));
     joy_log_debug("IP header len: %u", ip_hdr_len);
 

@@ -1484,7 +1484,7 @@ int main (int argc, char **argv) {
            if (glb_config->filename) {
     
                   /* rotate output file if needed */
-                  if (glb_config->max_records && (glb_config->records_in_file > glb_config->max_records)) {
+                  if (glb_config->max_records && (main_ctx.records_in_file > glb_config->max_records)) {
 
                       /*
                        * write JSON postamble
@@ -1503,7 +1503,7 @@ int main (int argc, char **argv) {
                           perror("error: could not open output file");
                           return -1;
                       }
-                      glb_config->records_in_file = 0;
+                      main_ctx.records_in_file = 0;
                   }
       
                   /*

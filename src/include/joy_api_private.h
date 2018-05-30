@@ -54,6 +54,9 @@
 #define JOY_API_ALLOC_CONTEXT(a,b)   \
     vec_validate_aligned(a, (b-1), CLIB_CACHE_LINE_BYTES);
 
+#define JOY_API_FREE_CONTEXT(a)    \
+    vec_free(a);
+
 #define JOY_MAX_CTX_INDEX(a)   \
     vec_len(a);
 
@@ -68,6 +71,10 @@
     a = malloc((sizeof(struct joy_ctx_data) * b));    \
     memset(a, 0x00, (sizeof(struct joy_ctx_data) * b));
 
+#define JOY_API_FREE_CONTEXT(a)    \
+    free(a);                       \
+    a = NULL;
+
 #define JOY_MAX_CTX_INDEX(a)   \
     joy_num_contexts;
 
@@ -79,6 +86,8 @@
 /* per instance context data */
 struct joy_ctx_data  {
     zfile output;
+    char *output_file_basename;
+    unsigned int records_in_file;
     struct timeval global_time;
     struct flocap_stats stats;
     struct flocap_stats last_stats;

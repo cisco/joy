@@ -471,6 +471,7 @@ void dhcp_print_json(const struct dhcp *d1,
     int i = 0;
 
     if (d1->message_count) {
+        char ipv4_addr[INET_ADDRSTRLEN];
         zprintf(f, ",\"dhcp\":[");
         for (i = 0; i < d1->message_count; i++) {
             const struct dhcp_message *msg = &d1->messages[i];
@@ -487,22 +488,26 @@ void dhcp_print_json(const struct dhcp *d1,
             if (ipv4_addr_needs_anonymization(&msg->ciaddr)) {
                 zprintf(f, ",\"ciaddr\":\"%s\"", addr_get_anon_hexstring(&msg->ciaddr));
             } else {
-                zprintf(f, ",\"ciaddr\":\"%s\"", inet_ntoa(msg->ciaddr));
+                inet_ntop(AF_INET, &msg->ciaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"ciaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->yiaddr)) {
                 zprintf(f, ",\"yiaddr\":\"%s\"", addr_get_anon_hexstring(&msg->yiaddr));
             } else {
-                zprintf(f, ",\"yiaddr\":\"%s\"", inet_ntoa(msg->yiaddr));
+                inet_ntop(AF_INET, &msg->yiaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"yiaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->siaddr)) {
                 zprintf(f, ",\"siaddr\":\"%s\"", addr_get_anon_hexstring(&msg->siaddr));
             } else {
-                zprintf(f, ",\"siaddr\":\"%s\"", inet_ntoa(msg->siaddr));
+                inet_ntop(AF_INET, &msg->siaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"siaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->giaddr)) {
                 zprintf(f, ",\"giaddr\":\"%s\"", addr_get_anon_hexstring(&msg->giaddr));
             } else {
-                zprintf(f, ",\"giaddr\":\"%s\"", inet_ntoa(msg->giaddr));
+                inet_ntop(AF_INET, &msg->giaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"giaddr\":\"%s\"", ipv4_addr);
             }
 
             zprintf(f, ",\"chaddr\":");

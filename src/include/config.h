@@ -81,7 +81,6 @@ struct configuration {
     unsigned int type;           /*!< 1=SPLT, 2=SALT */
     unsigned int retain_local;
     unsigned int max_records;
-    unsigned int records_in_file;
     unsigned int nfv9_capture_port;
     unsigned int ipfix_collect_port;
     unsigned int ipfix_collect_online;
