@@ -806,7 +806,7 @@ static int http_parse_message(struct http_message *msg,
         for (i = 0; i < HTTP_MAX_HEADER_ELEMENTS; i++) {
             type = http_get_next_line(&saveptr, &length, &token1, &token2);
 
-            if (type != http_header) {
+            if (type != http_header && type != http_done) {
                 if (type == http_malformed) {
                     rc = PARSE_FAIL;
                     goto end;
@@ -819,7 +819,11 @@ static int http_parse_message(struct http_message *msg,
 
                 str_len = strnlen(token1, MAX_STRLEN);
                 if (str_len == 0) {
-                    continue;
+                    if (type == http_done) {
+                        break;
+                    } else {
+                        continue;
+                    }
                 }
 
                 elem->name = calloc(str_len + 1, sizeof(char));
@@ -844,6 +848,9 @@ static int http_parse_message(struct http_message *msg,
                 /* Increment number of header elements */
                 hdr->num_elements++;
             }
+
+            /* End of headers */
+            if (type == http_done) break;
         }
     }
 
