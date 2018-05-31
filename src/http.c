@@ -806,7 +806,7 @@ static int http_parse_message(struct http_message *msg,
         for (i = 0; i < HTTP_MAX_HEADER_ELEMENTS; i++) {
             type = http_get_next_line(&saveptr, &length, &token1, &token2);
 
-            if (type != http_header && type != http_done) {
+            if (! (type == http_header || (type == http_done && token1 && token2))) {
                 if (type == http_malformed) {
                     rc = PARSE_FAIL;
                     goto end;
