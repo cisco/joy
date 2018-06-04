@@ -729,6 +729,22 @@ process_udp (const struct pcap_pkthdr *header, const char *udp_start, int udp_le
     flow_record_update_byte_count(record, payload, size_payload);
     flow_record_update_compact_byte_count(record, payload, size_payload);
     flow_record_update_byte_dist_mean_var(record, payload, size_payload);
+
+    /*
+     * Estimate the UDP application protocol
+     * Optimization: stop after first 2 packets that have non-zero payload
+     */
+    if ((!record->app) && record->op <= 2) {
+        const struct pi_container *pi = proto_identify_udp(payload, size_payload);
+        if (pi != NULL) {
+            record->app = pi->app;
+            record->dir = pi->dir;
+        }
+    }
+
+    /*
+     * Run protocol modules!
+     */
     update_all_features(payload_feature_list);
 
     if (nfv9_capture_port && (key->dp == nfv9_capture_port)) {

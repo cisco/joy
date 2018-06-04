@@ -476,7 +476,8 @@ static void sig_close (int signal_arg) {
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
     ipfix_module_cleanup();
 
-    proto_identify_destroy_keyword_dict();
+    /* Cleanup protocol identification module */
+    proto_identify_cleanup();
 
     fprintf(info, "got signal %d, shutting down\n", signal_arg); 
     exit(EXIT_SUCCESS);
@@ -721,8 +722,8 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
     /* Set log to file or console */
     if (set_logfile()) return 1;
 
-    /* Initialize the protocol identification keyword dictionary */
-    if (proto_identify_init_keyword_dict()) return 1;
+    /* Initialize the protocol identification module */
+    if (proto_identify_init()) return 1;
 
     if (config.show_config) {
         /* Print running configuration */
@@ -1709,7 +1710,8 @@ int main (int argc, char **argv) {
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
     ipfix_module_cleanup();
 
-    proto_identify_destroy_keyword_dict();
+    /* Cleanup protocol identification module */
+    proto_identify_cleanup();
 
     /* close the output file if it is still open */
     if (output) {

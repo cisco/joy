@@ -68,12 +68,17 @@ struct keyword_container {
 };
 
 #define MAX_KEYWORDS 256
-static unsigned int num_keywords = 0;
 
 /**
  * \brief Strings to use for construction of keyword_dict.
  */
-static struct keyword_container keywords[MAX_KEYWORDS];
+struct keyword_list {
+    unsigned int count;
+    struct keyword_container keyword[MAX_KEYWORDS];
+};
+
+static struct keyword_list tcp_keywords = {0};
+static struct keyword_list udp_keywords = {0};
 
 /**
  * \brief Wildcard represents "any" value.
@@ -85,19 +90,26 @@ static struct keyword_container keywords[MAX_KEYWORDS];
 /*
  * \brief Add the keyword to the list.
  *
+ * \param[in] wordlist The list of keywords
  * \param[in] value Pointer to array of uint16_t values
  * \param[in] value_bytes_len Length of value array in bytes
  * \param[in] pi Pointer to the struct holding protocol inference
  *
  * \return 0 for success, 1 for failure
  */
-static int add_keyword(const uint16_t *value,
+static int add_keyword(struct keyword_list *wordlist,
+                       const uint16_t *value,
                        unsigned int value_bytes_len,
                        const struct pi_container *pi) {
 
     struct keyword_container *kc = NULL;
 
-    if (num_keywords >= MAX_KEYWORDS) {
+    if (wordlist == NULL) {
+        joy_log_err("api - need keyword_list");
+        return 1;
+    }
+
+    if (wordlist->count >= MAX_KEYWORDS) {
         joy_log_err("no more slots for keyword");
         return 1;
     }
@@ -111,7 +123,7 @@ static int add_keyword(const uint16_t *value,
     /*
      * Get latest position of keyword list
      */
-    kc = &keywords[num_keywords];
+    kc = &wordlist->keyword[wordlist->count];
 
     /* Copy the value array */
     memcpy(kc->value, value, value_bytes_len);
@@ -123,7 +135,7 @@ static int add_keyword(const uint16_t *value,
     /*
      * Increment the count of keywords ingested
      */
-    num_keywords++;
+    wordlist->count++;
 
     return 0;
 }
@@ -144,7 +156,7 @@ static int add_tls_identifiers(void) {
         pi.app = 443;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -156,7 +168,7 @@ static int add_tls_identifiers(void) {
         pi.app = 443;
         pi.dir = DIR_SERVER;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -168,7 +180,7 @@ static int add_tls_identifiers(void) {
         pi.app = 443;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -180,7 +192,7 @@ static int add_tls_identifiers(void) {
         pi.app = 443;
         pi.dir = DIR_SERVER;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -192,7 +204,7 @@ static int add_tls_identifiers(void) {
         pi.app = 443;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -204,7 +216,7 @@ static int add_tls_identifiers(void) {
         pi.app = 443;
         pi.dir = DIR_SERVER;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -229,7 +241,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -241,7 +253,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -253,7 +265,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -265,7 +277,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -277,7 +289,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -289,7 +301,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -301,7 +313,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -313,7 +325,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_CLIENT;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -325,7 +337,7 @@ static int add_http_identifiers(void) {
         pi.app = 80;
         pi.dir = DIR_SERVER;
 
-        if (add_keyword(string, sizeof(string), &pi)) {
+        if (add_keyword(&tcp_keywords, string, sizeof(string), &pi)) {
             joy_log_err("problem adding keyword");
             return 1;
         }
@@ -335,13 +347,37 @@ static int add_http_identifiers(void) {
 }
 
 /*
- * \brief Add all protocol keyword identifiers.
+ * \brief Add DNS keyword identifiers.
  *
  * \param none
  *
  * \return 0 for success, 1 for failure
  */
-static int populate_keyword_identifiers(void) {
+static int add_dns_identifiers(void) {
+    struct pi_container pi;
+
+    {
+        uint16_t string[] = {WILDCARD, WILDCARD, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00};
+        pi.app = 53;
+        pi.dir = DIR_SERVER;
+
+        if (add_keyword(&udp_keywords, string, sizeof(string), &pi)) {
+            joy_log_err("problem adding keyword");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/*
+ * \brief Add all TCP protocol keyword identifiers.
+ *
+ * \param none
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int populate_tcp_keyword_identifiers(void) {
     if (add_tls_identifiers()) {
         joy_log_err("problem populating tls keywords");
         return 1;
@@ -356,19 +392,41 @@ static int populate_keyword_identifiers(void) {
 }
 
 /*
- * \brief Initialize and setup the keywords list.
+ * \brief Add all UDP protocol keyword identifiers.
+ *
+ * \param none
+ *
+ * \return 0 for success, 1 for failure
+ */
+static int populate_udp_keyword_identifiers(void) {
+    if (add_dns_identifiers()) {
+        joy_log_err("problem populating dns keywords");
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * \brief Initialize and setup the keywords lists.
  *
  * \param none
  *
  * \return 0 for success, 1 for failure
  */
 static int init_keywords(void) {
-    /* Zero out the keywords array */
-    memset(&keywords, 0, sizeof(keywords));
+    int rc = 0;
 
-    /* Populate the keywords array */
-    if(populate_keyword_identifiers()) {
-        return 1;
+    /* Populate the TCP keywords array */
+    if (tcp_keywords.count == 0) {
+        rc = populate_tcp_keyword_identifiers();
+        if (rc == 1) return 1;
+    }
+
+    /* Populate the UDP keywords array */
+    if (udp_keywords.count == 0) {
+        rc = populate_udp_keyword_identifiers();
+        if (rc == 1) return 1;
     }
 
     return 0;
@@ -395,9 +453,10 @@ struct keyword_dict_node {
 };
 
 /*
- * Root of the keyword_dict tree
+ * Root of the keyword_dict trees
  */
-struct keyword_dict_node *kd_root = NULL;
+struct keyword_dict_node *kd_tcp_root = NULL;
+struct keyword_dict_node *kd_udp_root = NULL;
 
 /**
  * \brief Allocate memory for a keyword_dict_node
@@ -595,14 +654,20 @@ static int keyword_dict_add_keyword(struct keyword_dict_node *root,
  * \brief Construct the keyword dictionary tree, adding all keywords in the list.
  *
  * \param[in] root Handle to the root node of the dictionary tree
+ * \param[in] wordlist The list of keywords
  *
  * \return 0 for success, 1 for failure
  */
-static int construct_keyword_dict(struct keyword_dict_node **root) {
+static int construct_keyword_dict(struct keyword_dict_node **root,
+                                  struct keyword_list *wordlist) {
 
     int i = 0;
 
     if (root == NULL || *root != NULL) {
+        return 1;
+    }
+
+    if (wordlist == NULL) {
         return 1;
     }
 
@@ -612,9 +677,9 @@ static int construct_keyword_dict(struct keyword_dict_node **root) {
      * Looping over the list of keywords,
      * construct the keyword_dictionary tree.
      */
-    for (i = 0; i < num_keywords; i++) {
+    for (i = 0; i < wordlist->count; i++) {
         /* Pointer to the latest keyword */
-        struct keyword_container *kc = &keywords[i];
+        struct keyword_container *kc = &wordlist->keyword[i];
 
         if (keyword_dict_add_keyword(*root, kc)) {
             joy_log_err("couldn't add keywords[%d]", i);
@@ -689,38 +754,41 @@ static const struct pi_container *search_keyword_dict(const struct keyword_dict_
  *
  * \return 0 for success, 1 for failure
  */
-int proto_identify_init_keyword_dict(void) {
-    if (kd_root != NULL) {
+int proto_identify_init(void) {
+    /* Initialize the list of keywords */
+    if (init_keywords()) {
+        joy_log_err("failed to initialize keyword list");
         return 1;
     }
 
-    if (num_keywords == 0) {
-        /* Initialize the list of keywords */
-        if (init_keywords()) {
-            joy_log_err("failed to initialize keyword list");
-            return 1;
-        }
+    /* Create the TCP tree graph */
+    if (kd_tcp_root == NULL) {
+        construct_keyword_dict(&kd_tcp_root, &tcp_keywords);
     }
 
-    /* Create the tree graph */
-    construct_keyword_dict(&kd_root);
+    /* Create the UDP tree graph */
+    if (kd_udp_root == NULL) {
+        construct_keyword_dict(&kd_udp_root, &udp_keywords);
+    }
 
     return 0;
 }
 
 /**
- * \brief Teardown the proto_identify keyword dictionary, and all associated memory.
+ * \brief Teardown the proto_identify keyword dictionary(s), and all associated memory.
  *
  * \param none
  *
  * \return none
  */
-void proto_identify_destroy_keyword_dict(void) {
-    if (kd_root == NULL) {
-        return;
+void proto_identify_cleanup(void) {
+    if (kd_tcp_root) {
+        destroy_kdn(kd_tcp_root);
     }
 
-    destroy_kdn(kd_root);
+    if (kd_udp_root) {
+        destroy_kdn(kd_udp_root);
+    }
 }
 
 /**
@@ -740,11 +808,37 @@ const struct pi_container *proto_identify_tcp(const char *tcp_data,
         return 0;
     }
 
-    if (kd_root == NULL) {
-        proto_identify_init_keyword_dict();
+    if (kd_tcp_root == NULL) {
+        proto_identify_init();
     }
 
-    pi = search_keyword_dict(kd_root, tcp_data, len) ;
+    pi = search_keyword_dict(kd_tcp_root, tcp_data, len);
+
+    return pi;
+}
+
+/**
+ * \brief Identify the UDP application protocol.
+ *
+ * \param tcp_data Pointer to the udp application data
+ * \param length Length in bytes of \p udp_data
+ *
+ * \return Pointer to protocol inference container
+ */
+const struct pi_container *proto_identify_udp(const char *udp_data,
+                                              unsigned int len) {
+
+    const struct pi_container *pi = NULL;
+
+    if (len == 0) {
+        return 0;
+    }
+
+    if (kd_udp_root == NULL) {
+        proto_identify_init();
+    }
+
+    pi = search_keyword_dict(kd_udp_root, udp_data, len);
 
     return pi;
 }
