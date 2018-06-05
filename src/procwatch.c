@@ -499,6 +499,9 @@ static unsigned long get_process_uptime (unsigned long pid) {
     FILE *ps_file = NULL;
 
     /* set up the command to execute */
+    if (pid == 0) {
+        return 0;
+    }
     sprintf(PS_COMMAND,"ps -p \"%lu\" -opid,etime",pid);
 
     ps_file = popen(PS_COMMAND, "r");
@@ -617,6 +620,9 @@ static void process_pid_string (struct ss_flow *fr, char *string) {
 
     /* search to beginning of the app name */
     s = strstr(string,"\"");
+    if (s == NULL) {
+        return;
+    }
     string = s + 1;
     s = string;
 
@@ -638,15 +644,18 @@ static void process_addr_string (int which, struct ss_flow *fr, char *string) {
 
     /* find the end of the ip address */
     s = strstr(string,":");
+    if (s == NULL) {
+        return;
+    }
 
     /* null temrinate and store off ip address and port*/
     *s = 0;
     if (which == PROCESS_SRC) {
         inet_pton(AF_INET, string, &fr->key.sa);
-        fr.key.sp = strtoul(s+1, NULL, 10);
+        fr->key.sp = strtoul(s+1, NULL, 10);
     } else {
         inet_pton(AF_INET, string, &fr->key.da);
-        fr.key.dp = strtoul(s+1, NULL, 10);
+        fr->key.dp = strtoul(s+1, NULL, 10);
     }
 
     /* set the protocol to TCP */

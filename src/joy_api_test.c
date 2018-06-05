@@ -57,11 +57,12 @@ int process_pcap_file (unsigned long index, char *file_name) {
     pcap_t *handle = NULL;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
-    char *filter_exp = "ip or vlan";
+    char filter_exp[PCAP_ERRBUF_SIZE];
     char errbuf[PCAP_ERRBUF_SIZE];
 
     /* initialize fp structure */
     memset(&fp, 0x00, sizeof(struct bpf_program));
+    strcpy(filter_exp,"ip or vlan");
 
     handle = pcap_open_offline(file_name, errbuf);
     if (handle == NULL) {
