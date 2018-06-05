@@ -71,8 +71,21 @@
 #include "p2f.h"
 #include "err.h" 
 #include <openssl/sha.h>
+#include "pthread.h"
 
+/* uncomment to debug the process table */
+//#define DEBUG_PROCESS_TABLE
+
+/*
+ * just keep one global table for the process information since all
+ * worker threads will be on the same host. Most of the time, the worker
+ * just reads from the process flow table. We only need to lock around 
+ * the updating/re-writing of the table which occurs at 45 second intervals.
+ */
 static struct host_flow host_proc_flow_table_array[HOST_PROC_FLOW_TABLE_LEN];
+
+/* lock to use when updating/re-writing the process flow table */
+pthread_mutex_t exe_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int calculate_sha256_hash(unsigned char* path, unsigned char *output)
 {
@@ -188,7 +201,8 @@ static struct host_flow *get_host_flow (struct flow_key *key) {
 	return NULL;
 }
 
-int print_flow_table() {
+#ifdef DEBUG_PROCESS_TABLE
+static int print_flow_table() {
 	int i, entries = 0;
 	char szAddr[128];
 	struct flow_key empty_key;
@@ -253,6 +267,7 @@ int print_flow_table() {
 
 	return 0;
 }
+#endif
 
 #ifdef WIN32
 
@@ -564,9 +579,6 @@ struct ss_flow {
     unsigned long pid;
 };
 
-/* global ss flow record */
-struct ss_flow fr;
-
 static void get_pid_path_hash (struct host_flow *hf) {
     int len = 0;
     char exe_name[PID_MAX_LEN];
@@ -600,7 +612,7 @@ static void get_pid_path_hash (struct host_flow *hf) {
     }
 }
 
-static void process_pid_string (char *string) {
+static void process_pid_string (struct ss_flow *fr, char *string) {
     char *s = string;
 
     /* search to beginning of the app name */
@@ -613,15 +625,15 @@ static void process_pid_string (char *string) {
     *s = 0;
 
     /* copy app name into the flow record */
-    strncpy(fr.command,string,strlen(string));
+    strncpy(fr->command,string,strlen(string));
 
     /* skip over to the pid */
     s += 6;
     string = s;
-    fr.pid = strtoul(s, NULL, 10);
+    fr->pid = strtoul(s, NULL, 10);
 }
 
-static void process_addr_string (int which, char *string) {
+static void process_addr_string (int which, struct ss_flow *fr, char *string) {
     char *s = string;
 
     /* find the end of the ip address */
@@ -630,15 +642,15 @@ static void process_addr_string (int which, char *string) {
     /* null temrinate and store off ip address and port*/
     *s = 0;
     if (which == PROCESS_SRC) {
-        inet_pton(AF_INET, string, &fr.key.sa);
+        inet_pton(AF_INET, string, &fr->key.sa);
         fr.key.sp = strtoul(s+1, NULL, 10);
     } else {
-        inet_pton(AF_INET, string, &fr.key.da);
+        inet_pton(AF_INET, string, &fr->key.da);
         fr.key.dp = strtoul(s+1, NULL, 10);
     }
 
     /* set the protocol to TCP */
-    fr.key.prot = 6; /* TCP */
+    fr->key.prot = 6; /* TCP */
 }
 
 static void host_flow_table_add_tcp (unsigned int all_sockets) {
@@ -649,6 +661,7 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
     char pid_string[PID_MAX_LEN];
     int dummy_int = 0;
     int rc = 0;
+    struct ss_flow fr;
     struct host_flow *hf = NULL;
     FILE *ss_file;
 
@@ -668,9 +681,9 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
 
         /* process ss output 1 line at a time */
         rc = fscanf(ss_file,"%s %d %d %s %s %s\n", dummy_string,&dummy_int,&dummy_int,src_string,dst_string,pid_string);
-        process_addr_string(PROCESS_SRC,src_string);
-        process_addr_string(PROCESS_DST,dst_string);
-        process_pid_string(pid_string);
+        process_addr_string(PROCESS_SRC,&fr,src_string);
+        process_addr_string(PROCESS_DST,&fr,dst_string);
+        process_pid_string(&fr,pid_string);
         hf = get_host_flow(&fr.key);
         if (hf != NULL) {
             hf->pid = fr.pid;
@@ -719,9 +732,6 @@ struct lsof_flow {
     unsigned long pid;  
 };
 
-/* global lsof flow record */
-struct lsof_flow fr;
-
 int lsof_eat_string(char **sptr) {
     char *s = *sptr;
 
@@ -738,7 +748,7 @@ int lsof_eat_string(char **sptr) {
     return 1;
 }
 
-int lsof_set_addrs_ports(char **sptr) {
+int lsof_set_addrs_ports(struct lsof_flow *fr, char **sptr) {
     char *s = *sptr;
     char *start;
     unsigned int got_sa = 0;
@@ -768,17 +778,17 @@ int lsof_set_addrs_ports(char **sptr) {
         if (*s == ':') {
             *s = 0;   /* null terminate */
             if (got_sa) {
-	        inet_pton(AF_INET, start, &fr.key.da);
+	        inet_pton(AF_INET, start, &fr->key.da);
 	        got_da = 1;
             } else {
-	        inet_pton(AF_INET, start, &fr.key.sa);
+	        inet_pton(AF_INET, start, &fr->key.sa);
 	        got_sa = 1;
             }	     
             start = s+1;
         }
         if (*s == '-') {
             *s = 0;   /* null terminate */
-            fr.key.sp = strtoul(start, NULL, 10);
+            fr->key.sp = strtoul(start, NULL, 10);
             got_sp = 1;
             start = s+1;
         }
@@ -790,7 +800,7 @@ int lsof_set_addrs_ports(char **sptr) {
     }
 
     if (got_da) {
-        fr.key.dp = strtoul(start, NULL, 10);
+        fr->key.dp = strtoul(start, NULL, 10);
         lsof_status = lsof_got_flow;
     }
 
@@ -873,7 +883,7 @@ char* get_application_version (char* full_path) {
     return NULL;
 }
 
-void lsof_process_output(char *s, int sockets) {
+void lsof_process_output(struct lsof_flow *fr, char *s, int sockets) {
     struct host_flow *hf = NULL;
     enum lsof_status status;
     char srcAddr[BUFSIZE];
@@ -882,18 +892,18 @@ void lsof_process_output(char *s, int sockets) {
         switch (*s) {
             case 'n':
                 /* network address line (sa:sp->da:dp) */
-                status = lsof_set_addrs_ports(&s);
+                status = lsof_set_addrs_ports(fr, &s);
                 if (status == lsof_got_flow) { 
-                    inet_ntop(AF_INET, &fr.key.sa, srcAddr, BUFSIZE);
+                    inet_ntop(AF_INET, &fr->key.sa, srcAddr, BUFSIZE);
                     if ((strcmp(srcAddr,"127.0.0.1") != 0) || sockets) {
-                        hf = get_host_flow(&fr.key);
+                        hf = get_host_flow(&fr->key);
                         if (hf != NULL) {
-                            hf->pid = fr.pid;
-                            if (strlen(fr.command)) {
-                                hf->exe_name = malloc(strlen(fr.command)+1);
+                            hf->pid = fr->pid;
+                            if (strlen(fr->command)) {
+                                hf->exe_name = malloc(strlen(fr->command)+1);
                             }
                             if (hf->exe_name != NULL) {
-                                strcpy(hf->exe_name,fr.command);
+                                strcpy(hf->exe_name,fr->command);
                                 hf->full_path = get_full_path_from_pid(hf->pid);
                                 if (hf->full_path) {
                                     char *prev_hash = NULL;
@@ -921,23 +931,27 @@ void lsof_process_output(char *s, int sockets) {
                 break;
             case 'c':
                 /* process name line */
-                strcpy(fr.command, (s+1));
+                strcpy(fr->command, (s+1));
 	        return;
                 break;
 
             case 'p':
                 /* PID line (pid number) */
-                fr.pid = strtoul((s+1), NULL, 10);
+                fr->pid = strtoul((s+1), NULL, 10);
 	        return;
                 break;
 
             case 'P':
                 /* protocol line UDP or TCP */
                 if (*(s+1) == 'U') {
-                     fr.key.prot = 17; /* UDP */
+                     fr->key.prot = 17; /* UDP */
                 } else {
-                     fr.key.prot = 6;  /* TCP */
+                     fr->key.prot = 6;  /* TCP */
                 }
+	        return;
+                break;
+            case 'f':
+                /* ignored output */
 	        return;
                 break;
             default:
@@ -950,6 +964,7 @@ void read_lsof_data (int sockets) {
     FILE *lsof_file; 
     char LSOF_COMMAND[] = "lsof -i4TCP -n -P -FcnP -sTCP:^LISTEN";
     char rbuf[RBUFSIZE];
+    struct lsof_flow fr;
 
     lsof_file = popen(LSOF_COMMAND, "r");
     if (lsof_file == NULL) {
@@ -964,7 +979,7 @@ void read_lsof_data (int sockets) {
     while (1) {
         /* process lsof output 1 line at a time */
         fscanf(lsof_file,"%[^\n]\n", rbuf);
-        lsof_process_output(rbuf, sockets);
+        lsof_process_output(&fr, rbuf, sockets);
         if (feof(lsof_file)) {
             pclose(lsof_file);
             return;
@@ -999,7 +1014,10 @@ int get_host_flow_data(joy_ctx_data *ctx) {
     seconds = (float) joy_timeval_to_milliseconds(delta_time) / 1000.0;
 
     /* see if we need to refresh the application process data */
-    if (seconds > 30) {
+    if (seconds > 45) {
+        /* we need to update the table, set the lock */
+        pthread_mutex_lock(&exe_lock);
+
         /* refresh the host data table */
         host_flow_table_init();
 
@@ -1008,10 +1026,15 @@ int get_host_flow_data(joy_ctx_data *ctx) {
 
         /* store the last refresh timestamp */
         gettimeofday(&last_refresh_time, NULL);
+
+        /* all done, remove the lock */
+        pthread_mutex_unlock(&exe_lock);
     }
 
+#ifdef DEBUG_PROCESS_TABLE
     /* print out the table if we want to debug anything */
-    //print_flow_table();
+    print_flow_table();
+#endif
 
     /*
     * for each entry in the host flow table, set the process info in the

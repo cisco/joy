@@ -145,7 +145,7 @@ int main (int argc, char **argv)
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */
     init_data.max_records = 0;    /* max records in output file, 0 means single output file */
     init_data.contexts = 3;       /* use 3 worker contexts for processing */
-    init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON);
+    init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON | JOY_EXE_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
