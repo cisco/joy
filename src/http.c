@@ -276,15 +276,12 @@ void http_free_message(struct http_message *msg) {
 
         if (line->version) {
             free(line->version);
-            line->version = NULL;
         }
         if (line->code) {
             free(line->code);
-            line->code = NULL;
         }
         if (line->reason) {
             free(line->reason);
-            line->reason = NULL;
         }
     }
     else if (msg->header.line_type == HTTP_LINE_REQUEST) {
@@ -292,15 +289,12 @@ void http_free_message(struct http_message *msg) {
 
         if (line->method) {
             free(line->method);
-            line->method = NULL;
         }
         if (line->uri) {
             free(line->uri);
-            line->uri = NULL;
         }
         if (line->version) {
             free(line->version);
-            line->version = NULL;
         }
     }
 
@@ -309,18 +303,17 @@ void http_free_message(struct http_message *msg) {
 
         if (elem->name) {
             free(elem->name);
-            elem->name = NULL;
         }
         if (elem->value) {
             free(elem->value);
-            elem->value = NULL;
         }
     }
 
     if (msg->body) {
         free(msg->body);
-        msg->body = NULL;
     }
+
+    memset(msg, 0, sizeof(struct http_message));
 }
 
 /**
