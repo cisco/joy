@@ -4095,7 +4095,7 @@ static void ike_vendor_id_print_json(struct ike_vendor_id *s, zfile f) {
 
     if (s->data->len > 0) {
         /* Try to match entry in vendor id table */
-        for (i = 0; i < sizeof(ike_vendor_ids); i++) {
+        for (i = 0; i < sizeof(ike_vendor_ids)/sizeof(ike_vendor_ids[0]); i++) {
             if (s->data->len == ike_vendor_ids[i].len) {
                 if (memcmp(s->data->bytes, ike_vendor_ids[i].id, s->data->len) == 0) {
                     id_string = ike_vendor_ids[i].desc;

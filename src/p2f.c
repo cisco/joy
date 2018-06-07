@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1894,13 +1894,18 @@ static int p2f_test_flow_record_list(joy_ctx_data *ctx) {
 
 void p2f_unit_test() {
     int num_fails = 0;
-    joy_ctx_data main_ctx;
+    joy_ctx_data *main_ctx = NULL;
+    
+    main_ctx = calloc(1, sizeof(joy_ctx_data));
+    if (!main_ctx) {
+	fprintf(info, "Out of memory\n");
+	return;
+    }
 
-    memset(&main_ctx, 0x00, sizeof(joy_ctx_data));
     fprintf(info, "\n******************************\n");
     fprintf(info, "P2F Unit Test starting...\n");
 
-    num_fails += p2f_test_flow_record_list(&main_ctx);
+    num_fails += p2f_test_flow_record_list(main_ctx);
 
     if (num_fails) {
         fprintf(info, "Finished - failures: %d\n", num_fails);
@@ -1908,6 +1913,8 @@ void p2f_unit_test() {
         fprintf(info, "Finished - success\n");
     }
     fprintf(info, "******************************\n\n");
+    free(main_ctx);
+    main_ctx = NULL;
 }
 
 /*********************************************************

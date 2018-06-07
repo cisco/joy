@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -983,10 +983,12 @@ static int tls_x509_get_signature(X509 *cert,
         /* Ensure null-termination */
         record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
     }
-
+#if 0
+//Overwrite occuring
     strncpy(record->signature_algorithm, alg_str, MAX_OPENSSL_STRING);
     /* Ensure null-termination */
     record->signature_algorithm[MAX_OPENSSL_STRING - 1] = '\0';
+#endif
 
     return 0;
 }
@@ -1112,8 +1114,7 @@ static void tls_certificate_parse(const unsigned char *data,
                                   struct tls *r) {
 
     uint16_t total_certs_len = 0, remaining_certs_len,
-                   cert_len, index_cert = 0;
-    int rc = 0;
+	cert_len, index_cert = 0;
 
     /* Move past the all_certs_len */
     total_certs_len = raw_to_uint16(data + 1);
@@ -1210,10 +1211,6 @@ static void tls_certificate_parse(const unsigned char *data,
         if (x509_cert) {
             X509_free(x509_cert);
             CRYPTO_cleanup_all_ex_data();
-        }
-
-        if (rc) {
-            return;
         }
     }
 }
@@ -1649,9 +1646,12 @@ static int tls_version_to_internal(unsigned char major,
                     break;
             }
             break;
+#if 0
+	    //Can't get here
         case 2:
             internal_version = TLS_VERSION_SSLV2;
             break;
+#endif
         case 0x7F:
             switch(minor) {
                 case 0x12:
@@ -2227,7 +2227,7 @@ static const char *tls_extension_types[] = {
  */
 static const char *tls_extension_lookup(const unsigned short int type)
 {
-    if ((type >= 0 && type <= 25) || type == 35 || type == 65281) {
+    if ((type <= 25) || type == 35 || type == 65281) {
         /* Make sure the type is within accepted bounds */
         return tls_extension_types[type];
     }

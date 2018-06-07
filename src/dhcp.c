@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017 Cisco Systems, Inc.
+ * Copyright (c) 2017-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -195,7 +195,7 @@ void dhcp_delete(struct dhcp **dhcp_handle)
  */
 static const char *dhcp_option_lookup(const unsigned char code)
 {
-    if ((code >= 0 && code <= 83) || (code >= 85 && code <= 95) ||
+    if ((code <= 83) || (code >= 85 && code <= 95) ||
         (code >= 97 && code <= 101) || (code >= 112 && code <= 125) ||
         (code >= 136 && code <= 142) || (code >= 144 && code <= 146) ||
         (code >= 150 && code <= 161) || (code >= 150 && code <= 161) ||

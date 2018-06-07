@@ -532,11 +532,13 @@ int joy_get_compact_bd(char *filename)
     fp = fopen(filename, "r");
     if (fp != NULL) {
         while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
-            glb_config->compact_bd_mapping[b_value] = map_b_value;
-            count++;
-            if (count >= 256) {
-                break;
-            }
+	    if (b_value < COMPACT_BD_MAP_MAX) {
+		glb_config->compact_bd_mapping[b_value] = map_b_value;
+		count++;
+		if (count >= 256) {
+		    break;
+		}
+	    }
         }
         fclose(fp);
         glb_config->compact_byte_distribution = filename;

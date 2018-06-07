@@ -64,7 +64,7 @@ endif
 # compiler directives
 ##
 CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
-CFLAGS = -Wall -Wno-deprecated-declarations -g -O3  # -pg # -g # -fstack-protector-all 
+CFLAGS = -Wall -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g  # -pg # -g # -fstack-protector-all 
 
 ##
 # variables to make source file handling easier

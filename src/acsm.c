@@ -132,7 +132,7 @@ static acsm_state_queue_t *acsm_alloc_state_queue(acsm_context_t *ctx)
     acsm_state_queue_t *sq;
 
     if (acsm_queue_empty(&ctx->free_queue.queue)) {
-        sq = malloc(sizeof(acsm_state_queue_t)); 
+        sq = calloc(1, sizeof(acsm_state_queue_t)); 
     }
     else {
         q = acsm_queue_last(&ctx->free_queue.queue);
@@ -214,7 +214,7 @@ static int acsm_state_add_match_pattern(acsm_context_t *ctx,
 {
     acsm_pattern_t *copy;
 
-    copy = malloc(sizeof(acsm_pattern_t));
+    copy = calloc(1, sizeof(acsm_pattern_t));
     if (copy == NULL) {
         return -1;
     }
@@ -310,7 +310,7 @@ int acsm_add_pattern(acsm_context_t *ctx, u_char *string, size_t len)
     size_t i;
     acsm_pattern_t *p;
 
-    p = malloc(sizeof(acsm_pattern_t));
+    p = calloc(1, sizeof(acsm_pattern_t));
     if (p == NULL) {
         return -1;
     }
@@ -318,8 +318,10 @@ int acsm_add_pattern(acsm_context_t *ctx, u_char *string, size_t len)
     p->len = len;
 
     if (len > 0) {
-        p->string = malloc(len);
+        p->string = calloc(1, len);
         if (p->string == NULL) {
+	    free(p);
+	    p = NULL;
             return -1;
         }
 
@@ -347,7 +349,7 @@ int acsm_compile(acsm_context_t *ctx)
     unsigned int i, j, k;
     acsm_pattern_t *p;
 
-    ctx->state_table = malloc(ctx->max_state * sizeof(acsm_state_node_t));
+    ctx->state_table = calloc(1, ctx->max_state * sizeof(acsm_state_node_t));
     if (ctx->state_table == NULL) {
         return -1;
     }

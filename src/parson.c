@@ -874,7 +874,7 @@ static int json_serialize_to_buffer_r(const JSON_Value *value, char *buf, int le
             }
             if (num == ((double)(int)num)) { /*  check if num is integer */
                 written = sprintf(num_buf, "%d", (int)num);
-	    } else if (num == ((double)(unsigned int)num)) {
+            } else if (num == ((double)(unsigned int)num)) {
                 written = sprintf(num_buf, "%u", (unsigned int)num);
             } else {
                 written = sprintf(num_buf, DOUBLE_SERIALIZATION_FORMAT, num);
@@ -990,8 +990,10 @@ JSON_Value * json_parse_file(const char *filename) {
 }
 
 JSON_Value * json_parse_file_with_comments(const char *filename) {
-    char *file_contents = read_file(filename);
+    char *file_contents = NULL;
     JSON_Value *output_value = NULL;
+
+    file_contents = read_file(filename);
     if (file_contents == NULL) {
         return NULL;
     }

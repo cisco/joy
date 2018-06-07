@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -89,306 +89,308 @@ pthread_mutex_t exe_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int calculate_sha256_hash(unsigned char* path, unsigned char *output)
 {
-	SHA256_CTX sha256;
-	unsigned char hash[SHA256_DIGEST_LENGTH];
-	const int bufSize = 4096;
-	int bytesRead = 0;
-	int i = 0;
-	unsigned char* buffer = NULL;
-	FILE* file = NULL;
-	
-	file = fopen((const char*)path, "rb");
-	if (file == NULL) {
-		return -1;
-	}
-
-	memset(hash, 0x00, SHA256_DIGEST_LENGTH);
-	memset(&sha256, 0x00, sizeof(SHA256_CTX));
-	SHA256_Init(&sha256);
+    SHA256_CTX sha256;
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    const int bufSize = 4096;
+    int bytesRead = 0;
+    int i = 0;
+    unsigned char* buffer = NULL;
+    FILE* file = NULL;
     
-	buffer = malloc(bufSize);
-	if (buffer == NULL) {
-		return -1;
-	}
-
-	while ((bytesRead = fread(buffer, 1, bufSize, file)))
-	{
-		SHA256_Update(&sha256, buffer, bytesRead);
-	}
-	SHA256_Final(hash, &sha256);
-
-	for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
-	{
-		sprintf((char*)(output + (i * 2)), "%02x", hash[i]);
-	}
-
-	// NULL terminate the hash string
-	*(output + (2 * SHA256_DIGEST_LENGTH)) = 0;
-
+    file = fopen((const char*)path, "rb");
+    if (file == NULL) {
+	return -1;
+    }
+    
+    memset(hash, 0x00, SHA256_DIGEST_LENGTH);
+    memset(&sha256, 0x00, sizeof(SHA256_CTX));
+    SHA256_Init(&sha256);
+    
+    buffer = calloc(1, bufSize);
+    if (buffer == NULL) {
 	fclose(file);
-	free(buffer);
-	return 0;
+	return -1;
+    }
+    
+    while ((bytesRead = fread(buffer, 1, bufSize, file)))
+    {
+	SHA256_Update(&sha256, buffer, bytesRead);
+    }
+    SHA256_Final(hash, &sha256);
+    
+    for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
+    {
+	sprintf((char*)(output + (i * 2)), "%02x", hash[i]);
+    }
+    
+    // NULL terminate the hash string
+    *(output + (2 * SHA256_DIGEST_LENGTH)) = 0;
+    
+    fclose(file);
+    free(buffer);
+    buffer = NULL;
+    return 0;
 }
 
 static void host_flow_table_init() {
-	int i;
+    int i;
 
-	for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
-		if (host_proc_flow_table_array[i].exe_name != NULL)
-			free(host_proc_flow_table_array[i].exe_name);
-		if (host_proc_flow_table_array[i].full_path != NULL)
-			free(host_proc_flow_table_array[i].full_path);
-		if (host_proc_flow_table_array[i].file_version != NULL)
-			free(host_proc_flow_table_array[i].file_version);
-		if (host_proc_flow_table_array[i].hash != NULL)
-			free(host_proc_flow_table_array[i].hash);
-		memset(&host_proc_flow_table_array[i], 0, sizeof(struct host_flow));
-	}
+    for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
+	if (host_proc_flow_table_array[i].exe_name != NULL)
+	    free(host_proc_flow_table_array[i].exe_name);
+	if (host_proc_flow_table_array[i].full_path != NULL)
+	    free(host_proc_flow_table_array[i].full_path);
+	if (host_proc_flow_table_array[i].file_version != NULL)
+	    free(host_proc_flow_table_array[i].file_version);
+	if (host_proc_flow_table_array[i].hash != NULL)
+	    free(host_proc_flow_table_array[i].hash);
+	memset(&host_proc_flow_table_array[i], 0, sizeof(struct host_flow));
+    }
 }
 
 static char *get_previous_hash_by_path (char *path) {
-	int i;
-	struct host_flow *record = NULL;
-
-	if (path == NULL) {
-		return NULL;
-	}
-
-	for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
-		record = &host_proc_flow_table_array[i];
-		/* see if we have a matching full path */
-		if (record->full_path) {
-			if ((strcmp(record->full_path, path) == 0) &&
-				(record->hash != NULL)) {
-				return record->hash;
-			}
-		}
-		/* if we find a blank entry, we are done searching */
-		if (record->key.sp == 0) {
-			return NULL;
-		}
-	}
-
-	/* if we get here, we didn't find the path in the table */
+    int i;
+    struct host_flow *record = NULL;
+    
+    if (path == NULL) {
 	return NULL;
+    }
+    
+    for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
+	record = &host_proc_flow_table_array[i];
+	/* see if we have a matching full path */
+	if (record->full_path) {
+	    if ((strcmp(record->full_path, path) == 0) &&
+		(record->hash != NULL)) {
+		return record->hash;
+	    }
+	}
+	/* if we find a blank entry, we are done searching */
+	if (record->key.sp == 0) {
+	    return NULL;
+	}
+    }
+
+    /* if we get here, we didn't find the path in the table */
+    return NULL;
 }
 
 static struct host_flow *get_host_flow (struct flow_key *key) {
-	int i;
-	struct flow_key empty_key;
-	struct host_flow *record = NULL;
-
-        if (key == NULL) {
-            return NULL;
-        }
-
-	memset(&empty_key, 0, sizeof(struct flow_key));
-	for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
-		record = &host_proc_flow_table_array[i];
-		if (memcmp(&(record->key), key, sizeof(struct flow_key)) == 0) {
-			return record;
-		}
-		else if (memcmp(&(record->key), &empty_key, sizeof(struct flow_key)) == 0) {
-			// found an empty slot
-			memcpy(&(record->key), key, sizeof(struct flow_key));
-			return record;
-		}
-	}
-
-	// if we get here, we didn't find the key and there 
-	// are no free entries in the table, return NULL
-	joy_log_err("no more free entires in the host_flow_table");
+    int i;
+    struct flow_key empty_key;
+    struct host_flow *record = NULL;
+    
+    if (key == NULL) {
 	return NULL;
+    }
+    
+    memset(&empty_key, 0, sizeof(struct flow_key));
+    for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
+	record = &host_proc_flow_table_array[i];
+	if (memcmp(&(record->key), key, sizeof(struct flow_key)) == 0) {
+	    return record;
+	}
+	else if (memcmp(&(record->key), &empty_key, sizeof(struct flow_key)) == 0) {
+	    // found an empty slot
+	    memcpy(&(record->key), key, sizeof(struct flow_key));
+	    return record;
+	}
+    }
+    
+    // if we get here, we didn't find the key and there 
+    // are no free entries in the table, return NULL
+    joy_log_err("no more free entires in the host_flow_table");
+    return NULL;
 }
 
 #ifdef DEBUG_PROCESS_TABLE
 static int print_flow_table() {
-	int i, entries = 0;
-	char szAddr[128];
-	struct flow_key empty_key;
-	struct host_flow *record;
-	char ipv4_addr[INET_ADDRSTRLEN];
-
-
-	memset(&empty_key, 0, sizeof(struct flow_key));
-	for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
-		record = &host_proc_flow_table_array[i];
-		if (memcmp(&(record->key), &empty_key, sizeof(struct flow_key)) == 0) {
-			//end of entires in table
-			break;
-		}
-#ifdef WIN32
-		inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
-		strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
-#else
-		inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
-		strncpy(szAddr, ipv4_addr, sizeof(szAddr));
-#endif
-		printf("\t========================\n");
-		printf("\tTABLE Local Addr: %s\n", szAddr);
-		printf("\tTABLE Local Port: %d \n", ntohs(record->key.sp));
-
-#ifdef WIN32
-		inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
-		strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
-#else
-		inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
-		strncpy(szAddr, ipv4_addr, sizeof(szAddr));
-#endif
-		printf("\tTABLE Remote Addr: %s\n", szAddr);
-		printf("\tTABLE Remote Port: %d\n", ntohs(record->key.dp));
-		printf("\tTABLE Protocol: %d\n", record->key.prot);
-		printf("\tTABLE Process PID: %lu\n", record->pid);
-		if (record->exe_name != NULL)
-			printf("\tTABLE Exe Name: %s\n", record->exe_name);
-		else
-			printf("\tTABLE Exe Name: <unknown>\n");
-		if (record->full_path != NULL)
-			printf("\tTABLE Full Path: %s\n", record->full_path);
-		else
-			printf("\tTABLE Full Path: <unknown>\n");
-		if (record->file_version != NULL)
-			printf("\tTABLE File Version: %s\n", record->file_version);
-		else
-			printf("\tTABLE File Version: <unknown>\n");
-		if (record->hash != NULL)
-			printf("\tTABLE Hash: %s\n", record->hash);
-		else
-			printf("\tTABLE Hash: <unknown>\n");
-		printf("\tTABLE Uptime: %lu\n", record->uptime_seconds);
-		printf("\tTABLE Thread Count: %d\n", record->threads);
-		printf("\tTABLE Parent PID: %lu\n", record->parent_pid);
-		printf("\t-----------------------\n");
-		++entries;
+    int i, entries = 0;
+    char szAddr[128];
+    struct flow_key empty_key;
+    struct host_flow *record;
+    char ipv4_addr[INET_ADDRSTRLEN];
+    
+    
+    memset(&empty_key, 0, sizeof(struct flow_key));
+    for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
+	record = &host_proc_flow_table_array[i];
+	if (memcmp(&(record->key), &empty_key, sizeof(struct flow_key)) == 0) {
+	    //end of entires in table
+	    break;
 	}
-	printf("\tTotal Entires: %d\n", entries);
-	printf("\tTable Size: %zd bytes\n", sizeof(host_proc_flow_table_array));
+#ifdef WIN32
+	inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+	strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
+#else
+	inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+	strncpy(szAddr, ipv4_addr, sizeof(szAddr));
+#endif
 	printf("\t========================\n");
-
-	return 0;
+	printf("\tTABLE Local Addr: %s\n", szAddr);
+	printf("\tTABLE Local Port: %d \n", ntohs(record->key.sp));
+	
+#ifdef WIN32
+	inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
+	strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
+#else
+	inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
+	strncpy(szAddr, ipv4_addr, sizeof(szAddr));
+#endif
+	printf("\tTABLE Remote Addr: %s\n", szAddr);
+	printf("\tTABLE Remote Port: %d\n", ntohs(record->key.dp));
+	printf("\tTABLE Protocol: %d\n", record->key.prot);
+	printf("\tTABLE Process PID: %lu\n", record->pid);
+	if (record->exe_name != NULL)
+	    printf("\tTABLE Exe Name: %s\n", record->exe_name);
+	else
+	    printf("\tTABLE Exe Name: <unknown>\n");
+	if (record->full_path != NULL)
+	    printf("\tTABLE Full Path: %s\n", record->full_path);
+	else
+	    printf("\tTABLE Full Path: <unknown>\n");
+	if (record->file_version != NULL)
+	    printf("\tTABLE File Version: %s\n", record->file_version);
+	else
+	    printf("\tTABLE File Version: <unknown>\n");
+	if (record->hash != NULL)
+	    printf("\tTABLE Hash: %s\n", record->hash);
+	else
+	    printf("\tTABLE Hash: <unknown>\n");
+	printf("\tTABLE Uptime: %lu\n", record->uptime_seconds);
+	printf("\tTABLE Thread Count: %d\n", record->threads);
+	printf("\tTABLE Parent PID: %lu\n", record->parent_pid);
+	printf("\t-----------------------\n");
+	++entries;
+    }
+    printf("\tTotal Entires: %d\n", entries);
+    printf("\tTable Size: %zd bytes\n", sizeof(host_proc_flow_table_array));
+    printf("\t========================\n");
+    
+    return 0;
 }
 #endif
 
 #ifdef WIN32
 
 void process_get_file_version(struct host_flow *record) {
-	DWORD  verHandle = 0;
-	UINT   size = 0;
-	LPBYTE lpBuffer = NULL;
-	DWORD  verSize = 0;
-		
-	verSize = GetFileVersionInfoSize(record->full_path, &verHandle);
-
-	if (verSize != 0)
+    DWORD  verHandle = 0;
+    UINT   size = 0;
+    LPBYTE lpBuffer = NULL;
+    DWORD  verSize = 0;
+    
+    verSize = GetFileVersionInfoSize(record->full_path, &verHandle);
+    
+    if (verSize != 0)
+    {
+	LPSTR verData = calloc(1, verSize);
+	
+	if (GetFileVersionInfo(record->full_path, verHandle, verSize, verData))
 	{
-		LPSTR verData = malloc(verSize);
-
-		if (GetFileVersionInfo(record->full_path, verHandle, verSize, verData))
+	    if (VerQueryValue(verData, "\\", (VOID FAR* FAR*)&lpBuffer, &size))
+	    {
+		if (size)
 		{
-			if (VerQueryValue(verData, "\\", (VOID FAR* FAR*)&lpBuffer, &size))
-			{
-				if (size)
-				{
-					VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)lpBuffer;
-					if (verInfo->dwSignature == 0xfeef04bd)
-					{
-						record->file_version = malloc(PROC_EXE_LEN);
-						if (record->file_version != NULL) {
-							// Doesn't matter if you are on 32 bit or 64 bit,
-							// DWORD is always 32 bits, so first two revision numbers
-							// come from dwFileVersionMS, last two come from dwFileVersionLS
-							memset(record->file_version, 0, PROC_EXE_LEN);
-							snprintf(record->file_version, PROC_EXE_LEN, "%d.%d.%d.%d",
-								(verInfo->dwFileVersionMS >> 16) & 0xffff,
-								(verInfo->dwFileVersionMS >> 0) & 0xffff,
-								(verInfo->dwFileVersionLS >> 16) & 0xffff,
-								(verInfo->dwFileVersionLS >> 0) & 0xffff
-								);
-						}
-					}
-				}
+		    VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)lpBuffer;
+		    if (verInfo->dwSignature == 0xfeef04bd)
+		    {
+			record->file_version = calloc(1, PROC_EXE_LEN);
+			if (record->file_version != NULL) {
+			    // Doesn't matter if you are on 32 bit or 64 bit,
+			    // DWORD is always 32 bits, so first two revision numbers
+			    // come from dwFileVersionMS, last two come from dwFileVersionLS
+			    memset(record->file_version, 0, PROC_EXE_LEN);
+			    snprintf(record->file_version, PROC_EXE_LEN, "%d.%d.%d.%d",
+				     (verInfo->dwFileVersionMS >> 16) & 0xffff,
+				     (verInfo->dwFileVersionMS >> 0) & 0xffff,
+				     (verInfo->dwFileVersionLS >> 16) & 0xffff,
+				     (verInfo->dwFileVersionLS >> 0) & 0xffff
+				);
 			}
+		    }
 		}
-		free(verData);
+	    }
 	}
+	free(verData);
+    }
 }
 
 void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *record)
 {
-	DWORD len = PROC_PATH_LEN;
-	HANDLE hProcess;
-	PROCESSENTRY32 pe32;
-	union { /* Structure required for file time arithmetic. */
-		LONGLONG li;
-		FILETIME ft;
-	} createTime, stopTime, elapsedTime;
-
-	// Set the size of the structure before using it.
-	pe32.dwSize = sizeof(PROCESSENTRY32);
-
-	// Retrieve information about the first process,
-	// and exit if unsuccessful
-	if (!Process32First(hProcessSnap, &pe32))
-	{
-		joy_log_err("Process32First\n");
-		return;
-	}
-
-	// Now walk the snapshot of processes, and
-	// display information about each process in turn
-	do
-	{
-		// only check the processes in our records
-		if (record->pid == pe32.th32ProcessID) {
-			// store data we have already
-			record->threads = pe32.cntThreads;
-			record->parent_pid = pe32.th32ParentProcessID;
-			record->exe_name = malloc(strlen(pe32.szExeFile) + 1);
-			if (record->exe_name != NULL) {
-				memset(record->exe_name, 0, (strlen(pe32.szExeFile) + 1));
-				strncpy(record->exe_name, pe32.szExeFile, strlen(pe32.szExeFile));
+    DWORD len = PROC_PATH_LEN;
+    HANDLE hProcess;
+    PROCESSENTRY32 pe32;
+    union { /* Structure required for file time arithmetic. */
+	LONGLONG li;
+	FILETIME ft;
+    } createTime, stopTime, elapsedTime;
+    
+    // Set the size of the structure before using it.
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+    
+    // Retrieve information about the first process,
+    // and exit if unsuccessful
+    if (!Process32First(hProcessSnap, &pe32))
+    {
+	joy_log_err("Process32First\n");
+	return;
+    }
+    
+    // Now walk the snapshot of processes, and
+    // display information about each process in turn
+    do
+    {
+	// only check the processes in our records
+	if (record->pid == pe32.th32ProcessID) {
+	    // store data we have already
+	    record->threads = pe32.cntThreads;
+	    record->parent_pid = pe32.th32ParentProcessID;
+	    record->exe_name = calloc(1, strlen(pe32.szExeFile) + 1);
+	    if (record->exe_name != NULL) {
+		memset(record->exe_name, 0, (strlen(pe32.szExeFile) + 1));
+		strncpy(record->exe_name, pe32.szExeFile, strlen(pe32.szExeFile));
+	    }
+	    
+	    // Retrieve the full path name class.
+	    hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
+	    if (hProcess != NULL) {
+		record->full_path = calloc(1, PROC_PATH_LEN);
+		if (record->full_path != NULL) {
+		    unsigned long seconds = 0;
+		    char *prev_hash = NULL;
+		    FILETIME kernelTime,userTime;
+		    SYSTEMTIME currentTime, upTime;
+		    
+		    memset(record->full_path, 0, PROC_PATH_LEN);
+		    QueryFullProcessImageName(hProcess, 0, record->full_path, &len);
+		    process_get_file_version(record);
+		    
+		    prev_hash = get_previous_hash_by_path(record->full_path);
+		    record->hash = calloc(1, 2 * SHA256_DIGEST_LENGTH + 1);
+		    if (record->hash != NULL) {
+			if (prev_hash) {
+			    strcpy(record->hash,prev_hash);
+			} else {
+			    calculate_sha256_hash(record->full_path, record->hash);
 			}
-
-			// Retrieve the full path name class.
-			hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pe32.th32ProcessID);
-			if (hProcess != NULL) {
-				record->full_path = malloc(PROC_PATH_LEN);
-				if (record->full_path != NULL) {
-					unsigned long seconds = 0;
-					char *prev_hash = NULL;
-					FILETIME kernelTime,userTime;
-					SYSTEMTIME currentTime, upTime;
-
-					memset(record->full_path, 0, PROC_PATH_LEN);
-					QueryFullProcessImageName(hProcess, 0, record->full_path, &len);
-					process_get_file_version(record);
-
-					prev_hash = get_previous_hash_by_path(record->full_path);
-					record->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
-					if (record->hash != NULL) {
-						if (prev_hash) {
-							strcpy(record->hash,prev_hash);
-						} else {
-							calculate_sha256_hash(record->full_path, record->hash);
-						}
-					}
-
-					/* get the uptime of the process */
-					GetProcessTimes(hProcess, &createTime, &stopTime, &kernelTime, &userTime);
-					GetSystemTime(&currentTime);
-					SystemTimeToFileTime(&currentTime, &stopTime);
-					elapsedTime.li = stopTime.li - createTime.li;
-					FileTimeToSystemTime(&elapsedTime.ft, &upTime);
-					seconds = (upTime.wDay * 86400) + (upTime.wHour * 3600) + (upTime.wMinute * 60) + upTime.wSecond;
-					record->uptime_seconds = seconds;
-				}
-				CloseHandle(hProcess);
-			}
-			break;
+		    }
+		    
+		    /* get the uptime of the process */
+		    GetProcessTimes(hProcess, &createTime, &stopTime, &kernelTime, &userTime);
+		    GetSystemTime(&currentTime);
+		    SystemTimeToFileTime(&currentTime, &stopTime);
+		    elapsedTime.li = stopTime.li - createTime.li;
+		    FileTimeToSystemTime(&elapsedTime.ft, &upTime);
+		    seconds = (upTime.wDay * 86400) + (upTime.wHour * 3600) + (upTime.wMinute * 60) + upTime.wSecond;
+		    record->uptime_seconds = seconds;
 		}
-
-	} while (Process32Next(hProcessSnap, &pe32));
-
+		CloseHandle(hProcess);
+	    }
+	    break;
+	}
+	
+    } while (Process32Next(hProcessSnap, &pe32));
+    
 } 
 
 
@@ -399,80 +401,80 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *
 *         1 - failure
 */
 int host_flow_table_add_tcp(int all_sockets) {
-	// Declare and initialize variables
-	HANDLE hProcessSnap;
-	PMIB_TCPTABLE2 pTcpTable;
-	ULONG ulSize = 0;
-	DWORD dwRetVal = 0;
-
-	struct in_addr IpAddr;
-	struct flow_key key;
-	struct host_flow *record = NULL;
-	int i;
-
-	// Take a snapshot of all processes in the system.
-	hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hProcessSnap == INVALID_HANDLE_VALUE)
-	{
-		joy_log_err("CreateToolhelp32Snapshot (of processes)");
-		return 1;
-	}
-
-	pTcpTable = (MIB_TCPTABLE2 *)malloc(sizeof(MIB_TCPTABLE2));
-	if (pTcpTable == NULL) {
-		joy_log_err("Error allocating memory\n");
-		CloseHandle(hProcessSnap);
-		return 1;
-	}
-
-	ulSize = sizeof(MIB_TCPTABLE);
-	// Make an initial call to GetTcpTable2 to
-	// get the necessary size into the ulSize variable
-	if ((dwRetVal = GetTcpTable2(pTcpTable, &ulSize, TRUE)) ==
-		ERROR_INSUFFICIENT_BUFFER) {
-		free(pTcpTable);
-		pTcpTable = (MIB_TCPTABLE2 *)malloc(ulSize);
-		if (pTcpTable == NULL) {
-			joy_log_err("Error allocating memory\n");
-			CloseHandle(hProcessSnap);
-			return 1;
-		}
-	}
-	// Make a second call to GetTcpTable2 to get
-	// the actual data we require
-	if ((dwRetVal = GetTcpTable2(pTcpTable, &ulSize, TRUE)) == NO_ERROR) {
-		for (i = 0; i < (int)pTcpTable->dwNumEntries; i++) {
-			if ((pTcpTable->table[i].dwRemoteAddr != 0) || (all_sockets)) {
-				IpAddr.S_un.S_addr = (u_long)pTcpTable->table[i].dwLocalAddr;
-				key.prot = 6; // TCP
-				key.sa = IpAddr;
-				key.sp = ntohs((u_short)pTcpTable->table[i].dwLocalPort);
-
-				IpAddr.S_un.S_addr = (u_long)pTcpTable->table[i].dwRemoteAddr;
-				key.da = IpAddr;
-				key.dp = ntohs((u_short)pTcpTable->table[i].dwRemotePort);
-				record = get_host_flow(&key);
-				if (record != NULL) {
-					record->pid = pTcpTable->table[i].dwOwningPid;
-					get_process_info(hProcessSnap, record->pid, record);
-				}
-
-			}
-		}
-	}
-	else {
-		joy_log_err("\tGetTcpTable2 failed with %d\n", dwRetVal);
-		free(pTcpTable);
-		CloseHandle(hProcessSnap);
-		return 1;
-	}
-
-	if (pTcpTable != NULL) {
-		free(pTcpTable);
-		pTcpTable = NULL;
-	}
+    // Declare and initialize variables
+    HANDLE hProcessSnap;
+    PMIB_TCPTABLE2 pTcpTable;
+    ULONG ulSize = 0;
+    DWORD dwRetVal = 0;
+    
+    struct in_addr IpAddr;
+    struct flow_key key;
+    struct host_flow *record = NULL;
+    int i;
+    
+    // Take a snapshot of all processes in the system.
+    hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hProcessSnap == INVALID_HANDLE_VALUE)
+    {
+	joy_log_err("CreateToolhelp32Snapshot (of processes)");
+	return 1;
+    }
+    
+    pTcpTable = (MIB_TCPTABLE2 *)calloc(1, sizeof(MIB_TCPTABLE2));
+    if (pTcpTable == NULL) {
+	joy_log_err("Error allocating memory\n");
 	CloseHandle(hProcessSnap);
-	return 0;
+	return 1;
+    }
+    
+    ulSize = sizeof(MIB_TCPTABLE);
+    // Make an initial call to GetTcpTable2 to
+    // get the necessary size into the ulSize variable
+    if ((dwRetVal = GetTcpTable2(pTcpTable, &ulSize, TRUE)) ==
+	ERROR_INSUFFICIENT_BUFFER) {
+	free(pTcpTable);
+	pTcpTable = (MIB_TCPTABLE2 *)calloc(1, ulSize);
+	if (pTcpTable == NULL) {
+	    joy_log_err("Error allocating memory\n");
+	    CloseHandle(hProcessSnap);
+	    return 1;
+	}
+    }
+    // Make a second call to GetTcpTable2 to get
+    // the actual data we require
+    if ((dwRetVal = GetTcpTable2(pTcpTable, &ulSize, TRUE)) == NO_ERROR) {
+	for (i = 0; i < (int)pTcpTable->dwNumEntries; i++) {
+	    if ((pTcpTable->table[i].dwRemoteAddr != 0) || (all_sockets)) {
+		IpAddr.S_un.S_addr = (u_long)pTcpTable->table[i].dwLocalAddr;
+		key.prot = 6; // TCP
+		key.sa = IpAddr;
+		key.sp = ntohs((u_short)pTcpTable->table[i].dwLocalPort);
+		
+		IpAddr.S_un.S_addr = (u_long)pTcpTable->table[i].dwRemoteAddr;
+		key.da = IpAddr;
+		key.dp = ntohs((u_short)pTcpTable->table[i].dwRemotePort);
+		record = get_host_flow(&key);
+		if (record != NULL) {
+		    record->pid = pTcpTable->table[i].dwOwningPid;
+		    get_process_info(hProcessSnap, record->pid, record);
+		}
+		
+	    }
+	}
+    }
+    else {
+	joy_log_err("\tGetTcpTable2 failed with %d\n", dwRetVal);
+	free(pTcpTable);
+	CloseHandle(hProcessSnap);
+	return 1;
+    }
+    
+    if (pTcpTable != NULL) {
+	free(pTcpTable);
+	pTcpTable = NULL;
+    }
+    CloseHandle(hProcessSnap);
+    return 0;
 }
 
 int host_flow_table_add_sessions (int sockets) {
@@ -593,17 +595,17 @@ static void get_pid_path_hash (struct host_flow *hf) {
 
     /* find the pid link */
     snprintf(exe_name,PID_MAX_LEN,"/proc/%lu/exe",hf->pid);
-    len = readlink(exe_name, buffer, sizeof(buffer));
+    len = readlink(exe_name, buffer, sizeof(buffer)-1);
     if (len > 0) {
         /* got the link which has the full path */
-        buffer[len] = 0;
-        hf->full_path = malloc(strlen(buffer)+1);
+        buffer[len] = '\0';
+        hf->full_path = calloc(1, strlen(buffer)+1);
         if (hf->full_path) {
             char *prev_hash = NULL;
 
             strcpy(hf->full_path,buffer);
             prev_hash = get_previous_hash_by_path(hf->full_path);
-            hf->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
+            hf->hash = calloc(1, 2 * SHA256_DIGEST_LENGTH + 1);
             if (hf->hash != NULL) {
                 if (prev_hash) {
                     strcpy(hf->hash,prev_hash);
@@ -628,6 +630,9 @@ static void process_pid_string (struct ss_flow *fr, char *string) {
 
     /* find the end of the app name */
     s = strstr(string,"\"");
+    if (s == NULL) {
+	return;
+    }
     *s = 0;
 
     /* copy app name into the flow record */
@@ -697,7 +702,7 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
         if (hf != NULL) {
             hf->pid = fr.pid;
             if (strlen(fr.command)) {
-                hf->exe_name = malloc(strlen(fr.command)+1);
+                hf->exe_name = calloc(1, strlen(fr.command)+1);
                 strcpy(hf->exe_name,fr.command);
             }
             hf->uptime_seconds = get_process_uptime(hf->pid);
@@ -828,7 +833,7 @@ char* get_full_path_from_pid (long pid) {
         return NULL;
     }
 
-    pbuf = malloc(strlen(pathbuf)+1);
+    pbuf = calloc(1, strlen(pathbuf)+1);
     if (pbuf != NULL) {
         strcpy(pbuf,pathbuf);
     }
@@ -872,8 +877,8 @@ char* get_application_version (char* full_path) {
         strcat(plist_file,".app/Contents/Info.plist");
 
         /* setup the command to retireve the version info */
-        ver_cmd = malloc(found_base + 100);
-        ver_string = malloc(64);
+        ver_cmd = calloc(1, found_base + 100);
+        ver_string = calloc(1, 64);
         sprintf(ver_cmd,"plutil -p \"%s\" | grep CFBundleShortVersionString | awk \'{print $3}\' | tr -d \\\"", plist_file);
 
         /* execute command and read in the output */
@@ -909,7 +914,7 @@ void lsof_process_output(struct lsof_flow *fr, char *s, int sockets) {
                         if (hf != NULL) {
                             hf->pid = fr->pid;
                             if (strlen(fr->command)) {
-                                hf->exe_name = malloc(strlen(fr->command)+1);
+                                hf->exe_name = calloc(1, strlen(fr->command)+1);
                             }
                             if (hf->exe_name != NULL) {
                                 strcpy(hf->exe_name,fr->command);
@@ -918,7 +923,7 @@ void lsof_process_output(struct lsof_flow *fr, char *s, int sockets) {
                                     char *prev_hash = NULL;
 
                                     prev_hash = get_previous_hash_by_path(hf->full_path);
-                                    hf->hash = malloc(2 * SHA256_DIGEST_LENGTH + 1);
+                                    hf->hash = calloc(1, 2 * SHA256_DIGEST_LENGTH + 1);
                                     if (hf->hash != NULL) {
                                         if (prev_hash) {
                                             strcpy(hf->hash,prev_hash);

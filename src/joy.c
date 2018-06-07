@@ -1,6 +1,6 @@
 /*
  *  
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -268,19 +268,23 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
     int sock;
 
     sock=socket(PF_INET, SOCK_STREAM, 0);
-    strncpy(ifr.ifr_name,name,sizeof(ifr.ifr_name)-1);
-    ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
-    ioctl(sock, SIOCGIFHWADDR, &ifr);
+    if (sock >= 0) {
+	strncpy(ifr.ifr_name,name,sizeof(ifr.ifr_name)-1);
+	ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
+	ioctl(sock, SIOCGIFHWADDR, &ifr);
 
-    sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[0],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[1],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[2],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
-
-    close(sock);
+	sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[0],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[1],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[2],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
+	
+	close(sock);
+    } else {
+	perror("Failed to create socket\n");
+    }
 #endif
 }
 
@@ -348,7 +352,9 @@ static unsigned int interface_list_get() {
             if (STRNCASECMP(d->name,"lo",2) == 0) {
                 continue;
             }
-            if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
+            if (dev_addr->addr && (dev_addr->addr->sa_family == AF_INET || 
+				   dev_addr->addr->sa_family == AF_INET6) 
+		&& dev_addr->netmask) {
                 i = find_interface_in_list(d->name);
                 if (i > -1) {
                     /* seen this interface before */
@@ -586,10 +592,10 @@ static int set_logfile() {
 
             if (windir != NULL) CoTaskMemFree(windir);
         } else {
-            strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN);
+            strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN-1);
         }
 #else
-        strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN);
+        strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN-1);
 #endif
 
         info = fopen(logfile, "a");
@@ -714,11 +720,13 @@ static int get_compact_bd() {
     fp = fopen(glb_config->compact_byte_distribution, "r");
     if (fp != NULL) {
         while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
+	    if (b_value < COMPACT_BD_MAP_MAX) {
                 glb_config->compact_bd_mapping[b_value] = map_b_value;
                 count++;
                 if (count >= 256) {
                     break;
                 }
+	    }
         }
         fclose(fp);
     } else {
@@ -936,7 +944,7 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
          * Set output file based on command line or config file
          */
         if (glb_config->filename[0] == '/') {
-            strncpy(output_filename, glb_config->filename, MAX_FILENAME_LEN);
+            strncpy(output_filename, glb_config->filename, MAX_FILENAME_LEN-1);
         } else {
 #ifdef WIN32
             if (windir) {
@@ -993,7 +1001,11 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
     struct dirent *ent = NULL;
     DIR *dir = NULL;
     char pcap_filename[MAX_FILENAME_LEN*2]; 
-
+    
+    tmp_ret = strnlen(input_directory, MAX_FILENAME_LEN*2);
+    if (tmp_ret == 0 || tmp_ret >= MAX_FILENAME_LEN*2) {
+	return -1;
+    }
     /* initialize variables */
     memset(&fp, 0x00, sizeof(struct bpf_program));
     memset(&pcap_filename[0], 0x00, (MAX_FILENAME_LEN*2));
@@ -1005,7 +1017,11 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 #ifdef WIN32
             mkdir(output_filename);
 #else
-            mkdir(output_filename, 0700);
+            tmp_ret = mkdir(output_filename, 0700);
+	    if (tmp_ret < 0) {
+		joy_log_err("Error creating directory: %s\n", output_filename);
+		return tmp_ret;
+	    }
 #endif
          }
     }
@@ -1016,7 +1032,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
         while ((ent = readdir(dir)) != NULL) {
             static int fc_cnt = 1;
             if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
-                strcpy(pcap_filename, input_directory);
+                strncpy(pcap_filename, input_directory, (MAX_FILENAME_LEN*2)-1);
 #ifdef WIN32
                 if (pcap_filename[strlen(pcap_filename) - 1] != '\\') {
                     strcat(pcap_filename, "\\");
@@ -1056,6 +1072,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 
                 tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
+		    closedir(dir);
                     return tmp_ret;
                 }
 
@@ -1106,7 +1123,11 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
 #ifdef WIN32
             mkdir(output_filename);
 #else
-            mkdir(output_filename, 0700);
+            tmp_ret = mkdir(output_filename, 0700);
+	    if (tmp_ret < 0) {
+		joy_log_err("Error creating directory: %s\n", output_filename);
+		return tmp_ret;
+	    }
 #endif
         }
     }
@@ -1580,7 +1601,10 @@ int main (int argc, char **argv) {
         /* close out the existing open output file and remove it */
         if (glb_config->filename) {
             zclose(main_ctx.output);
-            remove(output_filename);
+            if (remove(output_filename) == -1) {
+		fprintf(stderr, "error:failed to remove %s\n", output_filename);
+		return -1;
+	    }
         }
 
         /* intialize the data structures */
@@ -1591,6 +1615,11 @@ int main (int argc, char **argv) {
         for (i=1+opt_count; i<argc; i++) {
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 /* processing an input directory */
+		tmp_ret = strnlen(argv[i], (MAX_FILENAME_LEN*2));
+		if (tmp_ret == 0 || tmp_ret >= (MAX_FILENAME_LEN*2)) {
+		    fprintf(stderr, "error:failed filename too long %s\n", argv[i]);
+		    return -1;
+		}
                 tmp_ret = process_directory_of_files(argv[i],output_filename);
                 if (tmp_ret < 0) {
                     return tmp_ret;

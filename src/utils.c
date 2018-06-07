@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017 Cisco Systems, Inc.
+ * Copyright (c) 2017-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -119,6 +119,9 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
 
     /* Allocate memory to store constructed file path */
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+    if (!filepath) {
+	return NULL;
+    }
 
     if (glb_config->aux_resource_path) {
         /*
@@ -148,9 +151,8 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
     }
 
     /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
+    free(filepath);
+
 
     return value;
 }
@@ -168,6 +170,9 @@ FILE* joy_utils_open_test_file(const char *filename) {
 
     /* Allocate memory to store constructed file path */
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+    if (!filepath) {
+	return NULL;
+    }
 
     /* Assume user CWD in root of Joy source package */
     strncpy(filepath, "./test/misc/", JOY_UTILS_MAX_FILEPATH);
@@ -186,9 +191,8 @@ FILE* joy_utils_open_test_file(const char *filename) {
     }
 
     /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
+    free(filepath);
+
 
     return fp;
 }
@@ -208,6 +212,9 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
 
     /* Allocate memory to store constructed file path */
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+    if (!filepath) {
+	return NULL;
+    }
 
     /* Assume user CWD in root of Joy source package */
     strncpy(filepath, "./test/pcaps/", JOY_UTILS_MAX_FILEPATH);
@@ -226,9 +233,8 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
     }
 
     /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
+    free(filepath);
+
 
     return handle;
 }

@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -519,18 +519,13 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
             if (err != dns_ok) { 
 	        return err; 
             }
-            switch (type) {
-                case type_SOA:
-	            typename = "soa";
-	            break;
-                case type_PTR:
-	            typename = "ptr";
-	            break;
-                case type_CNAME:
-	            typename = "cname";
-	            break;
-                default:
-	            typename = "unknown";
+
+            if (type == type_SOA) {
+		typename = "soa";
+	    } else if (type == type_PTR) {
+		typename = "ptr";
+	    } else {
+		typename = "cname";
             }
             zprintf(output, "\"%s\":\"%s\"", typename, name + 1);
       

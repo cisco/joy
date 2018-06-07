@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -479,6 +479,11 @@ static enum status process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *he
 	              for (i = 0; i < cur_template->hdr.FieldCount; i++) {
 	                  flow_record_size += htons(cur_template->fields[i].FieldLength);
 	              }
+
+		      if (flow_record_size <= 0) {
+			  joy_log_warn("flow record size is 0");
+			  return failure;
+		      }
 
 	              // process multiple flow records within a single template
 	              int flow_records_in_set;

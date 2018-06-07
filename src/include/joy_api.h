@@ -95,7 +95,7 @@
 struct joy_init {
     int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
-    int max_records;             /* max record in output file */
+    uint32_t max_records;        /* max record in output file */
     int contexts;                /* number of contexts the app wants to use */
     int idp;                     /* idp size to report, recommend 1300 */
     char *ipfix_host;            /* ip string of the host to send IPFix data to */

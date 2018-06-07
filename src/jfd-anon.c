@@ -143,11 +143,11 @@ static void matches_print (struct matches *matches, char *text) {
     // printf("matches->count: %d\n", matches->count);
     for (i=0; i < matches->count; i++) {
         size_t len = matches->stop[i] - matches->start[i] + 1;
-        if (len > 1024) {
+        if (len >= 1024) {
             return;
         }
         memcpy(tmp, text + matches->start[i], len);
-        tmp[len] = 0;
+        tmp[len] = '\0';
         printf("\tmatch %d: %s\n", i, tmp);
     }
 }

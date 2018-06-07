@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -54,6 +54,7 @@
 
 /** maximum line length */
 #define LINEMAX 512
+#define COMPACT_BD_MAP_MAX 16
 
 #define NULL_KEYWORD "none"
 
@@ -80,7 +81,7 @@ struct configuration {
     unsigned int num_pkts;
     unsigned int type;           /*!< 1=SPLT, 2=SALT */
     unsigned int retain_local;
-    unsigned int max_records;
+    uint32_t max_records;
     unsigned int nfv9_capture_port;
     unsigned int ipfix_collect_port;
     unsigned int ipfix_collect_online;
@@ -115,7 +116,7 @@ struct configuration {
     char *ipfix_export_template;
     char *aux_resource_path;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
-    unsigned short compact_bd_mapping[16];
+    unsigned short compact_bd_mapping[COMPACT_BD_MAP_MAX];
     radix_trie_t rt;
 };
 

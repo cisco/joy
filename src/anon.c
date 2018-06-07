@@ -1,6 +1,6 @@
 /*
- *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ *      
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -76,8 +76,8 @@ FILE *anon_info;
 
 /** structure used to store encrypt/decrypt keys */
 struct anon_aes_128_ipv4_key {
-  AES_KEY enc_key;
-  AES_KEY dec_key;
+    AES_KEY enc_key;
+    AES_KEY dec_key;
 };
 
 /** key used for anonymization */
@@ -106,11 +106,11 @@ enum status key_init (char *ANON_KEYFILE) {
     unsigned char c[16];
 
 #ifdef WIN32
-	HCRYPTPROV hProv = 0;
+    HCRYPTPROV hProv = 0;
 #endif
 
     fd = open(ANON_KEYFILE, O_RDWR);
-    if (fd > 0) {
+    if (fd != -1) {
     
         /* key file exists, so read contents */
         bytes = read(fd, c, MAX_KEY_SIZE);
@@ -124,19 +124,19 @@ enum status key_init (char *ANON_KEYFILE) {
         }
     } else {
 #ifdef WIN32
-		if (!CryptAcquireContextW(&hProv, 0, 0, PROV_RSA_AES, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
-			return failure;
-		}
-		if(!CryptGenRandom(hProv, 16, buf)) {
-			CryptReleaseContext(hProv, 0);
-			perror("error: could not get random data");
-			return failure;
-		}
-		CryptReleaseContext(hProv, 0);
+                if (!CryptAcquireContextW(&hProv, 0, 0, PROV_RSA_AES, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
+                        return failure;
+                }
+                if(!CryptGenRandom(hProv, 16, buf)) {
+                        CryptReleaseContext(hProv, 0);
+                        perror("error: could not get random data");
+                        return failure;
+                }
+                CryptReleaseContext(hProv, 0);
 #else
         /* key file does not exist, so generate new one */
         fd = open("/dev/urandom", O_RDONLY);
-        if (fd < 0) {
+        if (fd == -1) {
             perror("error: could not open /dev/urandom");
             return failure;
         }
@@ -155,14 +155,14 @@ enum status key_init (char *ANON_KEYFILE) {
 #else
         fd = open(ANON_KEYFILE, O_RDWR | O_CREAT, _S_IREAD | _S_IWRITE);
 #endif
-        if (fd < 0) {
+        if (fd == -1) {
             perror("error: could not create joy.bin");
         } else {
             bytes = write(fd, c, MAX_KEY_SIZE);
             close(fd);
             if (bytes != MAX_KEY_SIZE) {
-	              perror("error: could not write anonymization key");
-	              return failure;
+                perror("error: could not write anonymization key");
+                return failure;
             }
         } 
     } 
@@ -183,9 +183,9 @@ static void print_binary (FILE *f, const void *x, unsigned int bytes) {
     
         while (bit > 0) {
             if (bit & *buf) {
-	              fprintf(f, "1");
+                fprintf(f, "1");
             } else {
-	              fprintf(f, "0");
+                fprintf(f, "0");
             }
             bit >>= 1;
         }
@@ -231,11 +231,11 @@ static enum status anon_subnet_add_from_string (char *addr) {
         /* avoid confusing atoi() with nondigit characters */
         for (i=0; i<80; i++) {
             if (mask[i] == 0) {
-	              break;
+                      break;
             }
             if (!isdigit(mask[i])) {
-	              mask[i] = 0;   /* null terminate */
-	              break;
+                      mask[i] = 0;   /* null terminate */
+                      break;
             }
         }    
         masklen = atoi(mask);
@@ -250,7 +250,7 @@ static enum status anon_subnet_add_from_string (char *addr) {
 #endif
         a.s_addr = addr_mask(a.s_addr, masklen);
         return anon_subnet_add(a, masklen);
-    }			 
+    }                    
     return failure;
 }
 
@@ -277,7 +277,7 @@ static unsigned int bits_in_mask (void *a, unsigned int bytes) {
         while (bit > 0) {
             n++;
             if ((bit & *buf) == 0) {
-	              return n-1;
+                      return n-1;
             }
             bit >>= 1;
         }
@@ -297,7 +297,7 @@ int anon_print_subnets (FILE *f) {
 
     if (num_subnets > MAX_ANON_SUBNETS) {
         fprintf(f, "error: %u anonymous subnets configured, but maximum is %u\n", 
-	      num_subnets, MAX_ANON_SUBNETS);
+              num_subnets, MAX_ANON_SUBNETS);
         return failure;
     } else {
         unsigned int i;
@@ -305,7 +305,7 @@ int anon_print_subnets (FILE *f) {
         for (i=0; i<num_subnets; i++) {
             inet_ntop(AF_INET, &anon_subnet[i].addr, ipv4_addr, INET_ADDRSTRLEN);
             fprintf(f, "anon subnet %u: %s/%d\n", i, ipv4_addr,
-	          bits_in_mask(&anon_subnet[i].mask, 4));
+                  bits_in_mask(&anon_subnet[i].mask, 4));
         }
     }
     return ok;
@@ -340,28 +340,28 @@ enum status anon_init (const char *pathname, FILE *logfile) {
             int i, got_input = 0;
 
             for (i=0; i<80; i++) {
-	              if (line[i] == '#') {
-	                  break;
-	              }
-	              if (isblank(line[i])) {
-	                  if (got_input) {
-	                      line[i] = 0; /* null terminate */
-	                  } else {
-	                      addr = line + i + 1;
-	                  }
-	              }
-	              if (!isprint(line[i])) {
-	                  break;
-	              }
-	              if (isxdigit(line[i])) {
-	                  got_input = 1;
-	              }
+                if (line[i] == '#') {
+                    break;
+                }
+                if (isblank(line[i])) {
+                    if (got_input) {
+                        line[i] = 0; /* null terminate */
+                    } else {
+                        addr = line + i + 1;
+                    }
+                }
+                if (!isprint(line[i])) {
+                    break;
+                }
+                if (isxdigit(line[i])) {
+                    got_input = 1;
+                }
             }
             if (got_input) {
-	              if (anon_subnet_add_from_string(addr) != ok) {
-	                  fprintf(anon_info, "error: could not add subnet %s to anon set\n", addr);
-	                  return failure;
-	              }
+                if (anon_subnet_add_from_string(addr) != ok) {
+                    fprintf(anon_info, "error: could not add subnet %s to anon set\n", addr);
+                    return failure;
+                }
             }
         }
         anon_print_subnets(anon_info);
@@ -388,8 +388,8 @@ char *addr_get_anon_hexstring (const struct in_addr *a) {
     memcpy(pt, a, sizeof(struct in_addr));
     AES_encrypt(pt, c, &key.enc_key);
     snprintf(hexout, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
-	       c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
-	       c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
+               c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
+               c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
  
     return hexout;
 }
@@ -461,8 +461,8 @@ enum status anon_string (const char *s, unsigned int len, char *outhex, unsigned
     AES_encrypt(pt, c, &key.enc_key);
 
     snprintf(outhex, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
-	       c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
-	       c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
+               c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
+               c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
     outhex[32] = 0; /* null termination */
   
    return ok;
@@ -489,8 +489,8 @@ enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsi
 
     if (16 != sscanf(hexinput,
               "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx", 
-	            &c[0], &c[1], &c[2], &c[3], &c[4], &c[5], &c[6], &c[7], 
-		          &c[8], &c[9], &c[10], &c[11], &c[12], &c[13], &c[14], &c[15])) {
+                    &c[0], &c[1], &c[2], &c[3], &c[4], &c[5], &c[6], &c[7], 
+                          &c[8], &c[9], &c[10], &c[11], &c[12], &c[13], &c[14], &c[15])) {
         return failure;
     }
 
@@ -687,14 +687,14 @@ void anon_print_string (zfile f, struct matches *matches, char *text,
             size_t len = matches->stop[i] - matches->start[i] + 1;
 
             if (transform) {
-	              err = transform(start, len, hex, sizeof(hex));
-	              if (err == ok) {
-	                  zprintf(f, "%s", hex);
-	              } else {
-	                  zprintf_anon_nbytes(f, start, len);  
-	              }
+                      err = transform(start, len, hex, sizeof(hex));
+                      if (err == ok) {
+                          zprintf(f, "%s", hex);
+                      } else {
+                          zprintf_anon_nbytes(f, start, len);  
+                      }
             } else {
-	              zprintf_nbytes(f, start, len);  
+                      zprintf_nbytes(f, start, len);  
             }
         } else {
             /* matching, not special */
@@ -719,7 +719,7 @@ void anon_print_string (zfile f, struct matches *matches, char *text,
  */
 void anon_print_uri_pseudonym (zfile f, struct matches *matches, char *text) {
     anon_print_string(f, matches, text, is_special, anon_string);
-	return;
+        return;
 }
 
 /**
@@ -751,17 +751,17 @@ void zprintf_usernames (zfile f, struct matches *matches, char *text,
             memcpy(tmp, text + matches->start[i], len);
             tmp[len] = 0;
             if (count++) {
-	              zprintf(f, ",");
+                      zprintf(f, ",");
             }
             if (transform) {
-	              err = transform(tmp, len, hex, sizeof(hex));
-	              if (err == ok) {
-	                  zprintf(f, "\"%s\"", hex);	
-	              } else {	  
-	                //zprintf_anon_nbytes(f, start, len);  
-	              }
+                      err = transform(tmp, len, hex, sizeof(hex));
+                      if (err == ok) {
+                          zprintf(f, "\"%s\"", hex);    
+                      } else {    
+                        //zprintf_anon_nbytes(f, start, len);  
+                      }
             } else {
-	            zprintf(f, "\"%s\"", tmp);
+                    zprintf(f, "\"%s\"", tmp);
             }
         }
     }
