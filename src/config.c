@@ -1,5 +1,5 @@
 /*
- *	
+ *      
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
  * 
@@ -75,8 +75,8 @@ static int parse_int (unsigned int *x, const char *arg, int num_arg, int min, in
         }
         while (*c != 0) {
             if (!isdigit(*c)) {
-	              printf("error: argument %s must be a number ", arg);
-	              return failure;
+                      printf("error: argument %s must be a number ", arg);
+                      return failure;
             }
             c++;
         }
@@ -137,7 +137,7 @@ static int parse_string_multiple (char **s, char *arg, int num_arg,
 
 /* parse commands */
 static int config_parse_command (struct configuration *config, 
-			 const char *command, char *arg, int num) {  
+                         const char *command, char *arg, int num) {  
     char *tmp;
   
     /* remove trailing whitespace from argument */
@@ -397,19 +397,19 @@ int config_set_from_file (struct configuration *config, const char *fname) {
              */
             num = sscanf(line, "%[^=] = %[^\n#]", lhs, rhs);
             if (num == 2 || num == 1) {
-	               // printf("%s = %s ### %d ### %s", lhs, rhs, num, line);
-	               if (config_parse_command(config, lhs, rhs, num) != ok) {
-	                   fprintf(info, "error: unknown command (%s)\n", lhs);
-	                   exit(EXIT_FAILURE);
-	               }
+                       // printf("%s = %s ### %d ### %s", lhs, rhs, num, line);
+                       if (config_parse_command(config, lhs, rhs, num) != ok) {
+                           fprintf(info, "error: unknown command (%s)\n", lhs);
+                           exit(EXIT_FAILURE);
+                       }
             } else if (num == 1) {
-	               printf("error: could not parse line %u in file %s (\"%s ...\")\n", 
-		                      linecount, fname, lhs);
-	               exit(EXIT_FAILURE);
+                       printf("error: could not parse line %u in file %s (\"%s ...\")\n", 
+                                      linecount, fname, lhs);
+                       exit(EXIT_FAILURE);
             } else {
-	               printf("error: could not parse line %s in file %s\n", line, fname);
-	               fprintf(info, "error: could not parse line %s in file %s\n", 
-		                             line, fname);
+                       printf("error: could not parse line %s in file %s\n", line, fname);
+                       fprintf(info, "error: could not parse line %s in file %s\n", 
+                                             line, fname);
             }
         }
     }
@@ -431,7 +431,7 @@ int config_set_from_file (struct configuration *config, const char *fname) {
 int config_set_from_argv (struct configuration *config, char *argv[], int argc) {
     const char *line = NULL;
     ssize_t len;
-	int i;
+        int i;
     unsigned int linecount = 0;
     const char *c;
 
@@ -465,20 +465,20 @@ int config_set_from_argv (struct configuration *config, char *argv[], int argc) 
              */
             num = sscanf(line, "%[^=] = %[^\n#]", lhs, rhs);
             if (num == 2) {
-	              // printf("%s = %s ### %d ### %s", lhs, rhs, num, line);
-	              if (config_parse_command(config, lhs, rhs, num) != ok) {
-	                  printf("error: did not understand command %s\n", lhs);
-	                  exit(EXIT_FAILURE);
-	                  //	  break;
-	              }
+                      // printf("%s = %s ### %d ### %s", lhs, rhs, num, line);
+                      if (config_parse_command(config, lhs, rhs, num) != ok) {
+                          printf("error: did not understand command %s\n", lhs);
+                          exit(EXIT_FAILURE);
+                          //      break;
+                      }
             } else if (num == 1) {
-	              /* 
-	               * since there is no "=" in argument, we assume that it is a
-	               * filename
-	               */
-	              break;	
+                      /* 
+                       * since there is no "=" in argument, we assume that it is a
+                       * filename
+                       */
+                      break;    
             } else {
-	              printf("error: could not parse argument %s\n", line);
+                      printf("error: could not parse argument %s\n", line);
             }
         }
     }

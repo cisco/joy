@@ -4217,12 +4217,12 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
          * the template object.
          */
         if( template_type == IPFIX_SIMPLE_TEMPLATE) {
-	    db_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
-	} else if (template_type == IPFIX_IDP_TEMPLATE) {
-	    db_tmp = ipfix_xts_search(IPFIX_IDP_TEMPLATE, NULL);
-	} else {
+            db_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
+        } else if (template_type == IPFIX_IDP_TEMPLATE) {
+            db_tmp = ipfix_xts_search(IPFIX_IDP_TEMPLATE, NULL);
+        } else {
  
-	    loginfo("error: template type not supported for exporting");
+            loginfo("error: template type not supported for exporting");
  
         }
 

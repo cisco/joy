@@ -1,5 +1,5 @@
 /*
- *	
+ *      
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
  * 
@@ -58,10 +58,10 @@ extern FILE *info;
 /* helper functions defined below */
 
 static void pkt_info_print_interleaved(zfile f,
-				       const struct pkt_info *pkt_info,
-				       unsigned int np,
-				       const struct pkt_info *pkt_info2,
-				       unsigned int np2);
+                                       const struct pkt_info *pkt_info,
+                                       unsigned int np,
+                                       const struct pkt_info *pkt_info2,
+                                       unsigned int np2);
 
 /**
  * \brief Initialize the memory of PPI struct.
@@ -96,10 +96,10 @@ void ppi_init (struct ppi **ppi_handle) {
  * \return none
  */
 void ppi_update (struct ppi *ppi, 
-		 const struct pcap_pkthdr *header,
-		 const void *tcp_start, 
-		 unsigned int tcp_len, 
-		 unsigned int report_ppi) {
+                 const struct pcap_pkthdr *header,
+                 const void *tcp_start, 
+                 unsigned int tcp_len, 
+                 unsigned int report_ppi) {
     const struct tcp_hdr *tcp = (const struct tcp_hdr*)tcp_start;  
     unsigned int tcp_hdr_len;
     //    const unsigned char *payload;
@@ -119,21 +119,21 @@ void ppi_update (struct ppi *ppi,
 
     if (report_ppi) {
         if (ppi->np < MAX_NUM_PKT) {
-	    ppi->pkt_info[ppi->np].seq = ntohl(tcp->tcp_seq);
-	    ppi->pkt_info[ppi->np].ack = ntohl(tcp->tcp_ack);	
-	    ppi->pkt_info[ppi->np].flags = tcp->tcp_flags;
-	    ppi->pkt_info[ppi->np].len = size_payload;
-	    ppi->pkt_info[ppi->np].opt_len = opt_len;
+            ppi->pkt_info[ppi->np].seq = ntohl(tcp->tcp_seq);
+            ppi->pkt_info[ppi->np].ack = ntohl(tcp->tcp_ack);   
+            ppi->pkt_info[ppi->np].flags = tcp->tcp_flags;
+            ppi->pkt_info[ppi->np].len = size_payload;
+            ppi->pkt_info[ppi->np].opt_len = opt_len;
         if (header != NULL) {
             ppi->pkt_info[ppi->np].time = header->ts;
         }
-	    if (opt_len) {
-	        memcpy(ppi->pkt_info[ppi->np].opts, 
-		       (char*)tcp_start + 20, 
-		       opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len);
-	    } 
-	    ppi->np++;
-	} 
+            if (opt_len) {
+                memcpy(ppi->pkt_info[ppi->np].opts, 
+                       (char*)tcp_start + 20, 
+                       opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len);
+            } 
+            ppi->np++;
+        } 
     }
 }
 
@@ -147,10 +147,10 @@ void ppi_update (struct ppi *ppi,
 void ppi_print_json (const struct ppi *x1, const struct ppi *x2, zfile f) {
 
     pkt_info_print_interleaved(f, 
-			       x1->pkt_info, 
-			       x1->np, 
-			       x2 ? x2->pkt_info : NULL, 
-			       x2 ? x2->np : 0);
+                               x1->pkt_info, 
+                               x1->np, 
+                               x2 ? x2->pkt_info : NULL, 
+                               x2 ? x2->np : 0);
 
 }
 
@@ -195,28 +195,28 @@ void ppi_unit_test () {
 
 void tcp_flags_to_string(unsigned char flags, char *string) {
     if (TCP_FIN & flags) {
-	*string++ = 'F';   
+        *string++ = 'F';   
     }
     if (TCP_SYN & flags) {
-	*string++ = 'S';
+        *string++ = 'S';
     }
     if (TCP_RST & flags) {
-	*string++ = 'R';
+        *string++ = 'R';
     }
     if (TCP_PSH & flags) {
-	*string++ = 'P';
+        *string++ = 'P';
     }
     if (TCP_ACK & flags) {
-	*string++ = 'A';
+        *string++ = 'A';
     }
     if (TCP_URG & flags) {
-	*string++ = 'U';
+        *string++ = 'U';
     }
     if (TCP_ECE & flags) {
-	*string++ = 'E';
+        *string++ = 'E';
     }
     if (TCP_CWR & flags) {
-	*string++ = 'C';
+        *string++ = 'C';
     }
     *string = 0; /* null-terminate string */
 
@@ -289,77 +289,77 @@ void tcp_opt_print_json(zfile f,
                 goto finish; /* incomplete or malformed data */
             }
             break;
-	}
+        }
 
     if (eol) {
         /* End of option list */
         break;
     }
 
-	if (!first_line) {
-	  zprintf(f, ",");
-	} else {
-	  first_line = 0;
-	}
+        if (!first_line) {
+          zprintf(f, ",");
+        } else {
+          first_line = 0;
+        }
 
-	if ((optlen > total_len) || (optlen == 0)) {
-	    /* Incomplete or malformed data */
+        if ((optlen > total_len) || (optlen == 0)) {
+            /* Incomplete or malformed data */
         zprintf(f, "{");
         zprintf(f, "\"malformed\":{\"kind\":%u,\"len\":%u}", *opt, optlen);
         zprintf(f, "}");
         goto finish;
-	}
-	
+        }
+        
     /* Pointer to option data and calculate length */
-	data = opt + 2;
-	datalen = optlen - 2;
-	
-	zprintf(f, "{");
-	switch(*opt) {
-	case NOP:
+        data = opt + 2;
+        datalen = optlen - 2;
+        
+        zprintf(f, "{");
+        switch(*opt) {
+        case NOP:
         zprintf(f, "\"noop\":%s", "null");
-	    break;
-	case MSS:
-	    if (datalen != 2) {
+            break;
+        case MSS:
+            if (datalen != 2) {
             tcp_opt_malformed_print_json(f, *opt, data, datalen);
-	    } else {
-	        const uint16_t *mss = (uint16_t*)data;
+            } else {
+                const uint16_t *mss = (uint16_t*)data;
             zprintf(f, "\"mss\":%u", ntohs(*mss));
-	    }
+            }
         break;
-	case WS:
-	    if (datalen != 1) {
+        case WS:
+            if (datalen != 1) {
             tcp_opt_malformed_print_json(f, *opt, data, datalen);
-	    } else {
-	        const unsigned char *ws = data;
+            } else {
+                const unsigned char *ws = data;
             zprintf(f, "\"ws\":%u", *ws);
-	    }
+            }
         break;
     case SACKP:
         zprintf(f, "\"sackp\":%s", "null");
-	    break;
-	case TS:
-	    if (datalen != 8) {
+            break;
+        case TS:
+            if (datalen != 8) {
             tcp_opt_malformed_print_json(f, *opt, data, datalen);
-	    } else {
-	        const uint32_t *tsval = (uint32_t*)data;
-	        const uint32_t *tsecr = tsval + 1;
+            } else {
+                const uint32_t *tsval = (uint32_t*)data;
+                const uint32_t *tsecr = tsval + 1;
             zprintf(f, "\"ts\":{\"val\":%u,\"ecr\":%u}", ntohl(*tsval), ntohl(*tsecr));
-	    }
+            }
         break;
-	default:
-	    if (datalen > total_len) {
+        default:
+            if (datalen > total_len) {
             tcp_opt_malformed_print_json(f, *opt, data, datalen);
-	    } else {
+            } else {
             zprintf(f, "\"kind\":%u", *opt);
-	        zprintf(f, ",\"data\":");
-	        zprintf_raw_as_hex(f, data, datalen);
-	    }
-	}
-	zprintf(f, "}");
-	
-	total_len -= optlen;
-	opt += optlen;    
+                zprintf(f, ",\"data\":");
+                zprintf_raw_as_hex(f, data, datalen);
+            }
+        }
+        zprintf(f, "}");
+        
+        total_len -= optlen;
+        opt += optlen;    
     } 
 
 finish:
@@ -378,69 +378,69 @@ struct tcp_state {
 };
 
 static void pkt_info_process(zfile f, 
-			     const struct pkt_info *pkt_info, 
-			     struct tcp_state *tcp_state, 
-			     struct tcp_state *rev_tcp_state,
-			     struct timeval ts) {
+                             const struct pkt_info *pkt_info, 
+                             struct tcp_state *tcp_state, 
+                             struct tcp_state *rev_tcp_state,
+                             struct timeval ts) {
     long int rseq, rack;
     char flags_string[9];
     char *dir = "?";
     struct timeval tmp;
 
     if (pkt_info->flags & TCP_SYN) {
-	tcp_state->seq = pkt_info->seq;
-	rseq = 0;
+        tcp_state->seq = pkt_info->seq;
+        rseq = 0;
     } else {
-	rseq = (long int) pkt_info->seq - tcp_state->seq;	
-	if (seq_gt(pkt_info->seq, tcp_state->seq)) { 
-	    tcp_state->seq = pkt_info->seq;
-	    /* note: we don't check upper window boundary */
-	}
+        rseq = (long int) pkt_info->seq - tcp_state->seq;       
+        if (seq_gt(pkt_info->seq, tcp_state->seq)) { 
+            tcp_state->seq = pkt_info->seq;
+            /* note: we don't check upper window boundary */
+        }
     }
     if (pkt_info->flags & TCP_ACK) {
-	rack = (long int) pkt_info->ack - rev_tcp_state->seq;
+        rack = (long int) pkt_info->ack - rev_tcp_state->seq;
     } else { 
-	rack = 0; 
+        rack = 0; 
     }
     /*
      * we might have missed the SYN and SYN/ACK packets, and need to sync anyway
      */
     if (tcp_state->role == role_unknown) {
-	if (rev_tcp_state->role == role_unknown) {
-	    tcp_state->role = role_client;
-	    tcp_state->seq = pkt_info->seq;
-	    rseq = 0;
-	    rack = 0;
-	} else if (rev_tcp_state->role == role_client) {
-	    tcp_state->role = role_server;
-	    tcp_state->seq = pkt_info->seq;
-	    rseq = 0;
-	} else if (rev_tcp_state->role == role_server) {
-	    tcp_state->role = role_client;
-	}
+        if (rev_tcp_state->role == role_unknown) {
+            tcp_state->role = role_client;
+            tcp_state->seq = pkt_info->seq;
+            rseq = 0;
+            rack = 0;
+        } else if (rev_tcp_state->role == role_client) {
+            tcp_state->role = role_server;
+            tcp_state->seq = pkt_info->seq;
+            rseq = 0;
+        } else if (rev_tcp_state->role == role_server) {
+            tcp_state->role = role_client;
+        }
     }
 
     /* note: we don't remove SYN and FIN bytes from message seq numbers */
 
     if (tcp_state->role == role_server) {
-	dir = "<";
+        dir = "<";
     } else {
-	dir = ">";
+        dir = ">";
     }
 
     joy_timer_sub(&pkt_info->time, &ts, &tmp); 
     tcp_flags_to_string(pkt_info->flags, flags_string);
     zprintf(f, 
-	    "{\"seq\":%u,\"ack\":%u,\"rseq\":%ld,\"rack\":%ld,\"b\":%u,\"olen\":%u,\"dir\":\"%s\",\"t\":%u,\"flags\":\"%s\"", 
-	    pkt_info->seq, 
-	    pkt_info->ack,
-	    rseq,
-	    rack,
-	    pkt_info->len, 
-	    pkt_info->opt_len, 
-	    dir, 
-	    joy_timeval_to_milliseconds(tmp), // note: not pkt_info->time 
-	    flags_string);
+            "{\"seq\":%u,\"ack\":%u,\"rseq\":%ld,\"rack\":%ld,\"b\":%u,\"olen\":%u,\"dir\":\"%s\",\"t\":%u,\"flags\":\"%s\"", 
+            pkt_info->seq, 
+            pkt_info->ack,
+            rseq,
+            rack,
+            pkt_info->len, 
+            pkt_info->opt_len, 
+            dir, 
+            joy_timeval_to_milliseconds(tmp), // note: not pkt_info->time 
+            flags_string);
     tcp_opt_print_json(f, pkt_info->opts, pkt_info->opt_len);
     zprintf(f, "}");
 
@@ -449,10 +449,10 @@ static void pkt_info_process(zfile f,
 
 
 static void pkt_info_print_interleaved(zfile f,
-				       const struct pkt_info *pkt_info,
-				       unsigned int np,
-				       const struct pkt_info *pkt_info2,
-				       unsigned int np2) {
+                                       const struct pkt_info *pkt_info,
+                                       unsigned int np,
+                                       const struct pkt_info *pkt_info2,
+                                       unsigned int np2) {
     
     unsigned int i, j, imax, jmax;
     struct timeval ts_last;
@@ -464,18 +464,18 @@ static void pkt_info_print_interleaved(zfile f,
     if (pkt_info2 == NULL) {  /* unidirectional tcp flow, no interleaving needed */
 
         if (!np) {
-	    return; /* nothing to report */
+            return; /* nothing to report */
         }
 
         zprintf(f, ",\"ppi\":[");
         ts_last = pkt_info[0].time;
         for (i=0; i < imax; i++) { 
-	    if (i) { 
-	        zprintf(f, ",");
-	    }
-	    pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
+            if (i) { 
+                zprintf(f, ",");
+            }
+            pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
         }
-        zprintf(f, "]");	
+        zprintf(f, "]");        
 
     } else { /*  bidirectional tcp flow in (pkt_info, pkt_info2), interleaving needed */
 
@@ -486,38 +486,38 @@ static void pkt_info_print_interleaved(zfile f,
         }
 
         jmax = np2 > NUM_PKT_LEN ? NUM_PKT_LEN : np2;
-	if (!imax || !jmax) {
-	  return;   /* nothing to output */
-	}
-	zprintf(f, ",\"ppi\":[");
+        if (!imax || !jmax) {
+          return;   /* nothing to output */
+        }
+        zprintf(f, ",\"ppi\":[");
         i = j = 0;
         while ((i < imax) || (j < jmax)) {      
-	  
+          
             if (i >= imax) {  /* record list is exhausted, so use twin */
-		pkt_info_process(f, &pkt_info2[j], &rev_tcp_state, &tcp_state, ts_last);
-		j++;
+                pkt_info_process(f, &pkt_info2[j], &rev_tcp_state, &tcp_state, ts_last);
+                j++;
             } else if (j >= jmax) {  /* twin list is exhausted, so use record */
-		pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
-		i++;
-	    } else { /* neither list is exhausted, so use list with lowest time */     
+                pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
+                i++;
+            } else { /* neither list is exhausted, so use list with lowest time */     
 
-	            if (joy_timer_lt(&pkt_info[i].time, &pkt_info2[j].time)) {
-			pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
-	                if (i < imax) {
-	                    i++;
-	                }
-	            } else {
-			pkt_info_process(f, &pkt_info2[j], &rev_tcp_state, &tcp_state, ts_last);
-	                if (j < jmax) {
-	                    j++;
-	                }
-	            }
-	    }
-	    if (!((i == imax) & (j == jmax))) { /* we are done */
-	        zprintf(f, ",");
-	    }
-	}
-	zprintf(f, "]");	
+                    if (joy_timer_lt(&pkt_info[i].time, &pkt_info2[j].time)) {
+                        pkt_info_process(f, &pkt_info[i], &tcp_state, &rev_tcp_state, ts_last);
+                        if (i < imax) {
+                            i++;
+                        }
+                    } else {
+                        pkt_info_process(f, &pkt_info2[j], &rev_tcp_state, &tcp_state, ts_last);
+                        if (j < jmax) {
+                            j++;
+                        }
+                    }
+            }
+            if (!((i == imax) & (j == jmax))) { /* we are done */
+                zprintf(f, ",");
+            }
+        }
+        zprintf(f, "]");        
     }
 }
 

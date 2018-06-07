@@ -1,5 +1,5 @@
 /*
- *	
+ *      
  * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
@@ -150,19 +150,19 @@
 
  /** DNS header structure */
 typedef struct {
-	uint16_t id;
-	unsigned char qr : 1;
-	unsigned char opcode : 4;
-	unsigned char aa : 1;
-	unsigned char tc : 1;
-	unsigned char rd : 1;
-	unsigned char ra : 1;
-	unsigned char z : 3;
-	unsigned char rcode : 4;
-	uint16_t qdcount;
-	uint16_t ancount;
-	uint16_t nscount;
-	uint16_t arcount;
+        uint16_t id;
+        unsigned char qr : 1;
+        unsigned char opcode : 4;
+        unsigned char aa : 1;
+        unsigned char tc : 1;
+        unsigned char rd : 1;
+        unsigned char ra : 1;
+        unsigned char z : 3;
+        unsigned char rcode : 4;
+        uint16_t qdcount;
+        uint16_t ancount;
+        uint16_t nscount;
+        uint16_t arcount;
 } PACKED dns_hdr;
 
 #pragma pack(pop)
@@ -216,15 +216,15 @@ typedef struct {
 #pragma pack(push,1)
 
 typedef struct {
-	uint16_t qtype;
-	uint16_t qclass;
+        uint16_t qtype;
+        uint16_t qclass;
 } PACKED dns_question;
 
 typedef struct {
-	uint16_t type;
-	uint16_t class;
-	uint32_t ttl;
-	uint16_t rdlength;
+        uint16_t type;
+        uint16_t class;
+        uint32_t ttl;
+        uint16_t rdlength;
 } PACKED dns_rr;
 
 #pragma pack(pop)
@@ -344,7 +344,7 @@ static enum dns_err dns_question_parse (const dns_question **q, char **data, int
     if (*len < sizeof(dns_question)) {
         return dns_err_malformed;
     } 
-	*q = (const dns_question*)*data;
+        *q = (const dns_question*)*data;
     *data += sizeof(dns_question);
     *len -= sizeof(dns_question);  
     return dns_ok;
@@ -444,33 +444,33 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
     while (*len > 0 && outname < terminus) {
         if (char_is_label(*c)) {
             if (*c < 64 && *len > *c) {
-	        if (*c == 0) {
-	            *name = c+1; 
-	            *outname = 0;
-	            return dns_ok;  /* got NULL label       */
-	        }
-	        jump = *c + 1;
-	        /* 
-	         * make (printable) copy of string
-	         */
-	        *outname++ = '.';
+                if (*c == 0) {
+                    *name = c+1; 
+                    *outname = 0;
+                    return dns_ok;  /* got NULL label       */
+                }
+                jump = *c + 1;
+                /* 
+                 * make (printable) copy of string
+                 */
+                *outname++ = '.';
                 for (i=1; i<jump; i++) {
-	            *outname++ = printable(c[i]);
-	        }
-	        /* advance pointers, decrease lengths */
-	        outname_len -= jump;
-	        *len -= jump;
-	        c += jump;
-	        *name += jump;
+                    *outname++ = printable(c[i]);
+                }
+                /* advance pointers, decrease lengths */
+                outname_len -= jump;
+                *len -= jump;
+                c += jump;
+                *name += jump;
             } else {
-	        return dns_err_label_too_long;
+                return dns_err_label_too_long;
             }
         } else if (char_is_offset(*c)) {
             uint16_t *offset;
 
             err = uint16_parse(&offset, name, len);
             if (err != dns_ok) {
-	        return dns_err_offset_too_long;
+                return dns_err_offset_too_long;
             }
             offsetname = (const void *)((char *)hdr + (ntohs(*offset) & 0x3FFF));
             offsetlen -= (ntohs(*offset) & 0x3FFF);
@@ -504,28 +504,28 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
       
             err = dns_addr_parse(&addr, r, len, ntohs(rr->rdlength));
             if (err != dns_ok) {
-	        return err;
+                return err;
             }
             if (ipv4_addr_needs_anonymization(addr)) {
-	        zprintf(output, "\"a\":\"%s\"", addr_get_anon_hexstring(addr));
+                zprintf(output, "\"a\":\"%s\"", addr_get_anon_hexstring(addr));
             } else {
                 inet_ntop(AF_INET, addr, ipv4_addr, INET_ADDRSTRLEN);
-	        zprintf(output, "\"a\":\"%s\"", ipv4_addr);
+                zprintf(output, "\"a\":\"%s\"", ipv4_addr);
             }
         } else if (type == type_SOA  || type == type_PTR || type == type_CNAME) {
             char *typename;
 
             err = dns_header_parse_name(rh, r, len, name, sizeof(name)); /* note: does not check rdlength */
             if (err != dns_ok) { 
-	        return err; 
+                return err; 
             }
 
             if (type == type_SOA) {
-		typename = "soa";
-	    } else if (type == type_PTR) {
-		typename = "ptr";
-	    } else {
-		typename = "cname";
+                typename = "soa";
+            } else if (type == type_PTR) {
+                typename = "ptr";
+            } else {
+                typename = "cname";
             }
             zprintf(output, "\"%s\":\"%s\"", typename, name + 1);
       
@@ -535,7 +535,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
         } else {
             err = data_advance(r, len, ntohs(rr->rdlength));
             if (err != dns_ok) {
-	        return err;
+                return err;
             }
             zprintf(output, "\"type\":\"%x\",\"class\":\"%x\",\"rdlength\":%u", type, class, rr->rdlength);
       
@@ -686,8 +686,8 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
 }
 
 static void dns_printf (char * const dns_name[], const unsigned short pkt_len[], 
-		char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
-		unsigned int count, zfile output) {
+                char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
+                unsigned int count, zfile output) {
     unsigned int i, j;
 
     zprintf(output, ",\"dns\":[");
@@ -698,13 +698,13 @@ static void dns_printf (char * const dns_name[], const unsigned short pkt_len[],
         i = j = 0;
         while ((i < count) && (j < count)) {
             if (dns_name[i]) {
-	        // qh = (dns_hdr *)dns_name[i];
+                // qh = (dns_hdr *)dns_name[i];
             }
             if (twin_dns_name[i]) {
-	        if (i || j) {
-	            zprintf(output, ",");
-	        }
-	        dns_print_packet(twin_dns_name[i], twin_pkt_len[i], output);
+                if (i || j) {
+                    zprintf(output, ",");
+                }
+                dns_print_packet(twin_dns_name[i], twin_pkt_len[i], output);
             } 
             i++;
         }
@@ -713,10 +713,10 @@ static void dns_printf (char * const dns_name[], const unsigned short pkt_len[],
     
         for (i=0; i<count; i++) {
             if (i) {
-	        zprintf(output, ",");
+                zprintf(output, ",");
             }
             if (dns_name[i]) {
-	        dns_print_packet(dns_name[i], pkt_len[i], output);
+                dns_print_packet(dns_name[i], pkt_len[i], output);
             }
         }
     }

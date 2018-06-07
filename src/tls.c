@@ -1,5 +1,5 @@
 /*
- *	
+ *      
  * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
@@ -170,7 +170,7 @@ void tls_delete (struct tls **tls_handle) {
 
             if (entry->data) {
                 /* Free the entry data */
-	            free(entry->data);
+                    free(entry->data);
             }
         }
         for (j = 0; j < cert->num_subject_items; j++) {
@@ -181,7 +181,7 @@ void tls_delete (struct tls **tls_handle) {
 
             if (entry->data) {
                 /* Free the entry data */
-	            free(entry->data);
+                    free(entry->data);
             }
         }
         for (j = 0; j < cert->num_extension_items; j++) {
@@ -192,7 +192,7 @@ void tls_delete (struct tls **tls_handle) {
 
             if (entry->data) {
                 /* Free the entry data */
-	            free(entry->data);
+                    free(entry->data);
             }
         }
         if (cert->validity_not_before) {
@@ -399,12 +399,12 @@ static void tls_client_hello_get_extensions (const unsigned char *y,
             memset(r->sni, '\0', r->sni_length);
             memcpy(r->sni, y+9, r->sni_length-1);
 
-	    r->extensions[i].type = raw_to_uint16(y);
-	    r->extensions[i].length = raw_to_uint16(y+2);
-	    r->extensions[i].data = malloc(r->extensions[i].length);
-	    memcpy(r->extensions[i].data, y+4, r->extensions[i].length);  
-	    r->num_extensions += 1;
-	    i += 1;
+            r->extensions[i].type = raw_to_uint16(y);
+            r->extensions[i].length = raw_to_uint16(y+2);
+            r->extensions[i].data = malloc(r->extensions[i].length);
+            memcpy(r->extensions[i].data, y+4, r->extensions[i].length);  
+            r->num_extensions += 1;
+            i += 1;
 
             len -= 4;
             len -= raw_to_uint16(y+2);
@@ -1114,7 +1114,7 @@ static void tls_certificate_parse(const unsigned char *data,
                                   struct tls *r) {
 
     uint16_t total_certs_len = 0, remaining_certs_len,
-	cert_len, index_cert = 0;
+        cert_len, index_cert = 0;
 
     /* Move past the all_certs_len */
     total_certs_len = raw_to_uint16(data + 1);
@@ -1647,7 +1647,7 @@ static int tls_version_to_internal(unsigned char major,
             }
             break;
 #if 0
-	    //Can't get here
+            //Can't get here
         case 2:
             internal_version = TLS_VERSION_SSLV2;
             break;
@@ -1697,7 +1697,7 @@ static void tls_handshake_buffer_parse(struct tls *r) {
     int data_len = 0;
     unsigned int msg_count = 0;
 
-	if (r == NULL) {
+        if (r == NULL) {
         return;
     }
 
@@ -2127,17 +2127,17 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
             ; /* no packets had data, so we print out nothing */
         } else {
             for (i = 0; i < imax-1; i++) {
-	            if (i > 0) {
-	                joy_timer_sub(&time[i], &time[i-1], &ts);
-	            } else {
-	                joy_timer_clear(&ts);
-	            }
-	            print_bytes_dir_time_tls(len[i], OUT, ts, msg_stat[i], ",", f);
+                    if (i > 0) {
+                        joy_timer_sub(&time[i], &time[i-1], &ts);
+                    } else {
+                        joy_timer_clear(&ts);
+                    }
+                    print_bytes_dir_time_tls(len[i], OUT, ts, msg_stat[i], ",", f);
             }
-            if (i == 0) {        /* this code could be simplified */ 	
-	            joy_timer_clear(&ts);  
+            if (i == 0) {        /* this code could be simplified */    
+                    joy_timer_clear(&ts);  
             } else {
-	            joy_timer_sub(&time[i], &time[i-1], &ts);
+                    joy_timer_sub(&time[i], &time[i-1], &ts);
             }
             print_bytes_dir_time_tls(len[i], OUT, ts, msg_stat[i], "", f);
         }
@@ -2157,42 +2157,42 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
         while ((i < imax) || (j < jmax)) {      
 
             if (i >= imax) {  /* record list is exhausted, so use twin */
-	            dir = OUT;
-	            ts = time2[j];
-	            pkt_len = len2[j];
-	            stat = msg_stat2[j];
-	            j++;
+                    dir = OUT;
+                    ts = time2[j];
+                    pkt_len = len2[j];
+                    stat = msg_stat2[j];
+                    j++;
             } else if (j >= jmax) {  /* twin list is exhausted, so use record */
-	            dir = IN;
-	            ts = time[i];
-	            pkt_len = len[i];
-	            stat = msg_stat[i];
-	            i++;
+                    dir = IN;
+                    ts = time[i];
+                    pkt_len = len[i];
+                    stat = msg_stat[i];
+                    i++;
             } else { /* neither list is exhausted, so use list with lowest time */     
 
-	            if (joy_timer_lt(&time[i], &time2[j])) {
-	                ts = time[i];
-	                pkt_len = len[i];
-	                stat = msg_stat[i];
-	                dir = IN;
-	                if (i < imax) {
-	                    i++;
-	                }
-	            } else {
-	                ts = time2[j];
-	                pkt_len = len2[j];
-	                stat = msg_stat2[j];
-	                dir = OUT;
-	                if (j < jmax) {
-	                    j++;
-	                }
-	            }
+                    if (joy_timer_lt(&time[i], &time2[j])) {
+                        ts = time[i];
+                        pkt_len = len[i];
+                        stat = msg_stat[i];
+                        dir = IN;
+                        if (i < imax) {
+                            i++;
+                        }
+                    } else {
+                        ts = time2[j];
+                        pkt_len = len2[j];
+                        stat = msg_stat2[j];
+                        dir = OUT;
+                        if (j < jmax) {
+                            j++;
+                        }
+                    }
             }
             joy_timer_sub(&ts, &ts_last, &tmp);
             print_bytes_dir_time_tls(pkt_len, dir, tmp, stat, "", f);
             ts_last = ts;
             if (!((i == imax) & (j == jmax))) { /* we are done */
-	            zprintf(f, ",");
+                    zprintf(f, ",");
             }
         }
         zprintf(f, "]");
@@ -2262,7 +2262,7 @@ static void tls_print_extensions(const struct tls_extension *extensions,
         } else {
             /* The type is unknown */
             zprintf(f, "{\"kind\":%u", extensions[i].type);
-	        zprintf(f, ",\"data\":");
+                zprintf(f, ",\"data\":");
             zprintf_raw_as_hex_tls(f, extensions[i].data, extensions[i].length);
             zprintf(f, "}");
         }
@@ -2455,7 +2455,7 @@ void tls_print_json (const struct tls *data,
     if (data->tls_fingerprint) {
         zprintf(f, ",\"fingerprint_labels\":[");
         for (i = 0; i < data->tls_fingerprint->label_count; i++) {
-	        zprintf(f, "\"%s\"", data->tls_fingerprint->labels[i]);
+                zprintf(f, "\"%s\"", data->tls_fingerprint->labels[i]);
             if (i == (data->tls_fingerprint->label_count - 1)) {
                 zprintf(f, "]");
             } else {
@@ -2507,14 +2507,14 @@ void tls_print_json (const struct tls *data,
     /* Print out TLS application data lengths and times, if any */
     if (data->op) {
         if (data_twin) {
-	        len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->msg_stats,
-				       data_twin->op, data_twin->lengths, data_twin->times, data_twin->msg_stats, f);
+                len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->msg_stats,
+                                       data_twin->op, data_twin->lengths, data_twin->times, data_twin->msg_stats, f);
         } else {
-	    /*
-	     * unidirectional TLS does not typically happen, but if it
-	     * does, we need to pass in zero/NULLs, since there is no twin
-	     */
-	        len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->msg_stats, 0, NULL, NULL, NULL, f);
+            /*
+             * unidirectional TLS does not typically happen, but if it
+             * does, we need to pass in zero/NULLs, since there is no twin
+             */
+                len_time_print_interleaved_tls(data->op, data->lengths, data->times, data->msg_stats, 0, NULL, NULL, NULL, f);
         }
     }
 
@@ -2555,7 +2555,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     if (data->num_issuer_items) {
         zprintf(f, ",\"issuer\":[");
         for (j = 0; j < data->num_issuer_items; j++) {
-	        zprintf(f, "{\"%s\":\"%s\"}", data->issuer[j].id, (char *)data->issuer[j].data);
+                zprintf(f, "{\"%s\":\"%s\"}", data->issuer[j].id, (char *)data->issuer[j].data);
             if (j == (data->num_issuer_items - 1)) {
                 zprintf(f, "]");
             } else {
@@ -2567,7 +2567,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
     if (data->num_subject_items) {
         zprintf(f, ",\"subject\":[");
         for (j = 0; j < data->num_subject_items; j++) {
-	        zprintf(f, "{\"%s\":\"%s\"}", data->subject[j].id, (char *)data->subject[j].data);
+                zprintf(f, "{\"%s\":\"%s\"}", data->subject[j].id, (char *)data->subject[j].data);
             if (j == (data->num_subject_items - 1)) {
                 zprintf(f, "]");
             } else {
@@ -2707,10 +2707,10 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (cert_record->num_subject_items == known_items_count) {
-					/* windows compiler needs the constant and not the variable here */
-					//struct tls_item_entry kat_subject[known_items_count];
-					struct tls_item_entry kat_subject[7];
-					int j = 0;
+                                        /* windows compiler needs the constant and not the variable here */
+                                        //struct tls_item_entry kat_subject[known_items_count];
+                                        struct tls_item_entry kat_subject[7];
+                                        int j = 0;
 
                     /* Known values */
                     strncpy(kat_subject[0].id, "countryName", MAX_OPENSSL_STRING);
@@ -2799,10 +2799,10 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (cert_record->num_issuer_items == known_items_count) {
-					/* windows compiler needs the constant and not the variable here */
-					//struct tls_item_entry kat_issuer[known_items_count];
-					struct tls_item_entry kat_issuer[7];
-					int j = 0;
+                                        /* windows compiler needs the constant and not the variable here */
+                                        //struct tls_item_entry kat_issuer[known_items_count];
+                                        struct tls_item_entry kat_issuer[7];
+                                        int j = 0;
 
                     /* Known values */
                     strncpy(kat_issuer[0].id, "countryName", MAX_OPENSSL_STRING);
@@ -2972,10 +2972,10 @@ static int tls_test_certificate_parsing() {
                 int failed = 0;
 
                 if (cert_record->num_extension_items == known_items_count) {
-					/* windows compiler needs the constant and not the variable here */
-					//struct tls_item_entry kat_extensions[known_items_count];
-					struct tls_item_entry kat_extensions[3];
-					int j = 0;
+                                        /* windows compiler needs the constant and not the variable here */
+                                        //struct tls_item_entry kat_extensions[known_items_count];
+                                        struct tls_item_entry kat_extensions[3];
+                                        int j = 0;
 
                     char *known_subject_key_identifier = "CE:BF:D3:46:C6:75:AB:8C:B2:E8:"
                                                          "CF:B8:2E:2F:43:6E:C9:17:AD:BA";
@@ -3232,10 +3232,10 @@ static int tls_test_extract_client_hello(const unsigned char *data,
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         uint16_t known_ciphersuites_count = 15;
         uint16_t known_extensions_count = 11;
-		/* windows compiler needs the constant and not the variable here */
-		//struct tls_extension known_extensions[known_extensions_count];
-		struct tls_extension known_extensions[11];
-		int failed = 0;
+                /* windows compiler needs the constant and not the variable here */
+                //struct tls_extension known_extensions[known_extensions_count];
+                struct tls_extension known_extensions[11];
+                int failed = 0;
         int i = 0;
 
         uint16_t known_ciphersuites[] = {49195, 49199, 52393, 52392, 49196, 49200, 49162, 49161,
@@ -3387,10 +3387,10 @@ static int tls_test_extract_server_hello(const unsigned char *data,
     if (!strcmp(filename, "sample_tls12_handshake_0.pcap")) {
         uint16_t known_extensions_count = 5;
         uint16_t known_ciphersuite = 0xc02b;
-		/* windows compiler needs the constant and not the variable here */
-		//struct tls_extension known_extensions[known_extensions_count];
-		struct tls_extension known_extensions[5];
-		int failed = 0;
+                /* windows compiler needs the constant and not the variable here */
+                //struct tls_extension known_extensions[known_extensions_count];
+                struct tls_extension known_extensions[5];
+                int failed = 0;
         int i = 0;
 
         unsigned char kat_data_2[] = {0x03, 0x00, 0x01, 0x02};

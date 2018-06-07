@@ -134,9 +134,9 @@ void print_hex_ascii_line (const char *data, int len, int offset) {
  */
 static void print_payload (const char *payload, int len) {
     int len_rem = len;
-    int line_width = 16;			/* number of bytes per line */
+    int line_width = 16;                        /* number of bytes per line */
     int line_len;
-    int offset = 0;		        /* zero-based offset counter */
+    int offset = 0;                     /* zero-based offset counter */
     const char *ch = payload;
 
     if (len <= 0)
@@ -173,8 +173,8 @@ static void print_payload (const char *payload, int len) {
 #endif
 
 static void flow_record_process_packet_length_and_time_ack (struct flow_record *record,
-		    unsigned int length, const struct timeval *time,
-		    const struct tcp_hdr *tcp) {
+                    unsigned int length, const struct timeval *time,
+                    const struct tcp_hdr *tcp) {
 
     if (record->op >= NUM_PKT_LEN) {
         return;  /* no more room */
@@ -184,20 +184,20 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
         case rle:
             if (glb_config->include_zeroes || length != 0) {
                 if (length == record->last_pkt_len) {
-	                  if (record->pkt_len[record->op] < 32768) {
-	                      record->op++;
-	                  }
-	                  (record->pkt_len[record->op])--;
-	                  record->pkt_time[record->op] = *time;
-	                  // fprintf(info, " == pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
+                          if (record->pkt_len[record->op] < 32768) {
+                              record->op++;
+                          }
+                          (record->pkt_len[record->op])--;
+                          record->pkt_time[record->op] = *time;
+                          // fprintf(info, " == pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
                 } else {
-	                  if (record->pkt_len[record->op] != 0) {
-	                      record->op++;
-	                  }
-	                  record->pkt_len[record->op] = length;
-	                  record->pkt_time[record->op] = *time;
-	                  record->last_pkt_len = length;
-	                  // fprintf(info, " != pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
+                          if (record->pkt_len[record->op] != 0) {
+                              record->op++;
+                          }
+                          record->pkt_len[record->op] = length;
+                          record->pkt_time[record->op] = *time;
+                          record->last_pkt_len = length;
+                          // fprintf(info, " != pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
                 }
             }
             break;
@@ -208,29 +208,29 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
                 record->pkt_time[record->op] = *time;
             }
             if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
-	              if (record->pkt_len[record->op] != 0) {
-	                  record->op++;
-	              }
+                      if (record->pkt_len[record->op] != 0) {
+                          record->op++;
+                      }
             }
             break;
 
         case defragmented:
             if (glb_config->include_zeroes || length != 0) {
                 if (length == record->last_pkt_len) {
-	                  record->op--;
-	                  record->pkt_len[record->op] += length;
-	                  record->pkt_time[record->op] = *time;
-	                  record->op++;
+                          record->op--;
+                          record->pkt_len[record->op] += length;
+                          record->pkt_time[record->op] = *time;
+                          record->op++;
                 } else {
-	                  record->pkt_len[record->op] = length;
-	                  record->pkt_time[record->op] = *time;
-	                  record->last_pkt_len = length;
-	                  record->op++;
+                          record->pkt_len[record->op] = length;
+                          record->pkt_time[record->op] = *time;
+                          record->last_pkt_len = length;
+                          record->op++;
                 }
             }
             if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
                 if (record->pkt_len[record->op] != 0) {
-	                  record->op++;
+                          record->op++;
                 }
                 record->last_pkt_len = length;
             }
@@ -330,7 +330,7 @@ enum status process_ipfix(joy_ctx_data *ctx, const char *start,
      */
     else if (set_id == 3) {
       /* Ignore Options Template for now, what is this used for? */
-	  joy_log_warn("Options Template NYI\n");
+          joy_log_warn("Options Template NYI\n");
     }
     /*
      * Set ID is a Data Set
@@ -398,50 +398,50 @@ static enum status process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *he
 
             while (flowset_length-4 > 0) {
 
-	              // define data template key {source IP + source ID + template ID}
-	              const struct nfv9_template_hdr *template_hdr = (const struct nfv9_template_hdr*)template_ptr;
-	              flowset_length -= 4;
-	              template_ptr += 4;
-	              u_short template_id = htons(template_hdr->TemplateID);
-	              u_short field_count = htons(template_hdr->FieldCount);
+                      // define data template key {source IP + source ID + template ID}
+                      const struct nfv9_template_hdr *template_hdr = (const struct nfv9_template_hdr*)template_ptr;
+                      flowset_length -= 4;
+                      template_ptr += 4;
+                      u_short template_id = htons(template_hdr->TemplateID);
+                      u_short field_count = htons(template_hdr->FieldCount);
 
-	              struct nfv9_template_key nf_template_key;
+                      struct nfv9_template_key nf_template_key;
                       memset(&nf_template_key, 0x0, sizeof(struct nfv9_template_key));
-	              nfv9_template_key_init(&nf_template_key, r->key.sa.s_addr, htonl(nfv9->SourceID), template_id);
+                      nfv9_template_key_init(&nf_template_key, r->key.sa.s_addr, htonl(nfv9->SourceID), template_id);
 
-	              // check to see if template already exists, if so, continue
-	              int i;
-	              int redundant_template = 0;
-	              for (i = 0; i < num_templates; i++) {
-	                  if (nfv9_template_key_cmp(&nf_template_key,&v9_templates[i].template_key) == 0) {
-	                      redundant_template = 1;
-	                      break ;
-	                  }
-	              }
+                      // check to see if template already exists, if so, continue
+                      int i;
+                      int redundant_template = 0;
+                      for (i = 0; i < num_templates; i++) {
+                          if (nfv9_template_key_cmp(&nf_template_key,&v9_templates[i].template_key) == 0) {
+                              redundant_template = 1;
+                              break ;
+                          }
+                      }
 
-	              if (redundant_template) {
-	                  template_ptr += 4*field_count;
-	                  flowset_length -= 4*field_count;
-	              } else {
-	                  // create list of fields for template
-	                  struct nfv9_template v9_template;
-	                  v9_template.hdr.TemplateID = template_id;
-	                  v9_template.hdr.FieldCount = field_count;
-	                  for (i = 0; i < field_count; i++) {
-	                      const struct nfv9_template_field *tmp_field = (const struct nfv9_template_field*)template_ptr;
-	                      template_ptr += 4;
-	                      flowset_length -= 4;
+                      if (redundant_template) {
+                          template_ptr += 4*field_count;
+                          flowset_length -= 4*field_count;
+                      } else {
+                          // create list of fields for template
+                          struct nfv9_template v9_template;
+                          v9_template.hdr.TemplateID = template_id;
+                          v9_template.hdr.FieldCount = field_count;
+                          for (i = 0; i < field_count; i++) {
+                              const struct nfv9_template_field *tmp_field = (const struct nfv9_template_field*)template_ptr;
+                              template_ptr += 4;
+                              flowset_length -= 4;
 
-	                      v9_template.fields[i].FieldType = tmp_field->FieldType;
-	                      v9_template.fields[i].FieldLength = tmp_field->FieldLength;
-	                  }
-	                  v9_template.template_key = nf_template_key;
+                              v9_template.fields[i].FieldType = tmp_field->FieldType;
+                              v9_template.fields[i].FieldLength = tmp_field->FieldLength;
+                          }
+                          v9_template.template_key = nf_template_key;
 
-	                  // save template
-	                  v9_templates[num_templates] = v9_template;
-	                  num_templates += 1;
-	                  num_templates %= MAX_TEMPLATES;
-	              }
+                          // save template
+                          v9_templates[num_templates] = v9_template;
+                          num_templates += 1;
+                          num_templates %= MAX_TEMPLATES;
+                      }
             }
         } else if (flowset_id == 1) {
             /*
@@ -459,66 +459,66 @@ static enum status process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *he
             const struct nfv9_template *cur_template = NULL;
             int i;
             for (i = 0; i < num_templates; i++) {
-	              /*
+                      /*
                 if (nfv9_template_key_cmp(&nf_template_key,&v9_templates[i].template_key) == 0) {
-	                  cur_template = &v9_templates[i];
-	                  break ;
-	              }
+                          cur_template = &v9_templates[i];
+                          break ;
+                      }
                 */
-	              if (nf_template_key.src_id == v9_templates[i].template_key.src_id &&
-	                  nf_template_key.template_id == v9_templates[i].template_key.template_id &&
-	                  nf_template_key.src_addr.s_addr == v9_templates[i].template_key.src_addr.s_addr) {
-	                  cur_template = &v9_templates[i];
-	                  break ;
-	              }
+                      if (nf_template_key.src_id == v9_templates[i].template_key.src_id &&
+                          nf_template_key.template_id == v9_templates[i].template_key.template_id &&
+                          nf_template_key.src_addr.s_addr == v9_templates[i].template_key.src_addr.s_addr) {
+                          cur_template = &v9_templates[i];
+                          break ;
+                      }
             }
 
             if (cur_template != NULL) {
-	              // find length of template
-	              int flow_record_size = 0;
-	              for (i = 0; i < cur_template->hdr.FieldCount; i++) {
-	                  flow_record_size += htons(cur_template->fields[i].FieldLength);
-	              }
+                      // find length of template
+                      int flow_record_size = 0;
+                      for (i = 0; i < cur_template->hdr.FieldCount; i++) {
+                          flow_record_size += htons(cur_template->fields[i].FieldLength);
+                      }
 
-		      if (flow_record_size <= 0) {
-			  joy_log_warn("flow record size is 0");
-			  return failure;
-		      }
+                      if (flow_record_size <= 0) {
+                          joy_log_warn("flow record size is 0");
+                          return failure;
+                      }
 
-	              // process multiple flow records within a single template
-	              int flow_records_in_set;
-	              for (flow_records_in_set = 0; flow_records_in_set < (htons(nfv9_fh->Length)-4)/flow_record_size;
+                      // process multiple flow records within a single template
+                      int flow_records_in_set;
+                      for (flow_records_in_set = 0; flow_records_in_set < (htons(nfv9_fh->Length)-4)/flow_record_size;
                          flow_records_in_set++) {
 
-	                  // fill out key
-	                  struct flow_key key;
-	                  const void *flow_data = (start+flow_record_size*flow_records_in_set) + 4;
+                          // fill out key
+                          struct flow_key key;
+                          const void *flow_data = (start+flow_record_size*flow_records_in_set) + 4;
 
-	                  // init key
-	                  nfv9_flow_key_init(&key, cur_template, flow_data);
+                          // init key
+                          nfv9_flow_key_init(&key, cur_template, flow_data);
 
                       /*
                        * Either get an existing record for the netflow data or make a new one.
                        * Don't include the header because it is the packet that was sent
                        * by exporter -> collector (not the netflow data).
                        */
-	                  struct flow_record *nf_record = NULL;
-	                  nf_record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
+                          struct flow_record *nf_record = NULL;
+                          nf_record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
-	                  // fill out record
-	                  if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
-	                      nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
-	                  } else {
-	                      nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
-	                  }
-	                  memcpy(&prev_key,&key,sizeof(struct flow_key));
+                          // fill out record
+                          if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
+                              nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
+                          } else {
+                              nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
+                          }
+                          memcpy(&prev_key,&key,sizeof(struct flow_key));
 
-	                  flowset_num += 1;
+                          flowset_num += 1;
 
-	                  /* print the record immediately to output */
-	                  //flow_record_print_json(nf_record);
+                          /* print the record immediately to output */
+                          //flow_record_print_json(nf_record);
 
-	              }
+                      }
             } else {
                 joy_log_warn("Current template is null");
             }
@@ -889,12 +889,12 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
     */
     switch(ether_type) {
        case ETH_TYPE_IP:
-	   joy_log_info("Ethernet type - normal");
+           joy_log_info("Ethernet type - normal");
            ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = ip_hdr_length(ip);
            break;
        case ETH_TYPE_DOT1Q:
-	   joy_log_info("Ethernet type - 802.1Q VLAN");
+           joy_log_info("Ethernet type - 802.1Q VLAN");
            //Offset to get VLAN_TYPE
            vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
@@ -970,9 +970,9 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
     switch(proto) {
         case IPPROTO_TCP:
             record = process_tcp(ctx, header, transport_start, transport_len, &key);
-	    if (record) {
-	      update_all_tcp_features(tcp_feature_list);
-	    }
+            if (record) {
+              update_all_tcp_features(tcp_feature_list);
+            }
             break;
         case IPPROTO_UDP:
             record = process_udp(ctx, header, transport_start, transport_len, &key);
