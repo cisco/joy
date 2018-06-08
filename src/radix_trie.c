@@ -756,6 +756,7 @@ static void radix_trie_node_print (const struct radix_trie *r,
     }
     //let's make sure we don't write past the end of the tmp buffer;
     if (i <= 252) {
+	ptr = &tmp[i];//reset pointer to eliminate coverity error
         *ptr++ = ' ';
         *ptr++ = ' ';
         *ptr++ = ' ';
