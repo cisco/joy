@@ -1075,9 +1075,9 @@ int radix_trie_unit_test () {
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
-    if ((attr & c2_attr) == 0) {
+    if ((attr & watchlist_attr) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)",
-                        c2_attr, attr);
+                        watchlist_attr, attr);
         test_failed = 1;
     }
    
