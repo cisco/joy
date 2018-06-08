@@ -389,7 +389,7 @@ static unsigned int index_to_flag (unsigned int x) {
     unsigned int flag = 0;
 
     /* sanity check */
-    if (x > MAX_NUM_FLAGS) {
+    if (x >= MAX_NUM_FLAGS) {
         return 0;  /* failure; not that many flags */
     }
 
@@ -404,7 +404,7 @@ static unsigned int index_to_flag (unsigned int x) {
 static unsigned int flag_to_index (unsigned int y) {
     unsigned int i = 0;
   
-    while (y > 0) {
+    while (y > 0 && y < 32) {
         y = y >> 1;
         i++;
     }
@@ -1075,7 +1075,7 @@ int radix_trie_unit_test () {
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
-    if ((attr & watchlist_attr) == 0) {
+    if ((attr & c2_attr) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)",
                         c2_attr, attr);
         test_failed = 1;

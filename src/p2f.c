@@ -1216,7 +1216,8 @@ static const struct flow_record *get_client_flow(const struct flow_record *a,
  *
  * \return none
  */
-static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record *record) {
+static void flow_record_print_json
+ (joy_ctx_data *ctx, const struct flow_record *record) {
     unsigned int i, j, imax, jmax;
     struct timeval ts, ts_last, ts_start, ts_end, tmp;
     const struct flow_record *rec = NULL;
@@ -1414,8 +1415,8 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
     }
 
     if (glb_config->byte_distribution || glb_config->report_entropy || glb_config->compact_byte_distribution) {
-        const unsigned int *array;
-        const unsigned int *compact_array;
+        const unsigned int *array = NULL;
+        const unsigned int *compact_array = NULL;
         unsigned int tmp[256];
         unsigned int compact_tmp[16];
         unsigned int num_bytes;
@@ -1427,7 +1428,7 @@ static void flow_record_print_json (joy_ctx_data *ctx, const struct flow_record 
          */
         if (rec->twin == NULL) {
             array = rec->byte_count;
-            compact_array = rec->compact_byte_count;
+            //compact_array = rec->compact_byte_count; //overwritten below fixme
             num_bytes = rec->ob;
 
             for (i=0; i<256; i++) {

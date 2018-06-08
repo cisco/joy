@@ -600,7 +600,7 @@ static int set_logfile() {
 
         info = fopen(logfile, "a");
         if (info == NULL) {
-            joy_log_crit("could not open log file %s", glb_config->logfile);
+            fprintf(stderr, "could not open log file %s", glb_config->logfile);
             return 1;
         }
         fprintf(stderr, "writing errors/warnings/info/debug output to %s\n", glb_config->logfile);

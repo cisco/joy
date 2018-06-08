@@ -636,7 +636,7 @@ static void process_pid_string (struct ss_flow *fr, char *string) {
     *s = 0;
 
     /* copy app name into the flow record */
-    strncpy(fr->command,string,strlen(string));
+    strncpy(fr->command, string, PROC_PATH_LEN-1);
 
     /* skip over to the pid */
     s += 6;
