@@ -262,8 +262,8 @@ enum status process_ipfix(joy_ctx_data *ctx, const char *start,
                           int len,
                           struct flow_record *r) {
 
-  const struct ipfix_hdr *ipfix = (const struct ipfix_hdr*)start;
-  const struct ipfix_set_hdr *ipfix_sh;
+  const ipfix_hdr_t *ipfix = (const ipfix_hdr_t*)start;
+  const ipfix_set_hdr_t *ipfix_sh;
   struct flow_key prev_key;
   uint16_t message_len = ntohs(ipfix->length);
   int set_num = 0;
@@ -302,8 +302,8 @@ enum status process_ipfix(joy_ctx_data *ctx, const char *start,
   /*
    * Parse IPFIX message for template, options, or data sets.
    */
-  while (message_len > sizeof(struct ipfix_set_hdr)) {
-    ipfix_sh = (const struct ipfix_set_hdr*)start;
+  while (message_len > sizeof(ipfix_set_hdr_t)) {
+    ipfix_sh = (const ipfix_set_hdr_t*)start;
     uint16_t set_id = ntohs(ipfix_sh->set_id);
 
     joy_log_debug("Set ID: %i\n", set_id);
