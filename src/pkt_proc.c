@@ -172,7 +172,7 @@ static void print_payload (const char *payload, int len) {
 }
 #endif
 
-static void flow_record_process_packet_length_and_time_ack (struct flow_record *record,
+static void flow_record_process_packet_length_and_time_ack (flow_record_t *record,
                     unsigned int length, const struct timeval *time,
                     const struct tcp_hdr *tcp) {
 
@@ -258,9 +258,9 @@ static void flow_record_process_packet_length_and_time_ack (struct flow_record *
  * @param len Total length of the data.
  * @param r Flow record tracking the inbound network packet.
  */
-enum status process_ipfix(joy_ctx_data *ctx, const char *start,
+joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
                           int len,
-                          struct flow_record *r) {
+                          flow_record_t *r) {
 
   const ipfix_hdr_t *ipfix = (const ipfix_hdr_t*)start;
   const ipfix_set_hdr_t *ipfix_sh;
@@ -351,7 +351,7 @@ enum status process_ipfix(joy_ctx_data *ctx, const char *start,
   return ok;
 }
 
-static enum status process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, struct flow_record *r) {
+static joy_status_e process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, flow_record_t *r) {
     const struct nfv9_hdr *nfv9 = (const struct nfv9_hdr*)start;
     struct flow_key prev_key;
     int flowset_num = 0;
@@ -502,7 +502,7 @@ static enum status process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *he
                        * Don't include the header because it is the packet that was sent
                        * by exporter -> collector (not the netflow data).
                        */
-                          struct flow_record *nf_record = NULL;
+                          flow_record_t *nf_record = NULL;
                           nf_record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
                           // fill out record
@@ -531,13 +531,13 @@ static enum status process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *he
     return ok;
 }
 
-static struct flow_record *
+static flow_record_t *
 process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, struct flow_key *key) {
     unsigned int tcp_hdr_len;
     const char *payload;
     unsigned int size_payload;
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
-    struct flow_record *record = NULL;
+    flow_record_t *record = NULL;
 
     joy_log_info("Protocol: TCP");
 
@@ -667,13 +667,13 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
     return record;
 }
 
-static struct flow_record *
+static flow_record_t *
 process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *udp_start, int udp_len, struct flow_key *key) {
     unsigned int udp_hdr_len;
     const char *payload;
     unsigned int size_payload;
     const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
-    struct flow_record *record = NULL;
+    flow_record_t *record = NULL;
 
     joy_log_info("Protocol: UDP");
 
@@ -737,13 +737,13 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
     return record;
 }
 
-static struct flow_record *
+static flow_record_t *
 process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, struct flow_key *key) {
     int size_icmp_hdr;
     const char *payload;
     int size_payload;
     const struct icmp_hdr *icmp = (const struct icmp_hdr *)start;
-    struct flow_record *record = NULL;
+    flow_record_t *record = NULL;
 
     joy_log_info("Protocol: ICMP");
 
@@ -801,11 +801,11 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
     return record;
 }
 
-static struct flow_record *
+static flow_record_t *
 process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_start, int ip_len, struct flow_key *key) {
     const char *payload;
     int size_payload;
-    struct flow_record *record = NULL;
+    flow_record_t *record = NULL;
 
     joy_log_info("Protocol: IP");
 
@@ -857,7 +857,7 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
                      const unsigned char *packet) {
     //  static int packet_count = 1;
-    struct flow_record *record;
+    flow_record_t *record;
     unsigned char proto = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0;
     char ipv4_addr[INET_ADDRSTRLEN];

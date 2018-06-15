@@ -556,7 +556,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
 }
 
 #if 0
-static enum status process_dns (const struct pcap_pkthdr *h, const void *start, int len, struct flow_record *r) {
+static joy_status_e process_dns (const struct pcap_pkthdr *h, const void *start, int len, flow_record_t *r) {
     // const char *name = start + 13;
     // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
     // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
@@ -761,18 +761,18 @@ void dns_unit_test () {
  *
  * \return none
  */
-void dns_init (struct dns **dns_handle) {
+void dns_init (dns_t **dns_handle) {
     if (*dns_handle != NULL) {
         dns_delete(dns_handle);
     }
 
-    *dns_handle = malloc(sizeof(struct dns));
+    *dns_handle = malloc(sizeof(dns_t));
     if (*dns_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*dns_handle, 0, sizeof(struct dns));
+    memset(*dns_handle, 0, sizeof(dns_t));
 }
 
 /**
@@ -782,9 +782,9 @@ void dns_init (struct dns **dns_handle) {
  *
  * \return none
  */
-void dns_delete (struct dns **dns_handle) {
+void dns_delete (dns_t **dns_handle) {
     unsigned int i;
-    struct dns *dns = *dns_handle;
+    dns_t *dns = *dns_handle;
 
     if (dns == NULL) {
         return;
@@ -802,7 +802,7 @@ void dns_delete (struct dns **dns_handle) {
 }
 
 /**
- * \fn void dns_update (struct dns *dns,
+ * \fn void dns_update (dns_t *dns,
  *                      const struct pcap_pkthdr *header,
                         const void *start,
                         unsigned int len,
@@ -814,7 +814,7 @@ void dns_delete (struct dns **dns_handle) {
  * \param report_dns determine if we can report DNS info
  * \return none
  */
-void dns_update (struct dns *dns, const struct pcap_pkthdr *header, const void *start, unsigned int len, unsigned int report_dns) {
+void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start, unsigned int len, unsigned int report_dns) {
     // const char *name = start + 13;
     // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
     // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
@@ -848,13 +848,13 @@ void dns_update (struct dns *dns, const struct pcap_pkthdr *header, const void *
 }
 
 /**
- * \fn void dns_print_json (const struct dns *dns1, const struct dns *dns2, zfile f)
+ * \fn void dns_print_json (const dns_t *dns1, const dns_t *dns2, zfile f)
  * \param dns1 pointer to DNS structure
  * \param dn2 pointer to DNS structure
  * \param f output file
  * \return none
  */
-void dns_print_json (const struct dns *dns1, const struct dns *dns2, zfile f) {
+void dns_print_json (const dns_t *dns1, const dns_t *dns2, zfile f) {
     unsigned int count;
     char * const *twin_dns_name = NULL;
     const unsigned short *twin_pkt_len = NULL;

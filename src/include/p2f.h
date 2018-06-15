@@ -107,8 +107,6 @@ struct flow_key {
 #include "procwatch.h"
 #include "config.h"
 
-/* external declaration of the global config */
-extern struct configuration *glb_config;
 
 /* external declaration of the file destinations */
 extern FILE *info;
@@ -121,7 +119,7 @@ extern FILE *info;
 #define MAX_NUM_PKT_LEN 200
 #define MAX_IDP 1500
 
-struct flow_record {
+typedef struct flow_record_ {
     struct flow_key key;                  /*!< identifies flow by 5-tuple          */
     uint16_t app;                         /*!< application protocol prediction     */
     uint8_t dir;                          /*!< direction of the flow               */
@@ -155,12 +153,12 @@ struct flow_record {
   
     define_all_features(feature_list)     /*!< define all features listed in feature.h */
   
-    struct flow_record *twin;             /*!< other half of bidirectional flow    */
-    struct flow_record *next;             /*!< next record in flow_record_list     */
-    struct flow_record *prev;             /*!< previous record in flow_record_list */
-    struct flow_record *time_prev;        /*!< previous record in chronological list */
-    struct flow_record *time_next;        /*!< next record in chronological list     */
-};
+    struct flow_record_ *twin;             /*!< other half of bidirectional flow    */
+    struct flow_record_ *next;             /*!< next record in flow_record_list     */
+    struct flow_record_ *prev;             /*!< previous record in flow_record_list */
+    struct flow_record_ *time_prev;        /*!< previous record in chronological list */
+    struct flow_record_ *time_next;        /*!< next record in chronological list     */
+} flow_record_t;
 
 
 /** \remarks \verbatim
@@ -203,7 +201,7 @@ struct flow_record {
  * an array of such lists is used as a flow cache
  */
 
-typedef struct flow_record *flow_record_list;
+typedef flow_record_t *flow_record_list;
 
 #define CREATE_RECORDS      1
 #define DONT_CREATE_RECORDS 0
@@ -227,7 +225,7 @@ typedef struct flow_record *flow_record_list;
  * (dst, src, dstp, srcp, pr) with addresses and ports swapped.  If a
  * flow_record that is the twin of the flow_key k exists before the
  * invocation of flow_key_get_records(k, flag), then the pointer
- * "struct flow_record *twin" of both that record and its twin are set
+ * "flow_record_t *twin" of both that record and its twin are set
  * to point to each other.  That is, this function performs the
  * stitching of unidirectional flows into bidirectional flows as
  * appropriate.  The function flow_record_print_json() recognizes when
@@ -235,19 +233,19 @@ typedef struct flow_record *flow_record_list;
  * "twin" pointer, and prints out bidirectional information.
  *
  */
-struct flow_record *flow_key_get_record(joy_ctx_data *ctx,
+flow_record_t *flow_key_get_record(joy_ctx_data *ctx,
                                         const struct flow_key *key,
                                         unsigned int create_new_records,
                                         const struct pcap_pkthdr *header);
 
 
 /** update the byte count of the flow record */
-void flow_record_update_byte_count(struct flow_record *f, const void *x, unsigned int len);
+void flow_record_update_byte_count(flow_record_t *f, const void *x, unsigned int len);
 
 /** update the compact byte count of the flow record */
-void flow_record_update_compact_byte_count(struct flow_record *f, const void *x, unsigned int len);
+void flow_record_update_compact_byte_count(flow_record_t *f, const void *x, unsigned int len);
 
-void flow_record_update_byte_dist_mean_var(struct flow_record *f, const void *x, unsigned int len);
+void flow_record_update_byte_dist_mean_var(flow_record_t *f, const void *x, unsigned int len);
 
 void flow_record_list_init(joy_ctx_data *ctx);
 
@@ -257,9 +255,9 @@ void flow_record_export_as_ipfix(joy_ctx_data *ctx, unsigned int print_all);
 
 void flow_record_list_print_json(joy_ctx_data *ctx, unsigned int print_all);
 
-unsigned int flow_record_is_expired(joy_ctx_data *ctx, struct flow_record *record);
+unsigned int flow_record_is_expired(joy_ctx_data *ctx, flow_record_t *record);
 
-void remove_record_and_update_list(joy_ctx_data *ctx, struct flow_record *rec);
+void remove_record_and_update_list(joy_ctx_data *ctx, flow_record_t *rec);
 
 int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);
 
@@ -277,15 +275,15 @@ int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struc
  * written to output
  *
  */
-struct flocap_stats {
+typedef struct flocap_stats_ {
   unsigned long int num_packets;
   unsigned long int num_bytes;
   unsigned long int num_records_in_table;
   unsigned long int num_records_output;
   unsigned long int malloc_fail;
-};
+} flocap_stats_t;
 
-//#define flocap_stats_init(c) struct flocap_stats stats = {  0, 0, 0, 0 };
+//#define flocap_stats_init(c) flocap_stats_t stats = {  0, 0, 0, 0 };
 
 #define flocap_stats_get_num_packets(c) (c->stats.num_packets)
 

@@ -323,7 +323,7 @@ static unsigned int decode_uint32(const char *data) {
     return ntohl(*x);
 }
 
-static enum status decode_ssh_vector(const char **dataptr,
+static joy_status_e decode_ssh_vector(const char **dataptr,
                                      unsigned int *datalen,
                                      struct vector *vector,
                                      unsigned int maxlen) {

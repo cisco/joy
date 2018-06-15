@@ -181,15 +181,15 @@ static void ipfix_template_key_init(ipfix_template_key_t *k,
 
 
 static int ipfix_process_flow_sys_up_time(const void *flow_data,
-                                          struct flow_record *ix_record,
+                                          flow_record_t *ix_record,
                                           int flag_end);
 
 
-static int ipfix_skip_idp_header(struct flow_record *nf_record,
+static int ipfix_skip_idp_header(flow_record_t *nf_record,
                                  const unsigned char **payload,
                                  unsigned int *size_payload);
 
-static void ipfix_process_flow_record(struct flow_record *ix_record,
+static void ipfix_process_flow_record(flow_record_t *ix_record,
 				      const ipfix_template_t *cur_template,
 				      const char *flow_data,
 				      int record_num);
@@ -240,7 +240,7 @@ static int ipfix_collect_process_socket(joy_ctx_data *ctx,
                                         unsigned int data_len,
                                         struct sockaddr_in *remote_addr) {
   struct flow_key key;
-  struct flow_record *record = NULL;
+  flow_record_t *record = NULL;
 
   /* Create a flow_key and flow_record to use */
   memset(&key, 0, sizeof(struct flow_key));
@@ -1035,7 +1035,7 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
     /* Process data if we know the template */
     if (cur_template->hdr.template_id != 0) {
         struct flow_key key;
-        struct flow_record *ix_record;
+        flow_record_t *ix_record;
         
         memset(&key, 0, sizeof(struct flow_key));
         
@@ -1097,7 +1097,7 @@ cleanup:
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_skip_idp_header(struct flow_record *ix_record,
+static int ipfix_skip_idp_header(flow_record_t *ix_record,
                                  const unsigned char **payload,
                                  unsigned int *size_payload) {
 
@@ -1180,7 +1180,7 @@ static int ipfix_skip_idp_header(struct flow_record *ix_record,
  * @return 0 for success, 1 for failure
  */
 static int ipfix_process_flow_sys_up_time(const void *flow_data,
-                                          struct flow_record *ix_record,
+                                          flow_record_t *ix_record,
                                           int flag_end) {
     struct timeval *time;
     switch (flag_end) {
@@ -1216,7 +1216,7 @@ static int ipfix_process_flow_sys_up_time(const void *flow_data,
  * @return 0 for success, 1 for failure
  */
 static int ipfix_process_flow_time_milli(const void *flow_data,
-                                         struct flow_record *ix_record,
+                                         flow_record_t *ix_record,
                                          int flag_end) {
     struct timeval *time;
     switch (flag_end) {
@@ -1252,7 +1252,7 @@ static int ipfix_process_flow_time_milli(const void *flow_data,
  * @return 0 for success, 1 for failure
  */
 static int ipfix_process_flow_time_micro(const void *flow_data,
-                                         struct flow_record *ix_record,
+                                         flow_record_t *ix_record,
                                          int flag_end) {
     struct timeval *time;
     switch (flag_end) {
@@ -1285,7 +1285,7 @@ static int ipfix_process_flow_time_micro(const void *flow_data,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_byte_distribution(struct flow_record *ix_record,
+static void ipfix_process_byte_distribution(flow_record_t *ix_record,
                                             const char *data,
                                             uint16_t data_length,
                                             uint16_t element_length) {
@@ -1314,7 +1314,7 @@ static void ipfix_process_byte_distribution(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_spl(struct flow_record *ix_record,
+static void ipfix_process_spl(flow_record_t *ix_record,
                               const char *data,
                               uint16_t data_length,
                               uint16_t element_length) {
@@ -1383,7 +1383,7 @@ static void ipfix_process_spl(struct flow_record *ix_record,
  * @param element_length Length in octets of each element.
  * @param hdr_length Length in octets of the basicList header.
  */
-static void ipfix_process_spt(struct flow_record *ix_record,
+static void ipfix_process_spt(flow_record_t *ix_record,
                               const char *data,
                               uint16_t data_length,
                               uint16_t element_length,
@@ -1486,7 +1486,7 @@ static void ipfix_process_spt(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
+static void ipfix_process_tls_record_lengths(flow_record_t *ix_record,
                                              const char *data,
                                              uint16_t data_length,
                                              uint16_t element_length) {
@@ -1515,7 +1515,7 @@ static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_record_times(struct flow_record *ix_record,
+static void ipfix_process_tls_record_times(flow_record_t *ix_record,
                                            const char *data,
                                            uint16_t data_length,
                                            uint16_t element_length) {
@@ -1554,7 +1554,7 @@ static void ipfix_process_tls_record_times(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_content_types(struct flow_record *ix_record,
+static void ipfix_process_tls_content_types(flow_record_t *ix_record,
                                             const char *data,
                                             uint16_t data_length,
                                             uint16_t element_length) {
@@ -1583,7 +1583,7 @@ static void ipfix_process_tls_content_types(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
+static void ipfix_process_tls_handshake_types(flow_record_t *ix_record,
                                               const char *data,
                                               uint16_t data_length,
                                               uint16_t element_length) {
@@ -1614,7 +1614,7 @@ static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_cipher_suites(struct flow_record *ix_record,
+static void ipfix_process_tls_cipher_suites(flow_record_t *ix_record,
                                             const char *data,
                                             uint16_t data_length,
                                             uint16_t element_length) {
@@ -1644,7 +1644,7 @@ static void ipfix_process_tls_cipher_suites(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
+static void ipfix_process_tls_ext_lengths(flow_record_t *ix_record,
                                           const char *data,
                                           uint16_t data_length,
                                           uint16_t element_length) {
@@ -1673,7 +1673,7 @@ static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
+static void ipfix_process_tls_ext_types(flow_record_t *ix_record,
                                           const char *data,
                                           uint16_t data_length,
                                           uint16_t element_length) {
@@ -1703,7 +1703,7 @@ static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
  * @param data Contains the basicList.
  * @param data_length Length in octets of the basicList.
  */
-static void ipfix_parse_basic_list(struct flow_record *ix_record,
+static void ipfix_parse_basic_list(flow_record_t *ix_record,
                                    const void *data,
                                    uint16_t data_length) {
     const char *ptr = data;
@@ -1793,7 +1793,7 @@ static void ipfix_parse_basic_list(struct flow_record *ix_record,
  *                   Use 0 for yes, otherwise no
  *
  */
-static void ipfix_process_flow_record(struct flow_record *ix_record,
+static void ipfix_process_flow_record(flow_record_t *ix_record,
                                       const ipfix_template_t *cur_template,
                                       const char *flow_data,
                                       int record_num) {
@@ -1802,7 +1802,7 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
     const char *flow_ptr = flow_data;
     const unsigned char *payload = NULL;
     unsigned int size_payload = 0;
-    struct flow_record *record = ix_record;
+    flow_record_t *record = ix_record;
     int i;
     
     for (i = 0; i < cur_template->hdr.field_count; i++) {
@@ -3127,7 +3127,7 @@ static uint64_t timeval_pack_uint64_t(const struct timeval *timeval) {
  * @return The desired data record, otherwise NULL for failure.
  */
 static ipfix_exporter_data_t *ipfix_exp_create_simple_data_record
-(const struct flow_record *fr_record) {
+(const flow_record_t *fr_record) {
     ipfix_exporter_data_t *data_record = NULL;
     uint8_t protocol = 0;
     
@@ -3197,7 +3197,7 @@ static ipfix_exporter_data_t *ipfix_exp_create_simple_data_record
  * @return The desired data record, otherwise NULL for failure.
  */
 static ipfix_exporter_data_t *ipfix_exp_create_idp_data_record
-(const struct flow_record *fr_record) {
+(const flow_record_t *fr_record) {
     ipfix_exporter_data_t *data_record = NULL;
     uint8_t protocol = 0;
     uint16_t idp_payload_len = 0;
@@ -3303,7 +3303,7 @@ static ipfix_exporter_data_t *ipfix_exp_create_idp_data_record
  */
 static ipfix_exporter_data_t *ipfix_exp_create_data_record
 (ipfix_template_type_e template_type,
- const struct flow_record *fr_record) {
+ const flow_record_t *fr_record) {
 
     ipfix_exporter_data_t *data_record = NULL;
     
@@ -4066,7 +4066,7 @@ void ipfix_module_cleanup(void) {
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_export_message_attach_data_set(const struct flow_record *fr_record,
+static int ipfix_export_message_attach_data_set(const flow_record_t *fr_record,
                                                 ipfix_message_t *message,
                                                 ipfix_template_type_e template_type) {
 
@@ -4357,7 +4357,7 @@ end:
  *
  * @return 0 for success, 1 for failure
  */
-int ipfix_export_main(const struct flow_record *fr_record) {
+int ipfix_export_main(const flow_record_t *fr_record) {
 
     int attach_code = 0;
 

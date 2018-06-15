@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,7 +58,6 @@
 #endif
 
 /* external definitions from joy.c */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 /** select destination for printing out information
@@ -323,7 +322,7 @@ static upd_return_codes_t update_radix_trie ()
     radix_trie_t tmp_rt;
     attr_flags flag_malware;
     char *configfile = BLACKLIST_FILE_NAME;
-    enum status err;
+    joy_status_e err;
 
     /* allocate a new radix_trie structure */
     updater_trie = radix_trie_alloc();

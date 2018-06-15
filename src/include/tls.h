@@ -188,7 +188,7 @@ struct tls_certificate {
 };
 
 typedef struct tls {
-    enum role role; /**< client, server, or unknown */
+    joy_role_e role; /**< client, server, or unknown */
     uint16_t op;
     uint16_t lengths[MAX_NUM_RCD_LEN]; /**< TLS record lengths */
     struct timeval times[MAX_NUM_RCD_LEN]; /**< Arrival times */

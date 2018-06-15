@@ -49,8 +49,6 @@
 #include "example.h"     
 #include "err.h"
 
-/* external definitions from joy.c */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 /**

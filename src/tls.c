@@ -85,7 +85,6 @@ pthread_mutex_t tls_lock = PTHREAD_MUTEX_INITIALIZER;
 /*
  * External objects, defined in joy.c
  */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 #if 0
@@ -2238,7 +2237,7 @@ static const char *tls_extension_lookup(const unsigned short int type)
 
 static void tls_print_extensions(const struct tls_extension *extensions,
                                  unsigned short int count,
-                                 enum role role,
+                                 joy_role_e role,
                                  zfile f) {
     int i = 0;
 

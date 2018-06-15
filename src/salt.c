@@ -52,7 +52,6 @@
 #include "err.h"
 
 /* external definitions from joy.c */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 /**
@@ -67,13 +66,12 @@ void salt_init(struct salt **salt_handle) {
         salt_delete(salt_handle);
     }
 
-    *salt_handle = malloc(sizeof(struct salt));
+    *salt_handle = calloc(1, sizeof(struct salt));
     if (*salt_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*salt_handle, 0, sizeof(struct salt));
 }
 
 /**

@@ -87,12 +87,12 @@ struct anon_aes_128_ipv4_key key;
 unsigned int anonymize = 0;
 
 /**
- * \fn enum status key_init(char *ANON_KEYFILE)
+ * \fn joy_status_e key_init(char *ANON_KEYFILE)
  * \param ANON_KEYFILE file that contains the key to be used for anonymzation
  * \return ok 
  * \return failure 
  */
-enum status key_init (char *ANON_KEYFILE) {
+joy_status_e key_init (char *ANON_KEYFILE) {
     int fd;
     ssize_t bytes;
     unsigned char buf[MAX_KEY_SIZE];
@@ -202,7 +202,7 @@ anon_subnet_t anon_subnet[MAX_ANON_SUBNETS];
 unsigned int num_subnets = 0;
 
 /* adds a subnet to the anonymization list */
-static enum status anon_subnet_add (struct in_addr a, unsigned int netmasklen) {
+static joy_status_e anon_subnet_add (struct in_addr a, unsigned int netmasklen) {
     if (num_subnets >= MAX_ANON_SUBNETS) {
         return failure;
     } else {
@@ -214,7 +214,7 @@ static enum status anon_subnet_add (struct in_addr a, unsigned int netmasklen) {
 }
 
 /* add a subnet to the anonymization list from a string */
-static enum status anon_subnet_add_from_string (char *addr) {
+static joy_status_e anon_subnet_add_from_string (char *addr) {
     int i, masklen = 0;
     char *mask = NULL;
     struct in_addr a;
@@ -312,14 +312,14 @@ int anon_print_subnets (FILE *f) {
 }
 
 /**
- * \fn enum status anon_init (const char *pathname, FILE *logfile)
+ * \fn joy_status_e anon_init (const char *pathname, FILE *logfile)
  * \param pathname file of anonymization subnets
  * \param logfile file to output information to
  * \return ok
  * \return failure
  */
-enum status anon_init (const char *pathname, FILE *logfile) {
-    enum status s;
+joy_status_e anon_init (const char *pathname, FILE *logfile) {
+    joy_status_e s;
     FILE *fp;
     size_t len;
     char *line = NULL;
@@ -439,7 +439,7 @@ int anon_unit_test () {
 /* START http anonymization */
 
 /**
- * \fn enum status anon_string (const char *s, unsigned int len, char *outhex, unsigned int outlen)
+ * \fn joy_status_e anon_string (const char *s, unsigned int len, char *outhex, unsigned int outlen)
  * \param s string to be anonymized
  * \param len length of the string to be anonymized
  * \param outhex pointer to the destination containing anonymized string
@@ -447,7 +447,7 @@ int anon_unit_test () {
  * \return ok
  * \return failure
  */ 
-enum status anon_string (const char *s, unsigned int len, char *outhex, unsigned int outlen) {
+joy_status_e anon_string (const char *s, unsigned int len, char *outhex, unsigned int outlen) {
     unsigned char pt[16] = { 
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
@@ -469,7 +469,7 @@ enum status anon_string (const char *s, unsigned int len, char *outhex, unsigned
 }
 
 /**
- * \fn enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsigned int outlen)
+ * \fn joy_status_e deanon_string (const char *hexinput, unsigned int len, char *s, unsigned int outlen)
  * \param hexinput anonymized string
  * \param len anonymized string length
  * \param s pointer to output buffer for de-anonymized string
@@ -477,7 +477,7 @@ enum status anon_string (const char *s, unsigned int len, char *outhex, unsigned
  * \return ok
  * \return failure
  */
-enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsigned int outlen) {
+joy_status_e deanon_string (const char *hexinput, unsigned int len, char *s, unsigned int outlen) {
     unsigned char c[16];
     unsigned char pt[16];
     struct in_addr *addr = (struct in_addr *)pt;
@@ -502,8 +502,8 @@ enum status deanon_string (const char *hexinput, unsigned int len, char *s, unsi
 
 #if 0
 /* prints out the anonymized string */
-static enum status zprint_anon_string (zfile f, char *input, unsigned int len) {
-    enum status err;
+static joy_status_e zprint_anon_string (zfile f, char *input, unsigned int len) {
+    joy_status_e err;
     char hex[33];
   
     err = anon_string(input, len, hex, sizeof(hex));
@@ -520,7 +520,7 @@ static enum status zprint_anon_string (zfile f, char *input, unsigned int len) {
 str_match_ctx usernames_ctx = NULL;
 
 /**
- * \fn enum status anon_http_init (const char *pathname, FILE *logfile, enum anon_mode mode, char *ANON_KEYFILE)
+ * \fn joy_status_e anon_http_init (const char *pathname, FILE *logfile, enum anon_mode mode, char *ANON_KEYFILE)
  * \param pathname file containg usernames to anonymize
  * \param logfile file to output debug, errors and information to
  * \param mode whether to anonymized, check or deanonymize the data
@@ -528,8 +528,8 @@ str_match_ctx usernames_ctx = NULL;
  * \return ok
  * \return failure
  */
-enum status anon_http_init (const char *pathname, FILE *logfile, enum anon_mode mode, char *ANON_KEYFILE) {
-    enum status s;
+joy_status_e anon_http_init (const char *pathname, FILE *logfile, enum anon_mode mode, char *ANON_KEYFILE) {
+    joy_status_e s;
     string_transform transform = NULL;
 
     /* make sure that key is initialized */
@@ -668,7 +668,7 @@ int email_special_chars (char *ptr) {
 void anon_print_string (zfile f, struct matches *matches, char *text, 
                         char_selector selector, string_transform transform) {
     unsigned int i;
-    enum status err;
+    joy_status_e err;
     char hex[33];
 
     if (matches->count == 0) {
@@ -736,7 +736,7 @@ void zprintf_usernames (zfile f, struct matches *matches, char *text,
                         char_selector selector, string_transform transform) {
     unsigned int i;
     char tmp[1024];
-    enum status err;
+    joy_status_e err;
     char hex[33];
     unsigned int count = 0;
 

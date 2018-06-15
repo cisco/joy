@@ -1,6 +1,6 @@
 /*
  *      
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -75,18 +75,17 @@ static void http_print_header(zfile f, char *header, unsigned length);
  *
  * \return none
  */
-void http_init (struct http **http_handle) {
+void http_init (http_t **http_handle) {
     if (*http_handle != NULL) {
         http_delete(http_handle);
     }
 
-    *http_handle = malloc(sizeof(struct http));
+    *http_handle = calloc(1, sizeof(http_t));
     if (*http_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*http_handle, 0, sizeof(struct http));
 }
 
 /**
@@ -101,7 +100,7 @@ void http_init (struct http **http_handle) {
  *
  * \return none
  */
-void http_update(struct http *http,
+void http_update(http_t *http,
                              const struct pcap_pkthdr *header,
                  const void *data,
                  unsigned int data_len,
@@ -116,11 +115,10 @@ void http_update(struct http *http,
          * note: we leave room for null termination in the data buffer
          */
        
-        http->header = malloc(len);
+        http->header = calloc(1, len);
         if (http->header == NULL) {
             return; 
         }
-        memset(http->header, 0x0, len);
         http->header_length = memcpy_up_to_crlfcrlf_plus_magic(http->header, data, len);
     }
 } 
@@ -134,8 +132,8 @@ void http_update(struct http *http,
  *
  * \return none
  */
-void http_print_json(const struct http *h1,
-                     const struct http *h2,
+void http_print_json(const http_t *h1,
+                     const http_t *h2,
                      zfile f) {
     int comma = 0;
 
@@ -188,8 +186,8 @@ void http_print_json(const struct http *h1,
  * \param data pointer to the http data structure
  * \return none
  */
-void http_delete (struct http **http_handle) {
-    struct http *http = *http_handle;
+void http_delete (http_t **http_handle) {
+    http_t *http = *http_handle;
 
     if (http == NULL) {
         return;

@@ -96,12 +96,12 @@
 /**
  * \brief The supported operating modes that Joy can run in.
  */
-enum operating_mode {
+typedef enum joy_operating_mode_ {
     MODE_NONE = 0,
     MODE_OFFLINE = 1,
     MODE_ONLINE = 2,
     MODE_IPFIX_COLLECT_ONLINE = 3
-};
+} joy_operating_mode_e;
 
 /*
  * NOTE: NUM_PACKETS_BETWEEN_STATS_OUTPUT *must* be a multiple of
@@ -116,7 +116,7 @@ enum operating_mode {
 /*
  * Local globals
  */
-static enum operating_mode joy_mode = MODE_NONE;
+static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
 static char *filter_exp = "ip or vlan";
 static char dir_output[MAX_FILENAME_LEN];
@@ -746,7 +746,7 @@ static int get_compact_bd() {
  */
 static int get_labeled_subnets() {
     attr_flags subnet_flag;
-    enum status err;
+    joy_status_e err;
     int i = 0;
 
     if (!glb_config->num_subnets) {

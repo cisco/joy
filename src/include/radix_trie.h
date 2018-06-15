@@ -76,24 +76,24 @@ typedef struct radix_trie *radix_trie_t;
 radix_trie_t radix_trie_alloc();
 
 /** does a deep free of radix_trie memory */
-enum status radix_trie_free(struct radix_trie *rt);
+joy_status_e radix_trie_free(struct radix_trie *rt);
 
 /** initializes the radix_trie structure at the location rt.
  *
  ** This function does not allocate any memory.
  */
-enum status radix_trie_init(struct radix_trie *rt);
+joy_status_e radix_trie_init(struct radix_trie *rt);
 
-enum status radix_trie_add_subnet_from_string(struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo);
+joy_status_e radix_trie_add_subnet_from_string(struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo);
 
 /** reads the file, parsing each line to find subnet (address/netmask) */
-enum status radix_trie_add_subnets_from_file(struct radix_trie *rt,
+joy_status_e radix_trie_add_subnets_from_file(struct radix_trie *rt,
      const char *pathname, attr_flags attr, FILE *logfile);
 
 /** inserts the subnet and an attribute flags variable into the
  * radix_trie, and associates that subnet with the flags
  */
-enum status radix_trie_add_subnet(struct radix_trie *trie, 
+joy_status_e radix_trie_add_subnet(struct radix_trie *trie, 
 			  struct in_addr addr, unsigned int netmasklen, attr_flags flags);
 
 /** writes a json-encoded form of the labels associated with the flags */

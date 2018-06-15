@@ -94,7 +94,6 @@ size_t getline(char **lineptr, size_t *n, FILE *stream);
 #endif
 
 /* external definitions from joy.c */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 /** maximum label string length */
@@ -288,7 +287,7 @@ static void radix_trie_node_add_flag_to_all_leaves (const struct radix_trie_node
 }
 
 /**
- * \fn enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags)
+ * \fn joy_status_e radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags)
  * \param trie radix_trie to use for the addition
  * \param addr address to add into the trie
  * \param netmasklen network mask length of the address to add
@@ -296,7 +295,7 @@ static void radix_trie_node_add_flag_to_all_leaves (const struct radix_trie_node
  * \return success
  * \return failure
  */
-enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags) {
+joy_status_e radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags) {
     unsigned int i, x, bits, bytes, max, num_internal_nodes = 0;
     unsigned char *a = (void *) &addr.s_addr;
     struct radix_trie_node *tmp = NULL;
@@ -504,12 +503,12 @@ void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, ch
 }
 
 /**
- * \fn enum status radix_trie_init (struct radix_trie *rt)
+ * \fn joy_status_e radix_trie_init (struct radix_trie *rt)
  * \param rt radix_trie pointer to initialize
  * \return ok
  * \return failure
  */
-enum status radix_trie_init (struct radix_trie *rt) {
+joy_status_e radix_trie_init (struct radix_trie *rt) {
     pthread_mutex_lock(&radix_trie_lock);
     if (rt != NULL) {
         rt->root = radix_trie_node_init();
@@ -527,7 +526,7 @@ enum status radix_trie_init (struct radix_trie *rt) {
  * Function to free up the memory for leaf and internal nodes
  * returns ok
  */
-static enum status radix_trie_deep_free (const struct radix_trie_node *rt) {
+static joy_status_e radix_trie_deep_free (const struct radix_trie_node *rt) {
     int i = 0;
 
     switch (rt->type) {
@@ -552,11 +551,11 @@ static enum status radix_trie_deep_free (const struct radix_trie_node *rt) {
 }
 
 /**
- * \fn enum status radix_trie_free (struct radix_trie *r)
+ * \fn joy_status_e radix_trie_free (struct radix_trie *r)
  * \param r radix_trie pointer to free up
  * \return ok
  */
-enum status radix_trie_free (struct radix_trie *r) {
+joy_status_e radix_trie_free (struct radix_trie *r) {
     int i = 0;
 
     /* sanity check the trie */
@@ -593,7 +592,7 @@ enum status radix_trie_free (struct radix_trie *r) {
  * returns success
  * returns failure
  */
-enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo) {
+joy_status_e radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo) {
     int i, masklen = 0;
     char *mask = NULL;
     struct in_addr a;
@@ -646,7 +645,7 @@ enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr
 }
 
 /**
- * \fn enum status radix_trie_add_subnets_from_file (struct radix_trie *rt, const char *pathname, attr_flags attr, FILE *logfile)
+ * \fn joy_status_e radix_trie_add_subnets_from_file (struct radix_trie *rt, const char *pathname, attr_flags attr, FILE *logfile)
  * \param rt radix_trie pointer
  * \param pathname path and filename of the subnets file to be added
  * \param attr flags to be associated with the subnets
@@ -654,9 +653,9 @@ enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr
  * \return ok
  * \return failure
  */
-enum status radix_trie_add_subnets_from_file (struct radix_trie *rt,
+joy_status_e radix_trie_add_subnets_from_file (struct radix_trie *rt,
                                              const char *pathname, attr_flags attr, FILE *logfile) {
-    enum status s = ok;
+    joy_status_e s = ok;
     FILE *fp = NULL;
     size_t len = 0;
     char *line = NULL;
@@ -800,7 +799,7 @@ static int radix_trie_high_level_unit_test () {
     attr_flags flag_internal, flag_malware, flag;
     char *configfile = "internal.net";
     struct in_addr addr;
-    enum status err;
+    joy_status_e err;
     unsigned test_failed = 0;
 
     /* initialize */
@@ -876,7 +875,7 @@ static int radix_trie_high_level_unit_test () {
  */
 int radix_trie_unit_test () {
     struct radix_trie *rt, *rt2 = NULL;
-    enum status err;
+    joy_status_e err;
     struct in_addr a[10];
     unsigned int af[10];
     unsigned int i;

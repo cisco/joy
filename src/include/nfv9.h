@@ -418,6 +418,6 @@ void nfv9_flow_key_init(struct flow_key *key,
            const char *flow_data);
 
 /** main function for parsing nfv9 packets */
-void nfv9_process_flow_record(struct flow_record *nf_record,
+void nfv9_process_flow_record(flow_record_t *nf_record,
            const struct nfv9_template *cur_template,
            const char *flow_data, int record_num);

@@ -72,14 +72,14 @@
 #define MAX_DHCP_OPTIONS 16
 #define MAX_DHCP_OPTIONS_LEN 512
 
-struct dhcp_option {
+typedef struct dhcp_option_ {
     unsigned char code; /**< Typecode */
     unsigned char len; /**< Length (octets) of value */
     unsigned char *value; /**< Data value, if the string repr is found, this should not be used */
     const char *value_str; /**< String repr of value (IANA), should point to lookup table */
-};
+} dhcp_option_t;
 
-struct dhcp_message {
+typedef struct dhcp_message_ {
     unsigned char op; /**< Message type; 1=bootrequest, 2=bootreply */
     unsigned char htype; /**< Hardware address type */
     unsigned char hlen; /**< Hardware address length */
@@ -94,30 +94,30 @@ struct dhcp_message {
     unsigned char chaddr[MAX_DHCP_CHADDR]; /**< Client hardware (MAC) address */
     char *sname; /**< Optional server host name string */
     char *file; /**< Boot file name string */
-    struct dhcp_option options[MAX_DHCP_OPTIONS]; /**< Optional paramaters RFC 2132 */
+    dhcp_option_t options[MAX_DHCP_OPTIONS]; /**< Optional paramaters RFC 2132 */
     uint16_t options_count;
     uint16_t options_length;
-};
+} dhcp_message_t;
 
-typedef struct dhcp {
-    enum role role;
-    struct dhcp_message messages[MAX_DHCP_LEN];
+typedef struct dhcp_ {
+    joy_role_e role;
+    dhcp_message_t messages[MAX_DHCP_LEN];
     uint16_t message_count;
 } dhcp_t;
 
-void dhcp_init(struct dhcp **dhcp_handle);
+void dhcp_init(dhcp_t **dhcp_handle);
 
-void dhcp_update(struct dhcp *dhcp,
+void dhcp_update(dhcp_t *dhcp,
                  const struct pcap_pkthdr *header,
                  const void *data,
                  unsigned int data_len,
                  unsigned int report_dhcp);
 
-void dhcp_print_json(const struct dhcp *d1,
-                     const struct dhcp *d2,
+void dhcp_print_json(const dhcp_t *d1,
+                     const dhcp_t *d2,
                      zfile f);
 
-void dhcp_delete(struct dhcp **dhcp_handle);
+void dhcp_delete(dhcp_t **dhcp_handle);
 
 void dhcp_unit_test();
 

@@ -549,7 +549,7 @@ int ipfix_collect_main(joy_ctx_data *ctx);
 int ipfix_export_flush_message(void);
 
 
-int ipfix_export_main(const struct flow_record *record);
+int ipfix_export_main(const flow_record_t *record);
 
 
 /*
