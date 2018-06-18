@@ -633,7 +633,7 @@ static void process_pid_string (struct ss_flow *fr, char *string) {
     if (s == NULL) {
 	return;
     }
-    *s = 0;
+    *s = '\0'; //Set to null
 
     /* copy app name into the flow record */
     strncpy(fr->command, string, PROC_PATH_LEN-1);
