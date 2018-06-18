@@ -44,7 +44,6 @@
 
 #include <stdio.h>  
 #include <stdlib.h>
-#include <string.h>
 #include "config.h"
 #include "example.h"     
 #include "err.h"
@@ -63,13 +62,12 @@ __inline void example_init (struct example **example_handle) {
         example_delete(example_handle);
     }
 
-    *example_handle = malloc(sizeof(struct example));
+    *example_handle = calloc(1, sizeof(struct example));
     if (*example_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*example_handle, 0, sizeof(struct example));
 }
 
 /**

@@ -531,7 +531,7 @@ void ipfix_xts_cleanup(void);
 int ipfix_parse_template_set(const ipfix_hdr_t *ipfix,
                          const char *template_start,
                          uint16_t set_len,
-                         const struct flow_key rec_key);
+                         const flow_key_t rec_key);
 
 
 int ipfix_parse_data_set(joy_ctx_data *ctx,
@@ -539,8 +539,8 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
                          const void *data_start,
                          uint16_t set_len,
                          uint16_t set_id,
-                         const struct flow_key rec_key,
-                         struct flow_key *prev_key);
+                         const flow_key_t rec_key,
+                         flow_key_t *prev_key);
 
 
 int ipfix_collect_main(joy_ctx_data *ctx);

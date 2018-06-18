@@ -329,14 +329,14 @@ static int nfv9_process_flow_time_milli(const void *flow_data,
 }
 
 /**
- * \fn void nfv9_flow_key_init (struct flow_key *key, 
+ * \fn void nfv9_flow_key_init (flow_key_t *key, 
       const struct nfv9_template *cur_template, const void *flow_data)
  * \param key
  * \param cur_template
  * \param flow_data
  * \return none
  */
-void nfv9_flow_key_init (struct flow_key *key, 
+void nfv9_flow_key_init (flow_key_t *key, 
       const struct nfv9_template *cur_template, const char *flow_data) {
     int i;
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {

@@ -94,8 +94,8 @@ static int tls_fingerprint_db_loaded = 0;
 #endif
 
 /* Local prototypes */
-static int tls_header_version_capture(struct tls *tls_info, const struct tls_header *tls_hdr);
-static void tls_certificate_print_json(const struct tls_certificate *data, zfile f);
+static int tls_header_version_capture(tls_t *tls_info, const tls_header_t*tls_hdr);
+static void tls_certificate_print_json(const tls_certificate_t *data, zfile f);
 
 /**
  * \brief Initialize the memory of TLS struct.
@@ -104,18 +104,17 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
  *
  * \return
  */
-void tls_init (struct tls **tls_handle) {
+void tls_init (tls_t **tls_handle) {
     if (*tls_handle != NULL) {
         tls_delete(tls_handle);
     }
 
-    *tls_handle = malloc(sizeof(struct tls));
+    *tls_handle = calloc(1, sizeof(tls_t));
     if (*tls_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*tls_handle, 0, sizeof(struct tls));
 }
 
 /**
@@ -125,9 +124,9 @@ void tls_init (struct tls **tls_handle) {
  *
  * \return
  */
-void tls_delete (struct tls **tls_handle) {
+void tls_delete (tls_t **tls_handle) {
     int i, j = 0;
-    struct tls *r = *tls_handle;
+    tls_t *r = *tls_handle;
 
     if (r == NULL) {
       return;
@@ -151,7 +150,7 @@ void tls_delete (struct tls **tls_handle) {
     }
 
     for (i = 0; i < r->num_certificates; i++) {
-        struct tls_certificate *cert = &r->certificates[i];
+        tls_certificate_t *cert = &r->certificates[i];
 
         if (cert->signature) {
             /* Free the signature */
@@ -165,7 +164,7 @@ void tls_delete (struct tls **tls_handle) {
             /*
              * Iterate over all the issuer entries.
              */
-            struct tls_item_entry *entry = &cert->issuer[j];
+            tls_item_entry_t *entry = &cert->issuer[j];
 
             if (entry->data) {
                 /* Free the entry data */
@@ -176,7 +175,7 @@ void tls_delete (struct tls **tls_handle) {
             /*
              * Iterate over all the subject entries.
              */
-            struct tls_item_entry *entry = &cert->subject[j];
+            tls_item_entry_t *entry = &cert->subject[j];
 
             if (entry->data) {
                 /* Free the entry data */
@@ -187,7 +186,7 @@ void tls_delete (struct tls **tls_handle) {
             /*
              * Iterate over all the subject entries.
              */
-            struct tls_item_entry *entry = &cert->extensions[j];
+            tls_item_entry_t *entry = &cert->extensions[j];
 
             if (entry->data) {
                 /* Free the entry data */
@@ -218,7 +217,7 @@ static uint16_t raw_to_uint16 (const void *x) {
 }
 
 /**
- * \fn void tls_header_get_length (const struct tls_header *hdr)
+ * \fn void tls_header_get_length (const tls_header_t*hdr)
  *
  * \brief Calculate the message length encoded in the TLS header.
  *
@@ -226,12 +225,12 @@ static uint16_t raw_to_uint16 (const void *x) {
  *
  * \return Length of the message body.
  */
-static unsigned int tls_header_get_length (const struct tls_header *hdr) {
+static unsigned int tls_header_get_length (const tls_header_t*hdr) {
     return hdr->lengthLo + (((unsigned int) hdr->lengthMid) << 8);
 }
 
 /**
- * \fn void tls_handshake_get_length (const struct tls_handshake *hand)
+ * \fn void tls_handshake_get_length (const tls_handshake_t *hand)
  *
  * \brief Calculate the body length encoded in the TLS handshake header.
  *
@@ -239,7 +238,7 @@ static unsigned int tls_header_get_length (const struct tls_header *hdr) {
  *
  * \return Length of the handshake body.
  */
-static unsigned int tls_handshake_get_length (const struct tls_handshake *hand) {
+static unsigned int tls_handshake_get_length (const tls_handshake_t *hand) {
     unsigned int len = 0;
 
     len = (unsigned int)hand->lengthLo;
@@ -261,7 +260,7 @@ static unsigned int tls_handshake_get_length (const struct tls_handshake *hand) 
  */
 static void tls_client_hello_get_ciphersuites (const unsigned char *y,
                                                int len,
-                                               struct tls *r) {
+                                               tls_t *r) {
     unsigned int session_id_len;
     uint16_t cipher_suites_len;
     unsigned int i = 0;
@@ -330,7 +329,7 @@ static void tls_client_hello_get_ciphersuites (const unsigned char *y,
  */
 static void tls_client_hello_get_extensions (const unsigned char *y,
                                              int len,
-                                             struct tls *r) {
+                                             tls_t *r) {
     unsigned int session_id_len, compression_method_len;
     uint16_t cipher_suites_len, extensions_len;
     unsigned int i = 0;
@@ -430,9 +429,9 @@ static void tls_client_hello_get_extensions (const unsigned char *y,
     }
 }
 
-static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h,
+static void tls_handshake_get_client_key_exchange (const tls_handshake_t *h,
                                                    int len,
-                                                   struct tls *r) {
+                                                   tls_t *r) {
     const unsigned char *y = &h->body;
     unsigned int byte_len = 0;
 
@@ -451,7 +450,7 @@ static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h
 
 /**
  * \fn int tls_x509_get_validity_period(X509 *cert,
- *                                      struct tls_certificate *record)
+ *                                      tls_certificate_t *record)
  *
  * \brief Extract notBefore and notAfter out of a X509 certificate.
  *
@@ -462,7 +461,7 @@ static void tls_handshake_get_client_key_exchange (const struct tls_handshake *h
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_validity_period(X509 *cert,
-                                        struct tls_certificate *record) {
+                                        tls_certificate_t *record) {
     BIO *time_bio = NULL;
     BUF_MEM *bio_mem_ptr = NULL;
     int not_before_data_len = 0;
@@ -559,7 +558,7 @@ static int tls_x509_get_validity_period(X509 *cert,
 
 /**
  * \fn int tls_x509_get_subject(X509 *cert,
- *                              struct tls_certificate *record)
+ *                              tls_certificate_t *record)
  *
  * \brief Extract the subject data out of a X509 certificate.
  *
@@ -570,7 +569,7 @@ static int tls_x509_get_validity_period(X509 *cert,
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_subject(X509 *cert,
-                                struct tls_certificate *record) {
+                                tls_certificate_t *record) {
     X509_NAME *subject = NULL;
     X509_NAME_ENTRY *entry = NULL;
     ASN1_OBJECT *entry_asn1_object = NULL;
@@ -603,7 +602,7 @@ static int tls_x509_get_subject(X509 *cert,
 
     for (i = 0; i < num_of_entries; i++) {
         const char *entry_name_str = NULL;
-        struct tls_item_entry *cert_record_entry = &record->subject[i];
+        tls_item_entry_t *cert_record_entry = &record->subject[i];
 
         if (i == MAX_RDN) {
             /* Best effort, got as many as we could */
@@ -666,7 +665,7 @@ static int tls_x509_get_subject(X509 *cert,
 
 /**
  * \fn int tls_x509_get_issuer(X509 *cert,
- *                             struct tls_certificate *record)
+ *                             tls_certificate_t *record)
  *
  * \brief Extract the issuer data out of a X509 certificate.
  *
@@ -677,7 +676,7 @@ static int tls_x509_get_subject(X509 *cert,
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_issuer(X509 *cert,
-                               struct tls_certificate *record) {
+                               tls_certificate_t *record) {
     X509_NAME *issuer = NULL;
     X509_NAME_ENTRY *entry = NULL;
     ASN1_OBJECT *entry_asn1_object = NULL;
@@ -713,7 +712,7 @@ static int tls_x509_get_issuer(X509 *cert,
      */
     for (i = 0; i < num_of_entries; i++) {
         const char *entry_name_str = NULL;
-        struct tls_item_entry *cert_record_entry = &record->issuer[i];
+        tls_item_entry_t *cert_record_entry = &record->issuer[i];
 
         if (i == MAX_RDN) {
             /* Best effort, got as many as we could */
@@ -776,7 +775,7 @@ static int tls_x509_get_issuer(X509 *cert,
 
 /**
  * \fn int tls_x509_get_serial(X509 *cert,
- *                             struct tls_certificate *record)
+ *                             tls_certificate_t *record)
  *
  * \brief Extract the serial number out of a X509 certificate.
  *
@@ -787,7 +786,7 @@ static int tls_x509_get_issuer(X509 *cert,
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_serial(X509 *cert,
-                               struct tls_certificate *record) {
+                               tls_certificate_t *record) {
     uint16_t serial_data_length = 0;
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     ASN1_INTEGER *serial = NULL;
@@ -828,7 +827,7 @@ static int tls_x509_get_serial(X509 *cert,
 
 /**
  * \fn int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
- *                                               struct tls_certificate *record)
+ *                                               tls_certificate_t *record)
  *
  * \brief Extract the subject public key algorithm type out of a X509 certificate.
  *
@@ -839,7 +838,7 @@ static int tls_x509_get_serial(X509 *cert,
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
-                                                 struct tls_certificate *record) {
+                                                 tls_certificate_t *record) {
     EVP_PKEY *evp_pubkey = NULL;
     const char *alg_str = NULL;
     int key_type = 0;
@@ -882,7 +881,7 @@ static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
 
 /**
  * \fn int tls_x509_get_signature(X509 *cert,
- *                                struct tls_certificate *record)
+ *                                tls_certificate_t *record)
  *
  * \brief Extract the signature data out of a X509 certificate.
  *
@@ -893,7 +892,7 @@ static int tls_x509_get_subject_pubkey_algorithm(X509 *cert,
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_signature(X509 *cert,
-                                  struct tls_certificate *record) {
+                                  tls_certificate_t *record) {
     int sig_length = 0;
     const char *alg_str = NULL;
     int nid = 0;
@@ -994,7 +993,7 @@ static int tls_x509_get_signature(X509 *cert,
 
 /**
  * \fn int tls_x509_get_extensions(X509 *cert,
- *                                 struct tls_certificate *record)
+ *                                 tls_certificate_t *record)
  *
  * \brief Extract all extensions type/data out of a X509 certificate.
  *
@@ -1005,7 +1004,7 @@ static int tls_x509_get_signature(X509 *cert,
  * \return 0 for success, 1 for failure
  */
 static int tls_x509_get_extensions(X509 *cert,
-                                   struct tls_certificate *record) {
+                                   tls_certificate_t *record) {
     X509_EXTENSION *extension = NULL;
     ASN1_OBJECT *ext_asn1_object = NULL;
     int nid = 0;
@@ -1030,7 +1029,7 @@ static int tls_x509_get_extensions(X509 *cert,
         BUF_MEM *bio_mem_ptr = NULL;
         int ext_data_len = 0;
         const char *ext_name_str = NULL;
-        struct tls_item_entry *cert_record_entry = &record->extensions[i];
+        tls_item_entry_t *cert_record_entry = &record->extensions[i];
 
         if (i == MAX_CERT_EXTENSIONS) {
             /* Best effort, got as many as we could */
@@ -1110,7 +1109,7 @@ static int tls_x509_get_extensions(X509 *cert,
  */
 static void tls_certificate_parse(const unsigned char *data,
                                   unsigned int data_len,
-                                  struct tls *r) {
+                                  tls_t *r) {
 
     uint16_t total_certs_len = 0, remaining_certs_len,
         cert_len, index_cert = 0;
@@ -1133,7 +1132,7 @@ static void tls_certificate_parse(const unsigned char *data,
     remaining_certs_len = total_certs_len;
 
     while (0 < remaining_certs_len && remaining_certs_len <= total_certs_len) {
-        struct tls_certificate *certificate = NULL;
+        tls_certificate_t *certificate = NULL;
         const unsigned char *ptr_openssl = NULL;
         X509 *x509_cert = NULL;
 
@@ -1226,7 +1225,7 @@ static void tls_certificate_parse(const unsigned char *data,
  */
 static void tls_server_hello_get_ciphersuite (const unsigned char *y,
                                               unsigned int len,
-                                              struct tls *r) {
+                                              tls_t *r) {
     unsigned int session_id_len;
     uint16_t cs; 
     unsigned char flag_tls13 = 0;
@@ -1290,7 +1289,7 @@ static void tls_server_hello_get_ciphersuite (const unsigned char *y,
  */
 static void tls_server_hello_get_extensions (const unsigned char *y,
                                              int len,
-                                             struct tls *r) {
+                                             tls_t *r) {
     unsigned int session_id_len, compression_method_len;
     uint16_t extensions_len;
     unsigned int i = 0;
@@ -1533,7 +1532,7 @@ cleanup:
  *
  * return 0 for success, 1 for error
  */
-static int tls_client_fingerprint_match(struct tls *tls_info,
+static int tls_client_fingerprint_match(tls_t *tls_info,
                                         unsigned int percent) {
     fingerprint_t fp;
     fingerprint_t *db_fingerprint = NULL;
@@ -1664,7 +1663,7 @@ static int tls_version_to_internal(unsigned char major,
     return internal_version;
 }
 
-static int tls_handshake_hello_get_version(struct tls *tls_info,
+static int tls_handshake_hello_get_version(tls_t *tls_info,
                                            const unsigned char *data) {
     int internal_version = 0;
     unsigned char major = *data;
@@ -1691,7 +1690,7 @@ static int tls_handshake_hello_get_version(struct tls *tls_info,
  *
  * \return none
  */
-static void tls_handshake_buffer_parse(struct tls *r) {
+static void tls_handshake_buffer_parse(tls_t *r) {
     unsigned char *data = NULL;
     int data_len = 0;
     unsigned int msg_count = 0;
@@ -1704,8 +1703,8 @@ static void tls_handshake_buffer_parse(struct tls *r) {
     data_len = r->handshake_length;
 
     while (data_len > 0 && data_len <= MAX_HANDSHAKE_LENGTH) {
-        const struct tls_header *tls_hdr = NULL;
-        const struct tls_handshake *handshake = NULL;
+        const tls_header_t*tls_hdr = NULL;
+        const tls_handshake_t *handshake = NULL;
         int tls_len = 0;
 
         if (data_len < TLS_HDR_LEN) {
@@ -1713,7 +1712,7 @@ static void tls_handshake_buffer_parse(struct tls *r) {
             return;
         }
 
-        tls_hdr = (const struct tls_header*)data;
+        tls_hdr = (const tls_header_t*)data;
         tls_len = tls_header_get_length(tls_hdr);
 
         if (tls_len > data_len) {
@@ -1750,7 +1749,7 @@ static void tls_handshake_buffer_parse(struct tls *r) {
             }
 
             /* Get the header of this handshake message */
-            handshake = (const struct tls_handshake *)data;
+            handshake = (const tls_handshake_t *)data;
 
             /*
              * Check if handshake type is valid.
@@ -1839,7 +1838,7 @@ static void tls_handshake_buffer_parse(struct tls *r) {
             if (msg_count < MAX_NUM_RCD_LEN &&
                 r->msg_stats[msg_count].num_handshakes < MAX_TLS_HANDSHAKES) {
                 /* Record the handshake message type */
-                struct tls_message_stat *t = &r->msg_stats[msg_count];
+                tls_message_stat_t *t = &r->msg_stats[msg_count];
                 t->handshake_types[t->num_handshakes] = handshake->msg_type;
                 t->handshake_lens[t->num_handshakes] = body_len;
                 t->num_handshakes += 1;
@@ -1857,8 +1856,8 @@ static void tls_handshake_buffer_parse(struct tls *r) {
     return;
 }
 
-static void tls_write_message_stats(struct tls *r,
-                                    const struct tls_header *tls_hdr,
+static void tls_write_message_stats(tls_t *r,
+                                    const tls_header_t*tls_hdr,
                                     const struct pcap_pkthdr *pkt_hdr)
 {
     uint16_t tls_len = tls_header_get_length(tls_hdr);
@@ -1893,13 +1892,13 @@ static void tls_write_message_stats(struct tls *r,
  *
  * \return
  */
-void tls_update (struct tls *r,
+void tls_update (tls_t *r,
                  const struct pcap_pkthdr *header,
                  const void *payload,
                  unsigned int len,
                  unsigned int report_tls) {
     const unsigned char *data = payload;
-    const struct tls_header *hdr = NULL;
+    const tls_header_t*hdr = NULL;
     unsigned int msg_len = 0;
     int rem_len = len;
 
@@ -1913,7 +1912,7 @@ void tls_update (struct tls *r,
     }
 
     /* Cast beginning of payload to a tls_header */
-    hdr = (const struct tls_header *)data;
+    hdr = (const tls_header_t*)data;
     msg_len = tls_header_get_length(hdr);
 
     if (r->done_handshake == 0 &&
@@ -1978,7 +1977,7 @@ void tls_update (struct tls *r,
     }
 
     while (rem_len > 0) {
-        hdr = (const struct tls_header *)data;
+        hdr = (const tls_header_t*)data;
         msg_len = tls_header_get_length(hdr);
 
         if (msg_len > rem_len && !glb_config->ipfix_collect_port) {
@@ -2031,10 +2030,10 @@ void tls_update (struct tls *r,
  *
  * \return 0 for success, 1 for failure
  */
-static int tls_header_version_capture (struct tls *tls_info,
-                                       const struct tls_header *tls_hdr) {
+static int tls_header_version_capture (tls_t *tls_info,
+                                       const tls_header_t*tls_hdr) {
     int internal_version = 0;
-    struct tls_protocol_version version = tls_hdr->protocol_version;
+    tls_protocol_version_t version = tls_hdr->protocol_version;
 
     internal_version = tls_version_to_internal(version.major, version.minor);
     if (!internal_version) {
@@ -2072,7 +2071,7 @@ static void zprintf_raw_as_hex_tls (zfile f, const unsigned char *data, unsigned
 }
 
 static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
-                                     struct timeval ts, struct tls_message_stat m,
+                                     struct timeval ts, tls_message_stat_t m,
                                      char *term, zfile f) {
     int i = 0;
 
@@ -2106,14 +2105,14 @@ static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
 }
 
 static void len_time_print_interleaved_tls (unsigned int op, const unsigned short *len, 
-    const struct timeval *time, const struct tls_message_stat *msg_stat,
+    const struct timeval *time, const tls_message_stat_t *msg_stat,
     unsigned int op2, const unsigned short *len2, 
-    const struct timeval *time2, const struct tls_message_stat *msg_stat2, zfile f) {
+    const struct timeval *time2, const tls_message_stat_t *msg_stat2, zfile f) {
     unsigned int i, j, imax, jmax;
     struct timeval ts, ts_last, ts_start, tmp;
     unsigned int pkt_len;
     char *dir;
-    struct tls_message_stat stat;
+    tls_message_stat_t stat;
 
     zprintf(f, ",\"srlt\":[");
 
@@ -2235,7 +2234,7 @@ static const char *tls_extension_lookup(const unsigned short int type)
     return NULL;
 }
 
-static void tls_print_extensions(const struct tls_extension *extensions,
+static void tls_print_extensions(const tls_extension_t *extensions,
                                  unsigned short int count,
                                  joy_role_e role,
                                  zfile f) {
@@ -2283,8 +2282,8 @@ static void tls_print_extensions(const struct tls_extension *extensions,
  *
  * \return none
  */
-void tls_print_json (const struct tls *data,
-                     const struct tls *data_twin,
+void tls_print_json (const tls_t *data,
+                     const tls_t *data_twin,
                      zfile f) {
     int i = 0;
 
@@ -2529,7 +2528,7 @@ void tls_print_json (const struct tls *data,
  * \return
  *
  */
-static void tls_certificate_print_json(const struct tls_certificate *data, zfile f) {
+static void tls_certificate_print_json(const tls_certificate_t *data, zfile f) {
     int j = 0;
 
     zprintf(f, "{\"length\":%i", data->length);
@@ -2610,7 +2609,7 @@ static void tls_certificate_print_json(const struct tls_certificate *data, zfile
  * \return 0 for success, otherwise number of failures
  */
 static int tls_test_client_fingerprint_match() {
-    struct tls *record = NULL;
+    tls_t *record = NULL;
     int num_fails = 0;
 
     tls_init(&record);
@@ -2670,8 +2669,8 @@ static int tls_test_certificate_parsing() {
     for (i = 0; i < num_test_cert_files; i++) {
         FILE *fp = NULL;
         X509 *cert = NULL;
-        struct tls *tmp_tls_record = NULL;
-        struct tls_certificate *cert_record = NULL;
+        tls_t *tmp_tls_record = NULL;
+        tls_certificate_t *cert_record = NULL;
         const char *filename = test_cert_filenames[i];
 
         /* Preprare the temporary record */
@@ -2707,8 +2706,8 @@ static int tls_test_certificate_parsing() {
 
                 if (cert_record->num_subject_items == known_items_count) {
                                         /* windows compiler needs the constant and not the variable here */
-                                        //struct tls_item_entry kat_subject[known_items_count];
-                                        struct tls_item_entry kat_subject[7];
+                                        //tls_item_entry_t kat_subject[known_items_count];
+                                        tls_item_entry_t kat_subject[7];
                                         int j = 0;
 
                     /* Known values */
@@ -2799,8 +2798,8 @@ static int tls_test_certificate_parsing() {
 
                 if (cert_record->num_issuer_items == known_items_count) {
                                         /* windows compiler needs the constant and not the variable here */
-                                        //struct tls_item_entry kat_issuer[known_items_count];
-                                        struct tls_item_entry kat_issuer[7];
+                                        //tls_item_entry_t kat_issuer[known_items_count];
+                                        tls_item_entry_t kat_issuer[7];
                                         int j = 0;
 
                     /* Known values */
@@ -2972,8 +2971,8 @@ static int tls_test_certificate_parsing() {
 
                 if (cert_record->num_extension_items == known_items_count) {
                                         /* windows compiler needs the constant and not the variable here */
-                                        //struct tls_item_entry kat_extensions[known_items_count];
-                                        struct tls_item_entry kat_extensions[3];
+                                        //tls_item_entry_t kat_extensions[known_items_count];
+                                        tls_item_entry_t kat_extensions[3];
                                         int j = 0;
 
                     char *known_subject_key_identifier = "CE:BF:D3:46:C6:75:AB:8C:B2:E8:"
@@ -3206,15 +3205,15 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
 static int tls_test_extract_client_hello(const unsigned char *data,
                                          unsigned int data_len,
                                          char *filename) {
-    struct tls *record = NULL;
-    const struct tls_header *tls_hdr = NULL;
+    tls_t *record = NULL;
+    const tls_header_t*tls_hdr = NULL;
     const unsigned char *body = NULL;
     unsigned int body_len = 0;
     int num_fails = 0;
 
     tls_init(&record);
 
-    tls_hdr = (const struct tls_header *)data;
+    tls_hdr = (const tls_header_t*)data;
     body_len = tls_handshake_get_length(&tls_hdr->handshake);
     body = &tls_hdr->handshake.body;
 
@@ -3232,8 +3231,8 @@ static int tls_test_extract_client_hello(const unsigned char *data,
         uint16_t known_ciphersuites_count = 15;
         uint16_t known_extensions_count = 11;
                 /* windows compiler needs the constant and not the variable here */
-                //struct tls_extension known_extensions[known_extensions_count];
-                struct tls_extension known_extensions[11];
+                //tls_extension_t known_extensions[known_extensions_count];
+                tls_extension_t known_extensions[11];
                 int failed = 0;
         int i = 0;
 
@@ -3361,15 +3360,15 @@ end:
 static int tls_test_extract_server_hello(const unsigned char *data,
                                          unsigned int data_len,
                                          const char *filename) {
-    struct tls *record = NULL;
-    const struct tls_header *tls_hdr = NULL;
+    tls_t *record = NULL;
+    const tls_header_t*tls_hdr = NULL;
     const unsigned char *body = NULL;
     unsigned int body_len = 0;
     int num_fails = 0;
 
     tls_init(&record);
 
-    tls_hdr = (const struct tls_header *)data;
+    tls_hdr = (const tls_header_t*)data;
     body_len = tls_handshake_get_length(&tls_hdr->handshake);
     body = &tls_hdr->handshake.body;
 
@@ -3387,8 +3386,8 @@ static int tls_test_extract_server_hello(const unsigned char *data,
         uint16_t known_extensions_count = 5;
         uint16_t known_ciphersuite = 0xc02b;
                 /* windows compiler needs the constant and not the variable here */
-                //struct tls_extension known_extensions[known_extensions_count];
-                struct tls_extension known_extensions[5];
+                //tls_extension_t known_extensions[known_extensions_count];
+                tls_extension_t known_extensions[5];
                 int failed = 0;
         int i = 0;
 
@@ -3511,7 +3510,7 @@ end:
  * \return 0 for success, otherwise number of failures
  */
 static int tls_test_handshake_hello_get_version() {
-    struct tls *record = NULL;
+    tls_t *record = NULL;
     unsigned char ssl_v3[] = {0x03, 0x00};
     unsigned char tls_1_0[] = {0x03, 0x01};
     unsigned char tls_1_1[] = {0x03, 0x02};
@@ -3557,7 +3556,7 @@ static int tls_test_handshake_hello_get_version() {
 }
 
 static int tls_test_calculate_handshake_length() {
-    struct tls_handshake hand;
+    tls_handshake_t hand;
     unsigned int result = 0;
     int num_fails = 0;
 

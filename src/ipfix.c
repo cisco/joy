@@ -169,7 +169,7 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
                                   uint16_t *min_record_len);
 
 
-static void ipfix_flow_key_init(struct flow_key *key,
+static void ipfix_flow_key_init(flow_key_t *key,
                                 const ipfix_template_t *cur_template,
                                 const char *flow_data);
 
@@ -239,11 +239,11 @@ static int ipfix_collect_process_socket(joy_ctx_data *ctx,
                                         unsigned char *data,
                                         unsigned int data_len,
                                         struct sockaddr_in *remote_addr) {
-  struct flow_key key;
+  flow_key_t key;
   flow_record_t *record = NULL;
 
   /* Create a flow_key and flow_record to use */
-  memset(&key, 0, sizeof(struct flow_key));
+  memset(&key, 0, sizeof(flow_key_t));
 
   key.sa = remote_addr->sin_addr;
   key.sp = ntohs(remote_addr->sin_port);
@@ -750,7 +750,7 @@ static int ipfix_cts_append(ipfix_template_t *tmp) {
  * @param cur_template IPFIX template that corresponds to data record.
  * @param flow_data IPFIX data record being parsed.
  */
-static void ipfix_flow_key_init(struct flow_key *key,
+static void ipfix_flow_key_init(flow_key_t *key,
                                 const ipfix_template_t *cur_template,
                                 const char *flow_data) {
 
@@ -829,7 +829,7 @@ static void ipfix_template_key_init(ipfix_template_key_t *k,
 int ipfix_parse_template_set(const ipfix_hdr_t *ipfix,
                              const char *template_start,
                              uint16_t set_len,
-                             const struct flow_key rec_key) {
+                             const flow_key_t rec_key) {
 
     const char *template_ptr = template_start;
     uint16_t template_set_len = set_len;
@@ -1009,8 +1009,8 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
                          const void *data_start,
                          uint16_t set_len,
                          uint16_t set_id,
-                         const struct flow_key rec_key,
-                         struct flow_key *prev_data_key) {
+                         const flow_key_t rec_key,
+                         flow_key_t *prev_data_key) {
 
     const unsigned char *data_ptr = data_start;
     uint16_t data_set_len = set_len;
@@ -1034,10 +1034,10 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
     
     /* Process data if we know the template */
     if (cur_template->hdr.template_id != 0) {
-        struct flow_key key;
+        flow_key_t key;
         flow_record_t *ix_record;
         
-        memset(&key, 0, sizeof(struct flow_key));
+        memset(&key, 0, sizeof(flow_key_t));
         
         /* Process all data records in set */
         while (data_set_len > min_record_len){
@@ -1059,12 +1059,12 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
             
             
             /* Fill out record */
-            if (memcmp(&key, prev_data_key, sizeof(struct flow_key)) != 0) {
+            if (memcmp(&key, prev_data_key, sizeof(flow_key_t)) != 0) {
                 ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
             } else {
                 ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
             }
-            memcpy(prev_data_key, &key, sizeof(struct flow_key));
+            memcpy(prev_data_key, &key, sizeof(flow_key_t));
             
             data_ptr += data_record_size;
             data_set_len -= data_record_size;
@@ -2428,6 +2428,7 @@ static void ipfix_delete_exp_template_set(ipfix_exporter_template_set_t *set) {
     
     memset(set, 0, sizeof(ipfix_exporter_template_set_t));
     free(set);
+    set = NULL;
 }
 
 
@@ -2569,6 +2570,7 @@ static void ipfix_delete_exp_data_set(ipfix_exporter_data_set_t *set) {
     
     memset(set, 0, sizeof(ipfix_exporter_data_set_t));
     free(set);
+    set = NULL;
 }
 
 
@@ -2719,6 +2721,7 @@ static void ipfix_delete_exp_set_node(ipfix_exporter_set_node_t *node) {
     
     memset(node, 0, sizeof(ipfix_exporter_set_node_t));
     free(node);
+    node = NULL;
 }
 
 
@@ -2981,6 +2984,7 @@ static void ipfix_delete_exp_message(ipfix_message_t *message) {
     
     memset(message, 0, sizeof(ipfix_message_t));
     free(message);
+    message = NULL;
 }
 
 

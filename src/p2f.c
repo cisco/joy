@@ -179,7 +179,7 @@ void flocap_stats_timer_init (joy_ctx_data *ctx) {
  * \param f The flow_key to hash
  * \return Hash of \p f
  */
-static unsigned int flow_key_hash (const struct flow_key *f) {
+static unsigned int flow_key_hash (const flow_key_t *f) {
 
     if (glb_config->flow_key_match_method == EXACT_MATCH) {
           return (((unsigned int)f->sa.s_addr * 0xef6e15aa)
@@ -253,8 +253,8 @@ void flow_record_list_free (joy_ctx_data *ctx) {
  * \param b The second flow_key
  * \return 0 for equality, 1 for not
  */
-static int flow_key_is_eq (const struct flow_key *a,
-                           const struct flow_key *b) {
+static int flow_key_is_eq (const flow_key_t *a,
+                           const flow_key_t *b) {
     if (a->sa.s_addr != b->sa.s_addr) {
         return 1;
     }
@@ -281,8 +281,8 @@ static int flow_key_is_eq (const struct flow_key *a,
  * \param b The second flow_key
  * \return 0 if they are twins, 1 for not
  */
-static int flow_key_is_twin (const struct flow_key *a,
-                             const struct flow_key *b) {
+static int flow_key_is_twin (const flow_key_t *a,
+                             const flow_key_t *b) {
     if (glb_config->flow_key_match_method == NEAR_MATCH) {
         /*
          * Require that only one address match, so that we can find twins
@@ -327,7 +327,7 @@ static int flow_key_is_twin (const struct flow_key *a,
  * \param b The source flow_key that will be copied from
  * \return none
  */
-static void flow_key_copy (struct flow_key *dst, const struct flow_key *src) {
+static void flow_key_copy (flow_key_t *dst, const flow_key_t *src) {
     dst->sa.s_addr = src->sa.s_addr;
     dst->da.s_addr = src->da.s_addr;
     dst->sp = src->sp;
@@ -337,7 +337,7 @@ static void flow_key_copy (struct flow_key *dst, const struct flow_key *src) {
 
 #define MAX_TTL 255
 
-flow_record_t *flow_key_get_twin(joy_ctx_data *ctx, const struct flow_key *key);
+flow_record_t *flow_key_get_twin(joy_ctx_data *ctx, const flow_key_t *key);
 
 /**
  * \brief Initialize a flow_record.
@@ -347,7 +347,7 @@ flow_record_t *flow_key_get_twin(joy_ctx_data *ctx, const struct flow_key *key);
  */
 static void flow_record_init (joy_ctx_data *ctx,
                               flow_record_t *record,
-                              const struct flow_key *key) {
+                              const flow_key_t *key) {
 
     /* Increment the stats flow record count */
     flocap_stats_incr_records_in_table(ctx);
@@ -383,7 +383,7 @@ static inline unsigned int flow_record_is_in_chrono_list (joy_ctx_data *ctx, con
  * \return Valid flow_record or NULL
  */
 static flow_record_t *flow_record_list_find_record_by_key (const flow_record_list *list,
-                                                                const struct flow_key *key) {
+                                                                const flow_key_t *key) {
     flow_record_t *record = *list;
 
     /* Find a record matching the flow key, if it exists */
@@ -406,7 +406,7 @@ static flow_record_t *flow_record_list_find_record_by_key (const flow_record_lis
  * \return The twin flow_record or NULL
  */
 static flow_record_t *flow_record_list_find_twin_by_key (const flow_record_list *list,
-                                                              const struct flow_key *key) {
+                                                              const flow_key_t *key) {
     flow_record_t *record = *list;
 
     /* find a record matching the flow key, if it exists */
@@ -638,7 +638,7 @@ unsigned int flow_record_is_expired(joy_ctx_data *ctx, flow_record_t *record) {
  * \return NULL if expired or could not create or retrieve record
  */
 flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
-                                         const struct flow_key *key,
+                                         const flow_key_t *key,
                                          unsigned int create_new_records,
                                          const struct pcap_pkthdr *header) {
     flow_record_t *record;
@@ -760,16 +760,17 @@ static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
      */
     memset(r, 0, sizeof(flow_record_t));
     free(r);
+    r = NULL;
 }
 
 /**
-* \fn int flow_key_set_process_info (const struct flow_key *key, const struct host_flow *data)
+* \fn int flow_key_set_process_info (const flow_key_t *key, const struct host_flow *data)
 * \param key flow key structure
 * \param data process flow information
 * \return failure
 * \return ok
 */
-int flow_key_set_process_info(joy_ctx_data *ctx, const struct flow_key *key, const struct host_flow *data) {
+int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const struct host_flow *data) {
         flow_record_t *r;
 
         if (data->exe_name == NULL) {
@@ -1782,9 +1783,9 @@ void remove_record_and_update_list(joy_ctx_data *ctx, flow_record_t *rec)
  *
  * \return The twin flow_key, or NULL
  */
-flow_record_t *flow_key_get_twin (joy_ctx_data *ctx, const struct flow_key *key) {
+flow_record_t *flow_key_get_twin (joy_ctx_data *ctx, const flow_key_t *key) {
     if (glb_config->flow_key_match_method == EXACT_MATCH) {
-        struct flow_key twin;
+        flow_key_t twin;
 
         /*
          * we use find_record_by_key() instead of find_twin_by_key(),
@@ -1817,8 +1818,8 @@ static int p2f_test_flow_record_list(joy_ctx_data *ctx) {
     flow_record_list list = NULL;
     flow_record_t a, b, c, d;
     flow_record_t *rp;
-    struct flow_key k1 = { { 0xcafe }, { 0xbabe }, 0xfa, 0xce, 0xdd };
-    struct flow_key k2 = { { 0xdead }, { 0xbeef }, 0xfa, 0xce, 0xdd };
+    flow_key_t k1 = { { 0xcafe }, { 0xbabe }, 0xfa, 0xce, 0xdd };
+    flow_key_t k2 = { { 0xdead }, { 0xbeef }, 0xfa, 0xce, 0xdd };
     int num_fails = 0;
 
     flow_record_init(ctx, &a, &k1);

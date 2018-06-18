@@ -68,8 +68,7 @@
 /* default standard implementations */
 
 #define JOY_API_ALLOC_CONTEXT(a,b)   \
-    a = malloc((sizeof(struct joy_ctx_data) * b));    \
-    memset(a, 0x00, (sizeof(struct joy_ctx_data) * b));
+    a = calloc(1, (sizeof(struct joy_ctx_data) * b));    
 
 #define JOY_API_FREE_CONTEXT(a)    \
     free(a);                       \

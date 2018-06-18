@@ -74,13 +74,12 @@ void ppi_init (struct ppi **ppi_handle) {
         ppi_delete(ppi_handle);
     }
 
-    *ppi_handle = malloc(sizeof(struct ppi));
+    *ppi_handle = calloc(1, sizeof(struct ppi));
     if (*ppi_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*ppi_handle, 0, sizeof(struct ppi));
 }
 
 /**

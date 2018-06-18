@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -76,13 +76,13 @@ enum twins_match {
  */
 #define MAX_NUM_IP_ID 50
 
-struct ip_info {
+typedef struct ip_info_ {
     unsigned char ttl;              /*!< Smallest IP TTL in flow */
     unsigned char num_id;           /*!< Number of IP ids */
     uint16_t id[MAX_NUM_IP_ID];     /*!< Array of IP ids in flow */
-};
+} ip_info_t;
 
-struct tcp_info {
+typedef struct tcp_info_ {
     uint32_t ack;
     uint32_t seq;
     uint32_t retrans;
@@ -91,18 +91,18 @@ struct tcp_info {
     unsigned char flags;
     unsigned char opt_len;
     unsigned char opts[TCP_OPT_LEN];
-};
+} tcp_info_t;
 
 #define FLOW_LIST_CHECK_EXPIRE 0
 #define FLOW_LIST_PRINT_ALL 1
 
-struct flow_key {
+typedef struct flow_key_ {
     struct in_addr sa;
     struct in_addr da;
     unsigned short int sp;
     unsigned short int dp;
     unsigned short int prot;
-};
+} flow_key_t;
 
 #include "procwatch.h"
 #include "config.h"
@@ -120,7 +120,7 @@ extern FILE *info;
 #define MAX_IDP 1500
 
 typedef struct flow_record_ {
-    struct flow_key key;                  /*!< identifies flow by 5-tuple          */
+    flow_key_t key;                       /*!< identifies flow by 5-tuple          */
     uint16_t app;                         /*!< application protocol prediction     */
     uint8_t dir;                          /*!< direction of the flow               */
     unsigned int np;                      /*!< number of packets                   */
@@ -140,14 +140,14 @@ typedef struct flow_record_ {
     header_description_t hd;         /*!< header description (proto ident)    */
     void *idp;
     unsigned int idp_len;
-    struct ip_info ip;
-    struct tcp_info tcp;
+    ip_info_t ip;
+    tcp_info_t tcp;
     unsigned int invalid;
-	char *exe_name;                       /*!< executable associated with flow    */
-	char *full_path;                      /*!< executable path associated with flow    */
-	char *file_version;                   /*!< executable version associated with flow    */
-	char *file_hash;                      /*!< executable file hash associated with flow    */
-	unsigned long uptime_seconds;         /*!< executable uptime associated with flow    */
+    char *exe_name;                       /*!< executable associated with flow    */
+    char *full_path;                      /*!< executable path associated with flow    */
+    char *file_version;                   /*!< executable version associated with flow    */
+    char *file_hash;                      /*!< executable file hash associated with flow    */
+    unsigned long uptime_seconds;         /*!< executable uptime associated with flow    */
     unsigned char exp_type;
     unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
   
@@ -234,7 +234,7 @@ typedef flow_record_t *flow_record_list;
  *
  */
 flow_record_t *flow_key_get_record(joy_ctx_data *ctx,
-                                        const struct flow_key *key,
+                                        const flow_key_t *key,
                                         unsigned int create_new_records,
                                         const struct pcap_pkthdr *header);
 
@@ -313,7 +313,7 @@ void flocap_stats_timer_init(joy_ctx_data *ctx);
 * associated with key, if there is one, and then sets the process info of
 * that record to the provided data
 */
-int flow_key_set_process_info(joy_ctx_data *ctx, const struct flow_key *key, const struct host_flow *data);
+int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const struct host_flow *data);
 
 /** Main entry point for the uploader thread */
 void *uploader_main(void* ptr);

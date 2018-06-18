@@ -53,7 +53,7 @@
 #define HOST_PROC_FLOW_TABLE_LEN 1024
 
 struct host_flow {
-	struct flow_key key;
+	flow_key_t key;
 	unsigned long pid;
 	unsigned long parent_pid;
 	unsigned long uptime_seconds;

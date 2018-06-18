@@ -175,24 +175,24 @@ static char *get_previous_hash_by_path (char *path) {
     return NULL;
 }
 
-static struct host_flow *get_host_flow (struct flow_key *key) {
+static struct host_flow *get_host_flow (flow_key_t *key) {
     int i;
-    struct flow_key empty_key;
+    flow_key_t empty_key;
     struct host_flow *record = NULL;
     
     if (key == NULL) {
 	return NULL;
     }
     
-    memset(&empty_key, 0, sizeof(struct flow_key));
+    memset(&empty_key, 0, sizeof(flow_key_t));
     for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
 	record = &host_proc_flow_table_array[i];
-	if (memcmp(&(record->key), key, sizeof(struct flow_key)) == 0) {
+	if (memcmp(&(record->key), key, sizeof(flow_key_t)) == 0) {
 	    return record;
 	}
-	else if (memcmp(&(record->key), &empty_key, sizeof(struct flow_key)) == 0) {
+	else if (memcmp(&(record->key), &empty_key, sizeof(flow_key_t)) == 0) {
 	    // found an empty slot
-	    memcpy(&(record->key), key, sizeof(struct flow_key));
+	    memcpy(&(record->key), key, sizeof(flow_key_t));
 	    return record;
 	}
     }
@@ -207,15 +207,15 @@ static struct host_flow *get_host_flow (struct flow_key *key) {
 static int print_flow_table() {
     int i, entries = 0;
     char szAddr[128];
-    struct flow_key empty_key;
+    flow_key_t empty_key;
     struct host_flow *record;
     char ipv4_addr[INET_ADDRSTRLEN];
     
     
-    memset(&empty_key, 0, sizeof(struct flow_key));
+    memset(&empty_key, 0, sizeof(flow_key_t));
     for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
 	record = &host_proc_flow_table_array[i];
-	if (memcmp(&(record->key), &empty_key, sizeof(struct flow_key)) == 0) {
+	if (memcmp(&(record->key), &empty_key, sizeof(flow_key_t)) == 0) {
 	    //end of entires in table
 	    break;
 	}
@@ -360,8 +360,7 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *
 		    char *prev_hash = NULL;
 		    FILETIME kernelTime,userTime;
 		    SYSTEMTIME currentTime, upTime;
-		    
-		    memset(record->full_path, 0, PROC_PATH_LEN);
+		  
 		    QueryFullProcessImageName(hProcess, 0, record->full_path, &len);
 		    process_get_file_version(record);
 		    
@@ -408,7 +407,7 @@ int host_flow_table_add_tcp(int all_sockets) {
     DWORD dwRetVal = 0;
     
     struct in_addr IpAddr;
-    struct flow_key key;
+    flow_key_t key;
     struct host_flow *record = NULL;
     int i;
     
@@ -579,7 +578,7 @@ static unsigned long get_process_uptime (unsigned long pid) {
 #define BUF_SIZE 512
 
 struct ss_flow {
-    struct flow_key key;
+    flow_key_t key;
     char command[PROC_PATH_LEN];
     unsigned long pid;
 };
@@ -741,7 +740,7 @@ enum lsof_status {
 };
 
 struct lsof_flow {
-    struct flow_key key;
+    flow_key_t key;
     char command[PROC_PATH_LEN];   
     unsigned long pid;  
 };
@@ -1056,7 +1055,7 @@ int get_host_flow_data(joy_ctx_data *ctx) {
     * is one
     */
     for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; i++) {
-        struct flow_key twin;
+        flow_key_t twin;
 
         record = &host_proc_flow_table_array[i];
         if (record->pid == 0) {

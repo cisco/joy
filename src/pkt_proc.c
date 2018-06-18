@@ -264,13 +264,13 @@ joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
 
   const ipfix_hdr_t *ipfix = (const ipfix_hdr_t*)start;
   const ipfix_set_hdr_t *ipfix_sh;
-  struct flow_key prev_key;
+  flow_key_t prev_key;
   uint16_t message_len = ntohs(ipfix->length);
   int set_num = 0;
-  const struct flow_key rec_key = r->key;
+  const flow_key_t rec_key = r->key;
   char ipv4_addr[INET_ADDRSTRLEN];
 
-  memset(&prev_key, 0, sizeof(struct flow_key));
+  memset(&prev_key, 0, sizeof(flow_key_t));
 
   if (ntohs(ipfix->version_number) != 10) {
       joy_log_warn("ipfix version number is invalid");
@@ -353,7 +353,7 @@ joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
 
 static joy_status_e process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, flow_record_t *r) {
     const struct nfv9_hdr *nfv9 = (const struct nfv9_hdr*)start;
-    struct flow_key prev_key;
+    flow_key_t prev_key;
     int flowset_num = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
 
@@ -373,7 +373,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *h
     }
 #endif
 
-    memset(&prev_key, 0x0, sizeof(struct flow_key));
+    memset(&prev_key, 0x0, sizeof(flow_key_t));
 
     start += 20;
     len -= 20;
@@ -491,7 +491,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *h
                          flow_records_in_set++) {
 
                           // fill out key
-                          struct flow_key key;
+                          flow_key_t key;
                           const void *flow_data = (start+flow_record_size*flow_records_in_set) + 4;
 
                           // init key
@@ -506,12 +506,12 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *h
                           nf_record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
                           // fill out record
-                          if (memcmp(&key,&prev_key,sizeof(struct flow_key)) != 0) {
+                          if (memcmp(&key,&prev_key,sizeof(flow_key_t)) != 0) {
                               nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
                           } else {
                               nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
                           }
-                          memcpy(&prev_key,&key,sizeof(struct flow_key));
+                          memcpy(&prev_key,&key,sizeof(flow_key_t));
 
                           flowset_num += 1;
 
@@ -532,7 +532,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *h
 }
 
 static flow_record_t *
-process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, struct flow_key *key) {
+process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, flow_key_t *key) {
     unsigned int tcp_hdr_len;
     const char *payload;
     unsigned int size_payload;
@@ -668,7 +668,7 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
 }
 
 static flow_record_t *
-process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *udp_start, int udp_len, struct flow_key *key) {
+process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *udp_start, int udp_len, flow_key_t *key) {
     unsigned int udp_hdr_len;
     const char *payload;
     unsigned int size_payload;
@@ -738,7 +738,7 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
 }
 
 static flow_record_t *
-process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, struct flow_key *key) {
+process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, flow_key_t *key) {
     int size_icmp_hdr;
     const char *payload;
     int size_payload;
@@ -802,7 +802,7 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
 }
 
 static flow_record_t *
-process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_start, int ip_len, struct flow_key *key) {
+process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_start, int ip_len, flow_key_t *key) {
     const char *payload;
     int size_payload;
     flow_record_t *record = NULL;
@@ -874,9 +874,9 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
     unsigned int transport_len;
     unsigned int ip_hdr_len;
     const void *transport_start;
-    struct flow_key key;
+    flow_key_t key;
     
-    memset(&key, 0x00, sizeof(struct flow_key));
+    memset(&key, 0x00, sizeof(flow_key_t));
 
     flocap_stats_incr_num_packets(ctx);
     joy_log_info("++++++++++ Packet %lu ++++++++++", ctx->stats.num_packets);

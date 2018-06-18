@@ -52,7 +52,7 @@
 # include <arpa/inet.h>  /* for ntohl()             */
 #endif
 
-#include <string.h>     /* for memset()            */
+#include <string.h>
 #include "ssh.h"
 #include "utils.h"      /* for enum role */
 #include "p2f.h"        /* for zprintf_ ...        */
@@ -741,13 +741,12 @@ inline void ssh_init(struct ssh **ssh_handle) {
         ssh_delete(ssh_handle);
     }
 
-    *ssh_handle = malloc(sizeof(struct ssh));
+    *ssh_handle = calloc(1, sizeof(struct ssh));
     if (*ssh_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*ssh_handle, 0, sizeof(struct ssh));
 
     (*ssh_handle)->buffer                 = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->buffer);
     (*ssh_handle)->kex_algos              = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->kex_algos);

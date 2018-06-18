@@ -96,7 +96,6 @@
  * \endverbatim
  */
 #include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
 #include <ctype.h> 
 #include <assert.h> 
@@ -766,13 +765,12 @@ void dns_init (dns_t **dns_handle) {
         dns_delete(dns_handle);
     }
 
-    *dns_handle = malloc(sizeof(dns_t));
+    *dns_handle = calloc(1, sizeof(dns_t));
     if (*dns_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*dns_handle, 0, sizeof(dns_t));
 }
 
 /**
