@@ -173,8 +173,9 @@ static void print_payload (const char *payload, int len) {
 #endif
 
 static void flow_record_process_packet_length_and_time_ack (flow_record_t *record,
-                    unsigned int length, const struct timeval *time,
-                    const struct tcp_hdr *tcp) {
+                                                            unsigned int length, 
+                                                            const struct timeval *time,
+                                                            const struct tcp_hdr *tcp) {
 
     if (record->op >= NUM_PKT_LEN) {
         return;  /* no more room */
@@ -184,20 +185,20 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
         case rle:
             if (glb_config->include_zeroes || length != 0) {
                 if (length == record->last_pkt_len) {
-                          if (record->pkt_len[record->op] < 32768) {
-                              record->op++;
-                          }
-                          (record->pkt_len[record->op])--;
-                          record->pkt_time[record->op] = *time;
-                          // fprintf(info, " == pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
+		    if (record->pkt_len[record->op] < 32768) {
+			record->op++;
+		    }
+		    (record->pkt_len[record->op])--;
+		    record->pkt_time[record->op] = *time;
+		    // fprintf(info, " == pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
                 } else {
-                          if (record->pkt_len[record->op] != 0) {
-                              record->op++;
-                          }
-                          record->pkt_len[record->op] = length;
-                          record->pkt_time[record->op] = *time;
-                          record->last_pkt_len = length;
-                          // fprintf(info, " != pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
+		    if (record->pkt_len[record->op] != 0) {
+			record->op++;
+		    }
+		    record->pkt_len[record->op] = length;
+		    record->pkt_time[record->op] = *time;
+		    record->last_pkt_len = length;
+		    // fprintf(info, " != pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
                 }
             }
             break;
@@ -208,29 +209,29 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
                 record->pkt_time[record->op] = *time;
             }
             if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
-                      if (record->pkt_len[record->op] != 0) {
-                          record->op++;
-                      }
+		if (record->pkt_len[record->op] != 0) {
+		    record->op++;
+		}
             }
             break;
 
         case defragmented:
             if (glb_config->include_zeroes || length != 0) {
                 if (length == record->last_pkt_len) {
-                          record->op--;
-                          record->pkt_len[record->op] += length;
-                          record->pkt_time[record->op] = *time;
-                          record->op++;
+		    record->op--;
+		    record->pkt_len[record->op] += length;
+		    record->pkt_time[record->op] = *time;
+		    record->op++;
                 } else {
-                          record->pkt_len[record->op] = length;
-                          record->pkt_time[record->op] = *time;
-                          record->last_pkt_len = length;
-                          record->op++;
+		    record->pkt_len[record->op] = length;
+		    record->pkt_time[record->op] = *time;
+		    record->last_pkt_len = length;
+		    record->op++;
                 }
             }
             if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
                 if (record->pkt_len[record->op] != 0) {
-                          record->op++;
+		    record->op++;
                 }
                 record->last_pkt_len = length;
             }
@@ -259,33 +260,33 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
  * @param r Flow record tracking the inbound network packet.
  */
 joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
-                          int len,
-                          flow_record_t *r) {
+			   int len,
+			   flow_record_t *r) {
 
-  const ipfix_hdr_t *ipfix = (const ipfix_hdr_t*)start;
-  const ipfix_set_hdr_t *ipfix_sh;
-  flow_key_t prev_key;
-  uint16_t message_len = ntohs(ipfix->length);
-  int set_num = 0;
-  const flow_key_t rec_key = r->key;
-  char ipv4_addr[INET_ADDRSTRLEN];
-
-  memset(&prev_key, 0, sizeof(flow_key_t));
-
-  if (ntohs(ipfix->version_number) != 10) {
-      joy_log_warn("ipfix version number is invalid");
-  }
-
-  if (message_len > len) {
-      joy_log_warn("ipfix message claims to be longer than packet length");
-  }
-
+    const ipfix_hdr_t *ipfix = (const ipfix_hdr_t*)start;
+    const ipfix_set_hdr_t *ipfix_sh;
+    flow_key_t prev_key;
+    uint16_t message_len = ntohs(ipfix->length);
+    int set_num = 0;
+    const flow_key_t rec_key = r->key;
+    char ipv4_addr[INET_ADDRSTRLEN];
+    
+    memset(&prev_key, 0, sizeof(flow_key_t));
+    
+    if (ntohs(ipfix->version_number) != 10) {
+        joy_log_warn("ipfix version number is invalid");
+    }
+    
+    if (message_len > len) {
+        joy_log_warn("ipfix message claims to be longer than packet length");
+    }
+    
     joy_log_info("Processing ipfix packet");
     inet_ntop(AF_INET, &r->key.sa, ipv4_addr, INET_ADDRSTRLEN);
     joy_log_debug(" Source IP: %s\n", ipv4_addr);
     joy_log_debug(" Observation Domain ID: %i", htonl(ipfix->observe_dom_id));
     joy_log_debug(" Packet len: %u", len);
-
+    
 #if 0
     if (len > 0) {
         joy_log_debug("Payload:");
@@ -294,64 +295,68 @@ joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
         }
     }
 #endif
-
-  /* Move past ipfix_hdr, i.e. IPFIX message header */
-  start += 16;
-  message_len -= 16;
-
-  /*
-   * Parse IPFIX message for template, options, or data sets.
-   */
-  while (message_len > sizeof(ipfix_set_hdr_t)) {
-    ipfix_sh = (const ipfix_set_hdr_t*)start;
-    uint16_t set_id = ntohs(ipfix_sh->set_id);
-
-    joy_log_debug("Set ID: %i\n", set_id);
-    joy_log_debug("Set Length: %i\n", ntohs(ipfix_sh->length));
-
-    if ((set_id <= 1) || ((4 <= set_id) && (set_id <= 255))) {
-      /* The set_id is invalid, either Netflow or reserved */
-      joy_log_warn("Set ID is invalid\n");
-    }
+    
+    /* Move past ipfix_hdr, i.e. IPFIX message header */
+    start += 16;
+    message_len -= 16;
+    
     /*
-     * Set ID is a Template Set
+     * Parse IPFIX message for template, options, or data sets.
      */
-    else if (set_id == 2) {
-      /* Set template pointer to right after set header */
-      const void *template_start = start + 4;
-      uint16_t template_set_len = htons(ipfix_sh->length) - 4;
-
-      /* Parse the template set */
-      ipfix_parse_template_set(ipfix, template_start,
-                               template_set_len, rec_key);
+    while (message_len > sizeof(ipfix_set_hdr_t)) {
+        ipfix_sh = (const ipfix_set_hdr_t*)start;
+        uint16_t set_id = ntohs(ipfix_sh->set_id);
+        
+        joy_log_debug("Set ID: %i\n", set_id);
+        joy_log_debug("Set Length: %i\n", ntohs(ipfix_sh->length));
+        
+        if ((set_id <= 1) || ((4 <= set_id) && (set_id <= 255))) {
+            /* The set_id is invalid, either Netflow or reserved */
+            joy_log_warn("Set ID is invalid\n");
+        }
+        /*
+         * Set ID is a Template Set
+         */
+        else if (set_id == 2) {
+            /* Set template pointer to right after set header */
+            const void *template_start = start + 4;
+            uint16_t template_set_len = htons(ipfix_sh->length) - 4;
+            
+            /* Parse the template set */
+            ipfix_parse_template_set(ipfix, template_start,
+                                     template_set_len, rec_key);
+        }
+        /*
+         * Set ID is an Options Template Set
+         */
+        else if (set_id == 3) {
+            /* Ignore Options Template for now, what is this used for? */
+            joy_log_warn("Options Template NYI\n");
+        }
+        /*
+         * Set ID is a Data Set
+         */
+        else {
+            const void *data_start = start + 4;
+            uint16_t data_set_len = ntohs(ipfix_sh->length) - 4;
+            
+            ipfix_parse_data_set(ctx, ipfix, data_start, data_set_len,
+                                 set_id, rec_key, &prev_key);
+        }
+        
+        start += ntohs(ipfix_sh->length);
+        message_len -= ntohs(ipfix_sh->length);
+        set_num += 1;
     }
-    /*
-     * Set ID is an Options Template Set
-     */
-    else if (set_id == 3) {
-      /* Ignore Options Template for now, what is this used for? */
-          joy_log_warn("Options Template NYI\n");
-    }
-    /*
-     * Set ID is a Data Set
-     */
-    else {
-      const void *data_start = start + 4;
-      uint16_t data_set_len = ntohs(ipfix_sh->length) - 4;
-
-      ipfix_parse_data_set(ctx, ipfix, data_start, data_set_len,
-                           set_id, rec_key, &prev_key);
-    }
-
-    start += ntohs(ipfix_sh->length);
-    message_len -= ntohs(ipfix_sh->length);
-    set_num += 1;
-  }
-
-  return ok;
+    
+    return ok;
 }
 
-static joy_status_e process_nfv9 (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, flow_record_t *r) {
+static joy_status_e process_nfv9 (joy_ctx_data *ctx, 
+                                  const struct pcap_pkthdr *header, 
+                                  const char *start, int len, 
+                                  flow_record_t *r) {
+
     const struct nfv9_hdr *nfv9 = (const struct nfv9_hdr*)start;
     flow_key_t prev_key;
     int flowset_num = 0;
@@ -1042,8 +1047,12 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
             free(record->idp);
         }
         record->idp_len = (ntohs(ip->ip_len) < glb_config->idp ? ntohs(ip->ip_len) : glb_config->idp);
-        record->idp = malloc(record->idp_len);
-        memcpy(record->idp, ip, record->idp_len);
+        record->idp = calloc(1, record->idp_len);
+        if (!record->idp) {
+            joy_log_err("Out of memory");
+            return;
+        }
+
         joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
     }
 

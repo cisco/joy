@@ -135,7 +135,7 @@ typedef void (joy_flow_rec_callback)(void*);
  *
  */
 extern int joy_initialize (struct joy_init *data, char *output_dir,
-      char *output_file, char *logfile);
+			   char *output_file, char *logfile);
 
 /*
  * Function: joy_print_config
@@ -273,7 +273,8 @@ extern int joy_label_subnets (char *label, int type, char* subnet_str);
  *
  */
 extern void joy_process_packet (unsigned char *ctx_idx,
-    const struct pcap_pkthdr *header, const unsigned char *packet);
+				const struct pcap_pkthdr *header, 
+				const unsigned char *packet);
 
 /*
  * Function: joy_print_flow_data
@@ -333,7 +334,8 @@ extern void joy_export_flows_ipfix (unsigned int index, int type);
  *
  */
 extern void joy_flow_record_external_processing(unsigned int index, 
-        int type, joy_flow_rec_callback callback_fn);
+						int type, 
+						joy_flow_rec_callback callback_fn);
 
 /*
  * Function: joy_cleanup

@@ -643,8 +643,8 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
  *
  */
 void joy_process_packet(unsigned char *ctx_index,
-        const struct pcap_pkthdr *header,
-        const unsigned char *packet)
+			const struct pcap_pkthdr *header,
+			const unsigned char *packet)
 {
     unsigned long int index = 0;
     joy_ctx_data *ctx = NULL;
@@ -795,7 +795,8 @@ void joy_export_flows_ipfix(unsigned int index, int type)
  *
  */
 void joy_flow_record_external_processing(unsigned int index,
-        int type, joy_flow_rec_callback callback_fn)
+					 int type, 
+					 joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
