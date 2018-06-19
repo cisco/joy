@@ -98,7 +98,10 @@ static void copy_printable_string(char *buf,
  * \return A pointer to the first substring match, or NULL if not found.
  *
  */
-static const char * memsearch(const char *buf, const unsigned int buflen, const char *sub, const unsigned int sublen) {
+static const char * memsearch(const char *buf, 
+			      const unsigned int buflen, 
+			      const char *sub, 
+			      const unsigned int sublen) {
     unsigned int bufidx;
 
     for (bufidx = 0; bufidx < buflen; bufidx++) {
@@ -272,9 +275,9 @@ enum ssh_msg_type {
 #pragma pack(push,1)
 
 struct ssh_packet {
-	uint32_t      packet_length;
-	unsigned char padding_length;
-	unsigned char payload;
+    uint32_t      packet_length;
+    unsigned char padding_length;
+    unsigned char payload;
 } PACKED;
 
 #pragma pack(pop)

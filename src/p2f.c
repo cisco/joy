@@ -764,13 +764,13 @@ static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
 }
 
 /**
-* \fn int flow_key_set_process_info (const flow_key_t *key, const struct host_flow *data)
+* \fn int flow_key_set_process_info (const flow_key_t *key, const host_flow_t *data)
 * \param key flow key structure
 * \param data process flow information
 * \return failure
 * \return ok
 */
-int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const struct host_flow *data) {
+int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const host_flow_t *data) {
         flow_record_t *r;
 
         if (data->exe_name == NULL) {

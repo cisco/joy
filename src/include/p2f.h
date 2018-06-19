@@ -313,7 +313,7 @@ void flocap_stats_timer_init(joy_ctx_data *ctx);
 * associated with key, if there is one, and then sets the process info of
 * that record to the provided data
 */
-int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const struct host_flow *data);
+int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const host_flow_t *data);
 
 /** Main entry point for the uploader thread */
 void *uploader_main(void* ptr);

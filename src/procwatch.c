@@ -82,7 +82,7 @@
  * just reads from the process flow table. We only need to lock around 
  * the updating/re-writing of the table which occurs at 45 second intervals.
  */
-static struct host_flow host_proc_flow_table_array[HOST_PROC_FLOW_TABLE_LEN];
+static host_flow_t host_proc_flow_table_array[HOST_PROC_FLOW_TABLE_LEN];
 
 /* lock to use when updating/re-writing the process flow table */
 pthread_mutex_t exe_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -144,13 +144,13 @@ static void host_flow_table_init() {
 	    free(host_proc_flow_table_array[i].file_version);
 	if (host_proc_flow_table_array[i].hash != NULL)
 	    free(host_proc_flow_table_array[i].hash);
-	memset(&host_proc_flow_table_array[i], 0, sizeof(struct host_flow));
+	memset(&host_proc_flow_table_array[i], 0, sizeof(host_flow_t));
     }
 }
 
 static char *get_previous_hash_by_path (char *path) {
     int i;
-    struct host_flow *record = NULL;
+    host_flow_t *record = NULL;
     
     if (path == NULL) {
 	return NULL;
@@ -175,10 +175,10 @@ static char *get_previous_hash_by_path (char *path) {
     return NULL;
 }
 
-static struct host_flow *get_host_flow (flow_key_t *key) {
+static host_flow_t *get_host_flow (flow_key_t *key) {
     int i;
     flow_key_t empty_key;
-    struct host_flow *record = NULL;
+    host_flow_t *record = NULL;
     
     if (key == NULL) {
 	return NULL;
@@ -208,7 +208,7 @@ static int print_flow_table() {
     int i, entries = 0;
     char szAddr[128];
     flow_key_t empty_key;
-    struct host_flow *record;
+    host_flow_t *record;
     char ipv4_addr[INET_ADDRSTRLEN];
     
     
@@ -273,7 +273,7 @@ static int print_flow_table() {
 
 #ifdef WIN32
 
-void process_get_file_version(struct host_flow *record) {
+void process_get_file_version(host_flow_t *record) {
     DWORD  verHandle = 0;
     UINT   size = 0;
     LPBYTE lpBuffer = NULL;
@@ -315,7 +315,7 @@ void process_get_file_version(struct host_flow *record) {
     }
 }
 
-void get_process_info(HANDLE hProcessSnap, unsigned long pid, struct host_flow *record)
+void get_process_info(HANDLE hProcessSnap, unsigned long pid, host_flow_t *record)
 {
     DWORD len = PROC_PATH_LEN;
     HANDLE hProcess;
@@ -408,7 +408,7 @@ int host_flow_table_add_tcp(int all_sockets) {
     
     struct in_addr IpAddr;
     flow_key_t key;
-    struct host_flow *record = NULL;
+    host_flow_t *record = NULL;
     int i;
     
     // Take a snapshot of all processes in the system.
@@ -583,7 +583,7 @@ struct ss_flow {
     unsigned long pid;
 };
 
-static void get_pid_path_hash (struct host_flow *hf) {
+static void get_pid_path_hash (host_flow_t *hf) {
     int len = 0;
     char exe_name[PID_MAX_LEN];
     char buffer[BUF_SIZE];
@@ -675,7 +675,7 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
     int dummy_int = 0;
     int rc = 0;
     struct ss_flow fr;
-    struct host_flow *hf = NULL;
+    host_flow_t *hf = NULL;
     FILE *ss_file;
 
     ss_file = popen(SS_COMMAND, "r");
@@ -897,7 +897,7 @@ char* get_application_version (char* full_path) {
 }
 
 void lsof_process_output(struct lsof_flow *fr, char *s, int sockets) {
-    struct host_flow *hf = NULL;
+    host_flow_t *hf = NULL;
     enum lsof_status status;
     char srcAddr[BUFSIZE];
 
@@ -1019,7 +1019,7 @@ int get_host_flow_data(joy_ctx_data *ctx) {
     struct timeval current_time;
     struct timeval delta_time;
     float seconds = 0.0;
-    struct host_flow *record = NULL;
+    host_flow_t *record = NULL;
 
     /* get current time and determine the delta from last refresh */
     gettimeofday(&current_time, NULL);
