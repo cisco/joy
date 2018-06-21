@@ -519,7 +519,7 @@ typedef struct ipfix_exporter_ {
 void *ipfix_cts_monitor(void *ptr);
 
 
-void ipfix_module_cleanup(void);
+void ipfix_module_cleanup(joy_ctx_data *ctx);
 
 
 void ipfix_cts_cleanup(void);
@@ -546,11 +546,11 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
 int ipfix_collect_main(joy_ctx_data *ctx);
 
 
-int ipfix_export_flush_message(void);
+int ipfix_export_flush_message(joy_ctx_data *ctx);
 
 
-int ipfix_export_main(const flow_record_t *record);
-
+int ipfix_export_main(joy_ctx_data *ctx, const flow_record_t *record);
+int ipfix_exporter_init(const char *host_name);
 
 /*
  * @brief Enumeration representing IPFIX set type ids.

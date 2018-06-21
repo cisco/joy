@@ -59,6 +59,7 @@
 #include "tls.h"
 #include "pkt_proc.h"
 #include "p2f.h"
+#include "joy_api_private.h"
 
 /********************************************
  *********
@@ -109,6 +110,7 @@ static uint16_t cts_count = 0;
 static ipfix_exporter_template_t *export_template_store_head = NULL;
 static ipfix_exporter_template_t *export_template_store_tail = NULL;
 static uint16_t xts_count = 0;
+static pthread_mutex_t export_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
 /* Related to SPLT */
@@ -142,12 +144,6 @@ static ipfix_collector_t gateway_collect = {
     0,0
 };
 #endif
-
-/* Used for exporting formatted IPFIX messages */
-static ipfix_raw_message_t raw_message;
-
-/* Used for storing IPFIX messages before transmission */
-static ipfix_message_t *export_message = NULL;
 
 ipfix_template_type_e export_template_type;
 
@@ -2155,6 +2151,7 @@ static int ipfix_xts_append(ipfix_exporter_template_t *template) {
     /* Write the current time */
     //template->last_seen = time(NULL);
     
+    pthread_mutex_lock(&export_lock);
     if (export_template_store_head == NULL) {
         /* This is the first template in store list */
         export_template_store_head = template;
@@ -2169,7 +2166,8 @@ static int ipfix_xts_append(ipfix_exporter_template_t *template) {
     
     /* Increment the store count */
     xts_count += 1;
-    
+    pthread_mutex_unlock(&export_lock);
+
     return 0;
 }
 
@@ -2249,23 +2247,15 @@ static int ipfix_xts_copy(ipfix_exporter_template_t **dest_template,
 static ipfix_exporter_template_t *ipfix_xts_search
 (ipfix_template_type_e type, 
  ipfix_exporter_template_t **dest_template) {
-    ipfix_exporter_template_t *cur_template;
+    ipfix_exporter_template_t *cur_template = NULL;
 
     if (export_template_store_head == NULL) {
         return NULL;
     }
     
     cur_template = export_template_store_head;
-    if (cur_template->type == type) {
-        /* Found match */
-        if (dest_template != NULL) {
-            ipfix_xts_copy(dest_template, cur_template);
-        }
-        return cur_template;
-    }
-    
-    while (cur_template->next) {
-        cur_template = cur_template->next;
+
+    while (cur_template) {
         if (cur_template->type == type) {
             /* Found match */
             if (dest_template != NULL) {
@@ -2273,6 +2263,7 @@ static ipfix_exporter_template_t *ipfix_xts_search
             }
             return cur_template;
         }
+        cur_template = cur_template->next;
     }
     
     return NULL;
@@ -2293,6 +2284,7 @@ void ipfix_xts_cleanup(void) {
         return;
     }
 
+    pthread_mutex_lock(&export_lock);
     this_template = export_template_store_head;
     next_template = this_template->next;
     
@@ -2306,6 +2298,7 @@ void ipfix_xts_cleanup(void) {
         
         ipfix_delete_exp_template(this_template);
     }
+    pthread_mutex_unlock(&export_lock);
 }
 
 
@@ -3012,15 +3005,14 @@ static void ipfix_delete_exp_message(ipfix_message_t *message) {
  * for sending messages. If \p host_name is NULL, the localhost
  * is used as the server (collector) target.
  *
- * @param e Pointer to the ipfix_exporter that will be initialized.
  * @param host_name Host name of the server, a.k.a collector.
  */
-static int ipfix_exporter_init(ipfix_exporter_t *e,
-                               const char *host_name) {
+int ipfix_exporter_init(const char *host_name) {
     struct hostent *host = NULL;
     char host_desc [HOST_NAME_MAX_SIZE];
     unsigned long localhost = 0;
     unsigned int remote_port = 0;
+    ipfix_exporter_t *e = &gateway_export;
     
     memset(e, 0, sizeof(ipfix_exporter_t));
     
@@ -3986,11 +3978,12 @@ static int ipfix_exp_encode_message(ipfix_message_t *message,
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_export_send_message(ipfix_exporter_t *e,
-                                     ipfix_message_t *message) {
+static int ipfix_export_send_message(ipfix_message_t *message) {
 
     ssize_t bytes = 0;
     size_t msg_len = message->hdr.length;
+    ipfix_exporter_t *e = &gateway_export;
+    ipfix_raw_message_t raw_message;
     
     memset(&raw_message, 0, sizeof(ipfix_raw_message_t));
     
@@ -4043,19 +4036,19 @@ static int ipfix_export_send_message(ipfix_exporter_t *e,
  *
  * @return 0 for success, 1 for failure
  */
-int ipfix_export_flush_message(void) {
+int ipfix_export_flush_message(joy_ctx_data *ctx) {
 
     if (gateway_export.socket == 0) {
         loginfo("error: gateway_export not configured, unable to flush message");
         return 1;
     }
     
-    if (export_message == NULL) {
+    if (ctx->export_message == NULL) {
         return 0;
     }
     
     /* Send the message */
-    if (ipfix_export_send_message(&gateway_export, export_message)) {
+    if (ipfix_export_send_message(ctx->export_message)) {
         loginfo("error: unable to send message");
         return 1;
     }
@@ -4064,13 +4057,13 @@ int ipfix_export_flush_message(void) {
 }
 
 
-void ipfix_module_cleanup(void) {
+void ipfix_module_cleanup(joy_ctx_data *ctx) {
 
     ipfix_cts_cleanup();
     ipfix_xts_cleanup();
-    if (export_message != NULL) {
-        ipfix_delete_exp_message(export_message);
-        export_message = NULL;
+    if (ctx->export_message != NULL) {
+        ipfix_delete_exp_message(ctx->export_message);
+        ctx->export_message = NULL;
     }
 }
 
@@ -4377,18 +4370,19 @@ end:
  *
  * @return 0 for success, 1 for failure
  */
-int ipfix_export_main(const flow_record_t *fr_record) {
+int ipfix_export_main(joy_ctx_data *ctx, const flow_record_t *fr_record) {
 
     int attach_code = 0;
 
     /* Init the exporter for use, if not done already */
     if (gateway_export.socket == 0) {
-        ipfix_exporter_init(&gateway_export, glb_config->ipfix_export_remote_host);
+        loginfo("error: IPFix export not initialized");
+        return 1;
     }
 
     /* Create and init the IPFIX message */
-    if (export_message == NULL) {
-        if (!(export_message = ipfix_exp_message_malloc())) {
+    if (ctx->export_message == NULL) {
+        if (!(ctx->export_message = ipfix_exp_message_malloc())) {
             loginfo("error: unable to create a message");
             return 1;
         }
@@ -4397,7 +4391,7 @@ int ipfix_export_main(const flow_record_t *fr_record) {
     /*
      * Attach a template if necessary.
      */
-    attach_code = ipfix_export_message_attach_template_set(export_message,
+    attach_code = ipfix_export_message_attach_template_set(ctx->export_message,
                                                            export_template_type);
     if (attach_code == 2) {
         /* 
@@ -4405,20 +4399,20 @@ int ipfix_export_main(const flow_record_t *fr_record) {
          * it was already full. Here we send off the packed message
          * and then make a new one to attach this template to.
          */
-        ipfix_export_send_message(&gateway_export, export_message);
+        ipfix_export_send_message(ctx->export_message);
 
-        if (export_message) {
+        if (ctx->export_message) {
             /* Cleanup the message */
-            ipfix_delete_exp_message(export_message);
+            ipfix_delete_exp_message(ctx->export_message);
 
             /* Make new message */
-            if (!(export_message = ipfix_exp_message_malloc())) {
+            if (!(ctx->export_message = ipfix_exp_message_malloc())) {
                 loginfo("error: unable to create a message");
                 return 1;
             }
         }
 
-        if (ipfix_export_message_attach_template_set(export_message,
+        if (ipfix_export_message_attach_template_set(ctx->export_message,
                                                      export_template_type)) {
             /*
              * We either had an error or could not attach again.
@@ -4432,7 +4426,7 @@ int ipfix_export_main(const flow_record_t *fr_record) {
      * Attach data record.
      */
     attach_code = ipfix_export_message_attach_data_set(fr_record,
-                                                       export_message,
+                                                       ctx->export_message,
                                                        export_template_type);
     if (attach_code == 2) {
         /* 
@@ -4440,21 +4434,21 @@ int ipfix_export_main(const flow_record_t *fr_record) {
          * it was already full. Here we send off the packed message
          * and then make a new one to attach this data record to.
          */
-        ipfix_export_send_message(&gateway_export, export_message);
+        ipfix_export_send_message(ctx->export_message);
 
-        if (export_message) {
+        if (ctx->export_message) {
             /* Cleanup the message */
-            ipfix_delete_exp_message(export_message);
+            ipfix_delete_exp_message(ctx->export_message);
 
             /* Make new message */
-            if (!(export_message = ipfix_exp_message_malloc())) {
+            if (!(ctx->export_message = ipfix_exp_message_malloc())) {
                 loginfo("error: unable to create a message");
                 return 1;
             }
         }
 
         if (ipfix_export_message_attach_data_set(fr_record,
-                                                 export_message,
+                                                 ctx->export_message,
                                                  export_template_type)) {
             /*
              * We either had an error or could not attach again.

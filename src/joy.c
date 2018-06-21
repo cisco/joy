@@ -420,10 +420,10 @@ static void sig_close (int signal_arg) {
 
     if (glb_config->ipfix_export_port) {
         /* Flush any unsent exporter messages in Ipfix module */
-        ipfix_export_flush_message();
+        ipfix_export_flush_message(&main_ctx);
     }
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-    ipfix_module_cleanup();
+    ipfix_module_cleanup(&main_ctx);
 
     /* Cleanup protocol identification module */
     proto_identify_cleanup();
@@ -1446,6 +1446,11 @@ int main (int argc, char **argv) {
             }
         }
 
+        /* initialize the IPFix exporter if configured */
+        if (glb_config->ipfix_export_port) {
+            ipfix_exporter_init(glb_config->ipfix_export_remote_host); 
+        }
+
         /*
          * start up the updater thread
          *   updater is only active during live capture runs
@@ -1649,10 +1654,10 @@ int main (int argc, char **argv) {
     
     if (glb_config->ipfix_export_port) {
         /* Flush any unsent exporter messages in Ipfix module */
-        ipfix_export_flush_message();
+        ipfix_export_flush_message(&main_ctx);
     }
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-    ipfix_module_cleanup();
+    ipfix_module_cleanup(&main_ctx);
 
     /* Cleanup protocol identification module */
     proto_identify_cleanup();

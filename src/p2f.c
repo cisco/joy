@@ -1654,7 +1654,7 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
      * IPFIX exporter mode.
      */
     if (glb_config->ipfix_export_port) {
-        ipfix_export_main(record);
+        ipfix_export_main(ctx, record);
     }
 #endif
     /*
@@ -1697,7 +1697,7 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_all) {
          * IPFIX exporter mode.
          */
         if (glb_config->ipfix_export_port) {
-            ipfix_export_main(record);
+            ipfix_export_main(ctx,record);
         }
 
         /*

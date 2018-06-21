@@ -45,6 +45,7 @@
 #define JOY_API_PRV_H
 
 #include "output.h"
+#include "ipfix.h"
 
 #ifdef JOY_USE_VPP_OPT
 #include "vppinfra/vec.h"
@@ -91,6 +92,7 @@ struct joy_ctx_data  {
     flocap_stats_t stats;
     flocap_stats_t last_stats;
     struct timeval last_stats_output_time;
+    ipfix_message_t *export_message;
     flow_record_t *flow_record_chrono_first;
     flow_record_t *flow_record_chrono_last;
     flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];

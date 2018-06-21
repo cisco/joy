@@ -61,6 +61,7 @@
 #include "pthread.h"
 #include "proto_identify.h"
 #include "output.h"
+#include "ipfix.h"
 
 /* file destination variables */
 FILE *info = NULL;
@@ -70,8 +71,6 @@ struct configuration active_config;
 
 /* external prototypes not included */
 extern int data_sanity_check();
-extern int ipfix_export_flush_message(void);
-extern void ipfix_module_cleanup(void);
 extern void process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
 
 /* global library intialization flag */
@@ -260,6 +259,7 @@ int joy_initialize(struct joy_init *init_data,
             glb_config->ipfix_export_port = DEFAULT_IPFIX_EXPORT_PORT;
             glb_config->ipfix_export_remote_port = DEFAULT_IPFIX_EXPORT_PORT;
         }
+        ipfix_exporter_init(glb_config->ipfix_export_remote_host);
     }
 
     /* initialize the protocol identification dictionary */
@@ -867,12 +867,15 @@ void joy_cleanup(unsigned int index)
         return;
     }
 
+    /* find the context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
     /* Flush any unsent exporter messages in Ipfix module */
     if (glb_config->ipfix_export_port) {
-        ipfix_export_flush_message();
+        ipfix_export_flush_message(ctx);
 
         /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-        ipfix_module_cleanup();
+        ipfix_module_cleanup(ctx);
     }
 
 
@@ -880,7 +883,6 @@ void joy_cleanup(unsigned int index)
     proto_identify_cleanup();
 
     /* free up the flow records */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
     flow_record_list_free(ctx);
  
     /* close the output file */
