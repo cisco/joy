@@ -87,7 +87,7 @@ int main (int argc, char *argv[]) {
     unit_test_all_features(feature_list);
   
     /* cleanup */
-    joy_cleanup(0);
+    joy_context_cleanup(0);
     joy_shutdown();
 
     return 0;

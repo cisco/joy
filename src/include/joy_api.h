@@ -338,7 +338,7 @@ extern void joy_flow_record_external_processing(unsigned int index,
 						joy_flow_rec_callback callback_fn);
 
 /*
- * Function: joy_cleanup
+ * Function: joy_context_cleanup
  *
  * Description: This function cleans up any leftover data that maybe
  *      hanging around. If IPFix exporting is turned on, then it also
@@ -351,7 +351,7 @@ extern void joy_flow_record_external_processing(unsigned int index,
  *      none
  *
  */
-extern void joy_cleanup (unsigned int index);
+extern void joy_context_cleanup (unsigned int index);
 
 /*
  * Function: joy_shutdown

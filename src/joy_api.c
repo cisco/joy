@@ -838,7 +838,7 @@ void joy_flow_record_external_processing(unsigned int index,
 }
 
 /*
- * Function: joy_ctx_cleanup
+ * Function: joy_context_cleanup
  *
  * Description: This function cleans up any lefotover data that maybe
  *      hanging around for the context worker. If IPFix exporting is turned
@@ -851,7 +851,7 @@ void joy_flow_record_external_processing(unsigned int index,
  *      none
  *
  */
-void joy_cleanup(unsigned int index)
+void joy_context_cleanup(unsigned int index)
 {
     joy_ctx_data *ctx = NULL;
 

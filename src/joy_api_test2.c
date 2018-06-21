@@ -182,7 +182,7 @@ int main (int argc, char **argv)
     joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
 
     /* cleanup */
-    joy_cleanup(0);
+    joy_context_cleanup(0);
     joy_shutdown();
 
     return 0;

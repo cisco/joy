@@ -1358,6 +1358,11 @@ int main (int argc, char **argv) {
         return -2;
     }
 
+    /* initialize the IPFix exporter if configured */
+    if (glb_config->ipfix_export_port) {
+        ipfix_exporter_init(glb_config->ipfix_export_remote_host); 
+    }
+
     if (joy_mode == MODE_ONLINE) {   /* live capture */
 
         /*
@@ -1444,11 +1449,6 @@ int main (int argc, char **argv) {
                 fprintf(info, "error: could not open output file %s (%s)\n", output_filename, strerror(errno));
                 return -1;
             }
-        }
-
-        /* initialize the IPFix exporter if configured */
-        if (glb_config->ipfix_export_port) {
-            ipfix_exporter_init(glb_config->ipfix_export_remote_host); 
         }
 
         /*

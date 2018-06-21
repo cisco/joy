@@ -185,7 +185,7 @@ int main (int argc, char* argv[]) {
 
     str_match_ctx_free(ctx);
   
-    joy_cleanup(0);
+    joy_context_cleanup(0);
     joy_shutdown();
     return 0;
 }
