@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #define HTTP_H
 
 #include <stdio.h>
+#include <stdint.h>
 #include <pcap.h>
 #include "output.h"
 
@@ -53,10 +54,53 @@
      (record->app == 80 || (record->key.sp == 80 || record->key.dp == 80)) \
     )
 
+enum http_line_type {
+    HTTP_LINE_INVALID  = 0,
+    HTTP_LINE_REQUEST   = 1,
+    HTTP_LINE_STATUS    = 2,
+};
+
+struct http_header_status_line {
+    char *version;
+    char *code;
+    char *reason;
+};
+
+struct http_header_request_line {
+    char *method;
+    char *uri;
+    char *version;
+};
+
+struct http_header_element {
+    char *name;
+    char *value;
+};
+
+#define HTTP_MAX_HEADER_ELEMENTS 32
+
+struct http_header {
+    union {
+        struct http_header_status_line status;
+        struct http_header_request_line request;
+    } line;
+    enum http_line_type line_type;
+    struct http_header_element elements[HTTP_MAX_HEADER_ELEMENTS];
+    uint8_t num_elements;
+};
+
+struct http_message {
+    struct http_header header;
+    char *body;
+    uint32_t body_length;
+};
+
+#define HTTP_MAX_MESSAGES 16
+
 /** http data structure */
 typedef struct http {
-  char *header;
-  unsigned int header_length;
+    uint16_t num_messages;
+    struct http_message messages[HTTP_MAX_MESSAGES];
 } http_t;
 
 /** initialize http data structure */

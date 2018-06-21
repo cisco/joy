@@ -58,10 +58,13 @@ struct pi_container {
     uint16_t app; /* Application protocol prediction */
 };
 
-int proto_identify_init_keyword_dict(void);
-void proto_identify_destroy_keyword_dict(void);
+int proto_identify_init(void);
+void proto_identify_cleanup(void);
 
 const struct pi_container *proto_identify_tcp(const char *tcp_data,
+                                              unsigned int len);
+
+const struct pi_container *proto_identify_udp(const char *udp_data,
                                               unsigned int len);
 
 #endif /* JOY_PROTO_IDENTIFY_H */
