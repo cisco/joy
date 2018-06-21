@@ -790,10 +790,13 @@ int proto_identify_init(void) {
 void proto_identify_cleanup(void) {
     if (kd_tcp_root) {
         destroy_kdn(kd_tcp_root);
+        kd_tcp_root = NULL;
     }
 
-    destroy_kdn(kd_root);
-    kd_root = NULL;
+    if (kd_udp_root) {
+        destroy_kdn(kd_udp_root);
+        kd_udp_root = NULL;
+    }
 }
 
 /**

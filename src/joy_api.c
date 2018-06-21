@@ -263,7 +263,7 @@ int joy_initialize(struct joy_init *init_data,
     }
 
     /* initialize the protocol identification dictionary */
-    if (proto_identify_init_keyword_dict()) {
+    if (proto_identify_init()) {
         joy_log_err("could not initialize the protocol identification dictionary");
         JOY_API_FREE_CONTEXT(ctx_data)
         return failure;
@@ -877,7 +877,7 @@ void joy_cleanup(unsigned int index)
 
 
     /* clean up the protocol idenitfication dictionary */
-    proto_identify_destroy_keyword_dict();
+    proto_identify_cleanup();
 
     /* free up the flow records */
     ctx = JOY_CTX_AT_INDEX(ctx_data,index)
