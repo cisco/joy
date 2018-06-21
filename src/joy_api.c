@@ -838,11 +838,11 @@ void joy_flow_record_external_processing(unsigned int index,
 }
 
 /*
- * Function: joy_cleanup
+ * Function: joy_ctx_cleanup
  *
  * Description: This function cleans up any lefotover data that maybe
- *      hanging around. If IPFix exporting is turned on, then it also
- *      flushes any remaining records out to the destination.
+ *      hanging around for the context worker. If IPFix exporting is turned
+ *      on, then it also flushes any remaining records out to the destination.
  *
  * Parameters:
  *      index - index of the context to use
@@ -879,13 +879,45 @@ void joy_cleanup(unsigned int index)
     }
 
 
-    /* clean up the protocol idenitfication dictionary */
-    proto_identify_cleanup();
-
     /* free up the flow records */
     flow_record_list_free(ctx);
  
     /* close the output file */
     zclose(ctx->output);
     free(ctx->output_file_basename);
+}
+
+/*
+ * Function: joy_shutdown
+ *
+ * Description: This function cleans up the JOY library and essentially
+ *      shuts the library down and reverts back to clean unsed state.
+ *
+ * Parameters:
+ *      none
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_shutdown(void)
+{
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* clean up the protocol idenitfication dictionary */
+    proto_identify_cleanup();
+
+    /* free up the memory for the contexts */
+    JOY_API_FREE_CONTEXT(ctx_data)
+
+    /* clear out the configuration structure */
+    memset(&active_config, 0x00, sizeof(struct configuration));
+    glb_config = NULL;
+
+    /* reset the library initialized flag */
+    joy_library_initialized = 0;
 }

@@ -183,6 +183,7 @@ int main (int argc, char **argv)
 
     /* cleanup */
     joy_cleanup(0);
+    joy_shutdown();
 
     return 0;
 }

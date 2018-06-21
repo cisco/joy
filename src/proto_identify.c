@@ -813,11 +813,12 @@ const struct pi_container *proto_identify_tcp(const char *tcp_data,
     const struct pi_container *pi = NULL;
 
     if (len == 0) {
-        return 0;
+        return NULL;
     }
 
     if (kd_tcp_root == NULL) {
-        proto_identify_init();
+        joy_log_err("Protocol identification for TCP was not initialized");
+        return NULL;
     }
 
     pi = search_keyword_dict(kd_tcp_root, tcp_data, len);
@@ -839,11 +840,12 @@ const struct pi_container *proto_identify_udp(const char *udp_data,
     const struct pi_container *pi = NULL;
 
     if (len == 0) {
-        return 0;
+        return NULL;
     }
 
     if (kd_udp_root == NULL) {
-        proto_identify_init();
+        joy_log_err("Protocol identification for UDP was not initialized");
+        return NULL;
     }
 
     pi = search_keyword_dict(kd_udp_root, udp_data, len);

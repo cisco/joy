@@ -187,6 +187,7 @@ int main (int argc, char **argv)
 
     /* let the threads run */
     sleep(10);
+    joy_shutdown();
     return 0;
 }
 

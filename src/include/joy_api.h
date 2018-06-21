@@ -353,4 +353,19 @@ extern void joy_flow_record_external_processing(unsigned int index,
  */
 extern void joy_cleanup (unsigned int index);
 
+/*
+ * Function: joy_shutdown
+ *
+ * Description: This function cleans up the JOY library and essentially
+ *      shuts the library down and reverts back to clean unsed state.
+ *
+ * Parameters:
+ *      none
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_shutdown (void);
+
 #endif /* JOY_API_H */

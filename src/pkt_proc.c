@@ -63,7 +63,6 @@ static struct nfv9_template v9_templates[MAX_TEMPLATES];
 /** number of templates in use */
 static u_short num_templates = 0;
 
-pthread_mutex_t proto_ident_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t nfv9_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /**
@@ -648,9 +647,7 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
      * Optimization: stop after first 2 packets that have non-zero payload
      */
     if ((!record->app) && record->op <= 2) {
-        pthread_mutex_lock(&proto_ident_lock);
         const struct pi_container *pi = proto_identify_tcp(payload, size_payload);
-        pthread_mutex_unlock(&proto_ident_lock);
         if (pi != NULL) {
             record->app = pi->app;
             record->dir = pi->dir;
