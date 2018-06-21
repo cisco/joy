@@ -278,7 +278,7 @@ static void ipfix_collect_socket_loop(joy_ctx_data *ctx, ipfix_collector_t *c) {
         if (recvlen > 0) {
             ipfix_collect_process_socket(ctx, buf, recvlen, &remote_addr);
             loginfo("received %d bytes", recvlen);
-        } else if (recvfrom < 0) {
+        } else if (recvlen < 0) {
             loginfo("Collector recvfrom error %d\n", errno);
             return;
         } else {
