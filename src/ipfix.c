@@ -39,6 +39,7 @@
  *
  * @brief Source code to perform IPFIX protocol operations.
  **********************************************************/
+#include <errno.h>
 #include <unistd.h>
 #include <string.h>   /* for memcpy() */
 #include <stdlib.h>
@@ -190,9 +191,9 @@ static int ipfix_skip_idp_header(flow_record_t *nf_record,
                                  unsigned int *size_payload);
 
 static void ipfix_process_flow_record(flow_record_t *ix_record,
-				      const ipfix_template_t *cur_template,
-				      const char *flow_data,
-				      int record_num);
+                                      const ipfix_template_t *cur_template,
+                                      const char *flow_data,
+                                      int record_num);
 
 /*
  * @brief Initialize an IPFIX collector object.
@@ -251,7 +252,7 @@ static int ipfix_collect_process_socket(joy_ctx_data *ctx,
   key.dp = ntohs(gateway_collect.clctr_addr.sin_port);
   key.prot = IPPROTO_UDP;
 
-  record = flow_key_get_record(ctx, &key, CREATE_RECORDS,NULL);
+  record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
   process_ipfix(ctx, (char*)data, data_len, record);
 
@@ -276,21 +277,28 @@ static void ipfix_collect_socket_loop(joy_ctx_data *ctx, ipfix_collector_t *c) {
      * Infinite loop, ends with process termination.
      */
     while(1) {
-	recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
-			   (struct sockaddr *)&remote_addr, &remote_addrlen);
-	if (recvlen > 0) {
-	    ipfix_collect_process_socket(ctx, buf, recvlen, &remote_addr);
-	}
-	loginfo("received %d bytes", recvlen);
+        recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
+                           (struct sockaddr *)&remote_addr, &remote_addrlen);
+        if (recvlen > 0) {
+            ipfix_collect_process_socket(ctx, buf, recvlen, &remote_addr);
+            loginfo("received %d bytes", recvlen);
+        } else if (recvfrom < 0) {
+            loginfo("Collector recvfrom error %d\n", errno);
+            return;
+        } else {
+            loginfo("Collector connection closed \n");
+            return;
+        }
+
 #if 0
-	if (recvlen > 0) {
-	    buf[recvlen] = '\0';
-	    printf("received message: ");
-	    for (i=0; i < recvlen; i++) {
-		printf("0x%08x", buf[i]);
-	    }
-	    printf("\n");
-	}
+        if (recvlen > 0) {
+            buf[recvlen] = '\0';
+            printf("received message: ");
+            for (i=0; i < recvlen; i++) {
+                printf("0x%08x", buf[i]);
+            }
+            printf("\n");
+        }
 #endif
     }
 }
@@ -300,10 +308,10 @@ int ipfix_collect_main(joy_ctx_data *ctx) {
 
     /* Init the collector for use, if not done already */
     if (gateway_collect.socket == 0) {
-	if (ipfix_collector_init(&gateway_collect)) {
-	    loginfo("error: could not init ipfix_collector \"gateway_collect\"");
-	    return 1;
-	}
+        if (ipfix_collector_init(&gateway_collect)) {
+            loginfo("error: could not init ipfix_collector \"gateway_collect\"");
+            return 1;
+        }
     }
     
     /* Loop on the socket waiting for data to process */
@@ -334,10 +342,12 @@ static inline void ipfix_delete_template(ipfix_template_t *template) {
         field_list_size = sizeof(ipfix_template_field_t) * field_count;
         memset(template->fields, 0, field_list_size);
         free(template->fields);
+        template->fields = NULL;
     }
     
     memset(template, 0, sizeof(ipfix_template_t));
     free(template);
+    template = NULL;
 }
 
 
@@ -564,25 +574,25 @@ static void ipfix_cts_copy(ipfix_template_t **dest_template,
     new_template = ipfix_template_malloc(field_list_size);
     if (new_template) {
     
-	/* Save pointer to new_template field memory */
-	new_fields = new_template->fields;
-	
-	memcpy(new_template, src_template, sizeof(ipfix_template_t));
-	
-	/* Reattach new_fields */
-	new_template->fields = new_fields;
-	
-	/* New template is a copy, so it isn't part of the store */
-	new_template->next = NULL;
-	new_template->prev = NULL;
-	
-	/* Copy the fields data */
-	if (src_template->fields && new_template->fields) {
-	    memcpy(new_template->fields, src_template->fields, field_list_size);
-	}
-	
-	/* Assign dest_template handle to newly allocated template */
-	*dest_template = new_template;
+        /* Save pointer to new_template field memory */
+        new_fields = new_template->fields;
+        
+        memcpy(new_template, src_template, sizeof(ipfix_template_t));
+        
+        /* Reattach new_fields */
+        new_template->fields = new_fields;
+        
+        /* New template is a copy, so it isn't part of the store */
+        new_template->next = NULL;
+        new_template->prev = NULL;
+        
+        /* Copy the fields data */
+        if (src_template->fields && new_template->fields) {
+            memcpy(new_template->fields, src_template->fields, field_list_size);
+        }
+        
+        /* Assign dest_template handle to newly allocated template */
+        *dest_template = new_template;
     }
 
 }
@@ -659,6 +669,7 @@ static inline void ipfix_template_fields_malloc(ipfix_template_t *template,
 
     if (template->fields != NULL) {
         free(template->fields);
+        template->fields = NULL;
     }
     
     template->fields = calloc(1, field_list_size);
@@ -706,31 +717,31 @@ static int ipfix_cts_append(ipfix_template_t *tmp) {
     template = ipfix_template_malloc(field_list_size);
     if (template) {
     
-	/* Copy the atrribute data */
-	template->template_key = tmp->template_key;
-	template->hdr = tmp->hdr;
-	memcpy(template->fields, tmp->fields, field_list_size);
-	template->payload_length = tmp->payload_length;
-	
-	/* Write the current time */
-	template->last_seen = time(NULL);
-	
-	pthread_mutex_lock(&cts_lock);
-	if (collect_template_store_head == NULL) {
-	    /* This is the first template in store list */
-	    collect_template_store_head = template;
-	} else {
-	    /* Append to the end of store list */
-	    collect_template_store_tail->next = template;
-	    template->prev = collect_template_store_tail;
-	}
-	
-	/* Update the tail */
-	collect_template_store_tail = template;
-	
-	/* Increment the store count */
-	cts_count += 1;
-	pthread_mutex_unlock(&cts_lock);
+        /* Copy the atrribute data */
+        template->template_key = tmp->template_key;
+        template->hdr = tmp->hdr;
+        memcpy(template->fields, tmp->fields, field_list_size);
+        template->payload_length = tmp->payload_length;
+        
+        /* Write the current time */
+        template->last_seen = time(NULL);
+        
+        pthread_mutex_lock(&cts_lock);
+        if (collect_template_store_head == NULL) {
+            /* This is the first template in store list */
+            collect_template_store_head = template;
+        } else {
+            /* Append to the end of store list */
+            collect_template_store_tail->next = template;
+            template->prev = collect_template_store_tail;
+        }
+        
+        /* Update the tail */
+        collect_template_store_tail = template;
+        
+        /* Increment the store count */
+        cts_count += 1;
+        pthread_mutex_unlock(&cts_lock);
     }
     
     return 0;
@@ -864,48 +875,48 @@ int ipfix_parse_template_set(const ipfix_hdr_t *ipfix,
         
         /* Allocate temporary template */
         cur_template = ipfix_template_malloc(field_count * sizeof(ipfix_template_field_t));
-	if (cur_template) {
+        if (cur_template) {
         
-	    /*
-	     * The enterprise field may or may not exist for certain fields
-	     * within the payload, so we need to walk the entire template.
-	     */
-	    for (i = 0; i < field_count; i++) {
-		int fld_size = 4;
-		const ipfix_template_field_t *tmp_field = (const ipfix_template_field_t*)template_ptr;
-		const unsigned short host_info_elem_id = ntohs(tmp_field->info_elem_id);
-		const unsigned short host_fixed_length = ntohs(tmp_field->fixed_length);
-		
-		if (ipfix_field_enterprise_bit(host_info_elem_id)) {
-		    /* The enterprise bit is set, remove from element id */
-		    cur_template->fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
-		    cur_template->fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
-		    fld_size = 8;
-		} else {
-		    cur_template->fields[i].info_elem_id = host_info_elem_id;
-		}
-		
-		cur_template->fields[i].fixed_length = host_fixed_length;
-		
-		template_ptr += fld_size;
-		template_set_len -= fld_size;
-		cur_template_fld_len += fld_size;
-	    }
-	    
-	    /* The template is new, so save info */
-	    cur_template->hdr.template_id = template_id;
-	    cur_template->hdr.field_count = field_count;
-	    cur_template->payload_length = cur_template_fld_len;
-	    cur_template->template_key = template_key;
-	    
-	    /* Save template */
-	    ipfix_cts_append(cur_template);
-	    
-	    /* Cleanup the temporary template */
-	    ipfix_delete_template(cur_template);
-	} else {
-	    return 1;
-	}
+            /*
+             * The enterprise field may or may not exist for certain fields
+             * within the payload, so we need to walk the entire template.
+             */
+            for (i = 0; i < field_count; i++) {
+                int fld_size = 4;
+                const ipfix_template_field_t *tmp_field = (const ipfix_template_field_t*)template_ptr;
+                const unsigned short host_info_elem_id = ntohs(tmp_field->info_elem_id);
+                const unsigned short host_fixed_length = ntohs(tmp_field->fixed_length);
+                
+                if (ipfix_field_enterprise_bit(host_info_elem_id)) {
+                    /* The enterprise bit is set, remove from element id */
+                    cur_template->fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
+                    cur_template->fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
+                    fld_size = 8;
+                } else {
+                    cur_template->fields[i].info_elem_id = host_info_elem_id;
+                }
+                
+                cur_template->fields[i].fixed_length = host_fixed_length;
+                
+                template_ptr += fld_size;
+                template_set_len -= fld_size;
+                cur_template_fld_len += fld_size;
+            }
+            
+            /* The template is new, so save info */
+            cur_template->hdr.template_id = template_id;
+            cur_template->hdr.field_count = field_count;
+            cur_template->payload_length = cur_template_fld_len;
+            cur_template->template_key = template_key;
+            
+            /* Save template */
+            ipfix_cts_append(cur_template);
+            
+            /* Cleanup the temporary template */
+            ipfix_delete_template(cur_template);
+        } else {
+            return 1;
+        }
     }
     
     return 0;
@@ -1906,6 +1917,7 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
                  */
                 if (ix_record->idp != NULL) {
                     free(ix_record->idp);
+                    ix_record->idp = NULL;
                 }
                 ix_record->idp_len = field_length;
                 ix_record->idp = calloc(1, ix_record->idp_len);
@@ -2012,6 +2024,7 @@ static void ipfix_delete_exp_template_fields(ipfix_exporter_template_t *template
     if (template->fields) {
         memset(template->fields, 0, field_list_size);
         free(template->fields);
+        template->fields = NULL;
     } else {
         loginfo("warning: fields were already null");
     }
@@ -2063,6 +2076,7 @@ static inline void ipfix_delete_exp_template(ipfix_exporter_template_t *template
     /* Free the template */
     memset(template, 0, sizeof(ipfix_exporter_template_t));
     free(template);
+    template = NULL;
 }
 
 
@@ -2118,6 +2132,7 @@ static inline void ipfix_delete_exp_data_record(ipfix_exporter_data_t *data_reco
     /* Free the data record */
     memset(data_record, 0, sizeof(ipfix_exporter_data_t));
     free(data_record);
+    data_record = NULL;
 }
 
 
@@ -2691,6 +2706,7 @@ static int ipfix_exp_set_node_cleanup(ipfix_exporter_set_node_t *node) {
         /* Cleanup and delete the option set */
         // TODO change to use option_set api when it has been made
         free(node->set.option_set);
+        node->set.option_set = NULL;
     } else if (set_type >= 256) {
         /* Cleanup and delete the data set */
         ipfix_delete_exp_data_set(node->set.data_set);
