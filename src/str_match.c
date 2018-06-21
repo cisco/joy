@@ -163,7 +163,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
     char *line = NULL;
     size_t len = 0;
     ssize_t read;
-    enum status err;
+    joy_status_e err;
   
     fp = fopen(filename, "r");
     if (fp == NULL) {

@@ -67,7 +67,6 @@ FILE *info = NULL;
 
 /* config is the global library configuration */
 struct configuration active_config;
-struct configuration *glb_config = NULL;
 
 /* external prototypes not included */
 extern int data_sanity_check();
@@ -569,7 +568,7 @@ int joy_get_compact_bd(char *filename)
 int joy_label_subnets(char *label, int type, char *subnet_str)
 {
     attr_flags subnet_flag;
-    enum status err;
+    joy_status_e err;
     char single_addr[64];
 
     /* check library initialization */
@@ -644,8 +643,8 @@ int joy_label_subnets(char *label, int type, char *subnet_str)
  *
  */
 void joy_process_packet(unsigned char *ctx_index,
-        const struct pcap_pkthdr *header,
-        const unsigned char *packet)
+			const struct pcap_pkthdr *header,
+			const unsigned char *packet)
 {
     unsigned long int index = 0;
     joy_ctx_data *ctx = NULL;
@@ -796,9 +795,10 @@ void joy_export_flows_ipfix(unsigned int index, int type)
  *
  */
 void joy_flow_record_external_processing(unsigned int index,
-        int type, joy_flow_rec_callback callback_fn)
+					 int type, 
+					 joy_flow_rec_callback callback_fn)
 {
-    struct flow_record *rec = NULL;
+    flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
 
     /* check library initialization */

@@ -52,7 +52,7 @@
 # include <arpa/inet.h>  /* for ntohl()             */
 #endif
 
-#include <string.h>     /* for memset()            */
+#include <string.h>
 #include "ssh.h"
 #include "utils.h"      /* for enum role */
 #include "p2f.h"        /* for zprintf_ ...        */
@@ -98,7 +98,10 @@ static void copy_printable_string(char *buf,
  * \return A pointer to the first substring match, or NULL if not found.
  *
  */
-static const char * memsearch(const char *buf, const unsigned int buflen, const char *sub, const unsigned int sublen) {
+static const char * memsearch(const char *buf, 
+			      const unsigned int buflen, 
+			      const char *sub, 
+			      const unsigned int sublen) {
     unsigned int bufidx;
 
     for (bufidx = 0; bufidx < buflen; bufidx++) {
@@ -272,9 +275,9 @@ enum ssh_msg_type {
 #pragma pack(push,1)
 
 struct ssh_packet {
-	uint32_t      packet_length;
-	unsigned char padding_length;
-	unsigned char payload;
+    uint32_t      packet_length;
+    unsigned char padding_length;
+    unsigned char payload;
 } PACKED;
 
 #pragma pack(pop)
@@ -323,7 +326,7 @@ static unsigned int decode_uint32(const char *data) {
     return ntohl(*x);
 }
 
-static enum status decode_ssh_vector(const char **dataptr,
+static joy_status_e decode_ssh_vector(const char **dataptr,
                                      unsigned int *datalen,
                                      struct vector *vector,
                                      unsigned int maxlen) {
@@ -741,13 +744,12 @@ inline void ssh_init(struct ssh **ssh_handle) {
         ssh_delete(ssh_handle);
     }
 
-    *ssh_handle = malloc(sizeof(struct ssh));
+    *ssh_handle = calloc(1, sizeof(struct ssh));
     if (*ssh_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*ssh_handle, 0, sizeof(struct ssh));
 
     (*ssh_handle)->buffer                 = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->buffer);
     (*ssh_handle)->kex_algos              = malloc(sizeof(struct vector)); vector_init((*ssh_handle)->kex_algos);

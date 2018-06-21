@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -52,17 +52,17 @@
 
 #define HOST_PROC_FLOW_TABLE_LEN 1024
 
-struct host_flow {
-	struct flow_key key;
-	unsigned long pid;
-	unsigned long parent_pid;
-	unsigned long uptime_seconds;
-	unsigned int threads;
-	char *exe_name;
-	char *full_path;
-	char *file_version;
-	char *hash;
-};
+typedef struct host_flow_ {
+    flow_key_t key;
+    unsigned long pid;
+    unsigned long parent_pid;
+    unsigned long uptime_seconds;
+    unsigned int threads;
+    char *exe_name;
+    char *full_path;
+    char *file_version;
+    char *hash;
+} host_flow_t;
 
 /*
  * The function get_host_flow_data() obtains information about the
@@ -79,5 +79,6 @@ struct host_flow {
 
 /** main function for host process to flow mapping */
 int get_host_flow_data(joy_ctx_data *ctx);
+int host_flow_table_add_sessions(int);
 
 #endif /* PROCWATCH_H */

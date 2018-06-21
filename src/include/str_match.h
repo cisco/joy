@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,7 @@
 
 #include <string.h>
 #include "acsm.h"
-
+#include "err.h"
 #define MATCH_ARRAY_LEN 32
 
 struct matches {
@@ -59,7 +59,7 @@ typedef acsm_context_t *str_match_ctx;
 
 #define str_match_ctx_free(ctx) acsm_free(ctx)
 
-typedef enum status (*string_transform)(const char *input, 
+typedef joy_status_e (*string_transform)(const char *input, 
 				unsigned int inlen, 
 				char *output,
 				unsigned int outlen);

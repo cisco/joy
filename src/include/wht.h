@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -59,26 +59,26 @@
 #define wht_filter(record) 1
 
 /** walsh-hadamard structure */
-typedef struct wht {
+typedef struct wht_ {
     uint32_t b;           /*!< byte count */
     int32_t spectrum[4];  /*!< spectrum   */
 } wht_t;
 
 /** initializes a walsh-hadamard structure */
-void wht_init(struct wht **wht_handle);
+void wht_init(wht_t **wht_handle);
 
 /** updates the contents of walsh-hadamard structure */
-void wht_update(struct wht *wht, 
+void wht_update(wht_t *wht, 
 		const struct pcap_pkthdr *header, 
 		const void *data, 
 		unsigned int len, 
 		unsigned int report_wht);
 
 /** prints out the walsh-hadamard structure in JSON format */
-void wht_print_json(const struct wht *w1, const struct wht *w2, zfile f);
+void wht_print_json(const wht_t *w1, const wht_t *w2, zfile f);
 
 /** clear out the walsh-hadamard structure */
-void wht_delete(struct wht **wht_handle);
+void wht_delete(wht_t **wht_handle);
 
 /** unit test entry point */
 void wht_unit_test();

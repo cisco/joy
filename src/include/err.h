@@ -45,19 +45,19 @@
 
 #include <stdio.h> 
 
-enum status {
+typedef enum joy_status_ {
     ok = 0,
     failure = 1
-};
+} joy_status_e;
 
-enum joy_log_level {
+typedef enum joy_log_level {
     JOY_LOG_OFF = 0,
     JOY_LOG_DEBUG = 1,
     JOY_LOG_INFO = 2,
     JOY_LOG_WARN = 3,
     JOY_LOG_ERR = 4,
     JOY_LOG_CRIT = 5
-};
+} joy_log_level_e;
 
 #define JOY_LOG_DEBUG_STR "DEBUG"
 #define JOY_LOG_INFO_STR "INFO"

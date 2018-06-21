@@ -319,10 +319,12 @@ static FILE* open_config_file(const char *filename) {
 
         /* Allocate memory to store constructed file path */
         filepath = calloc(MAX_FILEPATH, sizeof(char));
+	if (!filepath) {
+	    joy_log_err("out of memory");
+	}
 
         SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
 
-        memset(filepath, 0, MAX_FILEPATH);
         snprintf(filepath, MAX_FILEPATH, "%ls\\Joy\\%s", windir, filename);
         fp = fopen(filepath, "r");
 

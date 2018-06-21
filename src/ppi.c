@@ -1,6 +1,6 @@
 /*
  *      
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -46,13 +46,12 @@
 #include <stdlib.h>
 #include <string.h>   /* for memset()    */
 #include "pkt.h"      /* for tcp macros  */
-#include "utils.h"    /* for enum role   */
+#include "utils.h"    /* for joy_role_e   */
 #include "config.h"
 #include "ppi.h"     
 #include "err.h"
 
 /* external definitions from joy.c */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 /* helper functions defined below */
@@ -75,13 +74,12 @@ void ppi_init (struct ppi **ppi_handle) {
         ppi_delete(ppi_handle);
     }
 
-    *ppi_handle = malloc(sizeof(struct ppi));
+    *ppi_handle = calloc(1, sizeof(struct ppi));
     if (*ppi_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*ppi_handle, 0, sizeof(struct ppi));
 }
 
 /**
@@ -374,7 +372,7 @@ finish:
 
 struct tcp_state {
     unsigned seq;
-    enum role role;
+    joy_role_e role;
 };
 
 static void pkt_info_process(zfile f, 

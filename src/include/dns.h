@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -60,27 +60,27 @@
 #define MAX_DNS_NAME_LEN 256
 
 /** DNS structure */
-typedef struct dns {
+typedef struct dns_ {
   unsigned int pkt_count;                      /*!< packet count       */
   char *dns_name[MAX_NUM_DNS_PKT];             /*!< DNS packets        */
   unsigned short int pkt_len[MAX_NUM_DNS_PKT]; /*!< DNS packet lengths */
 } dns_t;
 
 /** initialize DNS structure */
-void dns_init(struct dns **dns_handle);
+void dns_init(dns_t **dns_handle);
 
 /** DNS structure update */
-void dns_update(struct dns *dns, 
+void dns_update(dns_t *dns, 
 		const struct pcap_pkthdr *header,
 		const void *data, 
 		unsigned int len, 
 		unsigned int report_dns);
 
 /** print DNS data out in JSON format */
-void dns_print_json(const struct dns *dns1, const struct dns *dns2, zfile f);
+void dns_print_json(const dns_t *dns1, const dns_t *dns2, zfile f);
 
 /** remove a DNS entry */
-void dns_delete(struct dns **dns_handle);
+void dns_delete(dns_t **dns_handle);
 
 /** main entry point for DNS unit testing */
 void dns_unit_test();

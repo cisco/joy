@@ -80,18 +80,17 @@ static void http_print_message(zfile f, const struct http_message *msg);
  *
  * \return none
  */
-void http_init (struct http **http_handle) {
+void http_init (http_t **http_handle) {
     if (*http_handle != NULL) {
         http_delete(http_handle);
     }
 
-    *http_handle = malloc(sizeof(struct http));
+    *http_handle = calloc(1, sizeof(http_t));
     if (*http_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*http_handle, 0, sizeof(struct http));
 }
 
 /**
@@ -106,7 +105,7 @@ void http_init (struct http **http_handle) {
  *
  * \return none
  */
-void http_update(struct http *http,
+void http_update(http_t *http,
                              const struct pcap_pkthdr *header,
                  const void *data,
                  unsigned int data_len,
@@ -183,8 +182,8 @@ end:
  *
  * \return none
  */
-void http_print_json(const struct http *h1,
-                     const struct http *h2,
+void http_print_json(const http_t *h1,
+                     const http_t *h2,
                      zfile f) {
 
     unsigned int total_messages = 0;

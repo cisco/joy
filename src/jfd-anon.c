@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -196,7 +196,7 @@ int main (int argc, char *argv[]) {
     ssize_t bytes_read;
     size_t len;
     char *line = NULL;  
-    enum status err;
+    joy_status_e err;
     char *keyfile = ANON_KEYFILE_DEFAULT;
     char *userfile = NULL;
     char *subnetfile = NULL;

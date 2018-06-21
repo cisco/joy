@@ -68,8 +68,7 @@
 /* default standard implementations */
 
 #define JOY_API_ALLOC_CONTEXT(a,b)   \
-    a = malloc((sizeof(struct joy_ctx_data) * b));    \
-    memset(a, 0x00, (sizeof(struct joy_ctx_data) * b));
+    a = calloc(1, (sizeof(struct joy_ctx_data) * b));    
 
 #define JOY_API_FREE_CONTEXT(a)    \
     free(a);                       \
@@ -89,11 +88,11 @@ struct joy_ctx_data  {
     char *output_file_basename;
     unsigned int records_in_file;
     struct timeval global_time;
-    struct flocap_stats stats;
-    struct flocap_stats last_stats;
+    flocap_stats_t stats;
+    flocap_stats_t last_stats;
     struct timeval last_stats_output_time;
-    struct flow_record *flow_record_chrono_first;
-    struct flow_record *flow_record_chrono_last;
+    flow_record_t *flow_record_chrono_first;
+    flow_record_t *flow_record_chrono_last;
     flow_record_list flow_record_list_array[FLOW_RECORD_LIST_LEN];
     unsigned long int reserved_info;
     unsigned long int reserved_ctx;

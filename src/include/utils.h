@@ -89,10 +89,10 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename);
 
 void joy_utils_convert_to_json_string (char *s, unsigned int len);
 
-enum role {
+typedef enum joy_role_ {
   role_unknown = 0,
   role_client  = 1,
   role_server  = 2
-};
+} joy_role_e;
 
 #endif /* P2FUTILS */

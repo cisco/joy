@@ -65,7 +65,6 @@
 /*
  * External objects, defined in joy
  */
-extern struct configuration *glb_config;
 
 struct nfv9_field_type nfv9_fields[] = {                                 
     { "RESERVED",                      0,   0  },                       
@@ -190,7 +189,7 @@ void nfv9_template_key_init (struct nfv9_template_key *k,
 } 
 
 
-static void nfv9_process_times (struct flow_record *nf_record,
+static void nfv9_process_times (flow_record_t *nf_record,
          const char *time_data, struct timeval *old_val_time, 
          int max_length_array, int pkt_time_index) {
     short tmp_packet_time;
@@ -249,7 +248,7 @@ static void nfv9_process_times (struct flow_record *nf_record,
     }
 }
 
-static void nfv9_process_lengths (struct flow_record *nf_record, 
+static void nfv9_process_lengths (flow_record_t *nf_record, 
         const char *length_data, int max_length_array, int pkt_len_index) {
     int old_val = 0;
     short tmp_packet_length;
@@ -302,7 +301,7 @@ static void nfv9_process_lengths (struct flow_record *nf_record,
  * @return 0 for success, 1 for failure
  */
 static int nfv9_process_flow_time_milli(const void *flow_data,
-                                        struct flow_record *nf_record,
+                                        flow_record_t *nf_record,
                                         int flag_end) {
     struct timeval *time;
 
@@ -330,14 +329,14 @@ static int nfv9_process_flow_time_milli(const void *flow_data,
 }
 
 /**
- * \fn void nfv9_flow_key_init (struct flow_key *key, 
+ * \fn void nfv9_flow_key_init (flow_key_t *key, 
       const struct nfv9_template *cur_template, const void *flow_data)
  * \param key
  * \param cur_template
  * \param flow_data
  * \return none
  */
-void nfv9_flow_key_init (struct flow_key *key, 
+void nfv9_flow_key_init (flow_key_t *key, 
       const struct nfv9_template *cur_template, const char *flow_data) {
     int i;
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
@@ -378,7 +377,7 @@ void nfv9_flow_key_init (struct flow_key *key,
  * size_payload - Handle for external unsigned integer
  *        that will store length of the payload data.
  */
-static int nfv9_skip_idp_header(struct flow_record *nf_record,
+static int nfv9_skip_idp_header(flow_record_t *nf_record,
                           const unsigned char **payload,
                           unsigned int *size_payload) {
     unsigned char proto = 0;
@@ -450,7 +449,7 @@ static int nfv9_skip_idp_header(struct flow_record *nf_record,
 }
 
 /**
- * \fn void nfv9_process_flow_record (struct flow_record *nf_record, 
+ * \fn void nfv9_process_flow_record (flow_record_t *nf_record, 
         const struct nfv9_template *cur_template, const void *header,
         unsigned int header_len, const void *flow_data, int record_num)
  * \param nf_record
@@ -459,7 +458,7 @@ static int nfv9_skip_idp_header(struct flow_record *nf_record,
  * \param record_num
  * \return none
 */
-void nfv9_process_flow_record (struct flow_record *nf_record, 
+void nfv9_process_flow_record (flow_record_t *nf_record, 
 			       const struct nfv9_template *cur_template, 
 			       const char *flow_data, int record_num) {
 
@@ -468,7 +467,7 @@ void nfv9_process_flow_record (struct flow_record *nf_record,
     unsigned int total_ms = 0;
     const unsigned char *payload = NULL;
     unsigned int size_payload = 0;
-    struct flow_record *record = nf_record;
+    flow_record_t *record = nf_record;
     int i,j = 0;
     int field_length = 0;
     int bytes_per_val = 0;

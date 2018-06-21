@@ -48,7 +48,7 @@
 #include <pcap.h>
 #include "output.h"
 #include "feature.h"
-#include "utils.h"      /* for enum role */
+#include "utils.h"      /* for joy_role_e */
 
 #define ike_usage "  ike=1                      report IKE information\n"
 
@@ -192,7 +192,7 @@ struct ike_message {
 };
 
 typedef struct ike {
-    enum role role;
+    joy_role_e role;
     unsigned int num_messages;
     struct ike_message *messages[IKE_MAX_MESSAGES];
     struct vector *buffer;
