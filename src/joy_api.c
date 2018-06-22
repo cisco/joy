@@ -127,7 +127,7 @@ static void format_output_filename(char *basename, char *output_filename)
  *      1 - failure
  *
  */
-int joy_initialize(struct joy_init *init_data,
+int joy_initialize(joy_init_t *init_data,
         char *output_dir, char *output_file, char *logfile)
 {
     int i = 0;

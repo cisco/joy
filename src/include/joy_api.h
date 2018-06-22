@@ -92,7 +92,7 @@
 
 
 /* structure used to initialize joy through the API Library */
-struct joy_init {
+typedef struct joy_init {
     int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
     uint32_t max_records;        /* max record in output file */
@@ -101,7 +101,7 @@ struct joy_init {
     char *ipfix_host;            /* ip string of the host to send IPFix data to */
     uint32_t ipfix_port;         /* port to send IPFix to remote on */
     uint32_t bitmask;            /* bitmask representing which features are on */
-};
+} joy_init_t;
 
 /* structure definition for the library context data */
 typedef struct joy_ctx_data joy_ctx_data;
@@ -134,7 +134,7 @@ typedef void (joy_flow_rec_callback)(void*);
  *      1 - failure
  *
  */
-extern int joy_initialize (struct joy_init *data, char *output_dir,
+extern int joy_initialize (joy_init_t *data, char *output_dir,
 			   char *output_file, char *logfile);
 
 /*

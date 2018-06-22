@@ -135,11 +135,11 @@ void *thread_main3 (void *file)
 int main (int argc, char **argv)
 {
     int rc = 0;
-    struct joy_init init_data;
+    joy_init_t init_data;
     pthread_t thread1, thread2, thread3;
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(struct joy_init));
+    memset(&init_data, 0x00, sizeof(joy_init_t));
 
    /* this setup is for general processing */
     init_data.type = 1;           /* type 1 (SPLT) 2 (SALT) */

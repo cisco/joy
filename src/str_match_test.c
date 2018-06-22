@@ -133,10 +133,10 @@ static char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400
 int main (int argc, char* argv[]) {
     str_match_ctx ctx;
     int rc = 0;
-    struct joy_init init_data;
+    joy_init_t init_data;
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(struct joy_init));
+    memset(&init_data, 0x00, sizeof(joy_init_t));
 
    /* this setup is for general processing */
     init_data.type = 1;

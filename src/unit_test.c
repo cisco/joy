@@ -58,10 +58,10 @@
  */
 int main (int argc, char *argv[]) {
     int rc = 0;
-    struct joy_init init_data;
+    joy_init_t init_data;
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(struct joy_init));
+    memset(&init_data, 0x00, sizeof(joy_init_t));
 
     /* Set logging to warning level */
     init_data.type = 1;
