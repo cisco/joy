@@ -62,16 +62,13 @@
 #include "proto_identify.h"
 #include "output.h"
 #include "ipfix.h"
+#include "pkt_proc.h"
 
 /* file destination variables */
 FILE *info = NULL;
 
 /* config is the global library configuration */
 struct configuration active_config;
-
-/* external prototypes not included */
-extern int data_sanity_check();
-extern void process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
 
 /* global library intialization flag */
 static int joy_library_initialized = 0;
