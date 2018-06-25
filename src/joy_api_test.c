@@ -156,13 +156,13 @@ int main (int argc, char **argv)
     }
 
     /* setup anonymization of subnets */
-    //joy_anon_subnets("internal.net");
+    joy_anon_subnets("internal.net");
 
     /* setup anonymization of http usernames */
-    //joy_anon_http_usernames("anon_http.txt");
+    joy_anon_http_usernames("anon_http.txt");
 
     /* setup subnet labels */
-    //joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
+    joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
 
     /* start up thread1 for processing */
     rc = pthread_create(&thread1, NULL, thread_main1, (char*)argv[1]);

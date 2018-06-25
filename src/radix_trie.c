@@ -222,13 +222,9 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
     unsigned char *a = (void *) &addr.s_addr;
     struct radix_trie_node *rt = trie->root;
   
-    /* get the mutex to avoid potential threading issues */
-    pthread_mutex_lock(&radix_trie_lock);
-
     /* sanity check */
     if (rt == NULL) {
         debug_printf("%s:radix_trie is NULL\n", __FUNCTION__);
-        pthread_mutex_unlock(&radix_trie_lock);
         return failure;
     }
 
@@ -236,7 +232,6 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
         debug_printf("%s:a[%d]: %x\n", __FUNCTION__, i, a[i]); 
         rt = rt->table[a[i]];
         if (rt == NULL) {
-            pthread_mutex_unlock(&radix_trie_lock);
             return 0;  /* indicate that no match occured */
         } 
         if (rt->type == leaf) {
@@ -247,11 +242,9 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
         struct radix_trie_leaf *leaf = (struct radix_trie_leaf *)rt;
         debug_printf("%s:found leaf (value: %x)\n", __FUNCTION__, leaf->value);
         rc_flags = leaf->value;
-        pthread_mutex_unlock(&radix_trie_lock);
         return rc_flags; /* indicate success by returning flags  */
     }
 
-    pthread_mutex_unlock(&radix_trie_lock);
     return 0;  /* indicate that no match occured */
 }
 
@@ -457,17 +450,15 @@ attr_flags radix_trie_add_attr_label (struct radix_trie *rt, const char *attr_la
 static void attr_flags_print_labels (const struct radix_trie *rt, attr_flags f) {
     unsigned int i, c = 0;
 
-    pthread_mutex_lock(&radix_trie_lock);
     for (i=0; i < rt->num_flags; i++) {
         if (index_to_flag(i) & f) {
             if (c) {
-                              printf(", ");
+                printf(", ");
             }
             printf("%s", rt->flag[i]);
             c++;
         }
     }
-    pthread_mutex_unlock(&radix_trie_lock);
     printf("\n");
 }
 
@@ -487,18 +478,16 @@ void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, ch
         return;    /* print nothing */
     }
 
-    pthread_mutex_lock(&radix_trie_lock);
     zprintf(file, "\"%s\": [ ", prefix);
     for (i=0; i < rt->num_flags; i++) {
         if (index_to_flag(i) & f) {
             if (c) {
-                       zprintf(file, ", ");
+                zprintf(file, ", ");
             }
             zprintf(file, "\"%s\" ", rt->flag[i]);
             c++;
         }
     }
-    pthread_mutex_unlock(&radix_trie_lock);
     zprintf(file, "],");
 }
 
