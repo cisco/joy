@@ -56,6 +56,7 @@
 #include <dirent.h>
 #include <time.h>
 
+#include "gre.h"
 #include "hdr_dsc.h"      /* header description (proto id) */
 #include "modules.h"      
 #include "feature.h"
@@ -128,6 +129,7 @@ struct flow_record {
     unsigned int idp_len;
     struct ip_info ip;
     struct tcp_info tcp;
+    struct gre gre;
     unsigned int invalid;
 	char *exe_name;                       /*!< executable associated with flow    */
 	char *full_path;                      /*!< executable path associated with flow    */

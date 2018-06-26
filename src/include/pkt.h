@@ -72,6 +72,8 @@ struct ethernet_hdr {
     unsigned short ether_type;                  
 };
 
+#define IP_PROT_GRE 0x2f /* decimal 47 */
+
 /** Internet Protocol (IP) version four header */
 #if CPU_IS_BIG_ENDIAN
 #define IP_RF    0x8000 /* Reserved           */

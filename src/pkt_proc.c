@@ -877,7 +877,6 @@ process_ip (const struct pcap_pkthdr *header, const void *ip_start, int ip_len, 
  */
 void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
                      const unsigned char *packet) {
-    //  static int packet_count = 1;
     struct flow_record *record;
     unsigned char proto = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0;
@@ -888,18 +887,19 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     unsigned int ip_hdr_len;
     const void *transport_start;
     struct flow_key key;
+    gre_info_T gre_info = {0};
+    int has_gre;
     
     memset(&key, 0x00, sizeof(struct flow_key));
 
     flocap_stats_incr_num_packets();
     joy_log_info("++++++++++ Packet %lu ++++++++++", flocap_stats_get_num_packets());
-    //  packet_count++;
 
-    // ethernet = (struct ethernet_hdr*)(packet);
-    ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
-    /* Support for both normal ethernet and 802.1q . Distinguish between 
-     * the two accepted types
-    */
+    /*
+     * Support for both normal ethernet and 802.1q
+     * Distinguish between the two accepted types.
+     */
+    ether_type = ntohs(*(uint16_t *)(packet + 12)); // Offset to get ETH_TYPE
     switch(ether_type) {
        case ETH_TYPE_IP:
 	   joy_log_info("Ethernet type - normal");
@@ -908,7 +908,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
            break;
        case ETH_TYPE_DOT1Q:
 	   joy_log_info("Ethernet type - 802.1Q VLAN");
-           //Offset to get VLAN_TYPE
+           // Offset to get VLAN_TYPE
            vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
                case ETH_TYPE_IP:
@@ -934,8 +934,49 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
          * libpcap (which will depend on MTU and SNAPLEN; you can change
          * the latter if need be).
          */
-        return ;
+        return;
     }
+
+    if (ip->ip_prot == IP_PROT_GRE) {
+        /*
+         * GRE present. Need to get encapsulated payload.
+         */
+        unsigned char *gre_ptr = ((unsigned char*)ip) + ip_hdr_len;
+
+        gre_info.key.sa = ip->ip_src;
+        gre_info.key.da = ip->ip_dst;
+
+        gre_info.flags_and_ver = ntohs((uint16_t)*(uint16_t *)gre_ptr);
+        gre_ptr += sizeof(uint16_t);
+        gre_info.protocol_type = ntohs((uint16_t)*(uint16_t *)gre_ptr);
+
+        if (gre_info.protocol_type != GRE_TYPE_IP) {
+            joy_log_debug("GRE protocol (%u) != IP. Skipping.", gre_info.protocol_type);
+            return;
+        }
+
+        joy_log_debug("GRE packet...");
+
+        gre_ptr += sizeof(uint16_t);
+        ip = (struct ip_hdr *)gre_ptr;
+        ip_hdr_len = ip_hdr_length(ip);
+
+        // Checks
+        if (ip_hdr_len < 20) {
+            joy_log_err(" Invalid IP header length: %u bytes", ip_hdr_len);
+            return;
+        }
+        if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > header->caplen) {
+            /*
+             * IP packet is malformed (shorter than a complete IP header, or
+             * claims to be longer than it is).
+             */
+            return;
+        }
+
+        has_gre = 1;
+    }
+
     transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
 
     /* print source and destination IP addresses */
@@ -979,22 +1020,20 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
 
     transport_start = (char *)ip + ip_hdr_len;
     switch(proto) {
-        case IPPROTO_TCP:
-            record = process_tcp(header, transport_start, transport_len, &key);
-	    if (record) {
-	      update_all_tcp_features(tcp_feature_list);
-	    }
-            break;
-        case IPPROTO_UDP:
-            record = process_udp(header, transport_start, transport_len, &key);
-            break;
-        case IPPROTO_ICMP:
-            record = process_icmp(header, transport_start, transport_len, &key);
-            break;
-        case IPPROTO_IP:
-        default:
-            record = process_ip(header, transport_start, transport_len, &key);
-            break;
+    case IPPROTO_TCP:
+        record = process_tcp(header, transport_start, transport_len, &key);
+        if (record) update_all_tcp_features(tcp_feature_list);
+        break;
+    case IPPROTO_UDP:
+        record = process_udp(header, transport_start, transport_len, &key);
+        break;
+    case IPPROTO_ICMP:
+        record = process_icmp(header, transport_start, transport_len, &key);
+        break;
+    case IPPROTO_IP:
+    default:
+        record = process_ip(header, transport_start, transport_len, &key);
+        break;
     }
 
     /*
@@ -1017,6 +1056,14 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
          */
         return;
 #endif
+    }
+
+    if (has_gre && record->gre.count < GRE_MAX) {
+        /* Copy the GRE information */
+        gre_info_T *gi = &record->gre.info[record->gre.count];
+
+        memcpy(gi, &gre_info, sizeof(gre_info_T));
+        record->gre.count++;
     }
 
     /*
