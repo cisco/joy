@@ -888,7 +888,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     const void *transport_start;
     struct flow_key key;
     gre_info_T gre_info = {0};
-    int has_gre;
+    int has_gre = 0;
     
     memset(&key, 0x00, sizeof(struct flow_key));
 
