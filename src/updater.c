@@ -132,7 +132,7 @@ static int is_digest_same (unsigned char* d1, unsigned char *d2)
  *   Result is placed in new_md5_hash global variable.
  *   Returns upd_success or upd_failure
  */
-static upd_return_codes_t compute_md5_digest (char* filename) {
+static upd_return_codes_e compute_md5_digest (char* filename) {
     int i = 0;
     int bytes = 0;
     MD5_CTX mdContext;
@@ -180,8 +180,8 @@ static size_t upd_write_data (void *ptr, size_t size, size_t nmemb, FILE *stream
  *    known malware domains. Uses curl to download the file from the
  *    blacklist feed and store the file locally.
  */
-static upd_return_codes_t dnload_blacklist_file (char* full_url) {
-    upd_return_codes_t dnld_rc = upd_failure;
+static upd_return_codes_e dnload_blacklist_file (char* full_url) {
+    upd_return_codes_e dnld_rc = upd_failure;
     CURLcode curl_rc = CURLE_OK;
     CURL *handle = NULL;
     FILE *blacklist_file = NULL;
@@ -251,8 +251,8 @@ static upd_return_codes_t dnload_blacklist_file (char* full_url) {
  * Function performs the main downloading of the classifier file.
  *    Uses curl to download the file from the feed and store the file locally.
  */
-static upd_return_codes_t dnload_classifier_file (char *url, char *filename) {
-    upd_return_codes_t dnld_rc = upd_failure;
+static upd_return_codes_e dnload_classifier_file (char *url, char *filename) {
+    upd_return_codes_e dnld_rc = upd_failure;
     CURLcode curl_rc = CURLE_OK;
     CURL *handle = NULL;
     FILE *classifier_file = NULL;
@@ -317,7 +317,7 @@ static upd_return_codes_t dnload_classifier_file (char *url, char *filename) {
  *    Locks the mutex and swaps the pointers on the active radix trie.
  *    Release the mutex and then frees up the old radix trie.
  */
-static upd_return_codes_t update_radix_trie ()
+static upd_return_codes_e update_radix_trie ()
 {
     radix_trie_t tmp_rt;
     attr_flags flag_malware;

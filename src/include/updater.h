@@ -66,10 +66,10 @@
 #define BLACKLIST_FILE_NAME "blacklist-ip-filter.blf"
 
 /** Updater return codes */
-typedef enum {
+typedef enum upd_return_codes_ {
     upd_success = 0,
     upd_failure = 1
-} upd_return_codes_t;
+} upd_return_codes_e;
 
 /** mutex used to ensure the radix_trie isn't being accessed by another thread */
 extern pthread_mutex_t radix_trie_lock;
