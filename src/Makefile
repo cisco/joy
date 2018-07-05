@@ -64,7 +64,7 @@ endif
 # compiler directives
 ##
 CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
-CFLAGS = -Wall -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g # -pg # -g # -fstack-protector-all 
+CFLAGS = -Wall -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g # -pg # -g # -fstack-protector-all 
 
 ##
 # variables to make source file handling easier
@@ -79,12 +79,14 @@ LIBJOY_OBJ = joy_api.o p2f.o osdetect.o anon.o pkt_proc.o nfv9.o tls.o classify.
 ##
 # additional CFLAG options
 ##
-ifeq ($(sysname),LINUX)
+ifeq ($(SYS_NAME),LINUX)
 	CFLAGS += # -Wno-maybe-uninitialized 
+	SO_OPTS = -Wl,-soname,libjoy.so
 endif
-ifeq ($(sysname),DARWIN)
+ifeq ($(SYS_NAME),DARWIN)
 	CFLAGS += -mmacosx-version-min=10.5
 	INCLUDEDIR += -I/opt/local/include/
+	SO_OPTS = -dynamiclib -Wl,-undefined,dynamic_lookup
 endif
 
 ##
@@ -105,15 +107,16 @@ print:
 $(LIBDIR)/libjoy.a libjoy.a: $(LIBJOY_SRC)
 	@echo "Building libjoy.a ..."
 	@rm -f $(LIBDIR)/libjoy.a
-	gcc $(CFLAGS) $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) -c $(LIBJOY_SRC)
+	gcc $(CFLAGS) -fPIC -fPIE $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) -c $(LIBJOY_SRC)
 	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
+	cp $(LIBDIR)/libjoy.a $(LIBDIR)/libjoy.a.$(JOY_VERSION)
 	@rm -f $(LIBJOY_OBJ)
 	@echo
 
 $(LIBDIR)/libjoy.so libjoy.so: $(LIBJOY_SRC)
 	@echo "Building libjoy.so ..."
-	@rm -f $(LIBDIR)/libjoy.so
-	gcc $(CFLAGS) -fPIC -shared -Wl,-soname,libjoy.so -o $(LIBDIR)/libjoy.so.$(JOY_VERSION) $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) $(LIBJOY_SRC)
+	@rm -f $(LIBDIR)/libjoy.so.*
+	gcc $(CFLAGS) -fPIC -shared $(SO_OPTS) -o $(LIBDIR)/libjoy.so.$(JOY_VERSION) $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) $(LIBJOY_SRC)
 	@rm -f $(LIBJOY_OBJ)
 	@echo
 
