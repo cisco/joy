@@ -64,7 +64,7 @@ endif
 # compiler directives
 ##
 CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
-CFLAGS = -Wall -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g  # -pg # -g # -fstack-protector-all 
+CFLAGS = -Wall -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g # -pg # -g # -fstack-protector-all 
 
 ##
 # variables to make source file handling easier
@@ -93,7 +93,7 @@ endif
 
 .PHONY: print
 
-all:	print libjoy.a joy unit_test joy_api_test joy_api_test2 jfd-anon joy-anon str_match_test
+all:	print libjoy.a libjoy.so joy unit_test joy_api_test joy_api_test2 jfd-anon joy-anon str_match_test
 
 print:
 	@echo "Makefile variables:"
@@ -105,8 +105,15 @@ print:
 $(LIBDIR)/libjoy.a libjoy.a: $(LIBJOY_SRC)
 	@echo "Building libjoy.a ..."
 	@rm -f $(LIBDIR)/libjoy.a
-	gcc $(CFLAGS) $(CDEFS) -fPIC -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) -c $(LIBJOY_SRC)
+	gcc $(CFLAGS) $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) -c $(LIBJOY_SRC)
 	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
+	@rm -f $(LIBJOY_OBJ)
+	@echo
+
+$(LIBDIR)/libjoy.so libjoy.so: $(LIBJOY_SRC)
+	@echo "Building libjoy.so ..."
+	@rm -f $(LIBDIR)/libjoy.so
+	gcc $(CFLAGS) -fPIC -shared -Wl,-soname,libjoy.so -o $(LIBDIR)/libjoy.so.$(JOY_VERSION) $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) $(LIBJOY_SRC)
 	@rm -f $(LIBJOY_OBJ)
 	@echo
 

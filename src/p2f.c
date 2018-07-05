@@ -1959,7 +1959,7 @@ static int uploader_send_file (char *filename, char *servername,
        if (retain == 0) {
             snprintf(cmd, MAX_UPLOAD_CMD_LENGTH, "rm %s", filename);
             joy_log_info("removing file [%s]", filename);
-            rc = system(cmd);
+ 	    rc = remove(filename);
             if (rc != 0) {
                 joy_log_err("removing file [%s] failed!", filename);
             }
