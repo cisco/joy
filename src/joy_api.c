@@ -888,7 +888,7 @@ void joy_context_cleanup(unsigned int index)
  * Function: joy_shutdown
  *
  * Description: This function cleans up the JOY library and essentially
- *      shuts the library down and reverts back to clean unsed state.
+ *      shuts the library down and reverts back to clean unused state.
  *
  * Parameters:
  *      none
