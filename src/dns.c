@@ -646,9 +646,9 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
             zprintf_debug(output, "question err=%u; len=%u\"]}]", err, len);
             return;
         }
-        zprintf(output, "\"%cn\":\"%s\"", qr, name + 1);
+        zprintf(output, "\"%cn\":\"%s\",", qr, name + 1);
     }
-    zprintf(output, ",\"rc\":%u,\"rr\":[", rh->rcode);
+    zprintf(output, "\"rc\":%u,\"rr\":[", rh->rcode);
 
     ancount = ntohs(rh->ancount); 
     comma = 0;
