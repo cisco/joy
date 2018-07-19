@@ -338,7 +338,7 @@ if [ "$?" != 0 ]; then
     echo Failed to run make
     exit 1
 fi
-make DESTDIR=${BUILDROOT}/usr/local BUILDROOT=${BUILDROOT} pkg
+make DESTDIR=${BUILDROOT}/usr/local BUILDROOT=${BUILDROOT} PKG_BUILD=1 pkg
 if [ "$?" != 0 ]; then
     echo Failed to run make pkg
     exit 1

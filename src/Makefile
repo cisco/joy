@@ -67,6 +67,13 @@ CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
 CFLAGS = -Wall -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g # -pg # -g # -fstack-protector-all 
 
 ##
+# see if this is a package build directive
+##
+ifdef PKG_BUILD
+CDEFS	+= -DPKG_BUILD
+endif
+
+##
 # variables to make source file handling easier
 ##
 JOY_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c updater.c ipfix.c ssh.c ike.c salt.c parson.c fingerprint.c ppi.c utils.c dhcp.c payload.c proto_identify.c
