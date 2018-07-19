@@ -55,26 +55,27 @@
 
 #define GRE_MAX 64
 
-typedef struct gre_key {
-    struct in_addr sa;
-    struct in_addr da;
-} gre_key_T;
+#define GRE_KEY_BIT(field) field & (1 << 2)
+#define GRE_SEQ_BIT(field) field & (1 << 3)
 
 /**
  * \brief Holds a single instance of GRE information.
  */
 typedef struct gre_info {
-    struct gre_key key;
     uint16_t flags_and_ver;
     uint16_t protocol_type;
+    uint32_t sequence; /* Optional Sequence (RFC2890) */
 } gre_info_T;
 
 /**
  * \brief GRE structure
  */
 typedef struct gre {
-    uint16_t count;
+    struct in_addr sa; /* Outer IP source address */
+    struct in_addr da; /* Outer IP destination address */
+    uint32_t key; /* Optional Key (RFC2890) */
     struct gre_info info[GRE_MAX];
+    uint16_t count; /* Number of "info" */
 } gre_T;
 
 #endif /* JOY_GRE_H */

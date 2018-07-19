@@ -888,6 +888,7 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
     const void *transport_start;
     struct flow_key key;
     gre_info_T gre_info = {0};
+    uint32_t gre_key = 0;
     int has_gre = 0;
     
     memset(&key, 0x00, sizeof(struct flow_key));
@@ -941,18 +942,37 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
         /*
          * GRE present. Need to get encapsulated payload.
          */
+        int key_bit, seq_bit = 0;
         unsigned char *gre_ptr = ((unsigned char*)ip) + ip_hdr_len;
 
-        gre_info.key.sa = ip->ip_src;
-        gre_info.key.da = ip->ip_dst;
-
         gre_info.flags_and_ver = ntohs((uint16_t)*(uint16_t *)gre_ptr);
+
+        if (GRE_KEY_BIT(gre_info.flags_and_ver)) {
+            /* Optional "key" field is present */
+            key_bit = 1;
+        }
+        if (GRE_SEQ_BIT(gre_info.flags_and_ver)) {
+            /* Optional "sequence" field is present */
+            seq_bit = 1;
+        }
+
         gre_ptr += sizeof(uint16_t);
         gre_info.protocol_type = ntohs((uint16_t)*(uint16_t *)gre_ptr);
 
         if (gre_info.protocol_type != GRE_TYPE_IP) {
             joy_log_debug("GRE protocol (%u) != IP. Skipping.", gre_info.protocol_type);
             return;
+        }
+
+        if (key_bit) {
+            /* Copy the key field */
+            gre_ptr += sizeof(uint32_t);
+            gre_key = ntohl((uint32_t)*(uint32_t *)gre_ptr);
+        }
+        if (seq_bit) {
+            /* Copy the sequence field */
+            gre_ptr += sizeof(uint32_t);
+            gre_info.sequence = ntohl((uint32_t)*(uint32_t *)gre_ptr);
         }
 
         joy_log_debug("GRE packet...");
@@ -1058,12 +1078,31 @@ void process_packet (unsigned char *ignore, const struct pcap_pkthdr *header,
 #endif
     }
 
+    /*
+     * Copy the GRE data
+     */
     if (has_gre && record->gre.count < GRE_MAX) {
-        /* Copy the GRE information */
         gre_info_T *gi = &record->gre.info[record->gre.count];
 
-        memcpy(gi, &gre_info, sizeof(gre_info_T));
-        record->gre.count++;
+        if (record->gre.count == 0) {
+            /* Set the source/dest address for first packet */
+            record->gre.sa = key.sa;
+            record->gre.da = key.da;
+        }
+
+        if (gre_key && record->gre.key == 0) {
+            /*
+             * If we have the GRE key field, and it hasn't been set
+             * then do so now.
+             */
+            record->gre.key = gre_key;
+        }
+
+        if (gre_info.sequence) {
+            /* For now, only care about getting non-zero sequence field */
+            memcpy(gi, &gre_info, sizeof(gre_info_T));
+            record->gre.count++;
+        }
     }
 
     /*

@@ -1231,32 +1231,43 @@ static void print_ip_json (zfile f, const struct flow_record *rec) {
 
 static void print_gre_json (zfile f, const struct flow_record *rec) {
     struct flow_record *twin = rec->twin;
+    char ipv4_addr[INET_ADDRSTRLEN];
     int k = 0;
 
     zprintf(f, ",\"gre\":{");
 
-    zprintf(f, "\"out\":[");
-    for (k = 0; k < rec->gre.count; k++) {
-        const gre_info_T *gi = &rec->gre.info[k];
-
-        zprintf(f, "{");
-        if (ipv4_addr_needs_anonymization(&gi->key.sa)) {
-            zprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&gi->key.sa));
-        } else {
-            zprintf(output, "\"sa\":\"%s\",", inet_ntoa(gi->key.sa));
-        }
-
-        if (ipv4_addr_needs_anonymization(&gi->key.da)) {
-            zprintf(output, "\"da\":\"%s\"", addr_get_anon_hexstring(&gi->key.da));
-        } else {
-            zprintf(output, "\"da\":\"%s\"", inet_ntoa(gi->key.da));
-        }
-
-        if (k == (rec->gre.count - 1)) zprintf(f, "}");
-        else zprintf(f, "},");
+    if (ipv4_addr_needs_anonymization(&rec->gre.sa)) {
+        zprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&rec->gre.sa));
+    } else {
+        inet_ntop(AF_INET, &rec->gre.sa, ipv4_addr, INET_ADDRSTRLEN);
+        zprintf(output, "\"sa\":\"%s\",", ipv4_addr);
     }
-    /* End out array */
-    zprintf(f, "]");
+
+    if (ipv4_addr_needs_anonymization(&rec->gre.da)) {
+        zprintf(output, "\"da\":\"%s\"", addr_get_anon_hexstring(&rec->gre.da));
+    } else {
+        inet_ntop(AF_INET, &rec->gre.da, ipv4_addr, INET_ADDRSTRLEN);
+        zprintf(output, "\"da\":\"%s\"", ipv4_addr);
+    }
+
+    if (rec->gre.key) {
+        zprintf(output, ",\"key\":\"%08x\"", rec->gre.key);
+    }
+
+    if (rec->gre.count) {
+        zprintf(f, ",\"out\":[");
+        for (k = 0; k < rec->gre.count; k++) {
+            const gre_info_T *gi = &rec->gre.info[k];
+
+            zprintf(f, "{");
+            zprintf(output, "\"seq\":\"%08x\"", gi->sequence);
+
+            if (k == (rec->gre.count - 1)) zprintf(f, "}");
+            else zprintf(f, "},");
+        }
+        /* End out array */
+        zprintf(f, "]");
+    }
 
     if (twin && twin->gre.count) {
         zprintf(f, ",\"in\":[");
@@ -1264,17 +1275,7 @@ static void print_gre_json (zfile f, const struct flow_record *rec) {
             const gre_info_T *gi = &twin->gre.info[k];
 
             zprintf(f, "{");
-            if (ipv4_addr_needs_anonymization(&gi->key.sa)) {
-                zprintf(output, "\"sa\":\"%s\",", addr_get_anon_hexstring(&gi->key.sa));
-            } else {
-                zprintf(output, "\"sa\":\"%s\",", inet_ntoa(gi->key.sa));
-            }
-
-            if (ipv4_addr_needs_anonymization(&gi->key.da)) {
-                zprintf(output, "\"da\":\"%s\"", addr_get_anon_hexstring(&gi->key.da));
-            } else {
-                zprintf(output, "\"da\":\"%s\"", inet_ntoa(gi->key.da));
-            }
+            zprintf(output, "\"seq\":\"%08x\"", gi->sequence);
 
             if (k == (twin->gre.count - 1)) zprintf(f, "}");
             else zprintf(f, "},");
@@ -1678,7 +1679,7 @@ static void flow_record_print_json (const struct flow_record *record) {
         print_tcp_json(output, rec);
     }
 
-    if (rec->gre.count) {
+    if (rec->gre.sa.s_addr) {
         print_gre_json(output, rec);
     }
 
