@@ -110,7 +110,7 @@ if [ $(($# + 1)) != "${OPTIND}" ]; then
 fi
 # Check to make sure they passed in a VERSION
 if [ "$VERSION" == 0.0 ]; then
-    echo "-v MAJOR.MINOR must be specifiead (ie. 1.0)" >&2
+    echo "-v MAJOR.MINOR must be specified (ie. 1.0)" >&2
     exit 1
 fi
 if [ -z "$BUILDTYPE" ]; then
