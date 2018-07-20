@@ -1,3 +1,40 @@
+## 2.1
+
+###### 07-20-2018
+
+#### Changes
+
+* Optimizations for "exe" option.
+  (PR #171, #173)
+
+* Robust application protocol identification.
+  Provides the ability to identify L4 protocols
+  using non-standard ports.
+  (PR #180, #182, #190)
+
+* Support for multiple HTTP messages.
+  (PR #181)
+
+* GUI and task scheduling for Windows Installer.
+  (PR #185)
+
+#### Bugfixes
+
+* Fixed HTTP body printing off-by-one error.
+  (PR #170)
+
+* Using proper message length for IPFIX exporter.
+  (PR #174)
+
+* Fix memory leak when processing multiple files into a pipe.
+  (PR #179)
+
+* Fix TLS module realloc function usage.
+  (PR #183)
+
+* Remove extra JSON comma in DNS module when qdcount <= 0.
+  (PR #192)
+
 ## 2.0
 
 ###### 01-28-2018
