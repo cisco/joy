@@ -96,7 +96,7 @@ str_match_test:
 ##
 # testing
 ##
-test: joy unit_test $(TESTDIR)/run_tests.py
+test: libjoy.a joy unit_test $(TESTDIR)/run_tests.py
 	$(BINDIR)/unit_test
 	$(TESTDIR)/run_tests.py
 
