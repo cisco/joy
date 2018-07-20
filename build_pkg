@@ -320,11 +320,6 @@ if [ "$?" != 0 ]; then
     echo Failed to change directory to $NAME
     exit 1
 fi
-patch -p1 < install/joy-num-packets.patch
-if [ "$?" != 0 ]; then
-    echo Failed to patch src/joy.c
-    exit 1
-fi
 if [ "$BUILDTYPE" == "deb" ]; then
     if [ "$ARCH" == "x86_64" ]; then
         ./config -l /usr/lib/x86_64-linux-gnu -z $COMPRESSION
