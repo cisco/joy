@@ -6,11 +6,14 @@
 usage() { 
     echo "usage:"
     echo ""
-    echo "   $0 [ [ -h ] | [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ] [ -s ssl-path ] [ -z compression-type]"
+    echo "   $0 [ [ -h ] | [ -v version ] [ -t deb|osxpkg|rpm ] [ -r git-reference ] [ -R release ] [ -s ssl-path ] [ -z compression-type]"
     echo ""
     echo "where the options are as follows"
     echo ""
     echo "   The -h flag prints usage information and exits."
+    echo ""
+    echo "   The -v flag specifies the version of the package to be built."
+    echo "   This flag is MANDATORY and should be in the form of Major.Minor"
     echo ""
     echo "   The -t rpm flag builds a RPM.  The -t deb flag builds a deb."
     echo "   The -t osxpkg flag builds an OS X pkg."
@@ -31,9 +34,8 @@ usage() {
 # set defaults
 #
 NAME=joy
-# Subtract .01 from VERSION file in git to build packages since the VERSION file
-# contains the next version number for joy, not the current version.
-VERSION=`echo "scale = 2; \`awk -F- {'print $1}' VERSION\` - .1" | bc`
+# Set VERSION to 0.0 as it is checked later on
+VERSION=0.0
 GITREF=master
 COMPRESSION=gzip
 CWD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -59,11 +61,15 @@ echo
 
 # check command line arguments, ovveride defaults as appropriate
 #
-while getopts "ht:s:r:R:z:" arg; do
+while getopts "ht:s:r:R:z:v:" arg; do
     case $arg in
     h)
         usage
         exit
+        ;;
+    v)
+        echo "-v was triggered with option ${OPTARG}" 
+        VERSION=${OPTARG}
         ;;
     z)
         echo "-z was triggered with option ${OPTARG}" 
@@ -100,6 +106,11 @@ done
 if [ $(($# + 1)) != "${OPTIND}" ]; then
     echo "error: illegal option"
     usage
+    exit 1
+fi
+# Check to make sure they passed in a VERSION
+if [ "$VERSION" == 0.0 ]; then
+    echo "-v MAJOR.MINOR must be specified (ie. 1.0)" >&2
     exit 1
 fi
 if [ -z "$BUILDTYPE" ]; then
@@ -309,11 +320,6 @@ if [ "$?" != 0 ]; then
     echo Failed to change directory to $NAME
     exit 1
 fi
-patch -p1 < install/joy-num-packets.patch
-if [ "$?" != 0 ]; then
-    echo Failed to patch src/joy.c
-    exit 1
-fi
 if [ "$BUILDTYPE" == "deb" ]; then
     if [ "$ARCH" == "x86_64" ]; then
         ./config -l /usr/lib/x86_64-linux-gnu -z $COMPRESSION
@@ -338,7 +344,7 @@ if [ "$?" != 0 ]; then
     echo Failed to run make
     exit 1
 fi
-make DESTDIR=${BUILDROOT}/usr/local BUILDROOT=${BUILDROOT} pkg
+make DESTDIR=${BUILDROOT}/usr/local BUILDROOT=${BUILDROOT} PKG_BUILD=1 pkg
 if [ "$?" != 0 ]; then
     echo Failed to run make pkg
     exit 1

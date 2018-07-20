@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,16 +57,9 @@
 #include "p2f.h"        /* for zprintf_ ...        */
 #include "err.h"        /* for logging             */
 
-/**
- * \brief A vector structure contains a pointer to a byte array with a given length.
- */
-struct vector {
-    unsigned int len;
-    unsigned char *bytes;
-};
 
 /**
- * \fn static void vector_delete(struct vector **s_handle)
+ * \fn static void vector_delete(vector_t **s_handle)
  *
  * \brief Delete the memory of vector structure.
  *
@@ -74,8 +67,8 @@ struct vector {
  *
  * \return
  */
-static void vector_delete(struct vector **s_handle) {
-    struct vector *vector = *s_handle;
+static void vector_delete(vector_t **s_handle) {
+    vector_t *vector = *s_handle;
 
     if (vector == NULL) {
         return;
@@ -89,7 +82,7 @@ static void vector_delete(struct vector **s_handle) {
 }
 
 /**
- * \fn void ike_vector_init(struct ike_vector **s_handle)
+ * \fn void ike_vector_init(ike_vector_t **s_handle)
  *
  * \brief Initialize the memory of vector structure.
  *
@@ -97,13 +90,13 @@ static void vector_delete(struct vector **s_handle) {
  *
  * \return
  */
-static void vector_init(struct vector **s_handle) {
+static void vector_init(vector_t **s_handle) {
 
     if (*s_handle != NULL) {
         vector_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct vector));
+    *s_handle = calloc(1, sizeof(vector_t));
     if (*s_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
@@ -112,7 +105,7 @@ static void vector_init(struct vector **s_handle) {
 }
 
 /**
- * \fn static void vector_set(struct vector *vector, const char *data, unsigned int len)
+ * \fn static void vector_set(vector_t *vector, const char *data, unsigned int len)
  *
  * \brief Set the contents of vector structure to the specified data, freeing the previous
  * vector contents. The free occurs after the copy, so behavior is still
@@ -125,7 +118,7 @@ static void vector_init(struct vector **s_handle) {
  *
  * \return
  */
-static void vector_set(struct vector *vector,
+static void vector_set(vector_t *vector,
                        const char *data,
                        unsigned int len) {
     unsigned char *tmpptr = NULL;
@@ -144,7 +137,7 @@ static void vector_set(struct vector *vector,
 }
 
 /**
- * \fn static void vector_append(struct vector *vector, const char *data, unsigned int len)
+ * \fn static void vector_append(vector_t *vector, const char *data, unsigned int len)
  *
  * \brief Append the specified data to the current contents of the vector
  * structure. If the vector structure is empty, this is equivalent to
@@ -156,7 +149,7 @@ static void vector_set(struct vector *vector,
  *
  * \return
  */
-static void vector_append(struct vector *vector,
+static void vector_append(vector_t *vector,
                           const char *data,
                           unsigned int len) {
     unsigned char *tmpptr = NULL;
@@ -205,7 +198,7 @@ static uint32_t raw_to_uint32(const char *data) {
 /**
  * \brief Enumeration representing Payload Types
  */
-enum ike_payload_type {
+typedef enum ike_payload_type_ {
     IKE_NO_NEXT_PAYLOAD                         = 0,
     IKE_SECURITY_ASSOCIATION_V1                 = 1,
     IKE_PROPOSAL_V1                             = 2,
@@ -249,12 +242,12 @@ enum ike_payload_type {
     IKE_GROUP_SECURITY_ASSOCIATION_V2           = 51,
     IKE_KEY_DOWNLOAD_V2                         = 52,
     IKE_ENCRYPTED_AND_AUTHENTICATED_FRAGMENT_V2 = 53
-};
+} ike_payload_type_e;
 
 /**
  * \brief Enumeration representing Exchange Types
  */
-enum ike_exchange_type {
+typedef enum ike_exchange_type_ {
     IKE_EXCHANGE_TYPE_NONE_V1       = 0,
     IKE_BASE_V1                     = 1,
     IKE_IDENTITY_PROTECTION_V1      = 2,
@@ -271,21 +264,21 @@ enum ike_exchange_type {
     IKE_GSA_AUTH_V2                 = 39,
     IKE_GSA_REGISTRATION_V2         = 40,
     IKE_GSA_REKEY_V2                = 41
-};
+} ike_exchange_type_e;
 
 /**
  * \brief Enumeration representing ISAKMP Domain of Interpretations (DOIs)
  */
-enum ike_doi {
+typedef enum ike_doi_ {
     IKE_ISAKMP_V1  = 0,
     IKE_IPSEC_V1   = 1,
     IKE_GDOI_V1    = 2
-};
+} ike_doi_e;
 
 /**
  * \brief Enumeration representing Attribute Types
  */
-enum ike_attribute_type {
+typedef enum ike_attribute_type_ {
     IKE_ENCRYPTION_ALGORITHM_V1                = 1,
     IKE_HASH_ALGORITHM_V1                      = 2,
     IKE_AUTHENTICATION_METHOD_V1               = 3,
@@ -303,30 +296,30 @@ enum ike_attribute_type {
     IKE_FIELD_SIZE_V1                          = 15,
     IKE_GROUP_ORDER_V1                         = 16,
     IKE_KEY_LENGTH_V2                          = 14
-};
+}  ike_attribute_type_e;
 
 /**
  * \brief Enumeration representing Transform Types
  */
-enum ike_transform_type {
+typedef enum ike_transform_type_ {
     IKE_ENCRYPTION_ALGORITHM_V2            = 1,
     IKE_PSEUDORANDOM_FUNCTION_V2           = 2,
     IKE_INTEGRITY_ALGORITHM_V2             = 3,
     IKE_DIFFIE_HELLMAN_GROUP_V2            = 4,
     IKE_EXTENDED_SEQUENCE_NUMBERS_V2       = 5
-};
+} ike_transform_type_e;
 
 /**
  * \brief Enumeration representing IPsec ISAKMP Transform IDs
  */
-enum ike_transform_id_v1 {
+typedef enum ike_transform_id_v1_ {
     IKE_KEY_IKE_V1                          = 1
-};
+} ike_transform_id_v1_e;
 
 /**
  * \brief Enumeration representing Encryption Algorithms
  */
-enum ike_encryption_algorithm {
+typedef enum ike_encryption_algorithm_ {
     IKE_ENCR_DES_CBC_V1                         = 1,
     IKE_ENCR_IDEA_CBC_V1                        = 2,
     IKE_ENCR_BLOWFISH_CBC_V1                    = 3,
@@ -360,12 +353,12 @@ enum ike_encryption_algorithm {
     IKE_ENCR_CAMELLIA_CCM_12_V2                 = 26,
     IKE_ENCR_CAMELLIA_CCM_16_V2                 = 27,
     IKE_ENCR_CHACHA20_POLY1305_V2               = 28
-};
+} ike_encryption_algorithm_e;
 
 /**
  * \brief Enumeration representing Hash Algorithms
  */
-enum ike_hash_algorithm {
+typedef enum ike_hash_algorithm_ {
     IKE_MD5_V1                                  = 1,
     IKE_SHA_V1                                  = 2,
     IKE_TIGER_V1                                = 3,
@@ -376,12 +369,12 @@ enum ike_hash_algorithm {
     IKE_SHA2_256_V2                             = 2,
     IKE_SHA2_384_V2                             = 3,
     IKE_SHA2_512_V2                             = 4
-};
+} ike_hash_algorithm_e;
 
 /**
  * \brief Enumeration representing Authentication Methods
  */
-enum ike_authentication_method {
+typedef enum ike_authentication_method_ {
     IKE_PRE_SHARED_KEY_V1                                   = 1,
     IKE_DSS_SIGNATURES_V1                                   = 2,
     IKE_RSA_SIGNATURES_V1                                   = 3,
@@ -399,12 +392,12 @@ enum ike_authentication_method {
     IKE_GENERIC_SECURE_PASSWORD_AUTHENTICATION_METHOD_V2    = 12,
     IKE_NULL_AUTHENTICATION_V2                              = 13,
     IKE_DIGITAL_SIGNATURE_V2                                = 14
-};
+} ike_authentication_method_e;
 
 /**
  * \brief Enumeration representing Diffie-Hellman Groups
  */
-enum ike_diffie_hellman_group {
+typedef enum ike_diffie_hellman_group_ {
     IKE_DH_GROUP_NONE_V1                   = 0,
     IKE_DH_MODP768_V1                      = 1,
     IKE_DH_MODP1024_V1                     = 2,
@@ -461,29 +454,29 @@ enum ike_diffie_hellman_group {
     IKE_DH_BRAINPOOL_P512_V2               = 30,
     IKE_DH_CURVE25519_V2                   = 31,
     IKE_DH_CURVE448_V2                     = 32
-};
+} ike_diffie_hellman_group_e;
 
 /**
  * \brief Enumeration representing Group Types
  */
-enum ike_group_type {
+typedef enum ike_group_type_ {
     IKE_MODP_V1 = 1,
     IKE_ECP_V1  = 2,
     IKE_EC2N_V1 = 3
-};
+} ike_group_type_e;
 
 /**
  * \brief Enumeration representing Life Types
  */
-enum ike_life_type {
+typedef enum ike_life_type_ {
     IKE_SECONDS_V1          = 1,
     IKE_KILIBYTES_V1        = 2
-};
+} ike_life_type_e;
 
 /**
  * \brief Enumeration representing Pseudo-Random Functions
  */
-enum ike_pseudorandom_function {
+typedef enum ike_pseudorandom_function {
     IKE_PRF_HMAC_MD5_V2      = 1,
     IKE_PRF_HMAC_SHA1_V2     = 2,
     IKE_PRF_HMAC_TIGER_V2    = 3,
@@ -492,12 +485,12 @@ enum ike_pseudorandom_function {
     IKE_PRF_HMAC_SHA2_384_V2 = 6,
     IKE_PRF_HMAC_SHA2_512_V2 = 7,
     IKE_PRF_AES128_CMAC_V2   = 8
-};
+}  ike_pseudorandom_function_e;
 
 /**
  * \brief Enumeration representing Identification Types
  */
-enum ike_identification_type {
+typedef enum ike_identification_type_ {
     IKE_ID_IPV4_ADDR_V1         = 1,
     IKE_ID_FQDN_V1              = 2,
     IKE_ID_USER_FQDN_V1         = 3,
@@ -518,33 +511,33 @@ enum ike_identification_type {
     IKE_ID_KEY_ID_V2            = 11,
     IKE_ID_FC_NAME_V2           = 12,
     IKE_ID_NULL_V2              = 13
-};
+}  ike_identification_type_e;
 
 /**
  * \brief Enumeration representing Situation bitmap flags
  */
-enum ike_situation_flags {
+typedef enum ike_situation_flags_ {
     IKE_SIT_IDENTITY_ONLY_V1 = 0x01,
     IKE_SIT_SECRECY_V1       = 0x02,
     IKE_SIT_INTEGRITY_V1     = 0x04
-};
+} ike_situation_flags_e;
 
 /**
  * \brief Enumeration representing ISAKMP header flags
  */
-enum ike_header_flags {
+typedef enum ike_header_flags_ {
     IKE_ENCRYPTION_BIT_V1           = 0x01,
     IKE_COMMIT_BIT_V1               = 0x02,
     IKE_AUTHENTICATION_BIT_V1       = 0x04,
     IKE_INITIATOR_BIT_V2            = 0x08,
     IKE_VERSION_BIT_V2              = 0x10,
     IKE_RESPONSE_BIT_V2             = 0x20
-};
+} ike_header_flags_e;
 
 /**
  * \brief Enumeration representing Notify Types
  */
-enum ike_notify_type {
+typedef enum ike_notify_type_ {
     /* error types */
     IKE_INVALID_PAYLOAD_TYPE_V1                = 1,
     IKE_DOI_NOT_SUPPORTED_V1                   = 2,
@@ -650,12 +643,12 @@ enum ike_notify_type {
     IKE_SIGNATURE_HASH_ALGORITHMS_V2           = 16431,
     IKE_CLONE_IKE_SA_SUPPORTED_V2              = 16432,
     IKE_CLONE_IKE_SA_V2                        = 16433
-};
+} ike_notify_type_e;
 
 /**
  * \brief Enumeration representing Security Protocol Identifiers
  */
-enum ike_protocol_id {
+typedef enum ike_protocol_id_ {
     IKE_PROTO_RESERVED_V1       = 0,
     IKE_PROTO_ISAKMP_V1         = 1,
     IKE_PROTO_IPSEC_AH_V1       = 2,
@@ -668,12 +661,12 @@ enum ike_protocol_id {
     IKE_ESP_V2                  = 3,
     IKE_FC_ESP_HEADER_V2        = 4,
     IKE_FC_CT_AUTHENTICATION_V2 = 5
-};
+} ike_protocol_id_e;
 
 /**
  * \brief Enumeration representing Integrity Algorithms
  */
-enum ike_integrity_algorithm {
+typedef enum ike_integrity_algorithm_ {
     IKE_AUTH_NONE_V2              = 0,
     IKE_AUTH_HMAC_MD5_96_V2       = 1,
     IKE_AUTH_HMAC_SHA1_96_V2      = 2,
@@ -689,21 +682,21 @@ enum ike_integrity_algorithm {
     IKE_AUTH_HMAC_SHA2_256_128_V2 = 12,
     IKE_AUTH_HMAC_SHA2_384_192_V2 = 13,
     IKE_AUTH_HMAC_SHA2_512_256_V2 = 14
-};
+} ike_integrity_algorithm_e;
 
 /**
  * \brief Enumeration representing Extended Sequence Numbers Options
  */
-enum ike_extended_sequence_numbers {
+typedef enum ike_extended_sequence_numbers_ {
     IKE_NO_EXTENDED_SEQUENCE_NUMBERS_V2  = 0,
     IKE_YES_EXTENDED_SEQUENCE_NUMBERS_V2 = 1
-};
+} ike_extended_sequence_numbers_e;
 
 
 /**
  * \brief Enumeration representing Certificate Encodings
  */
-enum ike_certificate_encoding {
+typedef enum ike_certificate_encoding_ {
     IKE_PKCS7_WRAPPED_X509_CERTIFICATE_V2   = 1,
     IKE_PGP_CERTIFICATE_V2                  = 2,
     IKE_DNS_SIGNED_KEY_V2                   = 3,
@@ -718,41 +711,41 @@ enum ike_certificate_encoding {
     IKE_HASH_AND_URL_OF_X509_BUNDLE_V2      = 13,
     IKE_OCSP_CONTENT_V2                     = 14,
     IKE_RAW_PUBLIC_KEY_V2                   = 15
-};
+} ike_certificate_encoding_e;
 
 /**
  * \brief Enumeration representing Notification IPCOMP Options
  */
-enum ike_notify_ipcomp {
+typedef enum ike_notify_ipcomp_ {
     IKE_IPCOMP_OUI_V2     = 1,
     IKE_IPCOMP_DEFLATE_V2 = 2,
     IKE_IPCOMP_LZS_V2     = 3,
     IKE_IPCOMP_LZJH_V2    = 4
-};
+}  ike_notify_ipcomp_e;
 
 /**
  * \brief Enumeration representing Traffic Selectors
  */
-enum ike_traffic_selector {
+typedef enum ike_traffic_selector_ {
     IKE_TS_IPV4_ADDR_RANGE_V2 = 7,
     IKE_TS_IPV6_ADDR_RANGE_V2 = 8,
     IKE_TS_FC_ADDR_RANGE_V2   = 9
-};
+}  ike_traffic_selector_e;
 
 /**
  * \brief Enumeration representing Configuration Payload CFG Types
  */
-enum ike_configuration_cfg_type {
+typedef enum ike_configuration_cfg_type_ {
     IKE_CFG_REQUEST_V2 = 1,
     IKE_CFG_REPLY_V2   = 2,
     IKE_CFG_SET_V2     = 3,
     IKE_CFG_ACK_V2     = 4
-};
+}  ike_configuration_cfg_type_e;
 
 /**
  * \brief Enumeration representing Configuration Payload Attribute Types
  */
-enum ike_configuration_attribute {
+typedef enum ike_configuration_attribute_ {
     IKE_INTERNAL_IP4_ADDRESS_V2         = 1,
     IKE_INTERNAL_IP4_NETMASK_V2         = 2,
     IKE_INTERNAL_IP4_DNS_V2             = 3,
@@ -773,36 +766,36 @@ enum ike_configuration_attribute {
     IKE_P_CSCF_IP6_ADDRESS_V2           = 21,
     IKE_FTT_KAT_V2                      = 22,
     IKE_EXTERNAL_SOURCE_IP4_NAT_INFO_V2 = 23
-};
+}  ike_configuration_attribute_e;
 
 /**
  * \brief Enumeration representing Gateway Identities
  */
-enum ike_gateway_identity {
+typedef enum ike_gateway_identity_ {
     IKE_IPV4_V2 = 1,
     IKE_IPV6_V2 = 2,
     IKE_FQDN_V2 = 3
-};
+}  ike_gateway_identity_e;
 
 /**
  * \brief Enumeration representing ROHC Attributes
  */
-enum ike_rohc_attribute {
+typedef enum ike_rohc_attribute_ {
     IKE_MAXIMUM_CONTEXT_IDENTIFIER_V2           = 1,
     IKE_ROHC_PROFILE_V2                         = 2,
     IKE_ROHC_INTEGRITY_ALGORITHM_V2             = 3,
     IKE_ROHC_ICV_LENGTH_IN_BYTES_V2             = 4,
     IKE_MAXIMUM_RECONSTRUCTED_RECEPTION_UNIT_V2 = 5
-};
+}  ike_rohc_attribute_e;
 
 /**
  * \brief Enumeration representing Secure Password Methods
  */
-enum ike_secure_password_methods {
+typedef enum ike_secure_password_methods_ {
     IKE_PACE_V2                      = 1,
     IKE_AUGPAKE_V2                   = 2,
     IKE_SECURE_PSK_AUTHENTICATION_V2 = 3
-};
+} ike_secure_password_methods_e;
 
 /**
  * \brief Database of vendor IDs
@@ -861,7 +854,7 @@ static struct {
  *
  * \return A string representation of the payload type enumeration.
  */
-static char *ike_payload_type_string(enum ike_payload_type s) {
+static char *ike_payload_type_string(ike_payload_type_e s) {
 
     switch(s) {
     case IKE_NO_NEXT_PAYLOAD:
@@ -964,7 +957,7 @@ static char *ike_payload_type_string(enum ike_payload_type s) {
  *
  * \return A string representation of the exchange type enumeration.
  */
-static char *ike_exchange_type_string(enum ike_exchange_type s) {
+static char *ike_exchange_type_string(ike_exchange_type_e s) {
 
     switch(s) {
     case IKE_EXCHANGE_TYPE_NONE_V1:
@@ -1013,7 +1006,7 @@ static char *ike_exchange_type_string(enum ike_exchange_type s) {
  *
  * \return A string representation of the attribute type enumeration.
  */
-static char *ike_attribute_type_string(enum ike_attribute_type s) {
+static char *ike_attribute_type_string(ike_attribute_type_e s) {
 
     switch (s) {
     case IKE_KEY_LENGTH_V2:
@@ -1032,7 +1025,7 @@ static char *ike_attribute_type_string(enum ike_attribute_type s) {
  *
  * \return A string representation of the attribute type enumeration.
  */
-static char *ike_attribute_type_v1_string(enum ike_attribute_type s) {
+static char *ike_attribute_type_v1_string(ike_attribute_type_e s) {
 
     switch (s) {
     case IKE_ENCRYPTION_ALGORITHM_V1:
@@ -1081,7 +1074,7 @@ static char *ike_attribute_type_v1_string(enum ike_attribute_type s) {
  *
  * \return A string representation of the hash algorithm enumeration.
  */
-static char *ike_hash_algorithm_string(enum ike_hash_algorithm s) {
+static char *ike_hash_algorithm_string(ike_hash_algorithm_e s) {
 
     switch (s) {
     case IKE_SHA1_V2:
@@ -1106,7 +1099,7 @@ static char *ike_hash_algorithm_string(enum ike_hash_algorithm s) {
  *
  * \return A string representation of the hash algorithm enumeration.
  */
-static char *ike_hash_algorithm_v1_string(enum ike_hash_algorithm s) {
+static char *ike_hash_algorithm_v1_string(ike_hash_algorithm_e s) {
 
     switch (s) {
     case IKE_MD5_V1:
@@ -1135,7 +1128,7 @@ static char *ike_hash_algorithm_v1_string(enum ike_hash_algorithm s) {
  *
  * \return A string representation of the authentication method enumeration.
  */
-static char *ike_authentication_method_string(enum ike_authentication_method s) {
+static char *ike_authentication_method_string(ike_authentication_method_e s) {
 
     switch (s) {
     case IKE_RSA_DIGITAL_SIGNATURE_V2:
@@ -1170,7 +1163,7 @@ static char *ike_authentication_method_string(enum ike_authentication_method s) 
  *
  * \return A string representation of the authentication method enumeration.
  */
-static char *ike_authentication_method_v1_string(enum ike_authentication_method s) {
+static char *ike_authentication_method_v1_string(ike_authentication_method_e s) {
 
     switch (s) {
     case IKE_PRE_SHARED_KEY_V1:
@@ -1203,7 +1196,7 @@ static char *ike_authentication_method_v1_string(enum ike_authentication_method 
  *
  * \return A string representation of the encryption algorithm enumeration.
  */
-static char *ike_encryption_algorithm_string(enum ike_encryption_algorithm s) {
+static char *ike_encryption_algorithm_string(ike_encryption_algorithm_e s) {
 
     switch(s) {
     case IKE_ENCR_DES_IV64_V2:
@@ -1270,7 +1263,7 @@ static char *ike_encryption_algorithm_string(enum ike_encryption_algorithm s) {
  *
  * \return A string representation of the encryption algorithm enumeration.
  */
-static char *ike_encryption_algorithm_v1_string(enum ike_encryption_algorithm s) {
+static char *ike_encryption_algorithm_v1_string(ike_encryption_algorithm_e s) {
 
     switch (s) {
     case IKE_ENCR_DES_CBC_V1:
@@ -1303,7 +1296,7 @@ static char *ike_encryption_algorithm_v1_string(enum ike_encryption_algorithm s)
  *
  * \return A string representation of the pseudorandom function enumeration.
  */
-static char *ike_pseudorandom_function_string(enum ike_pseudorandom_function s) {
+static char *ike_pseudorandom_function_string(ike_pseudorandom_function_e s) {
 
     switch(s) {
     case IKE_PRF_HMAC_MD5_V2:
@@ -1336,7 +1329,7 @@ static char *ike_pseudorandom_function_string(enum ike_pseudorandom_function s) 
  *
  * \return A string representation of the pseudorandom function enumeration.
  */
-static char *ike_pseudorandom_function_v1_string(enum ike_pseudorandom_function s) {
+static char *ike_pseudorandom_function_v1_string(ike_pseudorandom_function_e s) {
 
     switch(s) {
     default:
@@ -1353,7 +1346,7 @@ static char *ike_pseudorandom_function_v1_string(enum ike_pseudorandom_function 
  *
  * \return A string representation of the integrity algorithm enumeration.
  */
-static char *ike_integrity_algorithm_string(enum ike_integrity_algorithm s) {
+static char *ike_integrity_algorithm_string(ike_integrity_algorithm_e s) {
 
     switch(s) {
     case IKE_AUTH_NONE_V2:
@@ -1400,7 +1393,7 @@ static char *ike_integrity_algorithm_string(enum ike_integrity_algorithm s) {
  *
  * \return A string representation of the Diffie Hellman group enumeration.
  */
-static char *ike_diffie_hellman_group_string(enum ike_diffie_hellman_group s) {
+static char *ike_diffie_hellman_group_string(ike_diffie_hellman_group_e s) {
 
     switch(s) {
     case IKE_DH_GROUP_NONE_V2:
@@ -1463,7 +1456,7 @@ static char *ike_diffie_hellman_group_string(enum ike_diffie_hellman_group s) {
  *
  * \return A string representation of the Diffie Hellman group enumeration.
  */
-static char *ike_diffie_hellman_group_v1_string(enum ike_diffie_hellman_group s) {
+static char *ike_diffie_hellman_group_v1_string(ike_diffie_hellman_group_e s) {
 
     switch(s) {
     case IKE_DH_GROUP_NONE_V1:
@@ -1542,7 +1535,7 @@ static char *ike_diffie_hellman_group_v1_string(enum ike_diffie_hellman_group s)
  *
  * \return A string representation of the extended sequence numbers enumeration.
  */
-static char *ike_extended_sequence_numbers_string(enum ike_extended_sequence_numbers s) {
+static char *ike_extended_sequence_numbers_string(ike_extended_sequence_numbers_e s) {
 
     switch(s) {
     case IKE_NO_EXTENDED_SEQUENCE_NUMBERS_V2:
@@ -1563,7 +1556,7 @@ static char *ike_extended_sequence_numbers_string(enum ike_extended_sequence_num
  *
  * \return A string representation of the transform type enumeration.
  */
-static char *ike_transform_type_string(enum ike_transform_type s) {
+static char *ike_transform_type_string(ike_transform_type_e s) {
 
     switch (s) {
     case IKE_ENCRYPTION_ALGORITHM_V2:
@@ -1590,7 +1583,7 @@ static char *ike_transform_type_string(enum ike_transform_type s) {
  *
  * \return A string representation of the transform id enumeration.
  */
-static char *ike_transform_id_string(enum ike_transform_type s, uint16_t id) {
+static char *ike_transform_id_string(ike_transform_type_e s, uint16_t id) {
 
     switch (s) {
     case IKE_ENCRYPTION_ALGORITHM_V2:
@@ -1617,7 +1610,7 @@ static char *ike_transform_id_string(enum ike_transform_type s, uint16_t id) {
  *
  * \return A string representation of the transform id enumeration.
  */
-static char *ike_transform_id_v1_string(enum ike_transform_id_v1 s) {
+static char *ike_transform_id_v1_string(ike_transform_id_v1_e s) {
 
     switch (s) {
     case IKE_KEY_IKE_V1:
@@ -1636,7 +1629,7 @@ static char *ike_transform_id_v1_string(enum ike_transform_id_v1 s) {
  *
  * \return A string representation of the identification type enumeration.
  */
-static char *ike_identification_type_string(enum ike_identification_type s) {
+static char *ike_identification_type_string(ike_identification_type_e s) {
 
     switch (s) {
     case IKE_ID_IPV4_ADDR_V2:
@@ -1671,7 +1664,7 @@ static char *ike_identification_type_string(enum ike_identification_type s) {
  *
  * \return A string representation of the identification type enumeration.
  */
-static char *ike_identification_type_v1_string(enum ike_identification_type s) {
+static char *ike_identification_type_v1_string(ike_identification_type_e s) {
 
     switch (s) {
     case IKE_ID_IPV4_ADDR_V1:
@@ -1710,7 +1703,7 @@ static char *ike_identification_type_v1_string(enum ike_identification_type s) {
  *
  * \return A string representation of the certificate encoding enumeration.
  */
-static char *ike_certificate_encoding_string(enum ike_certificate_encoding s) {
+static char *ike_certificate_encoding_string(ike_certificate_encoding_e s) {
 
     switch (s) {
     case IKE_PKCS7_WRAPPED_X509_CERTIFICATE_V2:
@@ -1755,7 +1748,7 @@ static char *ike_certificate_encoding_string(enum ike_certificate_encoding s) {
  *
  * \return A string representation of the protocol id enumeration.
  */
-static char *ike_protocol_id_string(enum ike_protocol_id s) {
+static char *ike_protocol_id_string(ike_protocol_id_e s) {
 
     switch (s) {
     case IKE_PROTO_RESERVED_V2:
@@ -1784,7 +1777,7 @@ static char *ike_protocol_id_string(enum ike_protocol_id s) {
  *
  * \return A string representation of the protocol id enumeration.
  */
-static char *ike_protocol_id_v1_string(enum ike_protocol_id s) {
+static char *ike_protocol_id_v1_string(ike_protocol_id_e s) {
 
     switch (s) {
     case IKE_PROTO_RESERVED_V1:
@@ -1813,7 +1806,7 @@ static char *ike_protocol_id_v1_string(enum ike_protocol_id s) {
  *
  * \return A string representation of the notify type enumeration.
  */
-static char *ike_notify_type_string(enum ike_notify_type s) {
+static char *ike_notify_type_string(ike_notify_type_e s) {
 
     switch (s) {
     case IKE_UNSUPPORTED_CRITICAL_PAYLOAD_V2:
@@ -1974,7 +1967,7 @@ static char *ike_notify_type_string(enum ike_notify_type s) {
  *
  * \return A string representation of the notify type enumeration.
  */
-static char *ike_notify_type_v1_string(enum ike_notify_type s) {
+static char *ike_notify_type_v1_string(ike_notify_type_e s) {
 
     switch (s) {
     case IKE_INVALID_PAYLOAD_TYPE_V1:
@@ -2053,7 +2046,7 @@ static char *ike_notify_type_v1_string(enum ike_notify_type s) {
  *
  * \return A string representation of the DOI enumeration.
  */
-static char *ike_doi_v1_string(enum ike_doi s) {
+static char *ike_doi_v1_string(ike_doi_e s) {
 
     switch (s) {
     case IKE_ISAKMP_V1:
@@ -2076,7 +2069,7 @@ static char *ike_doi_v1_string(enum ike_doi s) {
  *
  * \return A string representation of the life type enumeration.
  */
-static char *ike_life_type_v1_string(enum ike_life_type s) {
+static char *ike_life_type_v1_string(ike_life_type_e s) {
 
     switch (s) {
     case IKE_SECONDS_V1:
@@ -2097,7 +2090,7 @@ static char *ike_life_type_v1_string(enum ike_life_type s) {
  *
  * \return A string representation of the group type enumeration.
  */
-static char *ike_group_type_v1_string(enum ike_group_type s) {
+static char *ike_group_type_v1_string(ike_group_type_e s) {
 
     switch (s) {
     case IKE_MODP_V1:
@@ -2112,7 +2105,7 @@ static char *ike_group_type_v1_string(enum ike_group_type s) {
 }
 
 /**
- * \fn void ike_attribute_print_json(const struct ike_attribute *s, zfile f)
+ * \fn void ike_attribute_print_json(const ike_attribute_t *s, zfile f)
  *
  * \brief Print the contents of attribute structure to compressed JSON output (IKEv2 only).
  *
@@ -2121,7 +2114,7 @@ static char *ike_group_type_v1_string(enum ike_group_type s) {
  *
  * \return
  */
-static void ike_attribute_print_json(struct ike_attribute *s, zfile f) {
+static void ike_attribute_print_json(ike_attribute_t *s, zfile f) {
     char *type_string = ike_attribute_type_string(s->type);
     
     /* START attribute object */
@@ -2142,7 +2135,7 @@ static void ike_attribute_print_json(struct ike_attribute *s, zfile f) {
 }
 
 /**
- * \fn void ike_attribute_v1_print_json(const struct ike_attribute *s, zfile f)
+ * \fn void ike_attribute_v1_print_json(const ike_attribute_t *s, zfile f)
  *
  * \brief Print the contents of attribute structure to compressed JSON output (IKEv1 only).
  *
@@ -2151,7 +2144,7 @@ static void ike_attribute_print_json(struct ike_attribute *s, zfile f) {
  *
  * \return
  */
-static void ike_attribute_v1_print_json(struct ike_attribute *s, zfile f) {
+static void ike_attribute_v1_print_json(ike_attribute_t *s, zfile f) {
     char *type_string = ike_attribute_type_v1_string(s->type);
 
     /* START attribute object */
@@ -2224,7 +2217,7 @@ print_hex:
 }
 
 /*
- * \fn static void ike_attribute_delete(struct ike_attribute **s_handle)
+ * \fn static void ike_attribute_delete(ike_attribute_t **s_handle)
  *
  * \brief Delete attribute structure and free all associated memory.
  *
@@ -2232,8 +2225,8 @@ print_hex:
  *
  * \return
  */
-static void ike_attribute_delete(struct ike_attribute **s_handle) {
-    struct ike_attribute *s = *s_handle;
+static void ike_attribute_delete(ike_attribute_t **s_handle) {
+    ike_attribute_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -2245,7 +2238,7 @@ static void ike_attribute_delete(struct ike_attribute **s_handle) {
 }
 
 /**
- * \fn void ike_attribute_init(struct ike_attribute **s_handle)
+ * \fn void ike_attribute_init(ike_attribute_t **s_handle)
  *
  * \brief Initialize the memory of attribute structure.
  *
@@ -2253,13 +2246,13 @@ static void ike_attribute_delete(struct ike_attribute **s_handle) {
  *
  * \return
  */
-static void ike_attribute_init(struct ike_attribute **s_handle) {
+static void ike_attribute_init(ike_attribute_t **s_handle) {
     
     if (*s_handle != NULL) {
         ike_attribute_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_attribute));
+    *s_handle = calloc(1, sizeof(ike_attribute_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -2267,7 +2260,7 @@ static void ike_attribute_init(struct ike_attribute **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_attribute_unmarshal(struct ike_attribute *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_attribute_unmarshal(ike_attribute_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into attribute structure (IKEv1 or IKEv2).
  *
@@ -2277,7 +2270,7 @@ static void ike_attribute_init(struct ike_attribute **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_attribute_unmarshal(struct ike_attribute *s, const char *data, unsigned int len) {
+static unsigned int ike_attribute_unmarshal(ike_attribute_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
 
@@ -2311,7 +2304,7 @@ static unsigned int ike_attribute_unmarshal(struct ike_attribute *s, const char 
 }
 
 /**
- * \fn void ike_transform_print_json(const struct ike_transform *s, zfile f)
+ * \fn void ike_transform_print_json(const ike_transform_t *s, zfile f)
  *
  * \brief Print the contents of transform structure to compressed JSON output (IKEv2 only).
  *
@@ -2320,7 +2313,7 @@ static unsigned int ike_attribute_unmarshal(struct ike_attribute *s, const char 
  *
  * \return
  */
-static void ike_transform_print_json(struct ike_transform *s, zfile f) {
+static void ike_transform_print_json(ike_transform_t *s, zfile f) {
     char *type_string = ike_transform_type_string(s->type);
     char *id_string = ike_transform_id_string(s->type, s->id);
     int i = 0;
@@ -2361,7 +2354,7 @@ static void ike_transform_print_json(struct ike_transform *s, zfile f) {
 }
 
 /**
- * \fn void ike_transform_v1_print_json(const struct ike_transform *s, zfile f)
+ * \fn void ike_transform_v1_print_json(const ike_transform_t *s, zfile f)
  *
  * \brief Print the contents of transform structure to compressed JSON output (IKEv1 only).
  *
@@ -2370,7 +2363,7 @@ static void ike_transform_print_json(struct ike_transform *s, zfile f) {
  *
  * \return
  */
-static void ike_transform_v1_print_json(struct ike_transform *s, zfile f) {
+static void ike_transform_v1_print_json(ike_transform_t *s, zfile f) {
     char *id_string = ike_transform_id_v1_string(s->id_v1);
     int i = 0;
 
@@ -2401,7 +2394,7 @@ static void ike_transform_v1_print_json(struct ike_transform *s, zfile f) {
 }
 
 /*
- * \fn static void ike_transform_delete(struct ike_transform **s_handle)
+ * \fn static void ike_transform_delete(ike_transform_t **s_handle)
  *
  * \brief Delete transform structure and free all associated memory.
  *
@@ -2409,8 +2402,8 @@ static void ike_transform_v1_print_json(struct ike_transform *s, zfile f) {
  *
  * \return
  */
-static void ike_transform_delete(struct ike_transform **s_handle) {
-    struct ike_transform *s = *s_handle;
+static void ike_transform_delete(ike_transform_t **s_handle) {
+    ike_transform_t *s = *s_handle;
     int i;
 
     if (s == NULL) {
@@ -2425,7 +2418,7 @@ static void ike_transform_delete(struct ike_transform **s_handle) {
 }
 
 /**
- * \fn void ike_transform_init(struct ike_transform **s_handle)
+ * \fn void ike_transform_init(ike_transform_t **s_handle)
  *
  * \brief Initialize the memory of transform structure.
  *
@@ -2433,13 +2426,13 @@ static void ike_transform_delete(struct ike_transform **s_handle) {
  *
  * \return
  */
-static void ike_transform_init(struct ike_transform **s_handle) {
+static void ike_transform_init(ike_transform_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_transform_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_transform));
+    *s_handle = calloc(1, sizeof(ike_transform_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -2447,7 +2440,7 @@ static void ike_transform_init(struct ike_transform **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_transform_unmarshal(struct ike_transform *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_transform_unmarshal(ike_transform_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into transform structure (IKEv2 only).
  *
@@ -2457,7 +2450,7 @@ static void ike_transform_init(struct ike_transform **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_transform_unmarshal(struct ike_transform *s, const char *data, unsigned int len) {
+static unsigned int ike_transform_unmarshal(ike_transform_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
 
@@ -2501,7 +2494,7 @@ static unsigned int ike_transform_unmarshal(struct ike_transform *s, const char 
 }
  
 /**
- * \fn static unsigned int ike_transform_v1_unmarshal(struct ike_transform *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_transform_v1_unmarshal(ike_transform_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into transform structure (IKEv1 only).
  *
@@ -2511,7 +2504,7 @@ static unsigned int ike_transform_unmarshal(struct ike_transform *s, const char 
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_transform_v1_unmarshal(struct ike_transform *s, const char *data, unsigned int len) {
+static unsigned int ike_transform_v1_unmarshal(ike_transform_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
 
@@ -2556,7 +2549,7 @@ static unsigned int ike_transform_v1_unmarshal(struct ike_transform *s, const ch
 }
 
 /**
- * \fn void ike_proposal_print_json(const struct ike_proposal *s, zfile f)
+ * \fn void ike_proposal_print_json(const ike_proposal_t *s, zfile f)
  *
  * \brief Print the contents of proposal structure to compressed JSON output (IKEv2 only).
  *
@@ -2565,7 +2558,7 @@ static unsigned int ike_transform_v1_unmarshal(struct ike_transform *s, const ch
  *
  * \return
  */
-static void ike_proposal_print_json(struct ike_proposal *s, zfile f) {
+static void ike_proposal_print_json(ike_proposal_t *s, zfile f) {
     char *prot_id_string = ike_protocol_id_string(s->protocol_id);
     int i = 0;
 
@@ -2601,7 +2594,7 @@ static void ike_proposal_print_json(struct ike_proposal *s, zfile f) {
 }
 
 /**
- * \fn void ike_proposal_v1_print_json(const struct ike_proposal *s, zfile f)
+ * \fn void ike_proposal_v1_print_json(const ike_proposal_t *s, zfile f)
  *
  * \brief Print the contents of proposal structure to compressed JSON output (IKEv1 only).
  *
@@ -2610,7 +2603,7 @@ static void ike_proposal_print_json(struct ike_proposal *s, zfile f) {
  *
  * \return
  */
-static void ike_proposal_v1_print_json(struct ike_proposal *s, zfile f) {
+static void ike_proposal_v1_print_json(ike_proposal_t *s, zfile f) {
     char *prot_id_string = ike_protocol_id_string(s->protocol_id);
     int i = 0;
 
@@ -2646,7 +2639,7 @@ static void ike_proposal_v1_print_json(struct ike_proposal *s, zfile f) {
 }
 
 /*
- * \fn static void ike_proposal_delete(struct ike_proposal **s_handle)
+ * \fn static void ike_proposal_delete(ike_proposal_t **s_handle)
  *
  * \brief Delete proposal structure and free all associated memory.
  *
@@ -2654,8 +2647,8 @@ static void ike_proposal_v1_print_json(struct ike_proposal *s, zfile f) {
  *
  * \return
  */
-static void ike_proposal_delete(struct ike_proposal **s_handle) {
-    struct ike_proposal *s = *s_handle;
+static void ike_proposal_delete(ike_proposal_t **s_handle) {
+    ike_proposal_t *s = *s_handle;
     int i;
 
     if (s == NULL) {
@@ -2671,7 +2664,7 @@ static void ike_proposal_delete(struct ike_proposal **s_handle) {
 }
 
 /**
- * \fn void ike_proposal_init(struct ike_proposal **s_handle)
+ * \fn void ike_proposal_init(ike_proposal_t **s_handle)
  *
  * \brief Initialize the memory of proposal structure.
  *
@@ -2679,13 +2672,13 @@ static void ike_proposal_delete(struct ike_proposal **s_handle) {
  *
  * \return
  */
-static void ike_proposal_init(struct ike_proposal **s_handle) {
+static void ike_proposal_init(ike_proposal_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_proposal_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_proposal));
+    *s_handle = calloc(1, sizeof(ike_proposal_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -2693,7 +2686,7 @@ static void ike_proposal_init(struct ike_proposal **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_proposal_unmarshal(struct ike_proposal *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_proposal_unmarshal(ike_proposal_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into proposal structure (IKEv2 only).
  *
@@ -2703,7 +2696,7 @@ static void ike_proposal_init(struct ike_proposal **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_proposal_unmarshal(struct ike_proposal *s, const char *data, unsigned int len) {
+static unsigned int ike_proposal_unmarshal(ike_proposal_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
     unsigned int spi_size;
@@ -2761,7 +2754,7 @@ static unsigned int ike_proposal_unmarshal(struct ike_proposal *s, const char *d
 }
 
 /**
- * \fn static unsigned int ike_proposal_v1_unmarshal(struct ike_proposal *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_proposal_v1_unmarshal(ike_proposal_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into proposal structure (IKEv1 only).
  *
@@ -2771,7 +2764,7 @@ static unsigned int ike_proposal_unmarshal(struct ike_proposal *s, const char *d
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_proposal_v1_unmarshal(struct ike_proposal *s, const char *data, unsigned int len) {
+static unsigned int ike_proposal_v1_unmarshal(ike_proposal_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
     unsigned int spi_size;
@@ -2839,7 +2832,7 @@ static unsigned int ike_proposal_v1_unmarshal(struct ike_proposal *s, const char
 }
 
 /**
- * \fn void ike_sa_print_json(const struct ike_sa *s, zfile f)
+ * \fn void ike_sa_print_json(const ike_sa_t *s, zfile f)
  *
  * \brief Print the contents of security association structure to compressed JSON output (IKEv2 only).
  *
@@ -2848,7 +2841,7 @@ static unsigned int ike_proposal_v1_unmarshal(struct ike_proposal *s, const char
  *
  * \return
  */
-static void ike_sa_print_json(struct ike_sa *s, zfile f) {
+static void ike_sa_print_json(ike_sa_t *s, zfile f) {
     int i;
     
     /* START sa object */
@@ -2871,7 +2864,7 @@ static void ike_sa_print_json(struct ike_sa *s, zfile f) {
 }
 
 /**
- * \fn void ike_sa_v1_print_json(const struct ike_sa *s, zfile f)
+ * \fn void ike_sa_v1_print_json(const ike_sa_t *s, zfile f)
  *
  * \brief Print the contents of security association structure to compressed JSON output (IKEv1 only).
  *
@@ -2880,7 +2873,7 @@ static void ike_sa_print_json(struct ike_sa *s, zfile f) {
  *
  * \return
  */
-static void ike_sa_v1_print_json(struct ike_sa *s, zfile f) {
+static void ike_sa_v1_print_json(ike_sa_t *s, zfile f) {
     char *doi_string = ike_doi_v1_string(s->doi_v1);
     int i = 0;
 
@@ -2931,7 +2924,7 @@ static void ike_sa_v1_print_json(struct ike_sa *s, zfile f) {
 }
 
 /*
- * \fn static void ike_sa_delete(struct ike_sa **s_handle)
+ * \fn static void ike_sa_delete(ike_sa_t **s_handle)
  *
  * \brief Delete security association structure and free all associated memory.
  *
@@ -2939,8 +2932,8 @@ static void ike_sa_v1_print_json(struct ike_sa *s, zfile f) {
  *
  * \return
  */
-static void ike_sa_delete(struct ike_sa **s_handle) {
-    struct ike_sa *s = *s_handle;
+static void ike_sa_delete(ike_sa_t **s_handle) {
+    ike_sa_t *s = *s_handle;
     int i;
 
     if (s == NULL) {
@@ -2959,7 +2952,7 @@ static void ike_sa_delete(struct ike_sa **s_handle) {
 }
 
 /**
- * \fn void ike_sa_init(struct ike_sa **s_handle)
+ * \fn void ike_sa_init(ike_sa_t **s_handle)
  *
  * \brief Initialize the memory of security association structure.
  *
@@ -2967,13 +2960,13 @@ static void ike_sa_delete(struct ike_sa **s_handle) {
  *
  * \return
  */
-static void ike_sa_init(struct ike_sa **s_handle) {
+static void ike_sa_init(ike_sa_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_sa_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_sa));
+    *s_handle = calloc(1, sizeof(ike_sa_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -2981,7 +2974,7 @@ static void ike_sa_init(struct ike_sa **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_sa_unmarshal(struct ike_sa *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_sa_unmarshal(ike_sa_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into security association structure (IKEv2 only).
  *
@@ -2991,7 +2984,7 @@ static void ike_sa_init(struct ike_sa **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_sa_unmarshal(struct ike_sa *s, const char *data, unsigned int len) {
+static unsigned int ike_sa_unmarshal(ike_sa_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
     unsigned int last_proposal;
@@ -3015,7 +3008,7 @@ static unsigned int ike_sa_unmarshal(struct ike_sa *s, const char *data, unsigne
 }
 
 /**
- * \fn static unsigned int ike_sa_v1_unmarshal(struct ike_sa *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_sa_v1_unmarshal(ike_sa_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into security association structure (IKEv1 only).
  *
@@ -3025,7 +3018,7 @@ static unsigned int ike_sa_unmarshal(struct ike_sa *s, const char *data, unsigne
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_sa_v1_unmarshal(struct ike_sa *s, const char *data, unsigned int len) {
+static unsigned int ike_sa_v1_unmarshal(ike_sa_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
     unsigned int last_proposal;
@@ -3102,7 +3095,7 @@ static unsigned int ike_sa_v1_unmarshal(struct ike_sa *s, const char *data, unsi
 }
 
 /**
- * \fn void ike_ke_print_json(const struct ike_ke *s, zfile f)
+ * \fn void ike_ke_print_json(const ike_ke_t *s, zfile f)
  *
  * \brief Print the contents of key exchange structure to compressed JSON output (IKEv2 only).
  *
@@ -3111,7 +3104,7 @@ static unsigned int ike_sa_v1_unmarshal(struct ike_sa *s, const char *data, unsi
  *
  * \return
  */
-static void ike_ke_print_json(struct ike_ke *s, zfile f) {
+static void ike_ke_print_json(ike_ke_t *s, zfile f) {
     char *group_string = ike_diffie_hellman_group_string(s->group);
 
     /* START ke object */
@@ -3131,7 +3124,7 @@ static void ike_ke_print_json(struct ike_ke *s, zfile f) {
 }
 
 /**
- * \fn void ike_ke_v1_print_json(const struct ike_ke *s, zfile f)
+ * \fn void ike_ke_v1_print_json(const ike_ke_t *s, zfile f)
  *
  * \brief Print the contents of key exchange structure to compressed JSON output (IKEv1 only).
  *
@@ -3140,13 +3133,13 @@ static void ike_ke_print_json(struct ike_ke *s, zfile f) {
  *
  * \return
  */
-static void ike_ke_v1_print_json(struct ike_ke *s, zfile f) {
+static void ike_ke_v1_print_json(ike_ke_t *s, zfile f) {
 
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
 }
 
 /*
- * \fn static void ike_ke_delete(struct ike_ke **s_handle)
+ * \fn static void ike_ke_delete(ike_ke_t **s_handle)
  *
  * \brief Delete key exchange structure and free all associated memory.
  *
@@ -3154,8 +3147,8 @@ static void ike_ke_v1_print_json(struct ike_ke *s, zfile f) {
  *
  * \return
  */
-static void ike_ke_delete(struct ike_ke **s_handle) {
-    struct ike_ke *s = *s_handle;
+static void ike_ke_delete(ike_ke_t **s_handle) {
+    ike_ke_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -3167,7 +3160,7 @@ static void ike_ke_delete(struct ike_ke **s_handle) {
 }
 
 /**
- * \fn void ike_ke_init(struct ike_ke **s_handle)
+ * \fn void ike_ke_init(ike_ke_t **s_handle)
  *
  * \brief Initialize the memory of key exchange structure.
  *
@@ -3175,13 +3168,13 @@ static void ike_ke_delete(struct ike_ke **s_handle) {
  *
  * \return
  */
-static void ike_ke_init(struct ike_ke **s_handle) {
+static void ike_ke_init(ike_ke_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_ke_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_ke));
+    *s_handle = calloc(1, sizeof(ike_ke_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -3189,7 +3182,7 @@ static void ike_ke_init(struct ike_ke **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_ke_unmarshal(struct ike_ke *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_ke_unmarshal(ike_ke_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into key exchange structure (IKEv2 only).
  *
@@ -3199,7 +3192,7 @@ static void ike_ke_init(struct ike_ke **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_ke_unmarshal(struct ike_ke *s, const char *data, unsigned int len) {
+static unsigned int ike_ke_unmarshal(ike_ke_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     if (len < 4) {
@@ -3217,7 +3210,7 @@ static unsigned int ike_ke_unmarshal(struct ike_ke *s, const char *data, unsigne
 }
 
 /**
- * \fn static unsigned int ike_ke_v1_unmarshal(struct ike_ke *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_ke_v1_unmarshal(ike_ke_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into key exchange structure (IKEv1 only).
  *
@@ -3227,7 +3220,7 @@ static unsigned int ike_ke_unmarshal(struct ike_ke *s, const char *data, unsigne
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_ke_v1_unmarshal(struct ike_ke *s, const char *data, unsigned int len) {
+static unsigned int ike_ke_v1_unmarshal(ike_ke_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     vector_init(&s->data);
@@ -3238,7 +3231,7 @@ static unsigned int ike_ke_v1_unmarshal(struct ike_ke *s, const char *data, unsi
 }
 
 /**
- * \fn void ike_id_print_json(const struct ike_id *s, zfile f)
+ * \fn void ike_id_print_json(const ike_id_t *s, zfile f)
  *
  * \brief Print the contents of identity structure to compressed JSON output (IKEv2 only).
  *
@@ -3247,7 +3240,7 @@ static unsigned int ike_ke_v1_unmarshal(struct ike_ke *s, const char *data, unsi
  *
  * \return
  */
-static void ike_id_print_json(struct ike_id *s, zfile f) {
+static void ike_id_print_json(ike_id_t *s, zfile f) {
     char *type_string = ike_identification_type_string(s->type);
 
     /* START identity object */
@@ -3267,7 +3260,7 @@ static void ike_id_print_json(struct ike_id *s, zfile f) {
 }
 
 /**
- * \fn void ike_id_v1_print_json(const struct ike_id *s, zfile f)
+ * \fn void ike_id_v1_print_json(const ike_id_t *s, zfile f)
  *
  * \brief Print the contents of identity structure to compressed JSON output (IKEv1 only).
  *
@@ -3276,7 +3269,7 @@ static void ike_id_print_json(struct ike_id *s, zfile f) {
  *
  * \return
  */
-static void ike_id_v1_print_json(struct ike_id *s, zfile f) {
+static void ike_id_v1_print_json(ike_id_t *s, zfile f) {
     char *type_string = ike_identification_type_v1_string(s->type);
 
     /* START identity object */
@@ -3296,7 +3289,7 @@ static void ike_id_v1_print_json(struct ike_id *s, zfile f) {
 }
 
 /*
- * \fn static void ike_id_delete(struct ike_id **s_handle)
+ * \fn static void ike_id_delete(ike_id_t **s_handle)
  *
  * \brief Delete identity structure and free all associated memory.
  *
@@ -3304,8 +3297,8 @@ static void ike_id_v1_print_json(struct ike_id *s, zfile f) {
  *
  * \return
  */
-static void ike_id_delete(struct ike_id **s_handle) {
-    struct ike_id *s = *s_handle;
+static void ike_id_delete(ike_id_t **s_handle) {
+    ike_id_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -3317,7 +3310,7 @@ static void ike_id_delete(struct ike_id **s_handle) {
 }
 
 /**
- * \fn void ike_id_init(struct ike_id **s_handle)
+ * \fn void ike_id_init(ike_id_t **s_handle)
  *
  * \brief Initialize the memory of identity structure.
  *
@@ -3325,13 +3318,13 @@ static void ike_id_delete(struct ike_id **s_handle) {
  *
  * \return
  */
-static void ike_id_init(struct ike_id **s_handle) {
+static void ike_id_init(ike_id_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_id_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_id));
+    *s_handle = calloc(1, sizeof(ike_id_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -3339,7 +3332,7 @@ static void ike_id_init(struct ike_id **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_id_unmarshal(struct ike_id *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_id_unmarshal(ike_id_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into identity structure (IKEv1 or IKEv2).
  *
@@ -3349,7 +3342,7 @@ static void ike_id_init(struct ike_id **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_id_unmarshal(struct ike_id *s, const char *data, unsigned int len) {
+static unsigned int ike_id_unmarshal(ike_id_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     if (len < 4) {
@@ -3367,7 +3360,7 @@ static unsigned int ike_id_unmarshal(struct ike_id *s, const char *data, unsigne
 }
 
 /**
- * \fn void ike_cert_print_json(const struct ike_cert *s, zfile f)
+ * \fn void ike_cert_print_json(const ike_cert_t *s, zfile f)
  *
  * \brief Print the contents of certificate structure to compressed JSON output (IKEv1 or IKEv2).
  *
@@ -3376,7 +3369,7 @@ static unsigned int ike_id_unmarshal(struct ike_id *s, const char *data, unsigne
  *
  * \return
  */
-static void ike_cert_print_json(struct ike_cert *s, zfile f) {
+static void ike_cert_print_json(ike_cert_t *s, zfile f) {
     char *encoding_string = ike_certificate_encoding_string(s->encoding);
 
     /* START certificate object */
@@ -3396,7 +3389,7 @@ static void ike_cert_print_json(struct ike_cert *s, zfile f) {
 }
 
 /*
- * \fn static void ike_cert_delete(struct ike_cert **s_handle)
+ * \fn static void ike_cert_delete(ike_cert_t **s_handle)
  *
  * \brief Delete certificate structure and free all associated memory.
  *
@@ -3404,8 +3397,8 @@ static void ike_cert_print_json(struct ike_cert *s, zfile f) {
  *
  * \return
  */
-static void ike_cert_delete(struct ike_cert **s_handle) {
-    struct ike_cert *s = *s_handle;
+static void ike_cert_delete(ike_cert_t **s_handle) {
+    ike_cert_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -3417,7 +3410,7 @@ static void ike_cert_delete(struct ike_cert **s_handle) {
 }
 
 /**
- * \fn void ike_cert_init(struct ike_cert **s_handle)
+ * \fn void ike_cert_init(ike_cert_t **s_handle)
  *
  * \brief Initialize the memory of certificate structure.
  *
@@ -3425,13 +3418,13 @@ static void ike_cert_delete(struct ike_cert **s_handle) {
  *
  * \return
  */
-static void ike_cert_init(struct ike_cert **s_handle) {
+static void ike_cert_init(ike_cert_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_cert_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_cert));
+    *s_handle = calloc(1, sizeof(ike_cert_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -3439,7 +3432,7 @@ static void ike_cert_init(struct ike_cert **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_cert_unmarshal(struct ike_cert *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_cert_unmarshal(ike_cert_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into certificate structure (IKEv1 or IKEv2).
  *
@@ -3449,7 +3442,7 @@ static void ike_cert_init(struct ike_cert **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_cert_unmarshal(struct ike_cert *s, const char *data, unsigned int len) {
+static unsigned int ike_cert_unmarshal(ike_cert_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     if (len < 1) {
@@ -3466,7 +3459,7 @@ static unsigned int ike_cert_unmarshal(struct ike_cert *s, const char *data, uns
 }
 
 /**
- * \fn void ike_cr_print_json(const struct ike_cr *s, zfile f)
+ * \fn void ike_cr_print_json(const ike_cr_t *s, zfile f)
  *
  * \brief Print the contents of certificate request structure to compressed JSON output (IKEv1 or IKEv2).
  *
@@ -3475,7 +3468,7 @@ static unsigned int ike_cert_unmarshal(struct ike_cert *s, const char *data, uns
  *
  * \return
  */
-static void ike_cr_print_json(struct ike_cr *s, zfile f) {
+static void ike_cr_print_json(ike_cr_t *s, zfile f) {
     char *encoding_string = ike_certificate_encoding_string(s->encoding);
 
     /* START certificate request object */
@@ -3495,7 +3488,7 @@ static void ike_cr_print_json(struct ike_cr *s, zfile f) {
 }
 
 /*
- * \fn static void ike_cr_delete(struct ike_cr **s_handle)
+ * \fn static void ike_cr_delete(ike_cr_t **s_handle)
  *
  * \brief Delete certificate request structure and free all associated memory.
  *
@@ -3503,8 +3496,8 @@ static void ike_cr_print_json(struct ike_cr *s, zfile f) {
  *
  * \return
  */
-static void ike_cr_delete(struct ike_cr **s_handle) {
-    struct ike_cr *s = *s_handle;
+static void ike_cr_delete(ike_cr_t **s_handle) {
+    ike_cr_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -3516,7 +3509,7 @@ static void ike_cr_delete(struct ike_cr **s_handle) {
 }
 
 /**
- * \fn void ike_cr_init(struct ike_cr **s_handle)
+ * \fn void ike_cr_init(ike_cr_t **s_handle)
  *
  * \brief Initialize the memory of certificate request structure.
  *
@@ -3524,13 +3517,13 @@ static void ike_cr_delete(struct ike_cr **s_handle) {
  *
  * \return
  */
-static void ike_cr_init(struct ike_cr **s_handle) {
+static void ike_cr_init(ike_cr_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_cr_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_cr));
+    *s_handle = calloc(1, sizeof(ike_cr_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -3538,7 +3531,7 @@ static void ike_cr_init(struct ike_cr **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_cr_unmarshal(struct ike_cr *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_cr_unmarshal(ike_cr_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into certificate request structure (IKEv1 or IKEv2).
  *
@@ -3548,7 +3541,7 @@ static void ike_cr_init(struct ike_cr **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_cr_unmarshal(struct ike_cr *s, const char *data, unsigned int len) {
+static unsigned int ike_cr_unmarshal(ike_cr_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     if (len < 1) {
@@ -3565,7 +3558,7 @@ static unsigned int ike_cr_unmarshal(struct ike_cr *s, const char *data, unsigne
 }
 
 /**
- * \fn void ike_auth_print_json(const struct ike_auth *s, zfile f)
+ * \fn void ike_auth_print_json(const ike_auth_t *s, zfile f)
  *
  * \brief Print the contents of authentication structure to compressed JSON output (IKEv2 only).
  *
@@ -3574,7 +3567,7 @@ static unsigned int ike_cr_unmarshal(struct ike_cr *s, const char *data, unsigne
  *
  * \return
  */
-static void ike_auth_print_json(struct ike_auth *s, zfile f) {
+static void ike_auth_print_json(ike_auth_t *s, zfile f) {
     char *method_string = ike_authentication_method_string(s->method);
 
     /* START authentication object */
@@ -3594,7 +3587,7 @@ static void ike_auth_print_json(struct ike_auth *s, zfile f) {
 }
 
 /**
- * \fn static void ike_auth_delete(struct ike_auth **s_handle)
+ * \fn static void ike_auth_delete(ike_auth_t **s_handle)
  *
  * \brief Delete authentication structure and free all associated memory.
  *
@@ -3602,8 +3595,8 @@ static void ike_auth_print_json(struct ike_auth *s, zfile f) {
  *
  * \return
  */
-static void ike_auth_delete(struct ike_auth **s_handle) {
-    struct ike_auth *s = *s_handle;
+static void ike_auth_delete(ike_auth_t **s_handle) {
+    ike_auth_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -3615,7 +3608,7 @@ static void ike_auth_delete(struct ike_auth **s_handle) {
 }
 
 /**
- * \fn void ike_auth_init(struct ike_auth **s_handle)
+ * \fn void ike_auth_init(ike_auth_t **s_handle)
  *
  * \brief Initialize the memory of authentication structure.
  *
@@ -3623,13 +3616,13 @@ static void ike_auth_delete(struct ike_auth **s_handle) {
  *
  * \return
  */
-static void ike_auth_init(struct ike_auth **s_handle) {
+static void ike_auth_init(ike_auth_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_auth_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_auth));
+    *s_handle = calloc(1, sizeof(ike_auth_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -3637,7 +3630,7 @@ static void ike_auth_init(struct ike_auth **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_auth_unmarshal(struct ike_auth *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_auth_unmarshal(ike_auth_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into authentication structure (IKEv2 only).
  *
@@ -3647,7 +3640,7 @@ static void ike_auth_init(struct ike_auth **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_auth_unmarshal(struct ike_auth *s, const char *data, unsigned int len) {
+static unsigned int ike_auth_unmarshal(ike_auth_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     if (len < 4) {
@@ -3665,7 +3658,7 @@ static unsigned int ike_auth_unmarshal(struct ike_auth *s, const char *data, uns
 }
 
 /**
- * \fn void ike_hash_print_json(const struct ike_hash *s, zfile f)
+ * \fn void ike_hash_print_json(const ike_hash_t *s, zfile f)
  *
  * \brief Print the contents of hash structure to compressed JSON output (IKEv1 only).
  *
@@ -3674,13 +3667,13 @@ static unsigned int ike_auth_unmarshal(struct ike_auth *s, const char *data, uns
  *
  * \return
  */
-static void ike_hash_v1_print_json(struct ike_hash *s, zfile f) {
+static void ike_hash_v1_print_json(ike_hash_t *s, zfile f) {
 
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
 }
 
 /**
- * \fn static void ike_hash_delete(struct ike_hash **s_handle)
+ * \fn static void ike_hash_delete(ike_hash_t **s_handle)
  *
  * \brief Delete hash structure and free all associated memory.
  *
@@ -3688,8 +3681,8 @@ static void ike_hash_v1_print_json(struct ike_hash *s, zfile f) {
  *
  * \return
  */
-static void ike_hash_delete(struct ike_hash **s_handle) {
-    struct ike_hash *s = *s_handle;
+static void ike_hash_delete(ike_hash_t **s_handle) {
+    ike_hash_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -3701,7 +3694,7 @@ static void ike_hash_delete(struct ike_hash **s_handle) {
 }
 
 /**
- * \fn void ike_hash_init(struct ike_hash **s_handle)
+ * \fn void ike_hash_init(ike_hash_t **s_handle)
  *
  * \brief Initialize the memory of hash structure.
  *
@@ -3709,13 +3702,13 @@ static void ike_hash_delete(struct ike_hash **s_handle) {
  *
  * \return
  */
-static void ike_hash_init(struct ike_hash **s_handle) {
+static void ike_hash_init(ike_hash_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_hash_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_hash));
+    *s_handle = calloc(1, sizeof(ike_hash_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -3723,7 +3716,7 @@ static void ike_hash_init(struct ike_hash **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_hash_v1_unmarshal(struct ike_hash *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_hash_v1_unmarshal(ike_hash_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into hash structure (IKEv1 only).
  *
@@ -3733,7 +3726,7 @@ static void ike_hash_init(struct ike_hash **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_hash_v1_unmarshal(struct ike_hash *s, const char *data, unsigned int len) {
+static unsigned int ike_hash_v1_unmarshal(ike_hash_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     vector_init(&s->data);
@@ -3744,7 +3737,7 @@ static unsigned int ike_hash_v1_unmarshal(struct ike_hash *s, const char *data, 
 }
 
 /**
- * \fn void ike_notify_print_json(const struct ike_notify *s, zfile f)
+ * \fn void ike_notify_print_json(const ike_notify_t *s, zfile f)
  *
  * \brief Print the contents of notify structure to compressed JSON output (IKEv2 only).
  *
@@ -3753,7 +3746,7 @@ static unsigned int ike_hash_v1_unmarshal(struct ike_hash *s, const char *data, 
  *
  * \return
  */
-static void ike_notify_print_json(struct ike_notify *s, zfile f) {
+static void ike_notify_print_json(ike_notify_t *s, zfile f) {
     int i, k = 0;
     char *prot_id_string = ike_protocol_id_string(s->protocol_id);
     char *notify_type_string = ike_notify_type_string(s->type);
@@ -3821,7 +3814,7 @@ static void ike_notify_print_json(struct ike_notify *s, zfile f) {
 }
 
 /**
- * \fn void ike_notify_v1_print_json(const struct ike_notify *s, zfile f)
+ * \fn void ike_notify_v1_print_json(const ike_notify_t *s, zfile f)
  *
  * \brief Print the contents of notify structure to compressed JSON output (IKEv1 only).
  *
@@ -3830,7 +3823,7 @@ static void ike_notify_print_json(struct ike_notify *s, zfile f) {
  *
  * \return
  */
-static void ike_notify_v1_print_json(struct ike_notify *s, zfile f) {
+static void ike_notify_v1_print_json(ike_notify_t *s, zfile f) {
     char *doi_string = ike_doi_v1_string(s->doi_v1);
     char *prot_id_string = ike_protocol_id_v1_string(s->protocol_id);
     char *notify_type_string = ike_notify_type_v1_string(s->type);
@@ -3870,7 +3863,7 @@ static void ike_notify_v1_print_json(struct ike_notify *s, zfile f) {
 }
 
 /*
- * \fn static void ike_notify_delete(struct ike_notify **s_handle)
+ * \fn static void ike_notify_delete(ike_notify_t **s_handle)
  *
  * \brief Delete notify structure and free all associated memory.
  *
@@ -3878,8 +3871,8 @@ static void ike_notify_v1_print_json(struct ike_notify *s, zfile f) {
  *
  * \return
  */
-static void ike_notify_delete(struct ike_notify **s_handle) {
-    struct ike_notify *s = *s_handle;
+static void ike_notify_delete(ike_notify_t **s_handle) {
+    ike_notify_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -3892,7 +3885,7 @@ static void ike_notify_delete(struct ike_notify **s_handle) {
 }
 
 /**
- * \fn void ike_notify_init(struct ike_notify **s_handle)
+ * \fn void ike_notify_init(ike_notify_t **s_handle)
  *
  * \brief Initialize the memory of notify structure.
  *
@@ -3900,13 +3893,13 @@ static void ike_notify_delete(struct ike_notify **s_handle) {
  *
  * \return
  */
-static void ike_notify_init(struct ike_notify **s_handle) {
+static void ike_notify_init(ike_notify_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_notify_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_notify));
+    *s_handle = calloc(1, sizeof(ike_notify_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -3914,7 +3907,7 @@ static void ike_notify_init(struct ike_notify **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_notify_unmarshal(struct ike_notify *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_notify_unmarshal(ike_notify_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into notify structure (IKEv2 only).
  *
@@ -3924,7 +3917,7 @@ static void ike_notify_init(struct ike_notify **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_notify_unmarshal(struct ike_notify *s, const char *data, unsigned int len) {
+static unsigned int ike_notify_unmarshal(ike_notify_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int spi_size;
 
@@ -3952,7 +3945,7 @@ static unsigned int ike_notify_unmarshal(struct ike_notify *s, const char *data,
 }
 
 /**
- * \fn static unsigned int ike_notify_v1_unmarshal(struct ike_notify *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_notify_v1_unmarshal(ike_notify_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into notify structure (IKEv1 only).
  *
@@ -3962,7 +3955,7 @@ static unsigned int ike_notify_unmarshal(struct ike_notify *s, const char *data,
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_notify_v1_unmarshal(struct ike_notify *s, const char *data, unsigned int len) {
+static unsigned int ike_notify_v1_unmarshal(ike_notify_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int spi_size;
 
@@ -3993,7 +3986,7 @@ static unsigned int ike_notify_v1_unmarshal(struct ike_notify *s, const char *da
 }
 
 /**
- * \fn void ike_nonce_print_json(const struct ike_nonce *s, zfile f)
+ * \fn void ike_nonce_print_json(const ike_nonce_t *s, zfile f)
  *
  * \brief Print the contents of nonce structure to compressed JSON output (IKEv1 or IKEv2).
  *
@@ -4002,13 +3995,13 @@ static unsigned int ike_notify_v1_unmarshal(struct ike_notify *s, const char *da
  *
  * \return
  */
-static void ike_nonce_print_json(struct ike_nonce *s, zfile f) {
+static void ike_nonce_print_json(ike_nonce_t *s, zfile f) {
 
     zprintf_raw_as_hex(f, s->data->bytes, s->data->len);
 }
 
 /*
- * \fn static void ike_nonce_delete(struct ike_nonce **s_handle)
+ * \fn static void ike_nonce_delete(ike_nonce_t **s_handle)
  *
  * \brief Delete nonce structure and free all associated memory.
  *
@@ -4016,8 +4009,8 @@ static void ike_nonce_print_json(struct ike_nonce *s, zfile f) {
  *
  * \return
  */
-static void ike_nonce_delete(struct ike_nonce **s_handle) {
-    struct ike_nonce *s = *s_handle;
+static void ike_nonce_delete(ike_nonce_t **s_handle) {
+    ike_nonce_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -4029,7 +4022,7 @@ static void ike_nonce_delete(struct ike_nonce **s_handle) {
 }
 
 /**
- * \fn void ike_nonce_init(struct ike_nonce **s_handle)
+ * \fn void ike_nonce_init(ike_nonce_t **s_handle)
  *
  * \brief Initialize the memory of nonce structure.
  *
@@ -4037,13 +4030,13 @@ static void ike_nonce_delete(struct ike_nonce **s_handle) {
  *
  * \return
  */
-static void ike_nonce_init(struct ike_nonce **s_handle) {
+static void ike_nonce_init(ike_nonce_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_nonce_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_nonce));
+    *s_handle = calloc(1, sizeof(ike_nonce_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -4051,7 +4044,7 @@ static void ike_nonce_init(struct ike_nonce **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_nonce_unmarshal(struct ike_nonce *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_nonce_unmarshal(ike_nonce_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into nonce structure (IKEv1 or IKEv2).
  *
@@ -4062,7 +4055,7 @@ static void ike_nonce_init(struct ike_nonce **s_handle) {
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  *
  */
-static unsigned int ike_nonce_unmarshal(struct ike_nonce *s, const char *data, unsigned int len) {
+static unsigned int ike_nonce_unmarshal(ike_nonce_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     vector_init(&s->data);
@@ -4073,7 +4066,7 @@ static unsigned int ike_nonce_unmarshal(struct ike_nonce *s, const char *data, u
 }
 
 /**
- * \fn void ike_vendor_id_print_json(const struct ike_vendor_id *s, zfile f)
+ * \fn void ike_vendor_id_print_json(const ike_vendor_id_t *s, zfile f)
  *
  * \brief Print the contents of vendor ID structure to compressed JSON output (IKEv1 or IKEv2).
  *
@@ -4089,13 +4082,13 @@ static unsigned int ike_nonce_unmarshal(struct ike_nonce *s, const char *data, u
  *
  * \return
  */
-static void ike_vendor_id_print_json(struct ike_vendor_id *s, zfile f) {
+static void ike_vendor_id_print_json(ike_vendor_id_t *s, zfile f) {
     char *id_string = NULL;
     int i;
 
     if (s->data->len > 0) {
         /* Try to match entry in vendor id table */
-        for (i = 0; i < sizeof(ike_vendor_ids); i++) {
+        for (i = 0; i < sizeof(ike_vendor_ids)/sizeof(ike_vendor_ids[0]); i++) {
             if (s->data->len == ike_vendor_ids[i].len) {
                 if (memcmp(s->data->bytes, ike_vendor_ids[i].id, s->data->len) == 0) {
                     id_string = ike_vendor_ids[i].desc;
@@ -4114,7 +4107,7 @@ static void ike_vendor_id_print_json(struct ike_vendor_id *s, zfile f) {
 }
 
 /*
- * \fn static void ike_vendor_id_delete(struct ike_vendor_id **s_handle)
+ * \fn static void ike_vendor_id_delete(ike_vendor_id_t **s_handle)
  *
  * \brief Delete vendor ID structure and free all associated memory.
  *
@@ -4122,8 +4115,8 @@ static void ike_vendor_id_print_json(struct ike_vendor_id *s, zfile f) {
  *
  * \return
  */
-static void ike_vendor_id_delete(struct ike_vendor_id **s_handle) {
-    struct ike_vendor_id *s = *s_handle;
+static void ike_vendor_id_delete(ike_vendor_id_t **s_handle) {
+    ike_vendor_id_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -4135,7 +4128,7 @@ static void ike_vendor_id_delete(struct ike_vendor_id **s_handle) {
 }
 
 /**
- * \fn void ike_vendor_id_init(struct ike_vendor_id **s_handle)
+ * \fn void ike_vendor_id_init(ike_vendor_id_t **s_handle)
  *
  * \brief Initialize the memory of vendor ID structure.
  *
@@ -4143,13 +4136,13 @@ static void ike_vendor_id_delete(struct ike_vendor_id **s_handle) {
  *
  * \return
  */
-static void ike_vendor_id_init(struct ike_vendor_id **s_handle) {
+static void ike_vendor_id_init(ike_vendor_id_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_vendor_id_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_vendor_id));
+    *s_handle = calloc(1, sizeof(ike_vendor_id_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -4157,7 +4150,7 @@ static void ike_vendor_id_init(struct ike_vendor_id **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_vendor_id_unmarshal(struct ike_vendor_id *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_vendor_id_unmarshal(ike_vendor_id_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into vendor ID structure (IKEv1 or IKEv2).
  *
@@ -4167,7 +4160,7 @@ static void ike_vendor_id_init(struct ike_vendor_id **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_vendor_id_unmarshal(struct ike_vendor_id *s, const char *data, unsigned int len) {
+static unsigned int ike_vendor_id_unmarshal(ike_vendor_id_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     vector_init(&s->data);
@@ -4178,7 +4171,7 @@ static unsigned int ike_vendor_id_unmarshal(struct ike_vendor_id *s, const char 
 }
 
 /**
- * \fn void ike_payload_print_json(const struct ike_payload *s, zfile f)
+ * \fn void ike_payload_print_json(const ike_payload_t *s, zfile f)
  *
  * \brief Print the contents of payload structure to compressed JSON output (IKEv1 or IKEv2).
  *
@@ -4187,7 +4180,7 @@ static unsigned int ike_vendor_id_unmarshal(struct ike_vendor_id *s, const char 
  *
  * \return
  */
-static void ike_payload_print_json(struct ike_payload *s, zfile f) {
+static void ike_payload_print_json(ike_payload_t *s, zfile f) {
     char *type_string = ike_payload_type_string(s->type);
 
     /* START payload object */
@@ -4259,7 +4252,7 @@ static void ike_payload_print_json(struct ike_payload *s, zfile f) {
 }
 
 /*
- * \fn static void ike_payload_delete(struct ike_payload **s_handle)
+ * \fn static void ike_payload_delete(ike_payload_t **s_handle)
  *
  * \brief Delete payload structure and free all associated memory.
  *
@@ -4267,8 +4260,8 @@ static void ike_payload_print_json(struct ike_payload *s, zfile f) {
  *
  * \return
  */
-static void ike_payload_delete(struct ike_payload **s_handle) {
-    struct ike_payload *s = *s_handle;
+static void ike_payload_delete(ike_payload_t **s_handle) {
+    ike_payload_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -4323,7 +4316,7 @@ static void ike_payload_delete(struct ike_payload **s_handle) {
 }
 
 /**
- * \fn void ike_payload_init(struct ike_payload **s_handle)
+ * \fn void ike_payload_init(ike_payload_t **s_handle)
  *
  * \brief Initialize the memory of payload structure.
  *
@@ -4331,13 +4324,13 @@ static void ike_payload_delete(struct ike_payload **s_handle) {
  *
  * \return
  */
-static void ike_payload_init(struct ike_payload **s_handle) {
+static void ike_payload_init(ike_payload_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_payload_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_payload));
+    *s_handle = calloc(1, sizeof(ike_payload_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -4350,7 +4343,7 @@ static void ike_payload_init(struct ike_payload **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_payload_unmarshal(struct ike_payload *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_payload_unmarshal(ike_payload_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into payload structure (IKEv1 or IKEv2).
  *
@@ -4360,7 +4353,7 @@ static void ike_payload_init(struct ike_payload **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_payload_unmarshal(struct ike_payload *s, const char *data, unsigned int len) {
+static unsigned int ike_payload_unmarshal(ike_payload_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
 
@@ -4451,7 +4444,7 @@ static unsigned int ike_payload_unmarshal(struct ike_payload *s, const char *dat
 }
 
 /**
- * \fn void ike_header_print_json(const struct ike_header *s, zfile f)
+ * \fn void ike_header_print_json(const ike_header_t *s, zfile f)
  *
  * \brief Print the contents of header structure to compressed JSON output (IKEv1 or IKEv2).
  *
@@ -4460,7 +4453,7 @@ static unsigned int ike_payload_unmarshal(struct ike_payload *s, const char *dat
  *
  * \return
  */
-static void ike_header_print_json(struct ike_header *s, zfile f) {
+static void ike_header_print_json(ike_header_t *s, zfile f) {
     char *exchange_string = ike_exchange_type_string(s->exchange_type);
 
     /* START header object */
@@ -4498,7 +4491,7 @@ static void ike_header_print_json(struct ike_header *s, zfile f) {
 }
 
 /*
- * \fn static void ike_header_delete(struct ike_header **s_handle)
+ * \fn static void ike_header_delete(ike_header_t **s_handle)
  *
  * \brief Delete header structure and free all associated memory.
  *
@@ -4506,8 +4499,8 @@ static void ike_header_print_json(struct ike_header *s, zfile f) {
  *
  * \return
  */
-static void ike_header_delete(struct ike_header **s_handle) {
-    struct ike_header *s = *s_handle;
+static void ike_header_delete(ike_header_t **s_handle) {
+    ike_header_t *s = *s_handle;
 
     if (s == NULL) {
         return;
@@ -4518,7 +4511,7 @@ static void ike_header_delete(struct ike_header **s_handle) {
 }
 
 /**
- * \fn void ike_header_init(struct ike_header **s_handle)
+ * \fn void ike_header_init(ike_header_t **s_handle)
  *
  * \brief Initialize the memory of header structure.
  *
@@ -4526,13 +4519,13 @@ static void ike_header_delete(struct ike_header **s_handle) {
  *
  * \return
  */
-static void ike_header_init(struct ike_header **s_handle) {
+static void ike_header_init(ike_header_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_header_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_header));
+    *s_handle = calloc(1, sizeof(ike_header_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -4540,7 +4533,7 @@ static void ike_header_init(struct ike_header **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_header_unmarshal(struct ike_header *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_header_unmarshal(ike_header_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into header structure (IKEv1 or IKEv2).
  *
@@ -4550,14 +4543,14 @@ static void ike_header_init(struct ike_header **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_header_unmarshal(struct ike_header *s, const char *data, unsigned int len) {
+static unsigned int ike_header_unmarshal(ike_header_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
 
     if (s == NULL || data == NULL) {
         return 0;
     }
 
-    if (len < sizeof(struct ike_header)) {
+    if (len < sizeof(ike_header_t)) {
         return 0;
     }
     memcpy(s->init_spi, data+offset, 8); offset+=8;
@@ -4574,7 +4567,7 @@ static unsigned int ike_header_unmarshal(struct ike_header *s, const char *data,
 }
 
 /**
- * \fn void ike_message_print_json(const struct ike_message *s, zfile f)
+ * \fn void ike_message_print_json(const ike_message_t *s, zfile f)
  *
  * \brief Print the contents of message structure to compressed JSON output (IKEv1 or IKEv2).
  *
@@ -4583,7 +4576,7 @@ static unsigned int ike_header_unmarshal(struct ike_header *s, const char *data,
  *
  * \return
  */
-static void ike_message_print_json(const struct ike_message *s, zfile f) {
+static void ike_message_print_json(const ike_message_t *s, zfile f) {
     int i;
 
     zprintf(f, "{");
@@ -4604,7 +4597,7 @@ static void ike_message_print_json(const struct ike_message *s, zfile f) {
 }
 
 /*
- * \fn static void ike_message_delete(struct ike_message **s_handle)
+ * \fn static void ike_message_delete(ike_message_t **s_handle)
  *
  * \brief Delete message structure and free all associated memory.
  *
@@ -4612,8 +4605,8 @@ static void ike_message_print_json(const struct ike_message *s, zfile f) {
  *
  * \return
  */
-static void ike_message_delete(struct ike_message **s_handle) {
-    struct ike_message *s = *s_handle;
+static void ike_message_delete(ike_message_t **s_handle) {
+    ike_message_t *s = *s_handle;
     int i;
 
     if (s == NULL) {
@@ -4629,7 +4622,7 @@ static void ike_message_delete(struct ike_message **s_handle) {
 }
 
 /**
- * \fn void ike_message_init(struct ike_message **s_handle)
+ * \fn void ike_message_init(ike_message_t **s_handle)
  *
  * \brief Initialize the memory of message structure.
  *
@@ -4637,13 +4630,13 @@ static void ike_message_delete(struct ike_message **s_handle) {
  *
  * \return
  */
-static void ike_message_init(struct ike_message **s_handle) {
+static void ike_message_init(ike_message_t **s_handle) {
 
     if (*s_handle != NULL) {
         ike_message_delete(s_handle);
     }
 
-    *s_handle = calloc(1, sizeof(struct ike_message));
+    *s_handle = calloc(1, sizeof(ike_message_t));
     if (*s_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -4651,7 +4644,7 @@ static void ike_message_init(struct ike_message **s_handle) {
 }
 
 /**
- * \fn static unsigned int ike_message_unmarshal(struct ike_message *s, const char *data, unsigned int len)
+ * \fn static unsigned int ike_message_unmarshal(ike_message_t *s, const char *data, unsigned int len)
  *
  * \brief Unmarshal data into message structure (IKEv1 or IKEv2).
  *
@@ -4661,7 +4654,7 @@ static void ike_message_init(struct ike_message **s_handle) {
  *
  * \return Number of bytes unmarshalled from the data buffer, or 0 on failure.
  */
-static unsigned int ike_message_unmarshal(struct ike_message *s, const char *data, unsigned int len) {
+static unsigned int ike_message_unmarshal(ike_message_t *s, const char *data, unsigned int len) {
     unsigned int offset = 0;
     unsigned int length;
     uint8_t next_payload;
@@ -4711,7 +4704,7 @@ static unsigned int ike_message_unmarshal(struct ike_message *s, const char *dat
 }
 
 /**
- * \fn static int ike_attribute_match(struct ike_attribute *init_attribute, struct ike_attribute *resp_attribute)
+ * \fn static int ike_attribute_match(ike_attribute_t *init_attribute, ike_attribute_t *resp_attribute)
  *
  * \brief Check that the initiator and responder attributes match.
  *
@@ -4720,7 +4713,7 @@ static unsigned int ike_message_unmarshal(struct ike_message *s, const char *dat
  *
  * \return 1 if match, otherwise 0.
  */
-static int ike_attribute_match(struct ike_attribute *a, struct ike_attribute *b) {
+static int ike_attribute_match(ike_attribute_t *a, ike_attribute_t *b) {
 
     if (a->type != b->type) {
         return 0;
@@ -4738,7 +4731,7 @@ static int ike_attribute_match(struct ike_attribute *a, struct ike_attribute *b)
 }
 
 /**
- * \fn static int ike_transform_match(struct ike_transform *init_transform, struct ike_transform *resp_transform)
+ * \fn static int ike_transform_match(ike_transform_t *init_transform, ike_transform_t *resp_transform)
  *
  * \brief Check that the initiator and responder transforms match.
  *
@@ -4747,7 +4740,7 @@ static int ike_attribute_match(struct ike_attribute *a, struct ike_attribute *b)
  *
  * \return 1 if match, otherwise 0.
  */
-static int ike_transform_match(struct ike_transform *init_transform, struct ike_transform *resp_transform) {
+static int ike_transform_match(ike_transform_t *init_transform, ike_transform_t *resp_transform) {
     int init_i, resp_i, resp_j;
 
     if (init_transform->type != resp_transform->type) {
@@ -4791,7 +4784,7 @@ static int ike_transform_match(struct ike_transform *init_transform, struct ike_
 }
 
 /**
- * \fn static int ike_proposal_match(struct ike_proposal *init_proposal, struct ike_proposal *resp_proposal)
+ * \fn static int ike_proposal_match(ike_proposal_t *init_proposal, ike_proposal_t *resp_proposal)
  *
  * \brief Check that the initiator and responder proposals match.
  *
@@ -4800,7 +4793,7 @@ static int ike_transform_match(struct ike_transform *init_transform, struct ike_
  *
  * \return 1 if match, otherwise 0.
  */
-static int ike_proposal_match(struct ike_proposal *init_proposal, struct ike_proposal *resp_proposal) {
+static int ike_proposal_match(ike_proposal_t *init_proposal, ike_proposal_t *resp_proposal) {
     int init_i, resp_i, resp_j;
 
     if (init_proposal->num != resp_proposal->num) {
@@ -4837,7 +4830,7 @@ static int ike_proposal_match(struct ike_proposal *init_proposal, struct ike_pro
 }
 
 /**
- * \fn static int ike_sa_match(struct ike_sa *init_sa, struct ike_sa *resp_sa)
+ * \fn static int ike_sa_match(ike_sa_t *init_sa, ike_sa_t *resp_sa)
  *
  * \brief Check that the initiator and responder security associations match.
  *
@@ -4846,7 +4839,7 @@ static int ike_proposal_match(struct ike_proposal *init_proposal, struct ike_pro
  *
  * \return 1 if match, otherwise 0.
  */
-static int ike_sa_match(struct ike_sa *init_sa, struct ike_sa *resp_sa) {
+static int ike_sa_match(ike_sa_t *init_sa, ike_sa_t *resp_sa) {
     int init_i;
 
     if (init_sa->doi_v1 != resp_sa->doi_v1) {
@@ -4879,7 +4872,7 @@ static int ike_sa_match(struct ike_sa *init_sa, struct ike_sa *resp_sa) {
 }
 
 /**
- * \fn static struct ike_sa *ike_get_sa(struct ike *ike)
+ * \fn static ike_sa_t *ike_get_sa(ike_t *ike)
  *
  * \brief Get the most recently parsed security association payload in the IKE structure.
  *
@@ -4887,7 +4880,7 @@ static int ike_sa_match(struct ike_sa *init_sa, struct ike_sa *resp_sa) {
  *
  * \return Pointer to an IKE security association structure, or NULL if none exist.
  */
-static struct ike_sa *ike_sa_get(struct ike *ike) {
+static ike_sa_t *ike_sa_get(ike_t *ike) {
     int i, j;
 
     for (i = ike->num_messages-1; i >= 0; i--) {
@@ -4905,7 +4898,7 @@ static struct ike_sa *ike_sa_get(struct ike *ike) {
 
 
 /**
- * \fn static void ike_process(struct ike *init, struct ike *resp)
+ * \fn static void ike_process(ike_t *init, ike_t *resp)
  *
  * \brief Perform additional parsing and verification checks on paired IKE structures.
  *
@@ -4914,9 +4907,9 @@ static struct ike_sa *ike_sa_get(struct ike *ike) {
  *
  * \return
  */
-static void ike_process(struct ike *init,
-                        struct ike *resp) {
-    struct ike_sa *init_sa, *resp_sa;
+static void ike_process(ike_t *init,
+                        ike_t *resp) {
+    ike_sa_t *init_sa, *resp_sa;
 
     if (init == NULL || resp == NULL) {
         return;
@@ -4941,7 +4934,7 @@ static void ike_process(struct ike *init,
  */
 
 /**
- * \fn void ike_init(struct ike **ike_handle)
+ * \fn void ike_init(ike_t **ike_handle)
  *
  * \brief Initialize the memory of IKE structure.
  *
@@ -4949,13 +4942,13 @@ static void ike_process(struct ike *init,
  *
  * \return
  */
-void ike_init(struct ike **ike_handle) {
+void ike_init(ike_t **ike_handle) {
 
     if (*ike_handle != NULL) {
         ike_delete(ike_handle);
     }
 
-    *ike_handle = calloc(1, sizeof(struct ike));
+    *ike_handle = calloc(1, sizeof(ike_t));
     if (*ike_handle == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -4964,7 +4957,7 @@ void ike_init(struct ike **ike_handle) {
 }
 
 /**
- * \fn void ike_update (struct ike *ike,
+ * \fn void ike_update (ike_t *ike,
  *                      const struct pcap_pkthdr *header,
  *                      const void *data,
  *                      unsigned int len,
@@ -4980,7 +4973,7 @@ void ike_init(struct ike **ike_handle) {
  *
  * \return
  */
-void ike_update(struct ike *ike,
+void ike_update(ike_t *ike,
         const struct pcap_pkthdr *header,
         const void *data,
         unsigned int len,
@@ -5037,8 +5030,8 @@ void ike_update(struct ike *ike,
 }
 
 /**
- * \fn void ike_print_json(const struct ike *data,
- *                          const struct ike *data_twin,
+ * \fn void ike_print_json(const ike_t *data,
+ *                          const ike_t *data_twin,
  *                          zfile f)
  *
  * \brief Print the contents of IKE structure to compressed JSON output.
@@ -5049,14 +5042,14 @@ void ike_update(struct ike *ike,
  *
  * \return
  */
-void ike_print_json(const struct ike *data,
-                    const struct ike *data_twin,
+void ike_print_json(const ike_t *data,
+                    const ike_t *data_twin,
                     zfile f) {
-    struct ike *init = NULL, *resp = NULL;
+    ike_t *init = NULL, *resp = NULL;
     int i;
 
-    init = (struct ike*)data;
-    resp = (struct ike*)data_twin;
+    init = (ike_t*)data;
+    resp = (ike_t*)data_twin;
 
     ike_process(init, resp);
 
@@ -5098,7 +5091,7 @@ void ike_print_json(const struct ike *data,
 }
 
 /**
- * \fn void ike_delete (const struct ike **ike_handle)
+ * \fn void ike_delete (const ike_t **ike_handle)
  *
  * \brief Delete IKE structure structure and free all associated memory.
  *
@@ -5106,8 +5099,8 @@ void ike_print_json(const struct ike *data,
  *
  * \return
  */
-void ike_delete(struct ike **ike_handle) {
-    struct ike *ike= *ike_handle;
+void ike_delete(ike_t **ike_handle) {
+    ike_t *ike= *ike_handle;
     int i;
 
     if (ike == NULL) {
@@ -5130,7 +5123,7 @@ void ike_delete(struct ike **ike_handle) {
  * \return 0 for success, otherwise number of failures.
  */
 static int ike_test_v1_handshake() {
-    struct ike *init = NULL, *resp = NULL;
+    ike_t *init = NULL, *resp = NULL;
     int num_fails = 0;
 
     /* input data */
@@ -5387,7 +5380,7 @@ static int ike_test_v1_handshake() {
  * \return 0 for success, otherwise number of failures.
  */
 static int ike_test_v2_handshake() {
-    struct ike *init = NULL, *resp = NULL;
+    ike_t *init = NULL, *resp = NULL;
     int num_fails = 0;
 
     /* input data */

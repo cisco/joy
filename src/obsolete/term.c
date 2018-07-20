@@ -125,8 +125,12 @@ int packet_terminate_session(unsigned char *ignore, const struct pcap_pkthdr *he
 
   /* print source and destination IP addresses */
   if (output_level > none) {
-    fprintf(output, "       from: %s\n", inet_ntoa(ip->ip_src));
-    fprintf(output, "         to: %s\n", inet_ntoa(ip->ip_dst));
+    char ipv4_addr[INET_ADDRSTRLEN];
+
+    inet_ntop(INET_AF, &ip->ip_src, ipv4_addr, INET_ADDRSTRLEN);
+    fprintf(output, "       from: %s\n", ipv4_addr);
+    inet_ntop(INET_AF, &ip->ip_dst, ipv4_addr, INET_ADDRSTRLEN);
+    fprintf(output, "         to: %s\n", ipv4_addr);
   }
     
   /* determine transport protocol and handle appropriately */

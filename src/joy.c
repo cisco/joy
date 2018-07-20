@@ -1,6 +1,6 @@
 /*
  *  
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -91,16 +91,17 @@
 #include "ipfix.h"    /* IPFIX cleanup */
 #include "proto_identify.h"
 #include "pcap.h"
+#include "joy_api_private.h"
 
 /**
  * \brief The supported operating modes that Joy can run in.
  */
-enum operating_mode {
+typedef enum joy_operating_mode_ {
     MODE_NONE = 0,
     MODE_OFFLINE = 1,
     MODE_ONLINE = 2,
     MODE_IPFIX_COLLECT_ONLINE = 3
-};
+} joy_operating_mode_e;
 
 /*
  * NOTE: NUM_PACKETS_BETWEEN_STATS_OUTPUT *must* be a multiple of
@@ -108,84 +109,30 @@ enum operating_mode {
  */
 #define GET_ALL_PACKETS 0
 #define NUM_PACKETS_IN_LOOP 5
-#define NUM_PACKETS_BETWEEN_STATS_OUTPUT 10000
+#ifdef PKG_BUILD
+#define NUM_PACKETS_BETWEEN_STATS_OUTPUT 1000000
+#else
+#define NUM_PACKETS_BETWEEN_STATS_OUTPUT 100000
+#endif
 #define MAX_RECORDS 2147483647
 #define MAX_FILENAME_LEN 1024
 
 /*
  * Local globals
  */
-static enum operating_mode joy_mode = MODE_NONE;
+static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
 static char *filter_exp = "ip or vlan";
 static char dir_output[MAX_FILENAME_LEN];
 
-/* Globals defined in p2f.c */
-
-extern enum operating_mode joy_mode;
-
-extern enum SALT_algorithm salt_algo;
-
-extern radix_trie_t rt;
-
-extern struct flocap_stats stats;
-
-extern unsigned short compact_bd_mapping[16];
-
-/* configuration state */
-
-extern unsigned int bidir;
-
-extern unsigned int include_zeroes;
-
-extern unsigned int include_retrans;
-
-extern unsigned int byte_distribution;
-
-extern char *compact_byte_distribution;
-
-extern unsigned int report_entropy;
-
-extern unsigned int report_idp;
-
-extern unsigned int report_hd;
-
-extern unsigned int include_classifier;
-
-extern unsigned int nfv9_capture_port;
-
-extern unsigned int ipfix_collect_port;
-
-extern unsigned int ipfix_collect_online;
-
-extern unsigned int ipfix_export_port;
-
-extern unsigned int ipfix_export_remote_port;
-
-extern unsigned int preemptive_timeout;
-
-extern char *ipfix_export_remote_host;
-
-extern char *ipfix_export_template;
-
-extern char *aux_resource_path;
-
-extern zfile output;
-
-extern FILE *info;
-
-extern unsigned int records_in_file;
-
-extern unsigned int verbosity;
-
-extern unsigned int show_config;
-
-extern unsigned int show_interfaces;
-
-define_all_features_config_extern_uint(feature_list)
+struct joy_ctx_data main_ctx;
 
 /* config is the global configuration */
-extern struct configuration config;
+struct configuration active_config;
+struct configuration *glb_config = NULL;
+
+/* logfile definitions */
+FILE *info = NULL;
 
 /*
  * reopenLog is the flag set when SIGHUP is received
@@ -325,19 +272,23 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
     int sock;
 
     sock=socket(PF_INET, SOCK_STREAM, 0);
-    strncpy(ifr.ifr_name,name,sizeof(ifr.ifr_name)-1);
-    ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
-    ioctl(sock, SIOCGIFHWADDR, &ifr);
+    if (sock >= 0) {
+	strncpy(ifr.ifr_name,name,sizeof(ifr.ifr_name)-1);
+	ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
+	ioctl(sock, SIOCGIFHWADDR, &ifr);
 
-    sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[0],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[1],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[2],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
-        (int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
-
-    close(sock);
+	sprintf((char*)mac_addr, "%02x%02x%02x%02x%02x%02x",
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[0],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[1],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[2],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
+		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
+	
+	close(sock);
+    } else {
+	perror("Failed to create socket\n");
+    }
 #endif
 }
 
@@ -405,7 +356,9 @@ static unsigned int interface_list_get() {
             if (STRNCASECMP(d->name,"lo",2) == 0) {
                 continue;
             }
-            if ((dev_addr->addr->sa_family == AF_INET || dev_addr->addr->sa_family == AF_INET6) && dev_addr->addr && dev_addr->netmask) {
+            if (dev_addr->addr && (dev_addr->addr->sa_family == AF_INET || 
+				   dev_addr->addr->sa_family == AF_INET6) 
+		&& dev_addr->netmask) {
                 i = find_interface_in_list(d->name);
                 if (i > -1) {
                     /* seen this interface before */
@@ -461,20 +414,20 @@ static void sig_close (int signal_arg) {
     if (handle) {
       pcap_breakloop(handle);
     }
-    flocap_stats_output(info);
+    flocap_stats_output(&main_ctx,info);
     /*
      * flush remaining flow records, and print them even though they are
      * not expired
      */
-    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
-    zclose(output);  
+    flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
+    zclose(main_ctx.output);
 
-    if (config.ipfix_export_port) {
+    if (glb_config->ipfix_export_port) {
         /* Flush any unsent exporter messages in Ipfix module */
-        ipfix_export_flush_message();
+        ipfix_export_flush_message(&main_ctx);
     }
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-    ipfix_module_cleanup();
+    ipfix_module_cleanup(&main_ctx);
 
     /* Cleanup protocol identification module */
     proto_identify_cleanup();
@@ -572,7 +525,7 @@ static int usage (char *s) {
  * \return 0 success, 1 failure
  */
 static int config_sanity_check() {
-    if (config.ipfix_collect_port && config.ipfix_export_port) {
+    if (glb_config->ipfix_collect_port && glb_config->ipfix_export_port) {
         /*
          * Simultaneous IPFIX collection and exporting is not allowed
          */
@@ -580,7 +533,7 @@ static int config_sanity_check() {
         return 1;
     }
 
-    if (config.ipfix_collect_online && !(config.ipfix_collect_port)) {
+    if (glb_config->ipfix_collect_online && !(glb_config->ipfix_collect_port)) {
         /*
          * Cannot use online collection when the overall Ipfix collect feature is not enabled.
          */
@@ -597,18 +550,18 @@ static int config_sanity_check() {
  * \return 0 success, 1 failure
  */
 static int set_operating_mode() {
-    if (config.intface != NULL && strcmp(config.intface, NULL_KEYWORD)) {
+    if (glb_config->intface != NULL && strcmp(glb_config->intface, NULL_KEYWORD)) {
         /*
          * Network interface sniffing using Pcap
          */
-        if (config.ipfix_collect_port) {
+        if (glb_config->ipfix_collect_port) {
             /* Ipfix collection does not use interface sniffing */
             joy_log_crit("ipfix collection and interface monitoring not allowed at same time");
             return 1;
         }
 
         joy_mode = MODE_ONLINE;
-    } else if (config.ipfix_collect_online) {
+    } else if (glb_config->ipfix_collect_online) {
         /*
          * Ipfix live collecting process
          */
@@ -634,9 +587,9 @@ static int set_logfile() {
     PWSTR windir = NULL;
 #endif
 
-    if (config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
+    if (glb_config->logfile && strcmp(glb_config->logfile, NULL_KEYWORD)) {
 #ifdef WIN32
-        if (!strncmp(config.logfile, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
+        if (!strncmp(glb_config->logfile, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
             /* Use the LocalAppDataFolder */
             SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
 
@@ -644,18 +597,18 @@ static int set_logfile() {
 
             if (windir != NULL) CoTaskMemFree(windir);
         } else {
-            strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
+            strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN-1);
         }
 #else
-        strncpy(logfile, config.logfile, MAX_FILENAME_LEN);
+        strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN-1);
 #endif
 
         info = fopen(logfile, "a");
         if (info == NULL) {
-            joy_log_crit("could not open log file %s", config.logfile);
+            fprintf(stderr, "could not open log file %s", glb_config->logfile);
             return 1;
         }
-        fprintf(stderr, "writing errors/warnings/info/debug output to %s\n", config.logfile);
+        fprintf(stderr, "writing errors/warnings/info/debug output to %s\n", glb_config->logfile);
     }
 
     return 0;
@@ -677,40 +630,7 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
          * a file, then the config structure will use the static defaults
          * set when it was declared, and from config_set_defaults().
          */
-        config_set_from_file(&config, config_file);
-    }
-
-    if (config_file || (num_cmds != 0)) {
-        /*
-         * Set global variables as needed, if we got some configuration
-         * commands from the config_file or from command line arguments
-         */
-        bidir = config.bidir;
-        include_zeroes = config.include_zeroes;
-        include_retrans = config.include_retrans;
-        byte_distribution = config.byte_distribution;
-        compact_byte_distribution = config.compact_byte_distribution;
-        report_entropy = config.report_entropy;
-        report_hd = config.report_hd;
-        include_classifier = config.include_classifier;
-        report_idp = config.idp;
-        salt_algo = config.type;
-        nfv9_capture_port = config.nfv9_capture_port;
-        ipfix_collect_port = config.ipfix_collect_port;
-        ipfix_collect_online = config.ipfix_collect_online;
-        ipfix_export_port = config.ipfix_export_port;
-        ipfix_export_remote_port = config.ipfix_export_remote_port;
-        ipfix_export_remote_host = config.ipfix_export_remote_host;
-        ipfix_export_template = config.ipfix_export_template;
-        preemptive_timeout = config.preemptive_timeout;
-        aux_resource_path = config.aux_resource_path;
-        verbosity = config.verbosity;
-
-        set_config_all_features(feature_list)
-
-        if (config.bpf_filter_exp) {
-            filter_exp = config.bpf_filter_exp;
-        }
+        config_set_from_file(glb_config, config_file);
     }
 
     /* Make sure the config is valid */
@@ -725,13 +645,13 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
     /* Initialize the protocol identification module */
     if (proto_identify_init()) return 1;
 
-    if (config.show_config) {
+    if (glb_config->show_config) {
         /* Print running configuration */
-        config_print(info, &config);
+        config_print(info, glb_config);
     }
 
 #if 0
-    if (config.report_tls) {
+    if (glb_config->report_tls) {
         /* Load the TLS fingerprints into memory */
         if (tls_load_fingerprints()) {
             joy_log_warn("could not load tls_fingerprint.json file");
@@ -743,7 +663,7 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         /* Get interface list */
         num_interfaces = interface_list_get();
 
-        if (config.show_interfaces) {
+        if (glb_config->show_interfaces) {
             /* Print the interfaces */
             print_interfaces(info, num_interfaces);
         }
@@ -762,13 +682,13 @@ static int get_splt_bd_params() {
     char params_bd[LINEMAX];
     int num;
 
-    if (!config.params_file) {
+    if (!glb_config->params_file) {
         return 0;
     }
 
-    num = sscanf(config.params_file, "%[^=:]:%[^=:\n#]", params_splt, params_bd);
+    num = sscanf(glb_config->params_file, "%[^=:]:%[^=:\n#]", params_splt, params_bd);
     if (num != 2) {
-        joy_log_err("could not parse command \"%s\" into form param_splt:param_bd", config.params_file);
+        joy_log_err("could not parse command \"%s\" into form param_splt:param_bd", glb_config->params_file);
         return 1;
     } else {
         /*
@@ -776,8 +696,8 @@ static int get_splt_bd_params() {
          * otherwise, if we have a URL, then the updater process
          * will handle the model updates.
          */
-        if (config.params_url == NULL) {
-            fprintf(info, "updating classifiers from supplied model(%s)\n", config.params_file);
+        if (glb_config->params_url == NULL) {
+            fprintf(info, "updating classifiers from supplied model(%s)\n", glb_config->params_file);
             update_params(SPLT_PARAM_TYPE,params_splt);
             update_params(BD_PARAM_TYPE,params_bd);
         }
@@ -796,24 +716,26 @@ static int get_compact_bd() {
     int count = 0;
     unsigned short b_value, map_b_value;
 
-    if (!config.compact_byte_distribution) {
+    if (!glb_config->compact_byte_distribution) {
         return 0;
     }
 
-    memset(compact_bd_mapping, 0, sizeof(compact_bd_mapping));
+    memset(glb_config->compact_bd_mapping, 0, sizeof(glb_config->compact_bd_mapping));
 
-    fp = fopen(compact_byte_distribution, "r");
+    fp = fopen(glb_config->compact_byte_distribution, "r");
     if (fp != NULL) {
         while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
-                compact_bd_mapping[b_value] = map_b_value;
+	    if (b_value < COMPACT_BD_MAP_MAX) {
+                glb_config->compact_bd_mapping[b_value] = map_b_value;
                 count++;
                 if (count >= 256) {
                     break;
                 }
+	    }
         }
         fclose(fp);
     } else {
-        joy_log_err("could not open file %s", compact_byte_distribution);
+        joy_log_err("could not open file %s", glb_config->compact_byte_distribution);
         return 1;
     }
 
@@ -829,42 +751,42 @@ static int get_compact_bd() {
  */
 static int get_labeled_subnets() {
     attr_flags subnet_flag;
-    enum status err;
+    joy_status_e err;
     int i = 0;
 
-    if (!config.num_subnets) {
+    if (!glb_config->num_subnets) {
         return 0;
     }
 
-    rt = radix_trie_alloc();
-    if (rt == NULL) {
+    glb_config->rt = radix_trie_alloc();
+    if (glb_config->rt == NULL) {
         joy_log_err("could not allocate memory");
         return 1;
     }
 
-    err = radix_trie_init(rt);
+    err = radix_trie_init(glb_config->rt);
     if (err != ok) {
         joy_log_err("could not initialize subnet labels (radix_trie)");
         return 1;
     }
 
-    for (i=0; i<config.num_subnets; i++) {
+    for (i=0; i<glb_config->num_subnets; i++) {
         char label[LINEMAX], subnet_file[LINEMAX];
         int num;
 
-        num = sscanf(config.subnet[i], "%[^=:]:%[^=:\n#]", label, subnet_file);
+        num = sscanf(glb_config->subnet[i], "%[^=:]:%[^=:\n#]", label, subnet_file);
         if (num != 2) {
-              fprintf(info, "error: could not parse command \"%s\" into form label:subnet", config.subnet[i]);
+              fprintf(info, "error: could not parse command \"%s\" into form label:subnet", glb_config->subnet[i]);
               return 1;
         }
 
-        subnet_flag = radix_trie_add_attr_label(rt, label);
+        subnet_flag = radix_trie_add_attr_label(glb_config->rt, label);
         if (subnet_flag == 0) {
               joy_log_err("could not add subnet label %s to radix_trie", label);
               return 1;
         }
 
-        err = radix_trie_add_subnets_from_file(rt, subnet_file, subnet_flag, info);
+        err = radix_trie_add_subnets_from_file(glb_config->rt, subnet_file, subnet_flag, info);
         if (err != ok) {
               joy_log_err("could not add labeled subnets from file %s", subnet_file);
               return 1;
@@ -877,18 +799,18 @@ static int get_labeled_subnets() {
 }
 
 static int configure_anonymization() {
-    if (config.anon_addrs_file != NULL) {
-        if (anon_init(config.anon_addrs_file, info) == failure) {
+    if (glb_config->anon_addrs_file != NULL) {
+        if (anon_init(glb_config->anon_addrs_file, info) == failure) {
             joy_log_err("could not initialize anonymization subnets from file %s",
-                        config.anon_addrs_file);
+                        glb_config->anon_addrs_file);
             return 1;
         }
     }
 
-    if (config.anon_http_file != NULL) {
-        if (anon_http_init(config.anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == failure) {
+    if (glb_config->anon_http_file != NULL) {
+        if (anon_http_init(glb_config->anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == failure) {
             joy_log_err("could not initialize HTTP anonymization from username file %s",
-                        config.anon_http_file);
+                        glb_config->anon_http_file);
             return 1;
         }
     }
@@ -910,14 +832,14 @@ static int open_interface (char **capture_if, char **capture_mac) {
     /*
      * set capture interface as needed
      */
-    if (strncmp(config.intface, "auto", strlen("auto")) == 0) {
+    if (strncmp(glb_config->intface, "auto", strlen("auto")) == 0) {
         *capture_if = (char*)ifl[0].name;
         *capture_mac = (char*)ifl[0].mac_addr;
         fprintf(info, "starting capture on interface %s\n", ifl[0].name);
     } else {
          int i;
          for (i = 0; i < num_interfaces; ++i) {
-             if (STRNCASECMP((char*)ifl[i].name, config.intface, strlen((char*)ifl[i].name)) == 0) {
+             if (STRNCASECMP((char*)ifl[i].name, glb_config->intface, strlen((char*)ifl[i].name)) == 0) {
                  *capture_if = (char*)ifl[i].name;
                  *capture_mac = (char*)ifl[i].mac_addr;
                  break;
@@ -926,12 +848,12 @@ static int open_interface (char **capture_if, char **capture_mac) {
     }
 
     if (*capture_if == NULL) {
-        fprintf(info, "could not find specified capture device: %s\n", config.intface);
+        fprintf(info, "could not find specified capture device: %s\n", glb_config->intface);
         return -1;
     }
 
     errbuf[0] = 0;
-    handle = pcap_open_live(*capture_if, 65535, config.promisc, 10000, errbuf);
+    handle = pcap_open_live(*capture_if, 65535, glb_config->promisc, 10000, errbuf);
     if (handle == NULL) {
         fprintf(info, "could not open device %s: %s\n", *capture_if, errbuf);
         return -1;
@@ -966,31 +888,31 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
     PWSTR windir = NULL;
 #endif
 
-    if (!config.filename) {
-        output = zattach(stdout, "w");
+    if (!glb_config->filename) {
+        main_ctx.output = zattach(stdout, "w");
         return 0;
     }
 
     /*
      * Output directory
      */
-    if (config.outputdir) {
+    if (glb_config->outputdir) {
 #ifdef WIN32
-        if (!strncmp(config.outputdir, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
+        if (!strncmp(glb_config->outputdir, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
             /* Use the LocalAppDataFolder */
             SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
         }
         else {
-            outputdir = config.outputdir;
+            outputdir = glb_config->outputdir;
         }
 #else
-        outputdir = config.outputdir;
+        outputdir = glb_config->outputdir;
 #endif
     } else {
         outputdir = ".";
     }
 
-    if (strncmp(config.filename, "auto", strlen("auto")) == 0) {
+    if (strncmp(glb_config->filename, "auto", strlen("auto")) == 0) {
         /*
          * Generate an "auto" output file name, based on the MAC address
          * and the current time.
@@ -1026,18 +948,18 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
         /*
          * Set output file based on command line or config file
          */
-        if (config.filename[0] == '/') {
-            strncpy(output_filename, config.filename, MAX_FILENAME_LEN);
+        if (glb_config->filename[0] == '/') {
+            strncpy(output_filename, glb_config->filename, MAX_FILENAME_LEN-1);
         } else {
 #ifdef WIN32
             if (windir) {
                 /* Use the Windows install directory */
-                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, config.filename);
+                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, glb_config->filename);
             } else {
-                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s", outputdir, config.filename);
+                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s", outputdir, glb_config->filename);
             }
 #else
-            snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, config.filename);
+            snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, glb_config->filename);
 #endif
         }
     }
@@ -1047,8 +969,8 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
      * otherwise wait until after dropping root privileges.
      */
     if (joy_mode != MODE_ONLINE) { 
-        output = zopen(output_filename, "w");
-        if (output == NULL) {
+        main_ctx.output = zopen(output_filename, "w");
+        if (main_ctx.output == NULL) {
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
             joy_log_err("choose a new output name or move/remove the old data set");
             goto end;
@@ -1084,19 +1006,27 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
     struct dirent *ent = NULL;
     DIR *dir = NULL;
     char pcap_filename[MAX_FILENAME_LEN*2]; 
-
+    
+    tmp_ret = strnlen(input_directory, MAX_FILENAME_LEN*2);
+    if (tmp_ret == 0 || tmp_ret >= MAX_FILENAME_LEN*2) {
+	return -1;
+    }
     /* initialize variables */
     memset(&fp, 0x00, sizeof(struct bpf_program));
     memset(&pcap_filename[0], 0x00, (MAX_FILENAME_LEN*2));
 
     /* create a directory to place all of the output files into */
-    if (config.filename) {
+    if (glb_config->filename) {
         struct stat st = {0};
         if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
             mkdir(output_filename);
 #else
-            mkdir(output_filename, 0700);
+            tmp_ret = mkdir(output_filename, 0700);
+	    if (tmp_ret < 0) {
+		joy_log_err("Error creating directory: %s\n", output_filename);
+		return tmp_ret;
+	    }
 #endif
          }
     }
@@ -1107,7 +1037,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
         while ((ent = readdir(dir)) != NULL) {
             static int fc_cnt = 1;
             if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
-                strcpy(pcap_filename, input_directory);
+                strncpy(pcap_filename, input_directory, (MAX_FILENAME_LEN*2)-1);
 #ifdef WIN32
                 if (pcap_filename[strlen(pcap_filename) - 1] != '\\') {
                     strcat(pcap_filename, "\\");
@@ -1115,10 +1045,10 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 strcat(pcap_filename, ent->d_name);
 
                 /* open new output file for multi-file processing */
-                if (config.filename) {
+                if (glb_config->filename) {
                     sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    output = zopen(dir_output, "w");
+                    main_ctx.output = zopen(dir_output, "w");
                 }
 #else
                 if (pcap_filename[strlen(pcap_filename)-1] != '/') {
@@ -1127,33 +1057,34 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 strcat(pcap_filename, ent->d_name);
 
                 /* open new output file for multi-file processing */
-                if (config.filename) {
+                if (glb_config->filename) {
                     sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    output = zopen(dir_output, "w");
+                    main_ctx.output = zopen(dir_output, "w");
                 }
 #endif
                 /* initialize the outputfile and processing structures */
-                if (config.filename) {
-                    config_print_json(output, &config);
+                if (glb_config->filename) {
+                    config_print_json(main_ctx.output, glb_config);
                 } else {
                     if (first_input_pcap_file) {
-                        config_print_json(output, &config);
+                        config_print_json(main_ctx.output, glb_config);
                         first_input_pcap_file = 0;
                     }
                 }
-                flow_record_list_init();
-                flocap_stats_timer_init();
+                flow_record_list_init(&main_ctx);
+                flocap_stats_timer_init(&main_ctx);
 
                 tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
+		    closedir(dir);
                     return tmp_ret;
                 }
 
                 /* close the output file */
-                if (config.filename) {
-                    zclose(output);
-                    output = NULL;
+                if (glb_config->filename) {
+                    zclose(main_ctx.output);
+                    main_ctx.output = NULL;
                 }
             }
         }
@@ -1191,13 +1122,17 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     memset(&fp, 0x00, sizeof(struct bpf_program));
 
     /* create a directory to place all of the output files into */
-    if (config.filename) {
+    if (glb_config->filename) {
         struct stat st = {0};
         if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
             mkdir(output_filename);
 #else
-            mkdir(output_filename, 0700);
+            tmp_ret = mkdir(output_filename, 0700);
+	    if (tmp_ret < 0) {
+		joy_log_err("Error creating directory: %s\n", output_filename);
+		return tmp_ret;
+	    }
 #endif
         }
     }
@@ -1211,7 +1146,7 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     snprintf(input_file_base_name,128, "%s%s", fname, ext);
 
     /* full name for the new output file including directory */
-    if (config.filename) {
+    if (glb_config->filename) {
         sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
         ++fc_cnt;
     }
@@ -1221,23 +1156,23 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     snprintf(input_file_base_name, 128, "%s", basename(input_path));
 
     /* full name for the new output file including directory */
-    if (config.filename) {
+    if (glb_config->filename) {
         sprintf(dir_output, "%s/%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
         ++fc_cnt;
     }
 #endif
 
     /* open new output file for multi-file processing */
-    if (config.filename) {
-        output = zopen(dir_output, "w");
+    if (glb_config->filename) {
+        main_ctx.output = zopen(dir_output, "w");
     }
 
     /* print the json config */
-    if (config.filename) {
-        config_print_json(output, &config);
+    if (glb_config->filename) {
+        config_print_json(main_ctx.output, glb_config);
     } else {
         if (first_input_pcap_file) {
-            config_print_json(output, &config);
+            config_print_json(main_ctx.output, glb_config);
             first_input_pcap_file = 0;
         }
     }
@@ -1249,9 +1184,9 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     }
 
     /* close output file */
-    if (config.filename) {
-        zclose(output);
-        output = NULL;
+    if (glb_config->filename) {
+        zclose(main_ctx.output);
+        main_ctx.output = NULL;
     }
     
     return tmp_ret;
@@ -1273,12 +1208,12 @@ int process_single_input_file (char *input_filename, char *output_filename) {
     memset(&fp, 0x00, sizeof(struct bpf_program));
 
     /* open outputfile */
-    if (config.filename) {
-        output = zopen(output_filename,"w");
+    if (glb_config->filename) {
+        main_ctx.output = zopen(output_filename,"w");
     }
     
     /* print configuration */
-    config_print_json(output, &config);
+    config_print_json(main_ctx.output, glb_config);
 
     tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
     return tmp_ret;
@@ -1313,6 +1248,11 @@ int main (int argc, char **argv) {
     struct passwd *pw = NULL;
     char *user = NULL;
 #endif
+
+    /* initialize the config */
+    memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
+    memset(&active_config, 0x00, sizeof(struct configuration));
+    glb_config = &active_config;
 
     /* Sanity check sizeof() expectations */
     if (data_sanity_check() != ok) {
@@ -1351,7 +1291,7 @@ int main (int argc, char **argv) {
      * LHS=RHS commands, then update argv/argc so that those arguments
      * are not subjected to any further processing
      */
-    num_cmds = config_set_from_argv(&config, argv, argc);
+    num_cmds = config_set_from_argv(glb_config, argv, argc);
     argv += num_cmds;
     argc -= num_cmds;
 
@@ -1390,7 +1330,7 @@ int main (int argc, char **argv) {
          * Cheerful message to indicate the start of a new run of the program
          */
         fprintf(info, "--- Joy Initialization ---\n");
-        flocap_stats_output(info);
+        flocap_stats_output(&main_ctx,info);
     }
 
     /* 
@@ -1422,6 +1362,11 @@ int main (int argc, char **argv) {
         return -2;
     }
 
+    /* initialize the IPFix exporter if configured */
+    if (glb_config->ipfix_export_port) {
+        ipfix_exporter_init(glb_config->ipfix_export_remote_host); 
+    }
+
     if (joy_mode == MODE_ONLINE) {   /* live capture */
 
         /*
@@ -1430,7 +1375,7 @@ int main (int argc, char **argv) {
          */
         if (argc-opt_count > 1) {
             fprintf(info, "error: both interface (%s) and pcap input file (%s) specified\n",
-                    config.intface, argv[1+opt_count]);
+                    glb_config->intface, argv[1+opt_count]);
             return usage(argv[0]);
         }
 
@@ -1465,8 +1410,8 @@ int main (int argc, char **argv) {
         /*
          * Drop privileges once pcap handle exists
          */
-        if (config.username) {
-            user = config.username;
+        if (glb_config->username) {
+            user = glb_config->username;
         } else {
             user = getenv("SUDO_USER");
         }
@@ -1502,9 +1447,9 @@ int main (int argc, char **argv) {
 #endif /* _WIN32 */
 
         /* open output file */
-        if (config.filename) {
-            output = zopen(output_filename, "w");
-            if (output == NULL) {
+        if (glb_config->filename) {
+            main_ctx.output = zopen(output_filename, "w");
+            if (main_ctx.output == NULL) {
                 fprintf(info, "error: could not open output file %s (%s)\n", output_filename, strerror(errno));
                 return -1;
             }
@@ -1514,7 +1459,7 @@ int main (int argc, char **argv) {
          * start up the updater thread
          *   updater is only active during live capture runs
          */
-         upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)&config);
+         upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)&glb_config);
          if (upd_rc) {
              fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
              return -6;
@@ -1524,8 +1469,8 @@ int main (int argc, char **argv) {
          * start up the uploader thread
          *   uploader is only active during live capture runs
          */
-         if (config.upload_servername) {
-             upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&config);
+         if (glb_config->upload_servername) {
+             upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&glb_config);
              if (upd_rc) {
                  fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
                  return -7;
@@ -1540,56 +1485,56 @@ int main (int argc, char **argv) {
         /* 
          * write out JSON preamble
          */ 
-        config_print_json(output, &config);
+        config_print_json(main_ctx.output, glb_config);
 
         while(1) {
             /* 
              * Loop over packets captured from interface.
              */
-            pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
+            pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, (unsigned char*)&main_ctx);
       
             joy_log_info("PCAP processing loop done");
 
-            if (config.report_exe) {
+            if (glb_config->report_exe) {
                   /*
                    * periodically obtain host/process flow data
                    */ 
-                  if (get_host_flow_data() != 0) {
+                  if (get_host_flow_data(&main_ctx) != 0) {
                       joy_log_warn("Could not obtain host/process flow data\n");
                   }
            }
 
            /* Periodically report on progress */
-           if ((flocap_stats_get_num_packets() % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
-                  flocap_stats_output(info);
+           if ((main_ctx.stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
+                  flocap_stats_output(&main_ctx,info);
            }
 
            /* Print out expired flows */
-           flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
+           flow_record_list_print_json(&main_ctx, FLOW_LIST_CHECK_EXPIRE);
 
-           if (config.filename) {
+           if (glb_config->filename) {
     
                   /* rotate output file if needed */
-                  if (config.max_records && (records_in_file > config.max_records)) {
+                  if (glb_config->max_records && (main_ctx.records_in_file > glb_config->max_records)) {
 
                       /*
                        * write JSON postamble
                        */
-                      zclose(output);
-                      if (config.upload_servername) {
+                      zclose(main_ctx.output);
+                      if (glb_config->upload_servername) {
                           upload_file(output_filename);
                       }
 
-                      // printf("records: %d\tmax_records: %d\n", records_in_file, config.max_records);
-                      if (config.max_records != 0) {
+                      // printf("records: %d\tmax_records: %d\n", glb_config->records_in_file, glb_config->max_records);
+                      if (glb_config->max_records != 0) {
                           set_data_output_file(output_filename, capture_if, capture_mac);
                       }
-                      output = zopen(output_filename, "w");
-                      if (output == NULL) {
+                      main_ctx.output = zopen(output_filename, "w");
+                      if (main_ctx.output == NULL) {
                           perror("error: could not open output file");
                           return -1;
                       }
-                      records_in_file = 0;
+                      main_ctx.records_in_file = 0;
                   }
       
                   /*
@@ -1597,14 +1542,14 @@ int main (int argc, char **argv) {
                    */
                   fflush(info);
            }
-           // fflush(output);
+           // fflush(main_ctx.output);
            // Close and reopen the log file if reopenLog flag is set
-           if (reopenLog && config.logfile && strcmp(config.logfile, NULL_KEYWORD)) {
+           if (reopenLog && glb_config->logfile && strcmp(glb_config->logfile, NULL_KEYWORD)) {
               fclose(info);
               reopenLog = 0;
-              info = fopen(config.logfile, "a");
+              info = fopen(glb_config->logfile, "a");
               if (info == NULL) {
-                 fprintf(stderr, "error: could not open new log file %s\n", config.logfile);
+                 fprintf(stderr, "error: could not open new log file %s\n", glb_config->logfile);
                  return -1;
               }
            }
@@ -1636,11 +1581,11 @@ int main (int argc, char **argv) {
           return -7;
         }
 
-        flow_record_list_init();
+        flow_record_list_init(&main_ctx);
 
-        ipfix_collect_main();
+        ipfix_collect_main(&main_ctx);
 
-        flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
+        flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
         fflush(info);
 
     } else { /* mode = mode_offline */
@@ -1659,24 +1604,32 @@ int main (int argc, char **argv) {
         /* check if a directory has been specified as the input file
          * and the output is not going to STDOUT
          */
-        if ((stat(argv[1], &sb) == 0 && S_ISDIR(sb.st_mode)) && (config.filename)) {
+        if ((stat(argv[1], &sb) == 0 && S_ISDIR(sb.st_mode)) && (glb_config->filename)) {
            multi_file_input = 1;
         }
       
         /* close out the existing open output file and remove it */
-        if (config.filename) {
-            zclose(output);
-            remove(output_filename);
+        if (glb_config->filename) {
+            zclose(main_ctx.output);
+            if (remove(output_filename) == -1) {
+		fprintf(stderr, "error:failed to remove %s\n", output_filename);
+		return -1;
+	    }
         }
 
         /* intialize the data structures */
-        flow_record_list_init();
-        flocap_stats_timer_init();
+        flow_record_list_init(&main_ctx);
+        flocap_stats_timer_init(&main_ctx);
 
         /* loop over remaining arguments to process files */
         for (i=1+opt_count; i<argc; i++) {
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 /* processing an input directory */
+		tmp_ret = strnlen(argv[i], (MAX_FILENAME_LEN*2));
+		if (tmp_ret == 0 || tmp_ret >= (MAX_FILENAME_LEN*2)) {
+		    fprintf(stderr, "error:failed filename too long %s\n", argv[i]);
+		    return -1;
+		}
                 tmp_ret = process_directory_of_files(argv[i],output_filename);
                 if (tmp_ret < 0) {
                     return tmp_ret;
@@ -1699,23 +1652,23 @@ int main (int argc, char **argv) {
     }
 
     if (joy_mode != MODE_OFFLINE) {
-	flocap_stats_output(info);
-	// config_print(info, &config);
+	flocap_stats_output(&main_ctx,info);
+	// config_print(info, &glb_config);
     }
     
-    if (config.ipfix_export_port) {
+    if (glb_config->ipfix_export_port) {
         /* Flush any unsent exporter messages in Ipfix module */
-        ipfix_export_flush_message();
+        ipfix_export_flush_message(&main_ctx);
     }
     /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-    ipfix_module_cleanup();
+    ipfix_module_cleanup(&main_ctx);
 
     /* Cleanup protocol identification module */
     proto_identify_cleanup();
 
     /* close the output file if it is still open */
-    if (output) {
-        zclose(output);
+    if (main_ctx.output) {
+        zclose(main_ctx.output);
     }
 
     return 0;
@@ -1765,9 +1718,9 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, NULL);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, (unsigned char *)&main_ctx);
         /* Print out expired flows */
-        flow_record_list_print_json(FLOW_LIST_CHECK_EXPIRE);
+        flow_record_list_print_json(&main_ctx, FLOW_LIST_CHECK_EXPIRE);
     }
 
     joy_log_info("all flows processed");
@@ -1779,8 +1732,8 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     pcap_close(handle);
   
-    flow_record_list_print_json(FLOW_LIST_PRINT_ALL);
-    flow_record_list_free();
+    flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
+    flow_record_list_free(&main_ctx);
 
     return 0;
 }

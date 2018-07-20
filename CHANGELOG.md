@@ -1,3 +1,38 @@
+## 3.0.0
+
+###### 07-20-2018
+
+#### Changes
+
+* Modified JOY infrastructure code to be thread safe.
+  * Allowed support multiple work threads for packet processing.
+  * Each worker thread uses own output file.
+  * Removed global variables for Config.
+  * Modified code infrastructure to use Config Structure.
+
+* Modified the Makefile system to build the JOY infrastructure
+  as a static and shared library.
+
+* Implemented an API for utilizing the JOY Library (joy_api.[hc]).
+
+* Implemented a Vector Packet Processing integration scheme to
+  utilize VPP native infrastructure when building that integration.
+
+* Created 2 API test programs, joy_api_test.c and joy_api_test2.c.
+
+* Modified existing test programs to link against static JOY library
+  instead of re-compiling the infrastructure code.
+
+* Modified versioning to use Common Security Module (CSM) conventions.
+
+* Modified build_pkg to accept package version on the command line.
+
+#### Bugfixes
+
+* Cleaned up coverity errors and warnings.
+
+* Various bug fixes.
+
 ## 2.1
 
 ###### 07-20-2018

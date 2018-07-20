@@ -48,7 +48,7 @@
 #include <pcap.h>
 #include "output.h"
 #include "feature.h"
-#include "utils.h"      /* for enum role */
+#include "utils.h"      /* for joy_role_e */
 
 #define ssh_usage "  ssh=1                      report ssh information\n"
 
@@ -68,7 +68,7 @@ struct ssh_msg {
 };
 
 typedef struct ssh {
-    enum role role;
+    joy_role_e role;
     char protocol[MAX_SSH_STRING_LEN];
     unsigned char cookie[16];
     char *kex_algo;

@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -143,11 +143,11 @@ static void matches_print (struct matches *matches, char *text) {
     // printf("matches->count: %d\n", matches->count);
     for (i=0; i < matches->count; i++) {
         size_t len = matches->stop[i] - matches->start[i] + 1;
-        if (len > 1024) {
+        if (len >= 1024) {
             return;
         }
         memcpy(tmp, text + matches->start[i], len);
-        tmp[len] = 0;
+        tmp[len] = '\0';
         printf("\tmatch %d: %s\n", i, tmp);
     }
 }
@@ -196,7 +196,7 @@ int main (int argc, char *argv[]) {
     ssize_t bytes_read;
     size_t len;
     char *line = NULL;  
-    enum status err;
+    joy_status_e err;
     char *keyfile = ANON_KEYFILE_DEFAULT;
     char *userfile = NULL;
     char *subnetfile = NULL;

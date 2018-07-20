@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017 Cisco Systems, Inc.
+ * Copyright (c) 2017-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,12 +42,16 @@
  */
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include "config.h"
 #include "utils.h"
 #include "err.h"
 
 #define JOY_UTILS_MAX_FILEPATH 128
 
-extern char *aux_resource_path;
+/* external definitions from joy.c */
+extern struct configuration *glb_config;
+extern FILE *info;
 
 #ifdef USE_BZIP2
 
@@ -65,12 +69,12 @@ extern char *aux_resource_path;
  *
  */
 #define BZ_MAX_SIZE 4096
-char BZ_buff[BZ_MAX_SIZE];
 int BZ2_bzprintf(BZFILE *b, const char * format, ...)
 {
     int BZ_sz; 
     int BZ_errnum;
     va_list arg;
+    char BZ_buff[BZ_MAX_SIZE];
 
     va_start(arg, format);
     BZ_sz = vsnprintf(BZ_buff, BZ_MAX_SIZE, format, arg);
@@ -115,12 +119,15 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
 
     /* Allocate memory to store constructed file path */
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+    if (!filepath) {
+	return NULL;
+    }
 
-    if (aux_resource_path) {
+    if (glb_config->aux_resource_path) {
         /*
          * Use the path that was given in Joy cli
          */
-        strncpy(filepath, aux_resource_path, JOY_UTILS_MAX_FILEPATH);
+        strncpy(filepath, glb_config->aux_resource_path, JOY_UTILS_MAX_FILEPATH);
         /* Place "/" before file name in case user left it out */
         strncat(filepath, "/", JOY_UTILS_MAX_FILEPATH - 1);
         strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
@@ -144,9 +151,8 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
     }
 
     /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
+    free(filepath);
+
 
     return value;
 }
@@ -164,6 +170,9 @@ FILE* joy_utils_open_test_file(const char *filename) {
 
     /* Allocate memory to store constructed file path */
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+    if (!filepath) {
+	return NULL;
+    }
 
     /* Assume user CWD in root of Joy source package */
     strncpy(filepath, "./test/misc/", JOY_UTILS_MAX_FILEPATH);
@@ -182,9 +191,8 @@ FILE* joy_utils_open_test_file(const char *filename) {
     }
 
     /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
+    free(filepath);
+
 
     return fp;
 }
@@ -204,6 +212,9 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
 
     /* Allocate memory to store constructed file path */
     filepath = calloc(JOY_UTILS_MAX_FILEPATH, sizeof(char));
+    if (!filepath) {
+	return NULL;
+    }
 
     /* Assume user CWD in root of Joy source package */
     strncpy(filepath, "./test/pcaps/", JOY_UTILS_MAX_FILEPATH);
@@ -222,9 +233,8 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
     }
 
     /* Cleanup */
-    if (filepath) {
-        free(filepath);
-    }
+    free(filepath);
+
 
     return handle;
 }

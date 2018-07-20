@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -92,7 +92,7 @@ typedef struct {
  * \brief initializes anonymization using the subnets in the
  * file subnetfile and sets the secondary output to logfile
  */
-enum status anon_init(const char *pathname, FILE *logfile);
+joy_status_e anon_init(const char *pathname, FILE *logfile);
 
 /** \brief prints the subnets that have been anonymized to output file */
 int anon_print_subnets(FILE *f);
@@ -104,7 +104,7 @@ char *addr_get_anon_hexstring(const struct in_addr *a);
 unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 
 /** \brief initialize the http anonymization */
-enum status anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, char *anon_keyfile);
+joy_status_e anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, char *anon_keyfile);
 
 /** \brief prints out '*' for length of the string */
 void zprintf_anon_nbytes(zfile f, char *s, size_t len);
@@ -129,10 +129,10 @@ void anon_print_string(zfile f,
 		       string_transform transform);
 
 /** \brief anonumizes a string */
-enum status anon_string(const char *s, unsigned int len, char *hex, unsigned int outlen);
+joy_status_e anon_string(const char *s, unsigned int len, char *hex, unsigned int outlen);
 
 /** \brief deanonymizes a string */
-enum status deanon_string(const char *hexinput, unsigned int len, char *s, unsigned int outlen);
+joy_status_e deanon_string(const char *hexinput, unsigned int len, char *s, unsigned int outlen);
 
 /** \brief prints a URI anonymized if applicable */
 void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text);
@@ -141,7 +141,7 @@ void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text);
 void zprintf_usernames(zfile f, struct matches *matches, char *text, char_selector selector, string_transform transform);
 
 /** \brief initializes the key used for anonymization routines */
-enum status key_init(char *ANON_KEYFILE);
+joy_status_e key_init(char *ANON_KEYFILE);
 
 /** \brief anonymization unit test main entry point */
 int anon_unit_test();

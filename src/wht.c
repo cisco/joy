@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -45,7 +45,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "wht.h"     
+#include "config.h"
 #include "err.h"
+
+/* external definitions from joy.c */
+extern FILE *info;
 
 /**
  * \brief Initialize the memory of WHT struct.
@@ -54,25 +58,24 @@
  *
  * \return none
  */
-__inline void wht_init (struct wht **wht_handle) {
+__inline void wht_init (wht_t **wht_handle) {
     if (*wht_handle != NULL) {
         wht_delete(wht_handle);
     }
 
-    *wht_handle = malloc(sizeof(struct wht));
+    *wht_handle = calloc(1, sizeof(wht_t));
     if (*wht_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*wht_handle, 0, sizeof(struct wht));
 }
 
 /*
  * process 4 bytes into transform
  *    pointers are sanity checked before calling this __inline function
  */
-static __inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) {
+static __inline void wht_process_four_bytes (wht_t *wht, const uint8_t *d) {
     int16_t x[4];
   
     x[0] = d[0] + d[2];
@@ -86,7 +89,7 @@ static __inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) 
 }
 
 /**
- * \fn void wht_update (struct wht *wht,
+ * \fn void wht_update (wht_t *wht,
  *                      const struct pcap_pkthdr *header,
                         const void *data,
                         unsigned int len,
@@ -98,7 +101,7 @@ static __inline void wht_process_four_bytes (struct wht *wht, const uint8_t *d) 
  * \param report_wht value used to determine processing
  * \return none
  */
-void wht_update (struct wht *wht, const struct pcap_pkthdr *header, const void *data, unsigned int len, unsigned int report_wht) {
+void wht_update (wht_t *wht, const struct pcap_pkthdr *header, const void *data, unsigned int len, unsigned int report_wht) {
     const uint8_t *d = data;
 
     /* sanity checks */
@@ -123,7 +126,7 @@ void wht_update (struct wht *wht, const struct pcap_pkthdr *header, const void *
 }
 
 /* print function for scaled walsh-hadamard structure */
-static void wht_printf_scaled (const struct wht *wht, zfile f) {
+static void wht_printf_scaled (const wht_t *wht, zfile f) {
     unsigned int num_bytes = wht->b;
 
     if (num_bytes == 0) {
@@ -138,13 +141,13 @@ static void wht_printf_scaled (const struct wht *wht, zfile f) {
 }
 
 /**
- * \fn void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f)
+ * \fn void wht_print_json (const wht_t *w1, const wht_t *w2, zfile f)
  * \param w1 pointer to walsh-hadamard structure1
  * \param w2 pointer to walsh-hadamard structure2
  * \param f file to be used for output
  * \return none
  */
-void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f) {
+void wht_print_json (const wht_t *w1, const wht_t *w2, zfile f) {
     int64_t s[4];
     uint64_t n;
 
@@ -197,8 +200,8 @@ void wht_print_json (const struct wht *w1, const struct wht *w2, zfile f) {
  *
  * \return none
  */
-void wht_delete (struct wht **wht_handle) {
-    struct wht *wht = *wht_handle;
+void wht_delete (wht_t **wht_handle) {
+    wht_t *wht = *wht_handle;
 
     if (wht == NULL) {
         return;
@@ -215,8 +218,8 @@ void wht_delete (struct wht **wht_handle) {
  * \return none
  */
 void wht_unit_test() {
-    struct wht *wht = NULL;
-    struct wht *wht2 = NULL;
+    wht_t *wht = NULL;
+    wht_t *wht2 = NULL;
     const struct pcap_pkthdr *header = NULL;
 
     uint8_t buffer1[8] = {

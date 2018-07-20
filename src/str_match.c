@@ -1,5 +1,5 @@
 /*
- *	
+ *      
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
  * 
@@ -71,7 +71,7 @@ static void matches_add (struct matches *matches, size_t stop, size_t length) {
         /* check for overlaps with previous matches */
         for (i=matches->count; i > 0; i--) {
             if (start > matches->stop[i-1]) {
-	              break;
+                      break;
             }
             // printf("found overlap with match %d\n", i-1);
         }
@@ -84,7 +84,7 @@ static void matches_add (struct matches *matches, size_t stop, size_t length) {
         matches->stop[i] = stop;
     }
     // printf("adding match with start[%d]: %zu\tstop[%d]: %zu\tcount: %u\n", 
-    //	 i, start, i, stop, matches->count);
+    //   i, start, i, stop, matches->count);
 }
 /**
  * \fn void str_match_ctx_find_all_longest (const str_match_ctx ctx, 
@@ -120,8 +120,8 @@ void str_match_ctx_find_all_longest (const str_match_ctx ctx,
             acsm_pattern_t *pattern = ctx->state_table[state].match_list;
 
             do {
-	            // printf("\nMATCH: %s\n", pattern->string);
-	            matches_add(matches, p - text, pattern->len);
+                    // printf("\nMATCH: %s\n", pattern->string);
+                    matches_add(matches, p - text, pattern->len);
 
             } while ((pattern = pattern->next) != NULL);
 
@@ -163,7 +163,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
     char *line = NULL;
     size_t len = 0;
     ssize_t read;
-    enum status err;
+    joy_status_e err;
   
     fp = fopen(filename, "r");
     if (fp == NULL) {
@@ -183,17 +183,17 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
             char *string = line;
 
             if (transform != NULL) {
-	              err = transform(line, (unsigned int)acsm_strlen(line), hexout, sizeof(hexout));
-	              if (err != ok) {
-	                  return err;
-	              }
-	              string = hexout;
+                      err = transform(line, (unsigned int)acsm_strlen(line), hexout, sizeof(hexout));
+                      if (err != ok) {
+                          return err;
+                      }
+                      string = hexout;
             }
       
             // printf("adding pattern \"%s\"\n", string);
             if (acsm_add_pattern(ctx, (unsigned char *)string, acsm_strlen(string)) != 0) {
-	              fprintf(stderr, "acsm_add_pattern() with pattern \"%s\" error.\n", line);
-	              return -1;
+                      fprintf(stderr, "acsm_add_pattern() with pattern \"%s\" error.\n", line);
+                      return -1;
             }  
         }
     }

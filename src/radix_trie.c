@@ -1,6 +1,6 @@
 /*
- *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ *      
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -82,6 +82,7 @@
 #include <ctype.h>
 #include "radix_trie.h"
 #include "addr.h"
+#include "config.h"
 #include "output.h"
 #include "updater.h"
 
@@ -92,15 +93,19 @@ size_t getline(char **lineptr, size_t *n, FILE *stream);
 
 #endif
 
+/* external definitions from joy.c */
+extern FILE *info;
+
 /** maximum label string length */
 #define MAX_LABEL_LEN 256
+#define TMP_BUFF_256_LEN 256
 
 /** reutrn maximum between two values */
 #define MAX(x,y) (x > y ? x : y)
 
 /** values for node types */
 enum radix_trie_node_type {
-    reserved = 0,
+    reservd = 0,
     internal = 1,
     leaf = 2
 };
@@ -131,6 +136,9 @@ static struct in_addr hex2addr (unsigned int x) {
     return a;
 }
 
+/** mutex used to ensure the radix_trie isn't being accessed by another thread */
+pthread_mutex_t radix_trie_lock = PTHREAD_MUTEX_INITIALIZER;
+
 /* 
  * radix trie memory allocation function
  * returns pointer to memory allocated
@@ -138,7 +146,7 @@ static struct in_addr hex2addr (unsigned int x) {
  */
 static __inline void *rt_malloc (size_t s) {
     void *p = NULL;
-    p = malloc(s);
+    p = calloc(1, s);
     if (p != NULL) {
         debug_printf("rt_malloc[0x%x] of %zu bytes\n", (unsigned int)p, s);
     }
@@ -214,13 +222,9 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
     unsigned char *a = (void *) &addr.s_addr;
     struct radix_trie_node *rt = trie->root;
   
-    /* get the mutex to avoid potential threading issues */
-    pthread_mutex_lock(&radix_trie_lock);
-
     /* sanity check */
     if (rt == NULL) {
         debug_printf("%s:radix_trie is NULL\n", __FUNCTION__);
-        pthread_mutex_unlock(&radix_trie_lock);
         return failure;
     }
 
@@ -228,7 +232,6 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
         debug_printf("%s:a[%d]: %x\n", __FUNCTION__, i, a[i]); 
         rt = rt->table[a[i]];
         if (rt == NULL) {
-            pthread_mutex_unlock(&radix_trie_lock);
             return 0;  /* indicate that no match occured */
         } 
         if (rt->type == leaf) {
@@ -239,11 +242,9 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
         struct radix_trie_leaf *leaf = (struct radix_trie_leaf *)rt;
         debug_printf("%s:found leaf (value: %x)\n", __FUNCTION__, leaf->value);
         rc_flags = leaf->value;
-        pthread_mutex_unlock(&radix_trie_lock);
         return rc_flags; /* indicate success by returning flags  */
     }
 
-    pthread_mutex_unlock(&radix_trie_lock);
     return 0;  /* indicate that no match occured */
 }
 
@@ -279,7 +280,7 @@ static void radix_trie_node_add_flag_to_all_leaves (const struct radix_trie_node
 }
 
 /**
- * \fn enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags)
+ * \fn joy_status_e radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags)
  * \param trie radix_trie to use for the addition
  * \param addr address to add into the trie
  * \param netmasklen network mask length of the address to add
@@ -287,11 +288,11 @@ static void radix_trie_node_add_flag_to_all_leaves (const struct radix_trie_node
  * \return success
  * \return failure
  */
-enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags) {
+joy_status_e radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr, unsigned int netmasklen, attr_flags flags) {
     unsigned int i, x, bits, bytes, max, num_internal_nodes = 0;
     unsigned char *a = (void *) &addr.s_addr;
     struct radix_trie_node *tmp = NULL;
-    struct radix_trie_node *rt = trie->root;
+    struct radix_trie_node *rt = NULL;
 
     /* sanity checks */
     if (!trie || (netmasklen > 32)) {
@@ -302,6 +303,7 @@ enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr,
         debug_printf("%s:flags present are 0, flags must be nonzero\n", __FUNCTION__);
         return failure;   /* flags must be nonzero; 0 value indicates the absence of flags */
     }
+    rt = trie->root;
   
     /* get mutex for radix trie operations */
     pthread_mutex_lock(&radix_trie_lock);
@@ -322,7 +324,7 @@ enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr,
         if (tmp == NULL) {
             tmp = radix_trie_node_init();
             if (tmp == NULL) {
-	              	return failure;
+                        return failure;
             }
             rt->table[a[i]] = tmp;
         }
@@ -342,7 +344,7 @@ enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr,
         } else {
             tmp = (struct radix_trie_node *)radix_trie_leaf_init(flags);
             if (tmp == NULL) {
-		              return failure;
+                              return failure;
             }
             rt->table[a[i]] = tmp;
         }
@@ -358,12 +360,12 @@ enum status radix_trie_add_subnet (struct radix_trie *trie, struct in_addr addr,
             if (rt->table[prefix|x] != NULL) {
                 radix_trie_node_add_flag_to_all_leaves(rt->table[prefix|x], flags);
             } else { 
-		              tmp = (struct radix_trie_node *)radix_trie_leaf_init(flags);
-		              if (tmp == NULL) {
+                              tmp = (struct radix_trie_node *)radix_trie_leaf_init(flags);
+                              if (tmp == NULL) {
                     pthread_mutex_unlock(&radix_trie_lock);
-		                  return failure;
-		              }
-		              rt->table[prefix|x] = tmp;
+                                  return failure;
+                              }
+                              rt->table[prefix|x] = tmp;
             }
         } 
     }
@@ -379,12 +381,11 @@ static unsigned int index_to_flag (unsigned int x) {
     unsigned int flag = 0;
 
     /* sanity check */
-    if (x > MAX_NUM_FLAGS) {
+    if (x >= MAX_NUM_FLAGS) {
         return 0;  /* failure; not that many flags */
     }
 
-    flag = 1;
-    flag = flag << x;
+    flag = 1 << x;
     return flag;
 }
 
@@ -395,7 +396,7 @@ static unsigned int index_to_flag (unsigned int x) {
 static unsigned int flag_to_index (unsigned int y) {
     unsigned int i = 0;
   
-    while (y > 0) {
+    while (y > 0 && y < 32) {
         y = y >> 1;
         i++;
     }
@@ -449,17 +450,15 @@ attr_flags radix_trie_add_attr_label (struct radix_trie *rt, const char *attr_la
 static void attr_flags_print_labels (const struct radix_trie *rt, attr_flags f) {
     unsigned int i, c = 0;
 
-    pthread_mutex_lock(&radix_trie_lock);
     for (i=0; i < rt->num_flags; i++) {
         if (index_to_flag(i) & f) {
             if (c) {
-		              printf(", ");
+                printf(", ");
             }
             printf("%s", rt->flag[i]);
             c++;
         }
     }
-    pthread_mutex_unlock(&radix_trie_lock);
     printf("\n");
 }
 
@@ -479,28 +478,26 @@ void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, ch
         return;    /* print nothing */
     }
 
-    pthread_mutex_lock(&radix_trie_lock);
     zprintf(file, "\"%s\": [ ", prefix);
     for (i=0; i < rt->num_flags; i++) {
         if (index_to_flag(i) & f) {
             if (c) {
-	               zprintf(file, ", ");
+                zprintf(file, ", ");
             }
             zprintf(file, "\"%s\" ", rt->flag[i]);
             c++;
         }
     }
-    pthread_mutex_unlock(&radix_trie_lock);
     zprintf(file, "],");
 }
 
 /**
- * \fn enum status radix_trie_init (struct radix_trie *rt)
+ * \fn joy_status_e radix_trie_init (struct radix_trie *rt)
  * \param rt radix_trie pointer to initialize
  * \return ok
  * \return failure
  */
-enum status radix_trie_init (struct radix_trie *rt) {
+joy_status_e radix_trie_init (struct radix_trie *rt) {
     pthread_mutex_lock(&radix_trie_lock);
     if (rt != NULL) {
         rt->root = radix_trie_node_init();
@@ -518,7 +515,7 @@ enum status radix_trie_init (struct radix_trie *rt) {
  * Function to free up the memory for leaf and internal nodes
  * returns ok
  */
-static enum status radix_trie_deep_free (const struct radix_trie_node *rt) {
+static joy_status_e radix_trie_deep_free (const struct radix_trie_node *rt) {
     int i = 0;
 
     switch (rt->type) {
@@ -543,11 +540,11 @@ static enum status radix_trie_deep_free (const struct radix_trie_node *rt) {
 }
 
 /**
- * \fn enum status radix_trie_free (struct radix_trie *r)
+ * \fn joy_status_e radix_trie_free (struct radix_trie *r)
  * \param r radix_trie pointer to free up
  * \return ok
  */
-enum status radix_trie_free (struct radix_trie *r) {
+joy_status_e radix_trie_free (struct radix_trie *r) {
     int i = 0;
 
     /* sanity check the trie */
@@ -584,7 +581,7 @@ enum status radix_trie_free (struct radix_trie *r) {
  * returns success
  * returns failure
  */
-static enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo) {
+joy_status_e radix_trie_add_subnet_from_string (struct radix_trie *rt, char *addr, attr_flags attr, FILE *loginfo) {
     int i, masklen = 0;
     char *mask = NULL;
     struct in_addr a;
@@ -608,11 +605,11 @@ static enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, cha
         /* avoid confusing atoi() with nondigit characters */
         for (i=0; i<80; i++) {
             if (mask[i] == 0) {
-	               break;
+                       break;
             }
             if (!isdigit(mask[i])) {
-	               mask[i] = 0;   /* null terminate */
-	               break;
+                       mask[i] = 0;   /* null terminate */
+                       break;
             }
         }    
         masklen = atoi(mask);
@@ -628,16 +625,16 @@ static enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, cha
     }
   
 #ifdef WIN32
-	inet_pton(AF_INET,addr, &a);
+        inet_pton(AF_INET,addr, &a);
 #else
     inet_aton(addr, &a);
 #endif
-	a.s_addr = addr_mask(a.s_addr, masklen);
+        a.s_addr = addr_mask(a.s_addr, masklen);
     return radix_trie_add_subnet(rt, a, masklen, attr);
 }
 
 /**
- * \fn enum status radix_trie_add_subnets_from_file (struct radix_trie *rt, const char *pathname, attr_flags attr, FILE *logfile)
+ * \fn joy_status_e radix_trie_add_subnets_from_file (struct radix_trie *rt, const char *pathname, attr_flags attr, FILE *logfile)
  * \param rt radix_trie pointer
  * \param pathname path and filename of the subnets file to be added
  * \param attr flags to be associated with the subnets
@@ -645,9 +642,9 @@ static enum status radix_trie_add_subnet_from_string (struct radix_trie *rt, cha
  * \return ok
  * \return failure
  */
-enum status radix_trie_add_subnets_from_file (struct radix_trie *rt,
-					     const char *pathname, attr_flags attr, FILE *logfile) {
-    enum status s = ok;
+joy_status_e radix_trie_add_subnets_from_file (struct radix_trie *rt,
+                                             const char *pathname, attr_flags attr, FILE *logfile) {
+    joy_status_e s = ok;
     FILE *fp = NULL;
     size_t len = 0;
     char *line = NULL;
@@ -659,7 +656,7 @@ enum status radix_trie_add_subnets_from_file (struct radix_trie *rt,
 
     fp = fopen(pathname, "r");
     if (fp == NULL) {
-	       fprintf(logfile, "%s: error: could not open file '%s'\n",
+               fprintf(logfile, "%s: error: could not open file '%s'\n",
                 __FUNCTION__, pathname);
         return failure;
     } else {
@@ -668,29 +665,29 @@ enum status radix_trie_add_subnets_from_file (struct radix_trie *rt,
             int i, got_input = 0;
 
             for (i=0; i<80; i++) {
-	               if (line[i] == '#') {
-	                   break;
-	               }
-	               if (isblank(line[i])) {
-	                   if (got_input) {
-	                       line[i] = 0; /* null terminate */
-	                   } else {
-	                       addr = line + i + 1;
-	                   }
-	               }
-	               if (!isprint(line[i])) {
-	                  break;
-	               }
-	               if (isxdigit(line[i])) {
-	                   got_input = 1;
-	               }
+                       if (line[i] == '#') {
+                           break;
+                       }
+                       if (isblank(line[i])) {
+                           if (got_input) {
+                               line[i] = 0; /* null terminate */
+                           } else {
+                               addr = line + i + 1;
+                           }
+                       }
+                       if (!isprint(line[i])) {
+                          break;
+                       }
+                       if (isxdigit(line[i])) {
+                           got_input = 1;
+                       }
             }
             if (got_input) {
-	               if (radix_trie_add_subnet_from_string(rt, addr, attr, logfile) != ok) {
-	                   fprintf(logfile, "%s: error: could not add subnet %s to radix_trie\n",
+                       if (radix_trie_add_subnet_from_string(rt, addr, attr, logfile) != ok) {
+                           fprintf(logfile, "%s: error: could not add subnet %s to radix_trie\n",
                             __FUNCTION__, line);
-	                   return failure;
-	               }
+                           return failure;
+                       }
             }
         }
       
@@ -705,44 +702,55 @@ enum status radix_trie_add_subnets_from_file (struct radix_trie *rt,
  * function to print out the contents of a node
  */
 static void radix_trie_node_print (const struct radix_trie *r, 
-			   const struct radix_trie_node *rt, char *string) {
-    unsigned int i = 0;
-    char tmp[256];
+                                   const struct radix_trie_node *rt, char *string) {
+    uint32_t i = 0;
+    char tmp[TMP_BUFF_256_LEN];
     char *ptr = NULL;
+    int len = 0;
 
     /* sanity checks */
     if ((r == NULL) || (rt == NULL) || (string == NULL)) {
         return;
     }
 
+    /*
+     * Verify the string isn't too long
+     */
+    len = strnlen(string, TMP_BUFF_256_LEN);
+    if (len >= TMP_BUFF_256_LEN) {
+	return;
+    }
+
+
 #if 0
-	// Wow this code is totally unsafe
-	strcpy(tmp, string);
+    // Wow this code is totally unsafe
+    strcpy(tmp, string);
     ptr = index(tmp, 0);
     *ptr++ = ' ';
     *ptr++ = ' ';
     *ptr++ = ' ';
     *ptr = 0;
 #endif
-	//safe copy of string into tmp buffer
-	strncpy(tmp, string, 255);
-	tmp[255] = 0; // make sure string is terminated
-	//replacement for index function
-	for (i = 0; i < 255; ++i) {
-		//find first occurance of 0 in tmp
-		if (tmp[i] == 0) {
-			ptr = &tmp[i];
-			break;
-		}
-	}
-	//let's make sure we don't write past the end of the tmp buffer;
-	if (i <= 252) {
-		*ptr++ = ' ';
-		*ptr++ = ' ';
-		*ptr++ = ' ';
-		*ptr = 0;
-	}
-
+    //safe copy of string into tmp buffer
+    strncpy(tmp, string, TMP_BUFF_256_LEN-1);
+    tmp[TMP_BUFF_256_LEN-1] = '\0'; // make sure string is terminated
+    //replacement for index function
+    for (i = 0; i < TMP_BUFF_256_LEN; ++i) {
+        //find first occurance of NULL in tmp
+        if (tmp[i] == '\0') {
+            ptr = &tmp[i];
+            break;
+        }
+    }
+    //let's make sure we don't write past the end of the tmp buffer;
+    if (i <= 252) {
+	ptr = &tmp[i];//reset pointer to eliminate coverity error
+        *ptr++ = ' ';
+        *ptr++ = ' ';
+        *ptr++ = ' ';
+        *ptr = '\0';
+    }
+    
     switch(rt->type) {
         case leaf:
             //printf("%s flags: %x\n", string, ((struct radix_trie_leaf *)rt)->value);
@@ -750,10 +758,10 @@ static void radix_trie_node_print (const struct radix_trie *r,
             attr_flags_print_labels(r, ((struct radix_trie_leaf *)rt)->value);
             break;
         case internal:
-            for (i=0; i<256; i++) {    
+            for (i=0; i<TMP_BUFF_256_LEN; i++) {    
                 if (rt->table[i] != NULL) {
-	                   printf("%s [%x]\n", string, i);
-	                   radix_trie_node_print(r, rt->table[i], tmp);
+                    printf("%s [%x]\n", string, i);
+                    radix_trie_node_print(r, rt->table[i], tmp);
                 }
             }
             break;
@@ -780,7 +788,7 @@ static int radix_trie_high_level_unit_test () {
     attr_flags flag_internal, flag_malware, flag;
     char *configfile = "internal.net";
     struct in_addr addr;
-    enum status err;
+    joy_status_e err;
     unsigned test_failed = 0;
 
     /* initialize */
@@ -795,6 +803,8 @@ static int radix_trie_high_level_unit_test () {
     if (flag_internal == 0) {
         joy_log_err("count not add label");
         test_failed = 1;
+        radix_trie_free(rt);
+        rt = NULL;
         return failure;
     }
     flag_malware = radix_trie_add_attr_label(rt, "malware");
@@ -822,13 +832,13 @@ static int radix_trie_high_level_unit_test () {
     flag = radix_trie_lookup_addr(rt, addr); 
     if ((flag & flag_internal) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)", flag_internal, flag);
-		test_failed = 1;
+                test_failed = 1;
     }
   
     addr.s_addr = htonl(0x08080808);   /* not internal */
     flag = radix_trie_lookup_addr(rt, addr); 
     if ((flag & flag_internal) == 1) {
-		joy_log_err("attribute lookup failed (did not expect %x, but got %x)", flag_internal, flag);
+                joy_log_err("attribute lookup failed (did not expect %x, but got %x)", flag_internal, flag);
         test_failed = 1;
     }
 
@@ -854,12 +864,13 @@ static int radix_trie_high_level_unit_test () {
  */
 int radix_trie_unit_test () {
     struct radix_trie *rt, *rt2 = NULL;
-    enum status err;
+    joy_status_e err;
     struct in_addr a[10];
     unsigned int af[10];
     unsigned int i;
     unsigned int test_failed = 0;
     unsigned int flag;
+    char ipv4_addr[INET_ADDRSTRLEN];
 
     for (i=0; i<32; i++) {
         flag = index_to_flag(i);
@@ -885,42 +896,48 @@ int radix_trie_unit_test () {
     flag = 1;
     for (i=0; i<3; i++) {
         if (radix_trie_add_subnet(rt, a[i], 32, af[i]) != ok) {
-			joy_log_err("could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=6; i<9; i++) {
         if (radix_trie_add_subnet(rt, a[i], 16, af[i]) != ok) {
-            joy_log_err("could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=0; i<3; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != af[i]) {
-            joy_log_err("could not lookup subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not lookup subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=6; i<9; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != af[i]) {
-            joy_log_err("could not lookup subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("could not lookup subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=3; i<6; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != 0) {
-            joy_log_err("false positive lookup subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("false positive lookup subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
 
     for (i=0; i<3; i++) {
         if (radix_trie_add_subnet(rt, a[i], 14, 0x100) != ok) {
-            joy_log_err("14-bit add, could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("14-bit add, could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
@@ -928,8 +945,9 @@ int radix_trie_unit_test () {
     for (i=0; i<3; i++) {
         unsigned int f = radix_trie_lookup_addr(rt, a[i]);
         if (f != (af[i] | 0x100)) {
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
             joy_log_err("14-bit, could not lookup address %s (%x), got %x instead", 
-	                    inet_ntoa(a[i]), htonl(a[i].s_addr), f);
+                            ipv4_addr, htonl(a[i].s_addr), f);
             test_failed = 1;
         }
     }
@@ -937,7 +955,8 @@ int radix_trie_unit_test () {
     printf("testing 15-bit add\n");
     for (i=0; i<3; i++) {
         if (radix_trie_add_subnet(rt, a[i], 15, 0x1000) != ok) {
-            joy_log_err("15-bit, could not add subnet %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("15-bit, could not add subnet %s", ipv4_addr);
             test_failed = 1;
         }
     }
@@ -945,15 +964,17 @@ int radix_trie_unit_test () {
     for (i=0; i<3; i++) {
         unsigned int f = radix_trie_lookup_addr(rt, a[i]);
         if (f != (af[i] | 0x1000 | 0x100)) {
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
             joy_log_err("15-bit, could not lookup address %s (%x), got %x but expected %x", 
-	                    inet_ntoa(a[i]), htonl(a[i].s_addr), f, (af[i] | 0x1000 | 0x100));
+                            ipv4_addr, htonl(a[i].s_addr), f, (af[i] | 0x1000 | 0x100));
             test_failed = 1;
         }
     }
 
     for (i=3; i<6; i++) {
         if (radix_trie_lookup_addr(rt, a[i]) != 0) {
-            joy_log_err("false positive lookup address %s", inet_ntoa(a[i]));
+            inet_ntop(AF_INET, &a[i], ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_err("false positive lookup address %s", ipv4_addr);
             test_failed = 1;
         }
     }
@@ -985,61 +1006,66 @@ int radix_trie_unit_test () {
 
     addr = hex2addr(0xcafe0000);
     if (radix_trie_add_subnet(rt2, addr, 16, internal_attr) != ok) { 
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
     if ((attr & internal_attr) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)",
-	                internal_attr, attr);
+                        internal_attr, attr);
         test_failed = 1;
     }
 
     addr = hex2addr(0xdecaf000);
     if (radix_trie_add_subnet(rt2, addr, 20, internal_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
     if ((attr & internal_attr) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)",
-	                internal_attr, attr);
+                        internal_attr, attr);
         test_failed = 1;
     }
 
     addr = hex2addr(0xdadacafe);
     if (radix_trie_add_subnet(rt2, addr, 32, c2_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
     if ((attr & c2_attr) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)",
-	                c2_attr, attr);
+                        c2_attr, attr);
         test_failed = 1;
     }
 
     addr = hex2addr(0xdadacafe);
     if (radix_trie_add_subnet(rt2, addr, 8, watchlist_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
     if ((attr & watchlist_attr) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)",
-	                watchlist_attr, attr);
+                        watchlist_attr, attr);
         test_failed = 1;
     }
  
     addr = hex2addr(0xffffffff);
     if (radix_trie_add_subnet(rt2, addr, 1, watchlist_attr) != ok) {
-        joy_log_err("could not add subnet %s", inet_ntoa(addr));
+        inet_ntop(AF_INET, &addr, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_err("could not add subnet %s", ipv4_addr);
         test_failed = 1;
     }
     attr = radix_trie_lookup_addr(rt2, addr); 
     if ((attr & watchlist_attr) == 0) {
         joy_log_err("attribute lookup failed (expected %x, got %x)",
-	                c2_attr, attr);
+                        watchlist_attr, attr);
         test_failed = 1;
     }
    

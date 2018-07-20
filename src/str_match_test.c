@@ -40,13 +40,19 @@
  * \brief unit test for multiple string matching functions
  */
 #include <stdarg.h>
+#include <string.h>
 
 #if !defined(DARWIN) && !defined(WIN32)
 #include <malloc.h>
 #endif
 
 #include "str_match.h"
+#include "p2f.h"
 #include "anon.h"
+#include "config.h"
+#include "joy_api.h"
+
+zfile output = NULL;
 
 static void matches_print (struct matches *matches, char *text) {
     unsigned int i;
@@ -55,11 +61,11 @@ static void matches_print (struct matches *matches, char *text) {
     printf("no matches\n");
     for (i=0; i < matches->count; i++) {
         size_t len = matches->stop[i] - matches->start[i] + 1;
-        if (len > 1024) {
+        if (len >= 1024) {
             return;
         }
         memcpy(tmp, text + matches->start[i], len);
-        tmp[len] = 0;
+        tmp[len] = '\0';
         printf("match %d: %s\n", i, tmp);
     }
 }
@@ -86,13 +92,7 @@ static void anon_print (zfile f, struct matches *matches, char *text) {
 
 static void str_match_test (str_match_ctx ctx, char *search) {
     struct matches matches;
-    zfile output;
 
-    output = zattach(stdout, "w");
-    if (output == NULL) {
-        fprintf(stderr, "error: could not initialize (possibly compressed) stdout for writing\n");
-    }
-  
     str_match_ctx_find_all_longest(ctx, (const unsigned char *)search, strlen(search), &matches);
   
     matches_print(&matches, (char *)search);
@@ -132,12 +132,31 @@ static char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400
  */
 int main (int argc, char* argv[]) {
     str_match_ctx ctx;
+    int rc = 0;
+    joy_init_t init_data;
+
+    /* setup the joy options we want */
+    memset(&init_data, 0x00, sizeof(joy_init_t));
+
+   /* this setup is for general processing */
+    init_data.type = 1;
+    init_data.verbosity = 4;
+
+    /* intialize joy */
+    rc = joy_initialize(&init_data, NULL, NULL, NULL);
+    if (rc != 0) {
+        printf(" -= Joy Initialized Failed =-\n");
+        return -1;
+    }
+
+    /* set output to stdout */
+    output = zattach(stdout, "w");
 
 #if !defined(DARWIN) && !defined(WIN32)
-    struct mallinfo info;
+    struct mallinfo mem_info;
 
-    info = mallinfo();
-    printf ("allocated space before loading context:  %d bytes\n", info.uordblks);
+    mem_info = mallinfo();
+    printf ("allocated space before loading context:  %d bytes\n", mem_info.uordblks);
 #endif
   
     ctx = str_match_ctx_alloc();
@@ -151,8 +170,8 @@ int main (int argc, char* argv[]) {
     }
   
 #if !defined(DARWIN) && !defined(WIN32)
-	info = mallinfo();
-    printf ("allocated space after loading context:  %d bytes\n", info.uordblks);
+	mem_info = mallinfo();
+    printf ("allocated space after loading context:  %d bytes\n", mem_info.uordblks);
 #endif
 
     if (key_init(ANON_KEYFILE_DEFAULT) != ok) {
@@ -166,6 +185,8 @@ int main (int argc, char* argv[]) {
 
     str_match_ctx_free(ctx);
   
+    joy_context_cleanup(0);
+    joy_shutdown();
     return 0;
 }
 

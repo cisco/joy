@@ -46,10 +46,14 @@ LIBRARYPATH = $(LIBPATH)
 endif
 
 ##
-# make sure we have a definition for BINDIR
+# make sure we have a definition for BINDIR, LIBDIR, TESTDIR
 ##
 ifndef BINDIR
 BINDIR = ../bin
+endif
+
+ifndef LIBDIR
+LIBDIR = ../lib
 endif
 
 ifndef TESTDIR
@@ -60,7 +64,14 @@ endif
 # compiler directives
 ##
 CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
-CFLAGS = -Wall -Wno-deprecated-declarations -g -O3  # -pg # -g # -fstack-protector-all 
+CFLAGS = -Wall -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g # -pg # -g # -fstack-protector-all 
+
+##
+# see if this is a package build directive
+##
+ifdef PKG_BUILD
+CDEFS	+= -DPKG_BUILD
+endif
 
 ##
 # variables to make source file handling easier
@@ -69,16 +80,20 @@ JOY_SRC = p2f.c config.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c ra
 JFDANON_SRC = anon.c addr.c str_match.c acsm.c
 ALL_HEADER_FILES = acsm.h config.h hdr_dsc.h osdetect.h procwatch.h addr.h dns.h http.h output.h radix_trie.h addr_attr.h err.h map.h p2f.h str_match.h anon.h example.h modules.h pkt.h tls.h classify.h feature.h nfv9.h pkt_proc.h wht.h updater.h ipfix.h ssh.h ike.h salt.h parson.h fingerprint.h ppi.h utils.h dhcp.h payload.h proto_identify.h
 ALL_FILES = joy.c jfd-anon.c unit_test.c str_match_test.c $(JOY_SRC) $(JFDANON_SRC) $(ALL_HEADER_FILES)
+LIBJOY_SRC = joy_api.c p2f.c osdetect.c anon.c pkt_proc.c nfv9.c tls.c classify.c radix_trie.c hdr_dsc.c procwatch.c addr_attr.c addr.c wht.c http.c str_match.c acsm.c dns.c example.c ipfix.c ssh.c ike.c salt.c parson.c fingerprint.c ppi.c utils.c dhcp.c payload.c config.c proto_identify.c
+LIBJOY_OBJ = joy_api.o p2f.o osdetect.o anon.o pkt_proc.o nfv9.o tls.o classify.o radix_trie.o hdr_dsc.o procwatch.o addr_attr.o addr.o wht.o http.o str_match.o acsm.o dns.o example.o ipfix.o ssh.o ike.o salt.o parson.o fingerprint.o ppi.o utils.o dhcp.o payload.o config.o proto_identify.o
 
 ##
 # additional CFLAG options
 ##
-ifeq ($(sysname),LINUX)
+ifeq ($(SYS_NAME),LINUX)
 	CFLAGS += # -Wno-maybe-uninitialized 
+	SO_OPTS = -Wl,-soname,libjoy.so
 endif
-ifeq ($(sysname),DARWIN)
+ifeq ($(SYS_NAME),DARWIN)
 	CFLAGS += -mmacosx-version-min=10.5
 	INCLUDEDIR += -I/opt/local/include/
+	SO_OPTS = -dynamiclib -Wl,-undefined,dynamic_lookup
 endif
 
 ##
@@ -87,7 +102,7 @@ endif
 
 .PHONY: print
 
-all:	print joy jfd-anon unit_test str_match_test joy-anon
+all:	print libjoy.a libjoy.so joy unit_test joy_api_test joy_api_test2 jfd-anon joy-anon str_match_test
 
 print:
 	@echo "Makefile variables:"
@@ -95,24 +110,58 @@ print:
 	@echo "sysname="$(SYS_NAME)
 	@echo "version="$(JOY_VERSION)
 	@echo "cwd="$(CWD)
+ 
+$(LIBDIR)/libjoy.a libjoy.a: $(LIBJOY_SRC)
+	@echo "Building libjoy.a ..."
+	@rm -f $(LIBDIR)/libjoy.a
+	gcc $(CFLAGS) -fPIC -fPIE $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) -c $(LIBJOY_SRC)
+	ar rcs $(LIBDIR)/libjoy.a $(LIBJOY_OBJ)
+	cp $(LIBDIR)/libjoy.a $(LIBDIR)/libjoy.a.$(JOY_VERSION)
+	@rm -f $(LIBJOY_OBJ)
+	@echo
+
+$(LIBDIR)/libjoy.so libjoy.so: $(LIBJOY_SRC)
+	@echo "Building libjoy.so ..."
+	@rm -f $(LIBDIR)/libjoy.so.*
+	gcc $(CFLAGS) -fPIC -shared $(SO_OPTS) -o $(LIBDIR)/libjoy.so.$(JOY_VERSION) $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) $(LIBJOY_SRC)
+	@rm -f $(LIBJOY_OBJ)
+	@echo
 
 joy: joy.c $(JOY_SRC)
+	@echo "Building joy ..."
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) $(COMPRESSED) -o "$(BINDIR)/joy" $(INCLUDEDIR) joy.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS)
-#	strip joy
+	@echo
+
+unit_test: unit_test.c $(LIBDIR)/libjoy.a
+	@echo "Building unit_test ..."
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) $(COMPRESSED) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) $(LIBS) 
+	ln -sf "$(BINDIR)/unit_test" "$(TESTDIR)/unit_test"
+	@echo
+
+joy_api_test: joy_api_test.c $(LIBDIR)/libjoy.a
+	@echo "Building joy_api_test ..."
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -pthread $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) $(LIBS)
+	@echo
+
+joy_api_test2: joy_api_test2.c $(LIBDIR)/libjoy.a
+	@echo "Building joy_api_test2 ..."
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) $(LIBS)
+	@echo
 
 jfd-anon: jfd-anon.c $(JFDANON_SRC)
+	@echo "Building jfd-anon ..."
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/jfd-anon" $(INCLUDEDIR) jfd-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+	@echo
 
 joy-anon: joy-anon.c $(JFDANON_SRC)
+	@echo "Building joy-anon ..."
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -o "$(BINDIR)/joy-anon" $(INCLUDEDIR) joy-anon.c $(JFDANON_SRC) $(LIBRARYPATH) $(LIBS)
+	@echo
 
-unit_test: unit_test.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) $(COMPRESSED) -o "$(BINDIR)/unit_test" $(INCLUDEDIR) unit_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
-	ln -sf "$(BINDIR)/unit_test" "$(TESTDIR)/unit_test"
-
-str_match_test: str_match_test.c $(JOY_SRC)
-	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/str_match_test" str_match_test.c $(JOY_SRC) $(LIBRARYPATH) $(LIBS) 
-
+str_match_test: str_match_test.c $(LIBDIR)/libjoy.a
+	@echo "Building str_match_test ..."
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/str_match_test" str_match_test.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) $(LIBS) 
+	@echo
 
 ##
 # STATIC ANALYSIS
@@ -127,7 +176,9 @@ splint: $(ALL_FILES)
 	splint $(SPLINT_OPT) $(ALL_FILES) $(INCLUDEDIR) # $(CFLAGS) $(CDEFS)  $(LIBRARYPATH) $(LIBS) 
 
 clean: 
-	rm -rf "$(BINDIR)/*"
+	rm -rf *.o
+	rm -rf "$(BINDIR)/"*
+	rm -rf "$(LIBDIR)/"*
 	@for a in * .*; do if [ -f "$$a~" ] ; then rm $$a~; fi; done;
 
 # EOF

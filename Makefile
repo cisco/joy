@@ -47,6 +47,7 @@ $(error error is "Please run ./config first.")
 endif
 
 export BINDIR = $(ROOT_PATH)/bin
+export LIBDIR = $(ROOT_PATH)/lib
 export TESTDIR = $(ROOT_PATH)/test
 export DOCDIR = $(ROOT_PATH)/doc
 
@@ -55,7 +56,12 @@ export DOCDIR = $(ROOT_PATH)/doc
 ##
 all:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS)
+
+libjoy.a:
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) libjoy.a
 
 joy:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
@@ -65,9 +71,23 @@ unit_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS) unit_test
 
+joy_api_test:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) joy_api_test
+
+joy_api_test2:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) joy_api_test2
+
 jfd-anon:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS) jfd-anon
+
+joy-anon:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) joy-anon
 
 str_match_test:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
@@ -76,7 +96,7 @@ str_match_test:
 ##
 # testing
 ##
-test: joy unit_test $(TESTDIR)/run_tests.py
+test: libjoy.a joy unit_test $(TESTDIR)/run_tests.py
 	$(BINDIR)/unit_test
 	$(TESTDIR)/run_tests.py
 
@@ -110,15 +130,15 @@ clean:
 # remove everything not under version control
 ##
 clobber: clean
-	rm -rf bin/ joy.bin config.vars test/unit_test
+	rm -rf bin/ lib/ joy.bin config.vars test/unit_test
 
 ##
 # installation via shell script
 ##
-install: $(BINDIR)/joy $(BINDIR)/unit_test test
+install: $(BINDIR)/joy $(BINDIR)/unit_test test libjoy.a
 	./install/install-sh
  
-pkg: $(BINDIR)/joy $(BINDIR)/unit_test test
+pkg: $(BINDIR)/joy $(BINDIR)/unit_test test libjoy.a
 	./install/install-sh -r $(BUILDROOT) -p $(DESTDIR)
 
 # EOF

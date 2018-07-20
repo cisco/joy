@@ -41,18 +41,13 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "radix_trie.h"
 #include "modules.h"
 #include "p2f.h"
+#include "config.h"
 #include "err.h"
-
-/*
- * use the "info" output stream to represent secondary output - it is
- * called by debug_printf()
- */
-FILE *info;
-
-extern unsigned int verbosity;
+#include "joy_api.h"
 
 /**
  * \fn int main (int argc, char *argv[]) 
@@ -62,14 +57,22 @@ extern unsigned int verbosity;
  * \return 0
  */
 int main (int argc, char *argv[]) {
+    int rc = 0;
+    joy_init_t init_data;
 
-    /*
-     * use stderr for debug output 
-     */
-    info = stderr; 
+    /* setup the joy options we want */
+    memset(&init_data, 0x00, sizeof(joy_init_t));
 
     /* Set logging to warning level */
-    verbosity = JOY_LOG_WARN;
+    init_data.type = 1;
+    init_data.verbosity = JOY_LOG_WARN;
+
+    /* intialize joy */
+    rc = joy_initialize(&init_data, NULL, NULL, NULL);
+    if (rc != 0) {
+        printf(" -= Joy Initialized Failed =-\n");
+        return -1;
+    }
 
     if (radix_trie_unit_test() != 0) {
         printf("error: radix_trie test failed\n");
@@ -83,5 +86,9 @@ int main (int argc, char *argv[]) {
     /* Test all feature modules */
     unit_test_all_features(feature_list);
   
+    /* cleanup */
+    joy_context_cleanup(0);
+    joy_shutdown();
+
     return 0;
 }

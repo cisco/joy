@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@
  *
  * @brief Source code to perform IPFIX protocol operations.
  **********************************************************/
+#include <errno.h>
 #include <unistd.h>
 #include <string.h>   /* for memcpy() */
 #include <stdlib.h>
@@ -58,7 +59,7 @@
 #include "tls.h"
 #include "pkt_proc.h"
 #include "p2f.h"
-#include "config.h"
+#include "joy_api_private.h"
 
 /********************************************
  *********
@@ -82,8 +83,8 @@ static FILE *print_dest = NULL;
 
 /** sends information to the destination output device */
 #define loginfo(...) { \
-        if (TO_SCREEN) print_dest = stderr; else print_dest = info; \
-        fprintf(print_dest,"%s: ", __FUNCTION__); \
+        if (TO_SCREEN) print_dest = stderr; else print_dest = info;     \
+        fprintf(print_dest,"%s: ", __FUNCTION__);                       \
         fprintf(print_dest, __VA_ARGS__); \
         fprintf(print_dest, "\n"); }
 
@@ -96,8 +97,8 @@ static pthread_mutex_t cts_lock = PTHREAD_MUTEX_INITIALIZER;
  * Doubly linked list for collector template store (cts).
  */
 #define MAX_IPFIX_TEMPLATES 100
-static struct ipfix_template *collect_template_store_head = NULL;
-static struct ipfix_template *collect_template_store_tail = NULL;
+static ipfix_template_t *collect_template_store_head = NULL;
+static ipfix_template_t *collect_template_store_tail = NULL;
 static uint16_t cts_count = 0;
 
 
@@ -106,9 +107,10 @@ static uint16_t cts_count = 0;
 /*
  * Doubly linked list for exporter template store (xts).
  */
-static struct ipfix_exporter_template *export_template_store_head = NULL;
-static struct ipfix_exporter_template *export_template_store_tail = NULL;
+static ipfix_exporter_template_t *export_template_store_head = NULL;
+static ipfix_exporter_template_t *export_template_store_tail = NULL;
 static uint16_t xts_count = 0;
+static pthread_mutex_t export_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
 /* Related to SPLT */
@@ -116,97 +118,78 @@ static unsigned int splt_pkt_index = 0;
 
 /* Exporter object to send messages, alive until process termination */
 #ifdef DARWIN
-static struct ipfix_exporter gateway_export = {
-  {0,0,0,{'0'}},
-  {0,0,0,{'0'}},
-  0,0
+static ipfix_exporter_t gateway_export = {
+    {0,0,0,{'0'}},
+    {0,0,0,{'0'}},
+    0,0
 };
 #else
-static struct ipfix_exporter gateway_export = {
-  {0,0,{0},{'0','0','0','0','0','0','0','0'}},
-  {0,0,{0},{'0','0','0','0','0','0','0','0'}},
-  0,0
+static ipfix_exporter_t gateway_export = {
+    {0,0,{0},{'0','0','0','0','0','0','0','0'}},
+    {0,0,{0},{'0','0','0','0','0','0','0','0'}},
+    0,0
 };
 #endif
 
 
 /* Collector object to receive messages, alive until process termination */
 #ifdef DARWIN
-static struct ipfix_collector gateway_collect = {
-  {0,0,0,{'0'}},
-  0,0
+static ipfix_collector_t gateway_collect = {
+    {0,0,0,{'0'}},
+    0,0
 };
 #else
-static struct ipfix_collector gateway_collect = {
-  {0,0,{0},{'0','0','0','0','0','0','0','0'}},
-  0,0
+static ipfix_collector_t gateway_collect = {
+    {0,0,{0},{'0','0','0','0','0','0','0','0'}},
+    0,0
 };
 #endif
 
-/* Used for exporting formatted IPFIX messages */
-static struct ipfix_raw_message raw_message;
-
-/* Used for storing IPFIX messages before transmission */
-static struct ipfix_message *export_message = NULL;
-
-enum ipfix_template_type export_template_type;
-
-
-/*
- * External objects, defined in joy
- */
-extern unsigned int ipfix_collect_port;
-extern unsigned int ipfix_export_port;
-extern unsigned int ipfix_export_remote_port;
-extern char *ipfix_export_remote_host;
-extern char *ipfix_export_template;
-extern struct configuration config;
-define_all_features_config_extern_uint(feature_list);
-
+ipfix_template_type_e export_template_type;
 
 /*
  * Local ipfix.c prototypes
  */
-static int ipfix_cts_search(struct ipfix_template_key needle,
-                            struct ipfix_template **dest_template,
+static int ipfix_cts_search(ipfix_template_key_t needle,
+                            ipfix_template_t **dest_template,
                             int flag_renew);
 
 
-static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_size);
+static inline ipfix_template_t *ipfix_template_malloc(size_t field_list_size);
 
 
-static int ipfix_cts_append(struct ipfix_template *tmp);
+static int ipfix_cts_append(ipfix_template_t *tmp);
 
 
 static int ipfix_loop_data_fields(const unsigned char *data_ptr,
-                                  struct ipfix_template *cur_template,
+                                  ipfix_template_t *cur_template,
                                   uint16_t *min_record_len);
 
 
-static void ipfix_flow_key_init(struct flow_key *key,
-                                const struct ipfix_template *cur_template,
+static void ipfix_flow_key_init(flow_key_t *key,
+                                const ipfix_template_t *cur_template,
                                 const char *flow_data);
 
 
-static void ipfix_template_key_init(struct ipfix_template_key *k,
+static void ipfix_template_key_init(ipfix_template_key_t *k,
                                     uint32_t addr,
                                     uint32_t id,
                                     uint16_t template_id);
 
 
 static int ipfix_process_flow_sys_up_time(const void *flow_data,
-                                          struct flow_record *ix_record,
+                                          flow_record_t *ix_record,
                                           int flag_end);
 
 
-static int ipfix_skip_idp_header(struct flow_record *nf_record,
+static int ipfix_skip_idp_header(flow_record_t *nf_record,
                                  const unsigned char **payload,
                                  unsigned int *size_payload);
 
-static void ipfix_process_flow_record(struct flow_record *ix_record,
-                               const struct ipfix_template *cur_template,
-                               const char *flow_data,
-                               int record_num);
+static void ipfix_process_flow_record(flow_record_t *ix_record,
+                                      const ipfix_template_t *cur_template,
+                                      const char *flow_data,
+                                      int record_num);
 
 /*
  * @brief Initialize an IPFIX collector object.
@@ -217,9 +200,10 @@ static void ipfix_process_flow_record(struct flow_record *ix_record,
  *
  * @param c Pointer to the ipfix_collector that will be initialized.
  */
-static int ipfix_collector_init(struct ipfix_collector *c) {
+static int ipfix_collector_init(ipfix_collector_t *c) {
+
   /* Initialize the collector structures */
-  memset(c, 0, sizeof(struct ipfix_collector));
+  memset(c, 0, sizeof(ipfix_collector_t));
 
   /* Get a socket for the collector */
   c->socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -231,7 +215,7 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
   /* Set local (collector) address */
   c->clctr_addr.sin_family = AF_INET;
   c->clctr_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  c->clctr_addr.sin_port = htons(ipfix_collect_port);
+  c->clctr_addr.sin_port = htons(glb_config->ipfix_collect_port);
 
   /* Bind the socket */
   if (bind(c->socket, (struct sockaddr *)&c->clctr_addr,
@@ -241,21 +225,22 @@ static int ipfix_collector_init(struct ipfix_collector *c) {
   }
 
   loginfo("IPFIX collector configured...");
-  loginfo("Host Port: %u", ipfix_collect_port);
+  loginfo("Host Port: %u", glb_config->ipfix_collect_port);
   loginfo("Ready!\n");
 
   return 0;
 }
 
 
-static int ipfix_collect_process_socket(unsigned char *data,
+static int ipfix_collect_process_socket(joy_ctx_data *ctx,
+                                        unsigned char *data,
                                         unsigned int data_len,
                                         struct sockaddr_in *remote_addr) {
-  struct flow_key key;
-  struct flow_record *record = NULL;
+  flow_key_t key;
+  flow_record_t *record = NULL;
 
   /* Create a flow_key and flow_record to use */
-  memset(&key, 0, sizeof(struct flow_key));
+  memset(&key, 0, sizeof(flow_key_t));
 
   key.sa = remote_addr->sin_addr;
   key.sp = ntohs(remote_addr->sin_port);
@@ -263,65 +248,73 @@ static int ipfix_collect_process_socket(unsigned char *data,
   key.dp = ntohs(gateway_collect.clctr_addr.sin_port);
   key.prot = IPPROTO_UDP;
 
-  record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
+  record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
-  process_ipfix((char*)data, data_len, record);
+  process_ipfix(ctx, (char*)data, data_len, record);
 
   return 0;
 }
 
 
-static void ipfix_collect_socket_loop(struct ipfix_collector *c) {
-  struct sockaddr_in remote_addr;
-  socklen_t remote_addrlen = 0;
-  int recvlen = 0;
-  unsigned char buf[TRANSPORT_MTU];
-  //int i = 0;
+static void ipfix_collect_socket_loop(joy_ctx_data *ctx, ipfix_collector_t *c) {
+    struct sockaddr_in remote_addr;
+    socklen_t remote_addrlen = 0;
+    int recvlen = 0;
+    unsigned char buf[TRANSPORT_MTU];
+    //int i = 0;
+    
+    /* Initialize stuff for receiving data */
+    memset(&remote_addr, 0, sizeof(struct sockaddr_in));
+    remote_addrlen = sizeof(remote_addr);
+    memset(buf, 0, sizeof(TRANSPORT_MTU));
+    
+    /*
+     * Loop waiting to receive data.
+     * Infinite loop, ends with process termination.
+     */
+    while(1) {
+        recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
+                           (struct sockaddr *)&remote_addr, &remote_addrlen);
+        if (recvlen > 0) {
+            ipfix_collect_process_socket(ctx, buf, recvlen, &remote_addr);
+            loginfo("received %d bytes", recvlen);
+        } else if (recvlen < 0) {
+            loginfo("Collector recvfrom error %d\n", errno);
+            return;
+        } else {
+            loginfo("Collector connection closed \n");
+            return;
+        }
 
-  /* Initialize stuff for receiving data */
-  memset(&remote_addr, 0, sizeof(struct sockaddr_in));
-  remote_addrlen = sizeof(remote_addr);
-  memset(buf, 0, sizeof(TRANSPORT_MTU));
-
-  /*
-   * Loop waiting to receive data.
-   * Infinite loop, ends with process termination.
-   */
-  while(1) {
-    recvlen = recvfrom(c->socket, buf, TRANSPORT_MTU, 0,
-                       (struct sockaddr *)&remote_addr, &remote_addrlen);
-    if (recvlen > 0) {
-      ipfix_collect_process_socket(buf, recvlen, &remote_addr);
-    }
-    loginfo("received %d bytes", recvlen);
 #if 0
-    if (recvlen > 0) {
-      buf[recvlen] = '\0';
-      printf("received message: ");
-      for (i=0; i < recvlen; i++) {
-        printf("0x%08x", buf[i]);
-      }
-      printf("\n");
-    }
+        if (recvlen > 0) {
+            buf[recvlen] = '\0';
+            printf("received message: ");
+            for (i=0; i < recvlen; i++) {
+                printf("0x%08x", buf[i]);
+            }
+            printf("\n");
+        }
 #endif
-  }
+    }
 }
 
 
-int ipfix_collect_main(void) {
-  /* Init the collector for use, if not done already */
-  if (gateway_collect.socket == 0) {
-    if (ipfix_collector_init(&gateway_collect)) {
-      loginfo("error: could not init ipfix_collector \"gateway_collect\"");
-      return 1;
+int ipfix_collect_main(joy_ctx_data *ctx) {
+
+    /* Init the collector for use, if not done already */
+    if (gateway_collect.socket == 0) {
+        if (ipfix_collector_init(&gateway_collect)) {
+            loginfo("error: could not init ipfix_collector \"gateway_collect\"");
+            return 1;
+        }
     }
-  }
-
-  /* Loop on the socket waiting for data to process */
-  ipfix_collect_socket_loop(&gateway_collect);
-  /* Never returns from here */
-
-  return 0;
+    
+    /* Loop on the socket waiting for data to process */
+    ipfix_collect_socket_loop(ctx, &gateway_collect);
+    /* Never returns from here */
+    
+    return 0;
 }
 
 
@@ -332,21 +325,25 @@ int ipfix_collect_main(void) {
  *
  * @param template IPFIX template that will have it's heap memory freed.
  */
-static inline void ipfix_delete_template(struct ipfix_template *template) {
-  if (template == NULL) {
-    loginfo("api-error: template is null");
-    return;
-  }
+static inline void ipfix_delete_template(ipfix_template_t *template) {
+    uint16_t field_count = 0;
+    size_t field_list_size = 0;
+    if (template == NULL) {
+        loginfo("api-error: template is null");
+        return;
+    }
 
-  if (template->fields) {
-    uint16_t field_count = template->hdr.field_count;
-    size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
-    memset(template->fields, 0, field_list_size);
-    free(template->fields);
-  }
-
-  memset(template, 0, sizeof(struct ipfix_template));
-  free(template);
+    if (template->fields) {
+        field_count = template->hdr.field_count;
+        field_list_size = sizeof(ipfix_template_field_t) * field_count;
+        memset(template->fields, 0, field_list_size);
+        free(template->fields);
+        template->fields = NULL;
+    }
+    
+    memset(template, 0, sizeof(ipfix_template_t));
+    free(template);
+    template = NULL;
 }
 
 
@@ -361,38 +358,38 @@ static inline void ipfix_delete_template(struct ipfix_template *template) {
  *
  * @param template IPFIX template that will be deleted from the cts.
  */
-static void ipfix_cts_delete(struct ipfix_template *template) {
-  struct ipfix_template *prev_template = NULL;
-  struct ipfix_template *next_template = NULL;
+static void ipfix_cts_delete(ipfix_template_t *template) {
+    ipfix_template_t *prev_template = NULL;
+    ipfix_template_t *next_template = NULL;
 
-  prev_template = template->prev;
-  next_template = template->next;
+    prev_template = template->prev;
+    next_template = template->next;
 
-  /*
-   * Update neighbor template pointers.
-   */
-  if (prev_template && next_template) {
-    /* Both previous and next template exists */
-    prev_template->next = next_template;
-    next_template->prev = prev_template;
-  } else if (prev_template) {
-    /* Looking at tail of list */
-    prev_template->next = NULL;
-    collect_template_store_tail = prev_template;
-  } else if (next_template) {
-    /* Looking at head of list */
-    next_template->prev = NULL;
-    collect_template_store_head = next_template;
-  } else {
-    /* Only 1 template in list, need to set head and tail to NULL */
-    collect_template_store_tail = NULL;
-    collect_template_store_head = NULL;
-  }
+    /*
+     * Update neighbor template pointers.
+     */
+    if (prev_template && next_template) {
+        /* Both previous and next template exists */
+        prev_template->next = next_template;
+        next_template->prev = prev_template;
+    } else if (prev_template) {
+        /* Looking at tail of list */
+        prev_template->next = NULL;
+        collect_template_store_tail = prev_template;
+    } else if (next_template) {
+        /* Looking at head of list */
+        next_template->prev = NULL;
+        collect_template_store_head = next_template;
+    } else {
+        /* Only 1 template in list, need to set head and tail to NULL */
+        collect_template_store_tail = NULL;
+        collect_template_store_head = NULL;
+    }
 
-  ipfix_delete_template(template);
+    ipfix_delete_template(template);
 
-  /* Decrement the store count */
-  cts_count -= 1;
+    /* Decrement the store count */
+    cts_count -= 1;
 }
 
 
@@ -408,37 +405,37 @@ static void ipfix_cts_delete(struct ipfix_template *template) {
  * @return >0 for number of records expired, 0 for none
  */
 static int ipfix_cts_scan_expired(void) {
-  time_t current_time = time(NULL);
-  struct ipfix_template *cur_template;
-  struct ipfix_template *next_template;
-  int rc = 0;
+    time_t current_time = time(NULL);
+    ipfix_template_t *cur_template;
+    ipfix_template_t *next_template;
+    int rc = 0;
+    
+    pthread_mutex_lock(&cts_lock);
+    if (collect_template_store_head == NULL) {
+        pthread_mutex_unlock(&cts_lock);
+        return rc;
+    }
 
-  pthread_mutex_lock(&cts_lock);
-  if (collect_template_store_head == NULL) {
-    pthread_mutex_unlock(&cts_lock);
-    return rc;
-  }
-
-  cur_template = collect_template_store_head;
-  next_template = cur_template->next;
-  if ((current_time - cur_template->last_seen) > CTS_EXPIRE_TIME) {
-    /* The template is expired, remove from store */
-    ipfix_cts_delete(cur_template);
-    rc += 1;
-  }
-
-  while (next_template) {
-    cur_template = next_template;
+    cur_template = collect_template_store_head;
     next_template = cur_template->next;
     if ((current_time - cur_template->last_seen) > CTS_EXPIRE_TIME) {
-      /* The template is expired, remove from store */
-      ipfix_cts_delete(cur_template);
-      rc += 1;
+        /* The template is expired, remove from store */
+        ipfix_cts_delete(cur_template);
+        rc += 1;
     }
-  }
-  pthread_mutex_unlock(&cts_lock);
 
-  return rc;
+    while (next_template) {
+        cur_template = next_template;
+        next_template = cur_template->next;
+        if ((current_time - cur_template->last_seen) > CTS_EXPIRE_TIME) {
+            /* The template is expired, remove from store */
+            ipfix_cts_delete(cur_template);
+            rc += 1;
+        }
+    }
+    pthread_mutex_unlock(&cts_lock);
+
+    return rc;
 }
 
 
@@ -456,18 +453,19 @@ static int ipfix_cts_scan_expired(void) {
  * @return Never return and the thread terminates when joy exits.
  */
 void *ipfix_cts_monitor(void *ptr) {
-  uint16_t num_expired;
-  while (1) {
-    /* let's only wake up and do work at specific intervals */
-    num_expired = ipfix_cts_scan_expired();
-    if (num_expired) {
-      loginfo("%d templates were expired.", num_expired);
-    }
 
+    uint16_t num_expired = 0;
+    while (1) {
+        /* let's only wake up and do work at specific intervals */
+        num_expired = ipfix_cts_scan_expired();
+        if (num_expired) {
+            loginfo("%d templates were expired.", num_expired);
+        }
+        
 #ifdef WIN32
-	Sleep(CTS_MONITOR_INTERVAL);
+        Sleep(CTS_MONITOR_INTERVAL);
 #else
-	sleep(CTS_MONITOR_INTERVAL);
+        sleep(CTS_MONITOR_INTERVAL);
 #endif
   }
 }
@@ -481,15 +479,16 @@ void *ipfix_cts_monitor(void *ptr) {
  *
  * @return 1 if match, 0 if not match
  */
-static inline int ipfix_template_key_cmp(const struct ipfix_template_key a,
-                                         const struct ipfix_template_key b) {
-  if (a.observe_dom_id == b.observe_dom_id &&
-      a.template_id == b.template_id &&
-      a.exporter_addr.s_addr == b.exporter_addr.s_addr) {
-    return 1;
-  } else {
-    return 0;
-  }
+static inline int ipfix_template_key_cmp(const ipfix_template_key_t a,
+                                         const ipfix_template_key_t b) {
+
+    if (a.observe_dom_id == b.observe_dom_id &&
+        a.template_id == b.template_id &&
+        a.exporter_addr.s_addr == b.exporter_addr.s_addr) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 
@@ -500,8 +499,9 @@ static inline int ipfix_template_key_cmp(const struct ipfix_template_key a,
  *
  * @param template IPFIX template that will be renewed.
  */
-static inline void ipfix_cts_template_renewal(struct ipfix_template *template) {
-  template->last_seen = time(NULL);
+static inline void ipfix_cts_template_renewal(ipfix_template_t *template) {
+
+    template->last_seen = time(NULL);
 }
 
 
@@ -515,28 +515,28 @@ static inline void ipfix_cts_template_renewal(struct ipfix_template *template) {
  * acquired while this cleanup function executes.
  */
 void ipfix_cts_cleanup(void) {
-  struct ipfix_template *this_template;
-  struct ipfix_template *next_template;
+    ipfix_template_t *this_template = NULL;
+    ipfix_template_t *next_template = NULL;
 
-  pthread_mutex_lock(&cts_lock);
-  if (collect_template_store_head == NULL) {
-    pthread_mutex_unlock(&cts_lock);
-    return;
-  }
+    pthread_mutex_lock(&cts_lock);
+    if (collect_template_store_head == NULL) {
+        pthread_mutex_unlock(&cts_lock);
+        return;
+    }
 
-  this_template = collect_template_store_head;
-  next_template = this_template->next;
-
-  /* Free the first stored template */
-  ipfix_cts_delete(this_template);
-
-  while (next_template) {
-    this_template = next_template;
+    this_template = collect_template_store_head;
     next_template = this_template->next;
 
+    /* Free the first stored template */
     ipfix_cts_delete(this_template);
-  }
-  pthread_mutex_unlock(&cts_lock);
+    
+    while (next_template) {
+        this_template = next_template;
+        next_template = this_template->next;
+        
+        ipfix_cts_delete(this_template);
+    }
+    pthread_mutex_unlock(&cts_lock);
 }
 
 
@@ -551,40 +551,46 @@ void ipfix_cts_cleanup(void) {
  * WARNING: The end user of the newly allocated template is
  * responsible for freeing that memory.
  */
-static void ipfix_cts_copy(struct ipfix_template **dest_template,
-                           struct ipfix_template *src_template) {
-  uint16_t field_count = src_template->hdr.field_count;
-  size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
-  struct ipfix_template_field *new_fields = NULL;
-  struct ipfix_template *new_template = NULL;
+static void ipfix_cts_copy(ipfix_template_t **dest_template,
+                           ipfix_template_t *src_template) {
+    uint16_t field_count = 0;
+    size_t field_list_size = 0;
+    ipfix_template_field_t *new_fields = NULL;
+    ipfix_template_t *new_template = NULL;
+    
+    if (dest_template == NULL || src_template == NULL) {
+        loginfo("api-error: dest or src template is null");
+        return;
+    }
+    
+    field_count = src_template->hdr.field_count;
+    field_list_size = sizeof(ipfix_template_field_t) * field_count;
+    
+    /* Allocate heap memory for new_template */
+    new_template = ipfix_template_malloc(field_list_size);
+    if (new_template) {
+    
+        /* Save pointer to new_template field memory */
+        new_fields = new_template->fields;
+        
+        memcpy(new_template, src_template, sizeof(ipfix_template_t));
+        
+        /* Reattach new_fields */
+        new_template->fields = new_fields;
+        
+        /* New template is a copy, so it isn't part of the store */
+        new_template->next = NULL;
+        new_template->prev = NULL;
+        
+        /* Copy the fields data */
+        if (src_template->fields && new_template->fields) {
+            memcpy(new_template->fields, src_template->fields, field_list_size);
+        }
+        
+        /* Assign dest_template handle to newly allocated template */
+        *dest_template = new_template;
+    }
 
-  if (dest_template == NULL || src_template == NULL) {
-    loginfo("api-error: dest or src template is null");
-    return;
-  }
-
-  /* Allocate heap memory for new_template */
-  new_template = ipfix_template_malloc(field_list_size);
-
-  /* Save pointer to new_template field memory */
-  new_fields = new_template->fields;
-
-  memcpy(new_template, src_template, sizeof(struct ipfix_template));
-
-  /* Reattach new_fields */
-  new_template->fields = new_fields;
-
-  /* New template is a copy, so it isn't part of the store */
-  new_template->next = NULL;
-  new_template->prev = NULL;
-
-  /* Copy the fields data */
-  if (src_template->fields && new_template->fields) {
-    memcpy(new_template->fields, src_template->fields, field_list_size);
-  }
-
-  /* Assign dest_template handle to newly allocated template */
-  *dest_template = new_template;
 }
 
 
@@ -603,47 +609,48 @@ static void ipfix_cts_copy(struct ipfix_template **dest_template,
  *
  * @return 1 for match, 0 for not match
  */
-static int ipfix_cts_search(struct ipfix_template_key needle,
-                            struct ipfix_template **dest_template,
+static int ipfix_cts_search(ipfix_template_key_t needle,
+                            ipfix_template_t **dest_template,
                             int flag_renew) {
-  struct ipfix_template *cur_template;
 
-  pthread_mutex_lock(&cts_lock);
-  if (collect_template_store_head == NULL) {
-    pthread_mutex_unlock(&cts_lock);
-    return 0;
-  }
+    ipfix_template_t *cur_template = NULL;
 
-  cur_template = collect_template_store_head;
-  if (ipfix_template_key_cmp(cur_template->template_key, needle)) {
-    /* Found match */
-    if (flag_renew == 1) {
-      ipfix_cts_template_renewal(cur_template);
+    pthread_mutex_lock(&cts_lock);
+    if (collect_template_store_head == NULL) {
+        pthread_mutex_unlock(&cts_lock);
+        return 0;
     }
-    if (dest_template != NULL) {
-      ipfix_cts_copy(dest_template, cur_template);
-    }
-    pthread_mutex_unlock(&cts_lock);
-    return 1;
-  }
 
-  while (cur_template->next) {
-    cur_template = cur_template->next;
+    cur_template = collect_template_store_head;
     if (ipfix_template_key_cmp(cur_template->template_key, needle)) {
-      /* Found match */
-      if (flag_renew == 1) {
-        ipfix_cts_template_renewal(cur_template);
-      }
-      if (dest_template != NULL) {
-        ipfix_cts_copy(dest_template, cur_template);
-      }
-      pthread_mutex_unlock(&cts_lock);
-      return 1;
+        /* Found match */
+        if (flag_renew == 1) {
+            ipfix_cts_template_renewal(cur_template);
+        }
+        if (dest_template != NULL) {
+            ipfix_cts_copy(dest_template, cur_template);
+        }
+        pthread_mutex_unlock(&cts_lock);
+        return 1;
     }
-  }
-  pthread_mutex_unlock(&cts_lock);
 
-  return 0;
+    while (cur_template->next) {
+        cur_template = cur_template->next;
+        if (ipfix_template_key_cmp(cur_template->template_key, needle)) {
+            /* Found match */
+            if (flag_renew == 1) {
+                ipfix_cts_template_renewal(cur_template);
+            }
+            if (dest_template != NULL) {
+                ipfix_cts_copy(dest_template, cur_template);
+            }
+            pthread_mutex_unlock(&cts_lock);
+            return 1;
+        }
+    }
+    pthread_mutex_unlock(&cts_lock);
+    
+    return 0;
 }
 
 
@@ -653,34 +660,33 @@ static int ipfix_cts_search(struct ipfix_template_key needle,
  * @param template IPFIX template which will have allocated memory
  *                 attached to it via pointer.
  */
-static inline void ipfix_template_fields_malloc(struct ipfix_template *template,
+static inline void ipfix_template_fields_malloc(ipfix_template_t *template,
                                                 size_t field_list_size) {
-  if (template->fields != NULL) {
-    free(template->fields);
-  }
 
-  template->fields = malloc(field_list_size);
+    if (template->fields != NULL) {
+        free(template->fields);
+        template->fields = NULL;
+    }
+    
+    template->fields = calloc(1, field_list_size);
 
-  if (template->fields == NULL) {
-    loginfo("error: could not allocate memory for field list");
-  } else {
-    memset(template->fields, 0, field_list_size);
-  }
+    if (template->fields == NULL) {
+        loginfo("error: could not allocate memory for field list");
+    }
 }
 
 
-static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_size) {
-  /* Init a new template on the heap */
-  struct ipfix_template *template = malloc(sizeof(struct ipfix_template));
+static inline ipfix_template_t *ipfix_template_malloc(size_t field_list_size) {
 
-  if (template != NULL){
-    memset(template, 0, sizeof(struct ipfix_template));
+    /* Init a new template on the heap */
+    ipfix_template_t *template = calloc(1, sizeof(ipfix_template_t));
 
-    /* Allocate memory for the fields */
-    ipfix_template_fields_malloc(template, field_list_size);
-  }
-
-  return template;
+    if (template != NULL){
+        /* Allocate memory for the fields */
+        ipfix_template_fields_malloc(template, field_list_size);
+    }
+    
+    return template;
 }
 
 
@@ -693,46 +699,48 @@ static inline struct ipfix_template *ipfix_template_malloc(size_t field_list_siz
  *
  * @return 0 if templates was added, 1 if template was not added.
  */
-static int ipfix_cts_append(struct ipfix_template *tmp) {
-  uint16_t field_count = tmp->hdr.field_count;
-  size_t field_list_size = sizeof(struct ipfix_template_field) * field_count;
-  struct ipfix_template *template = NULL;
-
-  if (cts_count >= (MAX_IPFIX_TEMPLATES - 1)) {
-    loginfo("warning: ipfix template lost, already at maximum storage threshold");
-    return 1;
-  }
-
-  /* Init a new template on the heap */
-  template = ipfix_template_malloc(field_list_size);
-
-  /* Copy the atrribute data */
-  template->template_key = tmp->template_key;
-  template->hdr = tmp->hdr;
-  memcpy(template->fields, tmp->fields, field_list_size);
-  template->payload_length = tmp->payload_length;
-
-  /* Write the current time */
-  template->last_seen = time(NULL);
-
-  pthread_mutex_lock(&cts_lock);
-  if (collect_template_store_head == NULL) {
-    /* This is the first template in store list */
-    collect_template_store_head = template;
-  } else {
-    /* Append to the end of store list */
-    collect_template_store_tail->next = template;
-    template->prev = collect_template_store_tail;
-  }
-
-  /* Update the tail */
-  collect_template_store_tail = template;
-
-  /* Increment the store count */
-  cts_count += 1;
-  pthread_mutex_unlock(&cts_lock);
-
-  return 0;
+static int ipfix_cts_append(ipfix_template_t *tmp) {
+    uint16_t field_count = tmp->hdr.field_count;
+    size_t field_list_size = sizeof(ipfix_template_field_t) * field_count;
+    ipfix_template_t *template = NULL;
+    
+    if (cts_count >= (MAX_IPFIX_TEMPLATES - 1)) {
+        loginfo("warning: ipfix template lost, already at maximum storage threshold");
+        return 1;
+    }
+    
+    /* Init a new template on the heap */
+    template = ipfix_template_malloc(field_list_size);
+    if (template) {
+    
+        /* Copy the atrribute data */
+        template->template_key = tmp->template_key;
+        template->hdr = tmp->hdr;
+        memcpy(template->fields, tmp->fields, field_list_size);
+        template->payload_length = tmp->payload_length;
+        
+        /* Write the current time */
+        template->last_seen = time(NULL);
+        
+        pthread_mutex_lock(&cts_lock);
+        if (collect_template_store_head == NULL) {
+            /* This is the first template in store list */
+            collect_template_store_head = template;
+        } else {
+            /* Append to the end of store list */
+            collect_template_store_tail->next = template;
+            template->prev = collect_template_store_tail;
+        }
+        
+        /* Update the tail */
+        collect_template_store_tail = template;
+        
+        /* Increment the store count */
+        cts_count += 1;
+        pthread_mutex_unlock(&cts_lock);
+    }
+    
+    return 0;
 }
 
 
@@ -749,45 +757,46 @@ static int ipfix_cts_append(struct ipfix_template *tmp) {
  * @param cur_template IPFIX template that corresponds to data record.
  * @param flow_data IPFIX data record being parsed.
  */
-static void ipfix_flow_key_init(struct flow_key *key,
-                         const struct ipfix_template *cur_template,
-                         const char *flow_data) {
-  int i;
-  for (i = 0; i < cur_template->hdr.field_count; i++) {
-    uint16_t field_length = 0;
+static void ipfix_flow_key_init(flow_key_t *key,
+                                const ipfix_template_t *cur_template,
+                                const char *flow_data) {
 
-    if (cur_template->fields[i].variable_length) {
-      field_length = cur_template->fields[i].variable_length;
-    } else {
-      field_length = cur_template->fields[i].fixed_length;
+    int i;
+    for (i = 0; i < cur_template->hdr.field_count; i++) {
+        uint16_t field_length = 0;
+        
+        if (cur_template->fields[i].variable_length) {
+            field_length = cur_template->fields[i].variable_length;
+        } else {
+            field_length = cur_template->fields[i].fixed_length;
+        }
+        
+        switch (cur_template->fields[i].info_elem_id) {
+        case IPFIX_SOURCE_IPV4_ADDRESS:
+            key->sa.s_addr = *(const uint32_t *)flow_data;
+            flow_data += field_length;
+            break;
+        case IPFIX_DESTINATION_IPV4_ADDRESS:
+            key->da.s_addr = *(const uint32_t *)flow_data;
+            flow_data += field_length;
+            break;
+        case IPFIX_SOURCE_TRANSPORT_PORT:
+            key->sp = ntohs(*(const uint16_t *)flow_data);
+            flow_data += field_length;
+            break;
+        case IPFIX_DESTINATION_TRANSPORT_PORT:
+            key->dp = ntohs(*(const uint16_t *)flow_data);
+            flow_data += field_length;
+            break;
+        case IPFIX_PROTOCOL_IDENTIFIER:
+            key->prot = *(const uint8_t *)flow_data;
+            flow_data += field_length;
+            break;
+        default:
+            flow_data += field_length;
+            break;
+        }
     }
-
-    switch (cur_template->fields[i].info_elem_id) {
-      case IPFIX_SOURCE_IPV4_ADDRESS:
-        key->sa.s_addr = *(const uint32_t *)flow_data;
-        flow_data += field_length;
-        break;
-      case IPFIX_DESTINATION_IPV4_ADDRESS:
-        key->da.s_addr = *(const uint32_t *)flow_data;
-        flow_data += field_length;
-        break;
-      case IPFIX_SOURCE_TRANSPORT_PORT:
-        key->sp = ntohs(*(const uint16_t *)flow_data);
-        flow_data += field_length;
-        break;
-      case IPFIX_DESTINATION_TRANSPORT_PORT:
-        key->dp = ntohs(*(const uint16_t *)flow_data);
-        flow_data += field_length;
-        break;
-      case IPFIX_PROTOCOL_IDENTIFIER:
-        key->prot = *(const uint8_t *)flow_data;
-        flow_data += field_length;
-        break;
-      default:
-        flow_data += field_length;
-        break;
-    }
-  }
 }
 
 
@@ -802,14 +811,15 @@ static void ipfix_flow_key_init(struct flow_key *key,
  * @param id Exporter observation domain id.
  * @param template_id Template id contained in the template header.
  */
-static void ipfix_template_key_init(struct ipfix_template_key *k,
+static void ipfix_template_key_init(ipfix_template_key_t *k,
                                     uint32_t addr,
                                     uint32_t id,
                                     uint16_t template_id) {
-  memset(k, 0, sizeof(struct ipfix_template_key));
-  k->exporter_addr.s_addr = addr;
-  k->observe_dom_id = id;
-  k->template_id = template_id;
+
+    memset(k, 0, sizeof(ipfix_template_key_t));
+    k->exporter_addr.s_addr = addr;
+    k->observe_dom_id = id;
+    k->template_id = template_id;
 }
 
 /*
@@ -823,87 +833,89 @@ static void ipfix_template_key_init(struct ipfix_template_key *k,
  *
  * @return 0 for success, 1 for failure
  */
-int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
+int ipfix_parse_template_set(const ipfix_hdr_t *ipfix,
                              const char *template_start,
                              uint16_t set_len,
-                             const struct flow_key rec_key) {
+                             const flow_key_t rec_key) {
 
-  const char *template_ptr = template_start;
-  uint16_t template_set_len = set_len;
-
-  while (template_set_len > 0) {
-    const struct ipfix_template_hdr *template_hdr = (const struct ipfix_template_hdr*)template_ptr;
-    template_ptr += 4; /* Move past template header */
-    template_set_len -= 4;
-    uint16_t template_id = ntohs(template_hdr->template_id);
-    uint16_t field_count = ntohs(template_hdr->field_count);
-    struct ipfix_template *cur_template = NULL;
-    struct ipfix_template_key template_key;
-    int cur_template_fld_len = 0;
-    struct ipfix_template *redundant_template = NULL;
-    int i;
-
-    /*
-     * Define Template Set key:
-     * {source IP + observation domain ID + template ID}
-     */
-    ipfix_template_key_init(&template_key, rec_key.sa.s_addr,
-                            ntohl(ipfix->observe_dom_id), template_id);
-
-    /* Check to see if template already exists, if so, continue */
-    if (ipfix_cts_search(template_key, &redundant_template, 1)) {
-      template_ptr += redundant_template->payload_length;
-      template_set_len -= redundant_template->payload_length;
-      /* Need to free the allocated temporary template */
-      ipfix_delete_template(redundant_template);
-      continue;
+    const char *template_ptr = template_start;
+    uint16_t template_set_len = set_len;
+    
+    while (template_set_len > 0) {
+        const ipfix_template_hdr_t *template_hdr = (const ipfix_template_hdr_t*)template_ptr;
+        template_ptr += 4; /* Move past template header */
+        template_set_len -= 4;
+        uint16_t template_id = ntohs(template_hdr->template_id);
+        uint16_t field_count = ntohs(template_hdr->field_count);
+        ipfix_template_t *cur_template = NULL;
+        ipfix_template_key_t template_key;
+        int cur_template_fld_len = 0;
+        ipfix_template_t *redundant_template = NULL;
+        int i;
+        
+        /*
+         * Define Template Set key:
+         * {source IP + observation domain ID + template ID}
+         */
+        ipfix_template_key_init(&template_key, rec_key.sa.s_addr,
+                                ntohl(ipfix->observe_dom_id), template_id);
+        
+        /* Check to see if template already exists, if so, continue */
+        if (ipfix_cts_search(template_key, &redundant_template, 1)) {
+            template_ptr += redundant_template->payload_length;
+            template_set_len -= redundant_template->payload_length;
+            /* Need to free the allocated temporary template */
+            ipfix_delete_template(redundant_template);
+            continue;
+        }
+        
+        /* Allocate temporary template */
+        cur_template = ipfix_template_malloc(field_count * sizeof(ipfix_template_field_t));
+        if (cur_template) {
+        
+            /*
+             * The enterprise field may or may not exist for certain fields
+             * within the payload, so we need to walk the entire template.
+             */
+            for (i = 0; i < field_count; i++) {
+                int fld_size = 4;
+                const ipfix_template_field_t *tmp_field = (const ipfix_template_field_t*)template_ptr;
+                const unsigned short host_info_elem_id = ntohs(tmp_field->info_elem_id);
+                const unsigned short host_fixed_length = ntohs(tmp_field->fixed_length);
+                
+                if (ipfix_field_enterprise_bit(host_info_elem_id)) {
+                    /* The enterprise bit is set, remove from element id */
+                    cur_template->fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
+                    cur_template->fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
+                    fld_size = 8;
+                } else {
+                    cur_template->fields[i].info_elem_id = host_info_elem_id;
+                }
+                
+                cur_template->fields[i].fixed_length = host_fixed_length;
+                
+                template_ptr += fld_size;
+                template_set_len -= fld_size;
+                cur_template_fld_len += fld_size;
+            }
+            
+            /* The template is new, so save info */
+            cur_template->hdr.template_id = template_id;
+            cur_template->hdr.field_count = field_count;
+            cur_template->payload_length = cur_template_fld_len;
+            cur_template->template_key = template_key;
+            
+            /* Save template */
+            ipfix_cts_append(cur_template);
+            
+            /* Cleanup the temporary template */
+            ipfix_delete_template(cur_template);
+        } else {
+            return 1;
+        }
     }
-
-    /* Allocate temporary template */
-    cur_template = ipfix_template_malloc(field_count * sizeof(struct ipfix_template_field));
-
-    /*
-     * The enterprise field may or may not exist for certain fields
-     * within the payload, so we need to walk the entire template.
-     */
-    for (i = 0; i < field_count; i++) {
-      int fld_size = 4;
-      const struct ipfix_template_field *tmp_field = (const struct ipfix_template_field*)template_ptr;
-      const unsigned short host_info_elem_id = ntohs(tmp_field->info_elem_id);
-      const unsigned short host_fixed_length = ntohs(tmp_field->fixed_length);
-
-      if (ipfix_field_enterprise_bit(host_info_elem_id)) {
-        /* The enterprise bit is set, remove from element id */
-        cur_template->fields[i].info_elem_id = host_info_elem_id ^ 0x8000;
-        cur_template->fields[i].enterprise_num = ntohl(tmp_field->enterprise_num);
-        fld_size = 8;
-      } else {
-        cur_template->fields[i].info_elem_id = host_info_elem_id;
-      }
-
-      cur_template->fields[i].fixed_length = host_fixed_length;
-
-      template_ptr += fld_size;
-      template_set_len -= fld_size;
-      cur_template_fld_len += fld_size;
-    }
-
-    /* The template is new, so save info */
-    cur_template->hdr.template_id = template_id;
-    cur_template->hdr.field_count = field_count;
-    cur_template->payload_length = cur_template_fld_len;
-    cur_template->template_key = template_key;
-
-    /* Save template */
-    ipfix_cts_append(cur_template);
-
-    /* Cleanup the temporary template */
-    if (cur_template) {
-      ipfix_delete_template(cur_template);
-    }
-  }
-
-  return 0;
+    
+    return 0;
 }
 
 
@@ -926,65 +938,67 @@ int ipfix_parse_template_set(const struct ipfix_hdr *ipfix,
  * @return 0 for failure, >0 for success
  */
 static int ipfix_loop_data_fields(const unsigned char *data_ptr,
-                                  struct ipfix_template *cur_template,
+                                  ipfix_template_t *cur_template,
                                   uint16_t *min_record_len) {
-  int i;
-  int flag_min_record = 0;
-  int data_record_size = 0;
-  uint16_t data_field_count = cur_template->hdr.field_count;
 
-  if (*min_record_len == 0) {
-    flag_min_record = 1;
-  }
-
-  for (i = 0; i < data_field_count; i++) {
-    int variable_length_hdr = 0;
-    uint16_t actual_fld_len = 0;
-    uint16_t min_field_len = 0;
-    uint16_t cur_fld_len = cur_template->fields[i].fixed_length;
-    if (cur_fld_len == 65535) {
-      /* The current field is of variable length */
-      unsigned char fld_len_flag = (unsigned char)*data_ptr;
-      if (fld_len_flag < 255) {
-        actual_fld_len = (unsigned short)fld_len_flag;
-        /* Fill in the variable length field in global template list */
-        cur_template->fields[i].variable_length = actual_fld_len;
-        /* RFC 7011 section 7, Figure R. */
-        cur_template->fields[i].var_hdr_length = 1;
-        variable_length_hdr += 1;
-        min_field_len = 1;
-      } else if (fld_len_flag == 255) {
-        actual_fld_len = ntohs(*(unsigned short *)(data_ptr + 1));
-        /* Fill in the variable length field in global template list */
-        cur_template->fields[i].variable_length = actual_fld_len;
-        /* RFC 7011 section 7, Figure S. */
-        cur_template->fields[i].var_hdr_length = 3;
-        variable_length_hdr += 3;
-        min_field_len = 3;
-      } else {
-        /* Error, invalid variable length */
-        loginfo("error: bad variable length");
-        return 0;
-      }
-    } else {
-      /* Fixed length field */
-      actual_fld_len = cur_fld_len;
-      min_field_len = actual_fld_len;
+    int i;
+    int flag_min_record = 0;
+    int data_record_size = 0;
+    uint16_t data_field_count = cur_template->hdr.field_count;
+    
+    if (*min_record_len == 0) {
+        flag_min_record = 1;
     }
-
-    if (flag_min_record) {
-      *min_record_len += min_field_len;
+    
+    for (i = 0; i < data_field_count; i++) {
+        int variable_length_hdr = 0;
+        uint16_t actual_fld_len = 0;
+        uint16_t min_field_len = 0;
+        uint16_t cur_fld_len = cur_template->fields[i].fixed_length;
+        if (cur_fld_len == 65535) {
+            /* The current field is of variable length */
+            unsigned char fld_len_flag = (unsigned char)*data_ptr;
+            if (fld_len_flag < 255) {
+                actual_fld_len = (unsigned short)fld_len_flag;
+                /* Fill in the variable length field in global template list */
+                cur_template->fields[i].variable_length = actual_fld_len;
+                /* RFC 7011 section 7, Figure R. */
+                cur_template->fields[i].var_hdr_length = 1;
+                variable_length_hdr += 1;
+                min_field_len = 1;
+            } else if (fld_len_flag == 255) {
+                actual_fld_len = ntohs(*(unsigned short *)(data_ptr + 1));
+                /* Fill in the variable length field in global template list */
+                cur_template->fields[i].variable_length = actual_fld_len;
+                /* RFC 7011 section 7, Figure S. */
+                cur_template->fields[i].var_hdr_length = 3;
+                variable_length_hdr += 3;
+                min_field_len = 3;
+            } else {
+                /* Error, invalid variable length */
+                loginfo("error: bad variable length");
+                return 0;
+            }
+        } else {
+            /* Fixed length field */
+            actual_fld_len = cur_fld_len;
+            min_field_len = actual_fld_len;
+        }
+        
+        if (flag_min_record) {
+            *min_record_len += min_field_len;
+        }
+        data_ptr += actual_fld_len + variable_length_hdr;
+        data_record_size += actual_fld_len + variable_length_hdr;
     }
-    data_ptr += actual_fld_len + variable_length_hdr;
-    data_record_size += actual_fld_len + variable_length_hdr;
-  }
-  return data_record_size;
+    return data_record_size;
 }
 
 
 /*
  * @brief Parse through the contents of an IPFIX Data Set.
  *
+ * @param ctx The joy flow record context.
  * @param ipfix The IPFIX message header.
  * @param template_start Beginning of the data set.
  * @param set_len Total length of the data set measured in octets.
@@ -997,83 +1011,82 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
  *
  * @param 0 for success, 1 for failure
  */
-int ipfix_parse_data_set(const struct ipfix_hdr *ipfix,
+int ipfix_parse_data_set(joy_ctx_data *ctx,
+                         const ipfix_hdr_t *ipfix,
                          const void *data_start,
                          uint16_t set_len,
                          uint16_t set_id,
-                         const struct flow_key rec_key,
-                         struct flow_key *prev_data_key) {
+                         const flow_key_t rec_key,
+                         flow_key_t *prev_data_key) {
 
-  const unsigned char *data_ptr = data_start;
-  uint16_t data_set_len = set_len;
-  uint16_t template_id = set_id;
-  struct ipfix_template_key template_key;
-  struct ipfix_template *cur_template = NULL;
-  uint16_t min_record_len = 0;
-  int rc = 1;
-
-  /* Define data template key:
-   * {source IP + observation domain ID + template ID}
-   */
-  ipfix_template_key_init(&template_key, rec_key.sa.s_addr,
-                          ntohl(ipfix->observe_dom_id), template_id);
-
-  /* Look for template match */
-  if (!ipfix_cts_search(template_key, &cur_template, 0)) {
-    loginfo("error: no template for data set found");
-    goto cleanup;
-  }
-
-  /* Process data if we know the template */
-  if (cur_template->hdr.template_id != 0) {
-    struct flow_key key;
-    struct flow_record *ix_record;
-
-    memset(&key, 0, sizeof(struct flow_key));
-
-    /* Process all data records in set */
-    while (data_set_len > min_record_len){
-      int data_record_size = 0;
-      /*
-       * Get the size of this data record, and store field variable lengths
-       * in the current template.
-       */
-      if(!(data_record_size = ipfix_loop_data_fields(data_ptr, cur_template,
-                                                     &min_record_len))){
+    const unsigned char *data_ptr = data_start;
+    uint16_t data_set_len = set_len;
+    uint16_t template_id = set_id;
+    ipfix_template_key_t template_key;
+    ipfix_template_t *cur_template = NULL;
+    uint16_t min_record_len = 0;
+    int rc = 1;
+    
+    /* Define data template key:
+     * {source IP + observation domain ID + template ID}
+     */
+    ipfix_template_key_init(&template_key, rec_key.sa.s_addr,
+                            ntohl(ipfix->observe_dom_id), template_id);
+    
+    /* Look for template match */
+    if (!ipfix_cts_search(template_key, &cur_template, 0)) {
+        loginfo("error: no template for data set found");
         goto cleanup;
-      }
-
-      /* Init flow key */
-      ipfix_flow_key_init(&key, cur_template, (const char*)data_ptr);
-
-      /* Get a flow record related to ipfix data */
-      ix_record = flow_key_get_record(&key, CREATE_RECORDS,NULL);
-
-
-      /* Fill out record */
-      if (memcmp(&key, prev_data_key, sizeof(struct flow_key)) != 0) {
-        ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
-      } else {
-        ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
-      }
-      memcpy(prev_data_key, &key, sizeof(struct flow_key));
-
-      data_ptr += data_record_size;
-      data_set_len -= data_record_size;
     }
-  } else {
-    /* FIXME hold onto the data set for a certain amount of time since
-     * the template may come later... */
-    loginfo("error: current template is null, cannot parse the data set");
-  }
-
-  rc = 0;
-
-  /* Cleanup */
+    
+    /* Process data if we know the template */
+    if (cur_template->hdr.template_id != 0) {
+        flow_key_t key;
+        flow_record_t *ix_record;
+        
+        memset(&key, 0, sizeof(flow_key_t));
+        
+        /* Process all data records in set */
+        while (data_set_len > min_record_len){
+            int data_record_size = 0;
+            /*
+             * Get the size of this data record, and store field variable lengths
+             * in the current template.
+             */
+            if(!(data_record_size = ipfix_loop_data_fields(data_ptr, cur_template,
+                                                           &min_record_len))){
+                goto cleanup;
+            }
+            
+            /* Init flow key */
+            ipfix_flow_key_init(&key, cur_template, (const char*)data_ptr);
+            
+            /* Get a flow record related to ipfix data */
+            ix_record = flow_key_get_record(ctx, &key, CREATE_RECORDS,NULL);
+            
+            
+            /* Fill out record */
+            if (memcmp(&key, prev_data_key, sizeof(flow_key_t)) != 0) {
+                ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
+            } else {
+                ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
+            }
+            memcpy(prev_data_key, &key, sizeof(flow_key_t));
+            
+            data_ptr += data_record_size;
+            data_set_len -= data_record_size;
+        }
+    } else {
+        /* FIXME hold onto the data set for a certain amount of time since
+         * the template may come later... */
+        loginfo("error: current template is null, cannot parse the data set");
+    }
+    
+    rc = 0;
+    
+    /* Cleanup */
 cleanup:
-  if (cur_template) {
     ipfix_delete_template(cur_template);
-  }
 
   return rc;
 }
@@ -1091,74 +1104,75 @@ cleanup:
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_skip_idp_header(struct flow_record *ix_record,
+static int ipfix_skip_idp_header(flow_record_t *ix_record,
                                  const unsigned char **payload,
                                  unsigned int *size_payload) {
-  unsigned char proto = 0;
-  const struct ip_hdr *ip = NULL;
-  unsigned int ip_hdr_len;
-  const char *flow_data = ix_record->idp;
-  unsigned int flow_len = ix_record->idp_len;
 
-  /* define/compute ip header offset */
-  ip = (struct ip_hdr*)(flow_data);
-  ip_hdr_len = ip_hdr_length(ip);
-  if (ip_hdr_len < 20) {
-    /*
-     * FIXME Does not handle packets with all 0s.
-     */
-    loginfo("error: invalid ip header of len %d", ip_hdr_len);
-    return 1;
-  }
-
-  if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
-    /* IP packet is malformed (shorter than a complete IP header) */
-    loginfo("error: ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
-    return 1;
-  }
-
-  proto = (unsigned char)ix_record->key.prot;
-
-  if (proto == IPPROTO_ICMP) {
-    unsigned int icmp_hdr_len = 8;
-
-    if (icmp_hdr_len > (flow_len - ip_hdr_len)) {
-      loginfo("error: not enough space in payload for icmp hdr");
-      return 1;
+    unsigned char proto = 0;
+    const struct ip_hdr *ip = NULL;
+    unsigned int ip_hdr_len;
+    const char *flow_data = ix_record->idp;
+    unsigned int flow_len = ix_record->idp_len;
+    
+    /* define/compute ip header offset */
+    ip = (struct ip_hdr*)(flow_data);
+    ip_hdr_len = ip_hdr_length(ip);
+    if (ip_hdr_len < IPV4_HDR_LEN) {
+        /*
+         * FIXME Does not handle packets with all 0s.
+         */
+        loginfo("error: invalid ip header of len %d", ip_hdr_len);
+        return 1;
     }
-    /* define/compute icmp payload (segment) offset */
-    *payload = (unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
-
-    /* compute icmp payload (segment) size */
-    *size_payload = flow_len - ip_hdr_len - icmp_hdr_len;
-  } else if (proto == IPPROTO_TCP) {
-    unsigned int tcp_hdr_len;
-    const struct tcp_hdr *tcp = (const struct tcp_hdr *)(flow_data + ip_hdr_len);
-    tcp_hdr_len = tcp_hdr_length(tcp);
-
-    if (tcp_hdr_len < 20 || tcp_hdr_len > (flow_len - ip_hdr_len)) {
-      loginfo("error: invalid tcp hdr length");
-      return 1;
+    
+    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+        /* IP packet is malformed (shorter than a complete IP header) */
+        loginfo("error: ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
+        return 1;
     }
-    /* define/compute tcp payload (segment) offset */
-    *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
+    
+    proto = (unsigned char)ix_record->key.prot;
+    
+    if (proto == IPPROTO_ICMP) {
+        unsigned int icmp_hdr_len = 8;
+        
+        if (icmp_hdr_len > (flow_len - ip_hdr_len)) {
+            loginfo("error: not enough space in payload for icmp hdr");
+            return 1;
+        }
+        /* define/compute icmp payload (segment) offset */
+        *payload = (unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
+        
+        /* compute icmp payload (segment) size */
+        *size_payload = flow_len - ip_hdr_len - icmp_hdr_len;
+    } else if (proto == IPPROTO_TCP) {
+        unsigned int tcp_hdr_len;
+        const struct tcp_hdr *tcp = (const struct tcp_hdr *)(flow_data + ip_hdr_len);
+        tcp_hdr_len = tcp_hdr_length(tcp);
+        
+        if (tcp_hdr_len < IPV4_HDR_LEN || tcp_hdr_len > (flow_len - ip_hdr_len)) {
+            loginfo("error: invalid tcp hdr length");
+            return 1;
+        }
+        /* define/compute tcp payload (segment) offset */
+        *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
+        
+        /* compute tcp payload (segment) size */
+        *size_payload = flow_len - ip_hdr_len - tcp_hdr_len;
+    } else if (proto == IPPROTO_UDP) {
+        unsigned int udp_hdr_len = 8;
+        
+        /* define/compute udp payload (segment) offset */
+        *payload = (unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
+        
+        /* compute udp payload (segment) size */
+        *size_payload = flow_len - ip_hdr_len - udp_hdr_len;
+    } else {
+        loginfo("error: transport protocol not supported");
+        return 1;
+    }
 
-    /* compute tcp payload (segment) size */
-    *size_payload = flow_len - ip_hdr_len - tcp_hdr_len;
-  } else if (proto == IPPROTO_UDP) {
-    unsigned int udp_hdr_len = 8;
-
-    /* define/compute udp payload (segment) offset */
-    *payload = (unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
-
-    /* compute udp payload (segment) size */
-    *size_payload = flow_len - ip_hdr_len - udp_hdr_len;
-  } else {
-    loginfo("error: transport protocol not supported");
-    return 1;
-  }
-
-  return 0;
+    return 0;
 }
 
 
@@ -1173,28 +1187,28 @@ static int ipfix_skip_idp_header(struct flow_record *ix_record,
  * @return 0 for success, 1 for failure
  */
 static int ipfix_process_flow_sys_up_time(const void *flow_data,
-                                          struct flow_record *ix_record,
+                                          flow_record_t *ix_record,
                                           int flag_end) {
-  struct timeval *time;
-  switch (flag_end) {
+    struct timeval *time;
+    switch (flag_end) {
     case 0:
-      time = &ix_record->start;
-      break;
+        time = &ix_record->start;
+        break;
     case 1:
-      time = &ix_record->end;
-      break;
+        time = &ix_record->end;
+        break;
     default:
-      loginfo("api-error: invalid value for flag_end, must be 0 or 1");
-      return 1;
-  }
-  if (time->tv_sec + time->tv_usec == 0) {
-    time->tv_sec =
-      (time_t)((uint32_t)(ntohl(*(const uint32_t *)flow_data) / 1000));
-
-    time->tv_usec =
-      (time_t)((uint32_t)ntohl(*(const uint32_t *)flow_data) % 1000)*1000;
-  }
-  return 0;
+        loginfo("api-error: invalid value for flag_end, must be 0 or 1");
+        return 1;
+    }
+    if (time->tv_sec + time->tv_usec == 0) {
+        time->tv_sec =
+            (time_t)((uint32_t)(ntohl(*(const uint32_t *)flow_data) / 1000));
+        
+        time->tv_usec =
+            (time_t)((uint32_t)ntohl(*(const uint32_t *)flow_data) % 1000)*1000;
+    }
+    return 0;
 }
 
 
@@ -1209,28 +1223,28 @@ static int ipfix_process_flow_sys_up_time(const void *flow_data,
  * @return 0 for success, 1 for failure
  */
 static int ipfix_process_flow_time_milli(const void *flow_data,
-                                          struct flow_record *ix_record,
-                                          int flag_end) {
-  struct timeval *time;
-  switch (flag_end) {
+                                         flow_record_t *ix_record,
+                                         int flag_end) {
+    struct timeval *time;
+    switch (flag_end) {
     case 0:
-      time = &ix_record->start;
-      break;
+        time = &ix_record->start;
+        break;
     case 1:
-      time = &ix_record->end;
-      break;
+        time = &ix_record->end;
+        break;
     default:
-      loginfo("api-error: invalid value for flag_end, must be 0 or 1");
-      return 1;
-  }
-  if (time->tv_sec + time->tv_usec == 0) {
-    time->tv_sec =
-      (time_t)((uint32_t)(ntoh64(*(const uint64_t *)flow_data) / 1000));
-
-    time->tv_usec =
-      (time_t)((uint64_t)ntoh64(*(const uint64_t *)flow_data) % 1000)*1000;
-  }
-  return 0;
+        loginfo("api-error: invalid value for flag_end, must be 0 or 1");
+        return 1;
+    }
+    if (time->tv_sec + time->tv_usec == 0) {
+        time->tv_sec =
+            (time_t)((uint32_t)(ntoh64(*(const uint64_t *)flow_data) / 1000));
+        
+        time->tv_usec =
+            (time_t)((uint64_t)ntoh64(*(const uint64_t *)flow_data) % 1000)*1000;
+    }
+    return 0;
 }
 
 
@@ -1245,28 +1259,28 @@ static int ipfix_process_flow_time_milli(const void *flow_data,
  * @return 0 for success, 1 for failure
  */
 static int ipfix_process_flow_time_micro(const void *flow_data,
-                                         struct flow_record *ix_record,
+                                         flow_record_t *ix_record,
                                          int flag_end) {
-  struct timeval *time;
-  switch (flag_end) {
+    struct timeval *time;
+    switch (flag_end) {
     case 0:
-      time = &ix_record->start;
-      break;
+        time = &ix_record->start;
+        break;
     case 1:
-      time = &ix_record->end;
-      break;
+        time = &ix_record->end;
+        break;
     default:
-      loginfo("api-error: invalid value for flag_end, must be 0 or 1");
-      return 1;
-  }
-  if (time->tv_sec + time->tv_usec == 0) {
-    time->tv_sec =
-      (time_t)((uint32_t)(ntoh64(*(const uint64_t *)flow_data) >> 32));
-
-    time->tv_usec =
-      (time_t)((uint64_t)ntoh64(*(const uint64_t *)flow_data) & 0x00000000FFFFFFFF);
-  }
-  return 0;
+        loginfo("api-error: invalid value for flag_end, must be 0 or 1");
+        return 1;
+    }
+    if (time->tv_sec + time->tv_usec == 0) {
+        time->tv_sec =
+            (time_t)((uint32_t)(ntoh64(*(const uint64_t *)flow_data) >> 32));
+        
+        time->tv_usec =
+            (time_t)((uint64_t)ntoh64(*(const uint64_t *)flow_data) & 0x00000000FFFFFFFF);
+    }
+    return 0;
 }
 
 
@@ -1278,24 +1292,24 @@ static int ipfix_process_flow_time_micro(const void *flow_data,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_byte_distribution(struct flow_record *ix_record,
+static void ipfix_process_byte_distribution(flow_record_t *ix_record,
                                             const char *data,
                                             uint16_t data_length,
                                             uint16_t element_length) {
-  int i = 0;
+    int i = 0;
 
-  if (element_length != 2) {
-    loginfo("api-error: expecting element_length == 2");
-    return;
-  }
-
-  while (data_length > 0) {
-    ix_record->byte_count[i] = (uint16_t)ntohs(*(const uint16_t *)data);
-
-    data += element_length;
-    data_length -= element_length;
-    i += 1;
-  }
+    if (element_length != 2) {
+        loginfo("api-error: expecting element_length == 2");
+        return;
+    }
+    
+    while (data_length > 0) {
+        ix_record->byte_count[i] = (uint16_t)ntohs(*(const uint16_t *)data);
+        
+        data += element_length;
+        data_length -= element_length;
+        i += 1;
+    }
 }
 
 
@@ -1307,63 +1321,63 @@ static void ipfix_process_byte_distribution(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_spl(struct flow_record *ix_record,
+static void ipfix_process_spl(flow_record_t *ix_record,
                               const char *data,
                               uint16_t data_length,
                               uint16_t element_length) {
-  int16_t old_value = 0;
-  int16_t repeated_length = 0;
-  unsigned int pkt_len_index = 0;
-
-  if (element_length != 2) {
-    loginfo("api-error: expecting element_length == 2");
-    return;
-  }
-
-  /*
-   * Set the global splt packet index variable,
-   * for use in subsequent sequence packet times.
-   */
-  splt_pkt_index = ix_record->op;
-  pkt_len_index = splt_pkt_index;
-
-  while (data_length > 0) {
-    int16_t packet_length = (int16_t)ntohs(*(const int16_t *)data);
-
-    if (packet_length >= 0) {
-      old_value = packet_length;
-      if (packet_length > 0) {
-        ix_record->op += 1;
-      }
-      if (pkt_len_index < MAX_NUM_PKT_LEN) {
-        ix_record->pkt_len[pkt_len_index] = packet_length;
-        ix_record->ob += packet_length;
-        pkt_len_index++;
-      } else {
-        break;
-      }
-    } else {
-      /*
-       * Packet length value represents the number of packets that were
-       * observed that had a length equal to the last observed packet length.
-       */
-      int i = 0;
-      repeated_length = packet_length * -1;
-      ix_record->op += repeated_length;
-      for (i = 0; i < repeated_length; i++) {
-        if (pkt_len_index < MAX_NUM_PKT_LEN) {
-          ix_record->pkt_len[pkt_len_index] = old_value;
-          ix_record->ob += old_value;
-          pkt_len_index++;
-        } else {
-          break;
-        }
-      }
+    int16_t old_value = 0;
+    int16_t repeated_length = 0;
+    unsigned int pkt_len_index = 0;
+    
+    if (element_length != 2) {
+        loginfo("api-error: expecting element_length == 2");
+        return;
     }
-
-    data += element_length;
-    data_length -= element_length;
-  }
+    
+    /*
+     * Set the global splt packet index variable,
+     * for use in subsequent sequence packet times.
+     */
+    splt_pkt_index = ix_record->op;
+    pkt_len_index = splt_pkt_index;
+    
+    while (data_length > 0) {
+        int16_t packet_length = (int16_t)ntohs(*(const int16_t *)data);
+        
+        if (packet_length >= 0) {
+            old_value = packet_length;
+            if (packet_length > 0) {
+                ix_record->op += 1;
+            }
+            if (pkt_len_index < MAX_NUM_PKT_LEN) {
+                ix_record->pkt_len[pkt_len_index] = packet_length;
+                ix_record->ob += packet_length;
+                pkt_len_index++;
+            } else {
+                break;
+            }
+        } else {
+            /*
+             * Packet length value represents the number of packets that were
+             * observed that had a length equal to the last observed packet length.
+             */
+            int i = 0;
+            repeated_length = packet_length * -1;
+            ix_record->op += repeated_length;
+            for (i = 0; i < repeated_length; i++) {
+                if (pkt_len_index < MAX_NUM_PKT_LEN) {
+                    ix_record->pkt_len[pkt_len_index] = old_value;
+                    ix_record->ob += old_value;
+                    pkt_len_index++;
+                } else {
+                    break;
+                }
+            }
+        }
+        
+        data += element_length;
+        data_length -= element_length;
+    }
 }
 
 
@@ -1376,96 +1390,98 @@ static void ipfix_process_spl(struct flow_record *ix_record,
  * @param element_length Length in octets of each element.
  * @param hdr_length Length in octets of the basicList header.
  */
-static void ipfix_process_spt(struct flow_record *ix_record,
+static void ipfix_process_spt(flow_record_t *ix_record,
                               const char *data,
                               uint16_t data_length,
                               uint16_t element_length,
                               uint16_t hdr_length) {
-  struct timeval previous_time;
-  uint16_t packet_time = 0;
-  int repeated_times = 0;
-  unsigned int pkt_time_index = 0;
-  int i = 0;
-
-  memset(&previous_time, 0, sizeof(struct timeval));
-
-  pkt_time_index = splt_pkt_index;
-
-  /* Initialize the most recent previous time */
-  if (pkt_time_index > 0) {
-    previous_time.tv_sec = ix_record->pkt_time[pkt_time_index-1].tv_sec;
-    previous_time.tv_usec = ix_record->pkt_time[pkt_time_index-1].tv_usec;
-  } else {
-    previous_time.tv_sec = ix_record->start.tv_sec;
-    previous_time.tv_usec = ix_record->start.tv_usec;
-  }
-
-  while (data_length > 0) {
-    int16_t packet_length =
-      ntohs(*(const int16_t *)((data + i) - (data_length + hdr_length)));
-    packet_time = ntohs(*(const uint16_t *)data);
-
-    /* Look for run length encoding */
-    if (packet_length < 0) {
-      int16_t repeated_length = packet_length * -1;
-      while (repeated_length > 0) {
-        if (pkt_time_index < MAX_NUM_PKT_LEN) {
-          ix_record->pkt_time[pkt_time_index] = previous_time;
-          pkt_time_index++;
-        } else {
-          break;
-        }
-        repeated_length -= 1;
-      }
-    }
-
-    if (packet_time >= 0) {
-      /*
-       * Packet_time value represents the positive time delta between
-       * the previous packet and the current packet.
-       */
-      if (pkt_time_index < MAX_NUM_PKT_LEN) {
-        previous_time.tv_sec += (time_t)(packet_time/1000);
-        previous_time.tv_usec +=
-          (uint32_t)(packet_time - ((int)(packet_time/1000.0))*1000)*1000;
-
-        /*
-         * Make sure to check for wrap around,
-         * weirdness happens when usec >= 1000000
-         */
-        if (previous_time.tv_usec >= 1000000) {
-          previous_time.tv_sec +=
-            (time_t)((int)(previous_time.tv_usec / 1000000));
-          previous_time.tv_usec %= 1000000;
-        }
-
-        ix_record->pkt_time[pkt_time_index] = previous_time;
-        pkt_time_index++;
-      } else {
-        break;
-      }
+    struct timeval previous_time;
+    uint16_t packet_time = 0;
+    //int repeated_times = 0;
+    unsigned int pkt_time_index = 0;
+    int i = 0;
+    
+    memset(&previous_time, 0, sizeof(struct timeval));
+    
+    pkt_time_index = splt_pkt_index;
+    
+    /* Initialize the most recent previous time */
+    if (pkt_time_index > 0) {
+        previous_time.tv_sec = ix_record->pkt_time[pkt_time_index-1].tv_sec;
+        previous_time.tv_usec = ix_record->pkt_time[pkt_time_index-1].tv_usec;
     } else {
-      /*
-       * Packet_time value represents the number of packets that were
-       * observed that had an arrival time equal to the last observed
-       * arrival time
-       */
-      int k;
-      repeated_times = packet_time * -1;
-      for (k = 0; k < repeated_times; k++) {
-        if (pkt_time_index < MAX_NUM_PKT_LEN) {
-          ix_record->pkt_time[pkt_time_index] = previous_time;
-          pkt_time_index++;
-        } else {
-          break;
-        }
-      }
+        previous_time.tv_sec = ix_record->start.tv_sec;
+        previous_time.tv_usec = ix_record->start.tv_usec;
     }
-
-    data += element_length;
-    data_length -= element_length;
-    i += 2;
-  }
+    
+    while (data_length > 0) {
+        int16_t packet_length =
+            ntohs(*(const int16_t *)((data + i) - (data_length + hdr_length)));
+        packet_time = ntohs(*(const uint16_t *)data);
+        
+        /* Look for run length encoding */
+        if (packet_length < 0) {
+            int16_t repeated_length = packet_length * -1;
+            while (repeated_length > 0) {
+                if (pkt_time_index < MAX_NUM_PKT_LEN) {
+                    ix_record->pkt_time[pkt_time_index] = previous_time;
+                    pkt_time_index++;
+                } else {
+                    break;
+                }
+                repeated_length -= 1;
+            }
+        }
+        
+//    if (packet_time >= 0) {
+        /*
+         * Packet_time value represents the positive time delta between
+         * the previous packet and the current packet.
+         */
+        if (pkt_time_index < MAX_NUM_PKT_LEN) {
+            previous_time.tv_sec += (time_t)(packet_time/1000);
+            previous_time.tv_usec +=
+                (uint32_t)(packet_time - ((int)(packet_time/1000.0))*1000)*1000;
+            
+            /*
+             * Make sure to check for wrap around,
+             * weirdness happens when usec >= 1000000
+             */
+            if (previous_time.tv_usec >= 1000000) {
+                previous_time.tv_sec +=
+                    (time_t)((int)(previous_time.tv_usec / 1000000));
+                previous_time.tv_usec %= 1000000;
+            }
+            
+            ix_record->pkt_time[pkt_time_index] = previous_time;
+            pkt_time_index++;
+        } else {
+            break;
+        }
+//    } else {
+#if 0
+        /*
+         * Packet_time value represents the number of packets that were
+         * observed that had an arrival time equal to the last observed
+         * arrival time
+         */
+        int k;
+        repeated_times = packet_time * -1;
+        for (k = 0; k < repeated_times; k++) {
+            if (pkt_time_index < MAX_NUM_PKT_LEN) {
+                ix_record->pkt_time[pkt_time_index] = previous_time;
+                pkt_time_index++;
+            } else {
+                break;
+            }
+        }
+#endif
+//    }
+        
+        data += element_length;
+        data_length -= element_length;
+        i += 2;
+    }
 }
 
 
@@ -1477,24 +1493,24 @@ static void ipfix_process_spt(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
+static void ipfix_process_tls_record_lengths(flow_record_t *ix_record,
                                              const char *data,
                                              uint16_t data_length,
                                              uint16_t element_length) {
-  int i = 0;
+    int i = 0;
 
-  if (element_length != 2) {
-    loginfo("api-error: expecting element_length == 2");
-    return;
-  }
-
-  while (data_length > 0) {
-    ix_record->tls->lengths[i] = ntohs(*((const uint16_t *)data));
-
-    data += element_length;
-    data_length -= element_length;
-    i++;
-  }
+    if (element_length != 2) {
+        loginfo("api-error: expecting element_length == 2");
+        return;
+    }
+    
+    while (data_length > 0) {
+        ix_record->tls->lengths[i] = ntohs(*((const uint16_t *)data));
+        
+        data += element_length;
+        data_length -= element_length;
+        i++;
+    }
 }
 
 
@@ -1506,34 +1522,34 @@ static void ipfix_process_tls_record_lengths(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_record_times(struct flow_record *ix_record,
+static void ipfix_process_tls_record_times(flow_record_t *ix_record,
                                            const char *data,
                                            uint16_t data_length,
                                            uint16_t element_length) {
-  uint32_t total_ms = 0;
-  int i = 0;
+    uint32_t total_ms = 0;
+    int i = 0;
 
-  if (element_length != 2) {
-    loginfo("api-error: expecting element_length == 2");
-    return;
-  }
+    if (element_length != 2) {
+        loginfo("api-error: expecting element_length == 2");
+        return;
+    }
 
-  while (data_length > 0) {
-    uint16_t value_time = ntohs(*((const uint16_t *)data));
-    ix_record->tls->times[i].tv_sec =
-      ((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
-      + (ix_record->start.tv_usec / 1000)) / 1000;
-
-    ix_record->tls->times[i].tv_usec =
-      (((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
-        + (ix_record->start.tv_usec/1000)) % 1000) * 1000;
-
-    total_ms += value_time;
-
-    data += element_length;
-    data_length -= element_length;
-    i++;
-  }
+    while (data_length > 0) {
+        uint16_t value_time = ntohs(*((const uint16_t *)data));
+        ix_record->tls->times[i].tv_sec =
+            ((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
+             + (ix_record->start.tv_usec / 1000)) / 1000;
+        
+        ix_record->tls->times[i].tv_usec =
+            (((total_ms + value_time) + (ix_record->start.tv_sec * 1000)
+              + (ix_record->start.tv_usec/1000)) % 1000) * 1000;
+        
+        total_ms += value_time;
+        
+        data += element_length;
+        data_length -= element_length;
+        i++;
+    }
 }
 
 
@@ -1545,24 +1561,24 @@ static void ipfix_process_tls_record_times(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_content_types(struct flow_record *ix_record,
+static void ipfix_process_tls_content_types(flow_record_t *ix_record,
                                             const char *data,
                                             uint16_t data_length,
                                             uint16_t element_length) {
-  int i = 0;
+    int i = 0;
+    
+    if (element_length != 1) {
+        loginfo("api-error: expecting element_length == 1");
+        return;
+    }
 
-  if (element_length != 1) {
-    loginfo("api-error: expecting element_length == 1");
-    return;
-  }
-
-  while (data_length > 0) {
-    ix_record->tls->msg_stats[i].content_type = *((const uint8_t *)data);
-
-    data += element_length;
-    data_length -= element_length;
-    i++;
-  }
+    while (data_length > 0) {
+        ix_record->tls->msg_stats[i].content_type = *((const uint8_t *)data);
+        
+        data += element_length;
+        data_length -= element_length;
+        i++;
+    }
 }
 
 
@@ -1574,26 +1590,26 @@ static void ipfix_process_tls_content_types(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
+static void ipfix_process_tls_handshake_types(flow_record_t *ix_record,
                                               const char *data,
                                               uint16_t data_length,
                                               uint16_t element_length) {
-  int i = 0;
-
-  if (element_length != 1) {
-    loginfo("api-error: expecting element_length == 1");
-    return;
-  }
-
-  while (data_length > 0) {
-    ix_record->tls->msg_stats[i].handshake_types[0] = *((const uint8_t *)data);
-    ix_record->tls->msg_stats[i].num_handshakes = 1;
-    ix_record->tls->op += 1;
-
-    data += element_length;
-    data_length -= element_length;
-    i++;
-  }
+    int i = 0;
+    
+    if (element_length != 1) {
+        loginfo("api-error: expecting element_length == 1");
+        return;
+    }
+    
+    while (data_length > 0) {
+        ix_record->tls->msg_stats[i].handshake_types[0] = *((const uint8_t *)data);
+        ix_record->tls->msg_stats[i].num_handshakes = 1;
+        ix_record->tls->op += 1;
+        
+        data += element_length;
+        data_length -= element_length;
+        i++;
+    }
 }
 
 
@@ -1605,25 +1621,25 @@ static void ipfix_process_tls_handshake_types(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_cipher_suites(struct flow_record *ix_record,
+static void ipfix_process_tls_cipher_suites(flow_record_t *ix_record,
                                             const char *data,
                                             uint16_t data_length,
                                             uint16_t element_length) {
-  int i = 0;
-
-  if (element_length != 2) {
-    loginfo("api-error: expecting element_length == 2");
-    return;
-  }
-
-  while (data_length > 0) {
-    ix_record->tls->ciphersuites[i] = ntohs(*((const uint16_t *)data));
-    ix_record->tls->num_ciphersuites += 1;
-
-    data += element_length;
-    data_length -= element_length;
-    i++;
-  }
+    int i = 0;
+    
+    if (element_length != 2) {
+        loginfo("api-error: expecting element_length == 2");
+        return;
+    }
+    
+    while (data_length > 0) {
+        ix_record->tls->ciphersuites[i] = ntohs(*((const uint16_t *)data));
+        ix_record->tls->num_ciphersuites += 1;
+        
+        data += element_length;
+        data_length -= element_length;
+        i++;
+    }
 }
 
 
@@ -1635,24 +1651,24 @@ static void ipfix_process_tls_cipher_suites(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
+static void ipfix_process_tls_ext_lengths(flow_record_t *ix_record,
                                           const char *data,
                                           uint16_t data_length,
                                           uint16_t element_length) {
-  int i = 0;
-
-  if (element_length != 2) {
-    loginfo("api-error: expecting element_length == 2");
-    return;
-  }
-
-  while (data_length > 0) {
-    ix_record->tls->extensions[i].length = ntohs(*((const uint16_t *)data));
-
-    data += element_length;
-    data_length -= element_length;
-    i++;
-  }
+    int i = 0;
+    
+    if (element_length != 2) {
+        loginfo("api-error: expecting element_length == 2");
+        return;
+    }
+    
+    while (data_length > 0) {
+        ix_record->tls->extensions[i].length = ntohs(*((const uint16_t *)data));
+        
+        data += element_length;
+        data_length -= element_length;
+        i++;
+    }
 }
 
 
@@ -1664,26 +1680,26 @@ static void ipfix_process_tls_ext_lengths(struct flow_record *ix_record,
  * @param data_length Length in octets of the data.
  * @param element_length Length in octets of each element.
  */
-static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
+static void ipfix_process_tls_ext_types(flow_record_t *ix_record,
                                           const char *data,
                                           uint16_t data_length,
                                           uint16_t element_length) {
-  int i = 0;
-
-  if (element_length != 2) {
-    loginfo("api-error: expecting element_length == 2");
-    return;
-  }
-
-  while (data_length > 0) {
-    ix_record->tls->extensions[i].type = ntohs(*((const uint16_t *)data));
-    ix_record->tls->extensions[i].data = NULL;
-    ix_record->tls->num_extensions += 1;
-
-    data += element_length;
-    data_length -= element_length;
-    i++;
-  }
+    int i = 0;
+    
+    if (element_length != 2) {
+        loginfo("api-error: expecting element_length == 2");
+        return;
+    }
+    
+    while (data_length > 0) {
+        ix_record->tls->extensions[i].type = ntohs(*((const uint16_t *)data));
+        ix_record->tls->extensions[i].data = NULL;
+        ix_record->tls->num_extensions += 1;
+        
+        data += element_length;
+        data_length -= element_length;
+        i++;
+    }
 }
 
 
@@ -1694,83 +1710,83 @@ static void ipfix_process_tls_ext_types(struct flow_record *ix_record,
  * @param data Contains the basicList.
  * @param data_length Length in octets of the basicList.
  */
-static void ipfix_parse_basic_list(struct flow_record *ix_record,
+static void ipfix_parse_basic_list(flow_record_t *ix_record,
                                    const void *data,
                                    uint16_t data_length) {
-  const char *ptr = data;
-  const struct ipfix_basic_list_hdr *bl_hdr = (const struct ipfix_basic_list_hdr*)ptr;
-  //uint8_t semantic = bl_hdr->semantic;
-  uint16_t field_id = ntohs(bl_hdr->field_id);
-  uint16_t element_length = ntohs(bl_hdr->element_length);
-  //uint32_t enterprise_num = 0;
-  uint8_t hdr_length = 5; /* default 5 bytes */
-  uint16_t remaining_length = data_length;
-
-  if ipfix_field_enterprise_bit(field_id) {
-    /* Enterprise bit is set,  */
-    //enterprise_num = ntohl(bl_hdr->enterprise_num);
-    /* Remove the bit from field_id */
-    field_id = field_id ^ 0x8000;
-    hdr_length += 4;
-  }
-
-  remaining_length -= hdr_length;
-  ptr += hdr_length;
-
-  switch (field_id) {
+    const char *ptr = data;
+    const ipfix_basic_list_hdr_t *bl_hdr = (const ipfix_basic_list_hdr_t*)ptr;
+    //uint8_t semantic = bl_hdr->semantic;
+    uint16_t field_id = ntohs(bl_hdr->field_id);
+    uint16_t element_length = ntohs(bl_hdr->element_length);
+    //uint32_t enterprise_num = 0;
+    uint8_t hdr_length = 5; /* default 5 bytes */
+    uint16_t remaining_length = data_length;
+    
+    if ipfix_field_enterprise_bit(field_id) {
+            /* Enterprise bit is set,  */
+            //enterprise_num = ntohl(bl_hdr->enterprise_num);
+            /* Remove the bit from field_id */
+            field_id = field_id ^ 0x8000;
+            hdr_length += 4;
+        }
+    
+    remaining_length -= hdr_length;
+    ptr += hdr_length;
+    
+    switch (field_id) {
     case IPFIX_BYTE_DISTRIBUTION:
-      ipfix_process_byte_distribution(ix_record, ptr, remaining_length,
-                                      element_length);
-      break;
-
-    case IPFIX_SEQUENCE_PACKET_LENGTHS:
-      ipfix_process_spl(ix_record, ptr, remaining_length,
-                        element_length);
-      break;
-
-    case IPFIX_SEQUENCE_PACKET_TIMES:
-      ipfix_process_spt(ix_record, ptr, remaining_length,
-                        element_length, hdr_length);
-      break;
-
-    case IPFIX_TLS_RECORD_LENGTHS:
-      ipfix_process_tls_record_lengths(ix_record, ptr, remaining_length,
-                                       element_length);
-      break;
-
-    case IPFIX_TLS_RECORD_TIMES:
-      ipfix_process_tls_record_times(ix_record, ptr, remaining_length,
-                                     element_length);
-      break;
-
-    case IPFIX_TLS_CONTENT_TYPES:
-      ipfix_process_tls_content_types(ix_record, ptr, remaining_length,
-                                      element_length);
-      break;
-
-    case IPFIX_TLS_HANDSHAKE_TYPES:
-      ipfix_process_tls_handshake_types(ix_record, ptr, remaining_length,
+        ipfix_process_byte_distribution(ix_record, ptr, remaining_length,
                                         element_length);
-      break;
-
+        break;
+        
+    case IPFIX_SEQUENCE_PACKET_LENGTHS:
+        ipfix_process_spl(ix_record, ptr, remaining_length,
+                          element_length);
+        break;
+        
+    case IPFIX_SEQUENCE_PACKET_TIMES:
+        ipfix_process_spt(ix_record, ptr, remaining_length,
+                          element_length, hdr_length);
+        break;
+        
+    case IPFIX_TLS_RECORD_LENGTHS:
+        ipfix_process_tls_record_lengths(ix_record, ptr, remaining_length,
+                                         element_length);
+        break;
+        
+    case IPFIX_TLS_RECORD_TIMES:
+        ipfix_process_tls_record_times(ix_record, ptr, remaining_length,
+                                       element_length);
+        break;
+        
+    case IPFIX_TLS_CONTENT_TYPES:
+        ipfix_process_tls_content_types(ix_record, ptr, remaining_length,
+                                        element_length);
+        break;
+        
+    case IPFIX_TLS_HANDSHAKE_TYPES:
+        ipfix_process_tls_handshake_types(ix_record, ptr, remaining_length,
+                                          element_length);
+        break;
+        
     case IPFIX_TLS_CIPHER_SUITES:
-      ipfix_process_tls_cipher_suites(ix_record, ptr, remaining_length,
-                                      element_length);
-      break;
-
+        ipfix_process_tls_cipher_suites(ix_record, ptr, remaining_length,
+                                        element_length);
+        break;
+        
     case IPFIX_TLS_EXTENSION_LENGTHS:
-      ipfix_process_tls_ext_lengths(ix_record, ptr, remaining_length,
-                                    element_length);
-      break;
-
+        ipfix_process_tls_ext_lengths(ix_record, ptr, remaining_length,
+                                      element_length);
+        break;
+        
     case IPFIX_TLS_EXTENSION_TYPES:
-      ipfix_process_tls_ext_types(ix_record, ptr, remaining_length,
-                                  element_length);
-      break;
-
+        ipfix_process_tls_ext_types(ix_record, ptr, remaining_length,
+                                    element_length);
+        break;
+        
     default:
-      break;
-  }
+        break;
+    }
 }
 
 
@@ -1784,157 +1800,161 @@ static void ipfix_parse_basic_list(struct flow_record *ix_record,
  *                   Use 0 for yes, otherwise no
  *
  */
-static void ipfix_process_flow_record(struct flow_record *ix_record,
-                               const struct ipfix_template *cur_template,
-                               const char *flow_data,
-                               int record_num) {
-  //uint16_t bd_format = 1;
-  const struct pcap_pkthdr *header = NULL;   /* dummy */
-  const char *flow_ptr = flow_data;
-  const unsigned char *payload = NULL;
-  unsigned int size_payload = 0;
-  struct flow_record *record = ix_record;
-  int i;
-
-  for (i = 0; i < cur_template->hdr.field_count; i++) {
-    uint16_t field_length = 0;
-    uint8_t flag_var_field = 0;
-    flow_data = flow_ptr;
-
-    if (cur_template->fields[i].fixed_length == 65535) {
-      /*
-       * This is a variable length field
-       */
-      flag_var_field = 1;
-
-      if (cur_template->fields[i].variable_length) {
-        /* Variable length is greater than 0 */
-        field_length = cur_template->fields[i].variable_length;
-      }
-      /* Move just beyond the var header */
-      flow_data += cur_template->fields[i].var_hdr_length;
-      flow_ptr += cur_template->fields[i].var_hdr_length;
-    } else {
-      /* Field length is fixed */
-      field_length = cur_template->fields[i].fixed_length;
-    }
-
-    switch (cur_template->fields[i].info_elem_id) {
-      case IPFIX_PACKET_DELTA_COUNT:
-        if (record_num == 0) {
-          if (cur_template->fields[i].fixed_length == 4) {
-            ix_record->np += ntohl(*(const uint32_t *)(flow_data));
-          } else {
-            ix_record->np +=
-              ntoh64(*(const uint64_t *)(flow_data));
-          }
+static void ipfix_process_flow_record(flow_record_t *ix_record,
+                                      const ipfix_template_t *cur_template,
+                                      const char *flow_data,
+                                      int record_num) {
+    //uint16_t bd_format = 1;
+    const struct pcap_pkthdr *header = NULL;   /* dummy */
+    const char *flow_ptr = flow_data;
+    const unsigned char *payload = NULL;
+    unsigned int size_payload = 0;
+    flow_record_t *record = ix_record;
+    int i;
+    
+    for (i = 0; i < cur_template->hdr.field_count; i++) {
+        uint16_t field_length = 0;
+        uint8_t flag_var_field = 0;
+        flow_data = flow_ptr;
+        
+        if (cur_template->fields[i].fixed_length == 65535) {
+            /*
+             * This is a variable length field
+             */
+            flag_var_field = 1;
+            
+            if (cur_template->fields[i].variable_length) {
+                /* Variable length is greater than 0 */
+                field_length = cur_template->fields[i].variable_length;
+            }
+            /* Move just beyond the var header */
+            flow_data += cur_template->fields[i].var_hdr_length;
+            flow_ptr += cur_template->fields[i].var_hdr_length;
+        } else {
+            /* Field length is fixed */
+            field_length = cur_template->fields[i].fixed_length;
         }
-
-        flow_ptr += field_length;
-        break;
-
-      case IPFIX_FLOW_START_SYS_UP_TIME:
-        ipfix_process_flow_sys_up_time(flow_data, ix_record, 0);
-
-        flow_ptr += field_length;
-        break;
-
-      case IPFIX_FLOW_END_SYS_UP_TIME:
-        ipfix_process_flow_sys_up_time(flow_data, ix_record, 1);
-
-        flow_ptr += field_length;
-        break;
-
-      case IPFIX_FLOW_START_MILLISECONDS:
-        ipfix_process_flow_time_milli(flow_data, ix_record, 0);
-
-        flow_ptr += field_length;
-        break;
-
-      case IPFIX_FLOW_END_MILLISECONDS:
-        ipfix_process_flow_time_milli(flow_data, ix_record, 1);
-
-        flow_ptr += field_length;
-        break;
-
-      case IPFIX_FLOW_START_MICROSECONDS:
-        ipfix_process_flow_time_micro(flow_data, ix_record, 0);
-
-        flow_ptr += field_length;
-        break;
-
-      case IPFIX_FLOW_END_MICROSECONDS:
-        ipfix_process_flow_time_micro(flow_data, ix_record, 1);
-
-        flow_ptr += field_length;
-        break;
-
-      case IPFIX_TLS_VERSION:
-        ix_record->tls->version = *(const uint8_t *)flow_data;
-        flow_data += field_length;
-        break;
-
-      case IPFIX_TLS_KEY_LENGTH:
-        ix_record->tls->client_key_length = ntohs(*(const uint16_t *)flow_data);
-        flow_data += field_length;
-        break;
-
-      case IPFIX_TLS_SESSION_ID:
-        ix_record->tls->sid_len = min(field_length, 256);
-        memcpy(ix_record->tls->sid, flow_data, ix_record->tls->sid_len);
-        flow_data += field_length;
-        break;
-
-      case IPFIX_TLS_RANDOM:
-        memcpy(ix_record->tls->random, flow_data, 32);
-        flow_data += field_length;
-        break;
-
-      case IPFIX_COLLECT_IDP:
-        if (flag_var_field && (field_length != 0)) {
-          /*
-           * We have actual IDP data to process
-           */
-          if (ix_record->idp != NULL) {
-            free(ix_record->idp);
-          }
-          ix_record->idp_len = field_length;
-          ix_record->idp = malloc(ix_record->idp_len);
-          if (ix_record->idp != NULL) {
-            memcpy(ix_record->idp, flow_data, ix_record->idp_len);
-          }
-
-          /* Get the start of IDP packet payload */
-          payload = NULL;
-          size_payload = 0;
-          if (ipfix_skip_idp_header(ix_record, &payload, &size_payload)) {
-            /* Error skipping idp header */
+        
+        switch (cur_template->fields[i].info_elem_id) {
+        case IPFIX_PACKET_DELTA_COUNT:
+            if (record_num == 0) {
+                if (cur_template->fields[i].fixed_length == 4) {
+                    ix_record->np += ntohl(*(const uint32_t *)(flow_data));
+                } else {
+                    ix_record->np +=
+                        ntoh64(*(const uint64_t *)(flow_data));
+                }
+            }
+            
             flow_ptr += field_length;
             break;
-          }
-
-          /* Update all enabled feature modules */
-          update_all_features(feature_list);
-          flow_ptr += field_length;
-          break;
-        }
+            
+        case IPFIX_FLOW_START_SYS_UP_TIME:
+            ipfix_process_flow_sys_up_time(flow_data, ix_record, 0);
+            
+            flow_ptr += field_length;
+            break;
+            
+        case IPFIX_FLOW_END_SYS_UP_TIME:
+            ipfix_process_flow_sys_up_time(flow_data, ix_record, 1);
+            
+            flow_ptr += field_length;
+            break;
+            
+        case IPFIX_FLOW_START_MILLISECONDS:
+            ipfix_process_flow_time_milli(flow_data, ix_record, 0);
+            
+            flow_ptr += field_length;
+            break;
+            
+        case IPFIX_FLOW_END_MILLISECONDS:
+            ipfix_process_flow_time_milli(flow_data, ix_record, 1);
+            
+            flow_ptr += field_length;
+            break;
+            
+        case IPFIX_FLOW_START_MICROSECONDS:
+            ipfix_process_flow_time_micro(flow_data, ix_record, 0);
+            
+            flow_ptr += field_length;
+            break;
+            
+        case IPFIX_FLOW_END_MICROSECONDS:
+            ipfix_process_flow_time_micro(flow_data, ix_record, 1);
+            
+            flow_ptr += field_length;
+            break;
+            
+        case IPFIX_TLS_VERSION:
+            ix_record->tls->version = *(const uint8_t *)flow_data;
+            flow_data += field_length;
+            break;
+            
+        case IPFIX_TLS_KEY_LENGTH:
+            ix_record->tls->client_key_length = ntohs(*(const uint16_t *)flow_data);
+            flow_data += field_length;
+            break;
+            
+        case IPFIX_TLS_SESSION_ID:
+            ix_record->tls->sid_len = min(field_length, 256);
+            memcpy(ix_record->tls->sid, flow_data, ix_record->tls->sid_len);
+            flow_data += field_length;
+            break;
+            
+        case IPFIX_TLS_RANDOM:
+            memcpy(ix_record->tls->random, flow_data, 32);
+            flow_data += field_length;
+            break;
+            
+        case IPFIX_COLLECT_IDP:
+            if (flag_var_field && (field_length != 0)) {
+                /*
+                 * We have actual IDP data to process
+                 */
+                if (ix_record->idp != NULL) {
+                    free(ix_record->idp);
+                    ix_record->idp = NULL;
+                }
+                ix_record->idp_len = field_length;
+                ix_record->idp = calloc(1, ix_record->idp_len);
+                if (ix_record->idp == NULL) {
+                    loginfo("out of memory for idp\n");
+                    return;
+                }
+                memcpy(ix_record->idp, flow_data, ix_record->idp_len);
+                
+                
+                /* Get the start of IDP packet payload */
+                payload = NULL;
+                size_payload = 0;
+                if (ipfix_skip_idp_header(ix_record, &payload, &size_payload)) {
+                    /* Error skipping idp header */
+                    flow_ptr += field_length;
+                    break;
+                }
+                
+                /* Update all enabled feature modules */
+                update_all_features(feature_list);
+                flow_ptr += field_length;
+                break;
+            }
 #if 0
-      case IPFIX_BYTE_DISTRIBUTION_FORMAT:
-        bd_format = (uint16_t)*((const uint16_t *)flow_data);
-        flow_ptr += field_length;
-        break;
+        case IPFIX_BYTE_DISTRIBUTION_FORMAT:
+            bd_format = (uint16_t)*((const uint16_t *)flow_data);
+            flow_ptr += field_length;
+            break;
 #endif
-
-      case IPFIX_BASIC_LIST:
-        ipfix_parse_basic_list(ix_record, flow_data, field_length);
-        flow_ptr += field_length;
-        break;
-
-      default:
-        flow_ptr += field_length;
-        break;
+            
+        case IPFIX_BASIC_LIST:
+            ipfix_parse_basic_list(ix_record, flow_data, field_length);
+            flow_ptr += field_length;
+            break;
+            
+        default:
+            flow_ptr += field_length;
+            break;
+        }
     }
-  }
 }
 
 
@@ -1960,10 +1980,10 @@ static uint32_t exporter_obs_dom_id = 0;
 static uint16_t exporter_template_id = 256;
 
 #define ipfix_exp_template_field_macro(a, b) \
-  ((struct ipfix_exporter_template_field) {a, b, 0})
+  ((ipfix_exporter_template_field_t) {a, b, 0})
 
 #define ipfix_exp_template_ent_field_macro(a, b) \
-  ((struct ipfix_exporter_template_field) {a, b, 9})
+  ((ipfix_exporter_template_field_t) {a, b, 9})
 
 
 /*
@@ -1972,12 +1992,11 @@ static uint16_t exporter_template_id = 256;
  * @param template IPFIX exporter template which will have allocated memory
  *                 attached to it via pointer.
  */
-static void ipfix_exp_template_fields_malloc(struct ipfix_exporter_template *template,
+static void ipfix_exp_template_fields_malloc(ipfix_exporter_template_t *template,
                                              uint16_t field_count) {
-  size_t field_list_size = field_count * sizeof(struct ipfix_exporter_template_field);
-
-  template->fields = malloc(field_list_size);
-  memset(template->fields, 0, field_list_size);
+    size_t field_list_size = field_count * sizeof(ipfix_exporter_template_field_t);
+    
+    template->fields = calloc(1, field_list_size);
 }
 
 
@@ -1987,22 +2006,24 @@ static void ipfix_exp_template_fields_malloc(struct ipfix_exporter_template *tem
  * @param template IPFIX exporter template which will have allocated memory
  *                 attached to it via pointer.
  */
-static void ipfix_delete_exp_template_fields(struct ipfix_exporter_template *template) {
-  uint16_t field_count = 0;
+static void ipfix_delete_exp_template_fields(ipfix_exporter_template_t *template) {
+    uint16_t field_count = 0;
 
-  if (template == NULL) {
-    loginfo("api-error: template is null");
-  }
-
-  field_count = template->hdr.field_count;
-
-  size_t field_list_size = field_count * sizeof(struct ipfix_exporter_template_field);
-  if (template->fields) {
-    memset(template->fields, 0, field_list_size);
-    free(template->fields);
-  } else {
-    loginfo("warning: fields were already null");
-  }
+    if (template == NULL) {
+        loginfo("api-error: template is null");
+        return;
+    }
+    
+    field_count = template->hdr.field_count;
+    
+    size_t field_list_size = field_count * sizeof(ipfix_exporter_template_field_t);
+    if (template->fields) {
+        memset(template->fields, 0, field_list_size);
+        free(template->fields);
+        template->fields = NULL;
+    } else {
+        loginfo("warning: fields were already null");
+    }
 }
 
 
@@ -2013,21 +2034,20 @@ static void ipfix_delete_exp_template_fields(struct ipfix_exporter_template *tem
  *
  * @return A newly allocated ipfix_exporter_template
  */
-static struct ipfix_exporter_template *ipfix_exp_template_malloc(uint16_t field_count) {
-  /* Init a new exporter template on the heap */
-  struct ipfix_exporter_template *template = malloc(sizeof(struct ipfix_exporter_template));
+static ipfix_exporter_template_t *ipfix_exp_template_malloc(uint16_t field_count) {
+    /* Init a new exporter template on the heap */
+    ipfix_exporter_template_t *template = calloc(1, sizeof(ipfix_exporter_template_t));
 
-  if (template != NULL) {
-    memset(template, 0, sizeof(struct ipfix_exporter_template));
-    /* Allocate memory for the fields */
-    ipfix_exp_template_fields_malloc(template, field_count);
-  } else {
-    loginfo("error: malloc failed");
-  }
-
-  template->length = 4;
-
-  return template;
+    if (template != NULL) {
+        /* Allocate memory for the fields */
+        ipfix_exp_template_fields_malloc(template, field_count);
+        template->length = 4;
+        
+    } else {
+        loginfo("error: malloc failed");
+    }
+    
+    return template;
 }
 
 
@@ -2038,20 +2058,21 @@ static struct ipfix_exporter_template *ipfix_exp_template_malloc(uint16_t field_
  *
  * @param template IPFIX exporter template that will have it's heap memory freed.
  */
-static inline void ipfix_delete_exp_template(struct ipfix_exporter_template *template) {
-  if (template == NULL) {
-    loginfo("api-error: template is null");
-    return;
-  }
-
-  if (template->fields) {
-    /* Free the attached fields memory */
-    ipfix_delete_exp_template_fields(template);
-  }
-
-  /* Free the template */
-  memset(template, 0, sizeof(struct ipfix_exporter_template));
-  free(template);
+static inline void ipfix_delete_exp_template(ipfix_exporter_template_t *template) {
+    if (template == NULL) {
+        loginfo("api-error: template is null");
+        return;
+    }
+    
+    if (template->fields) {
+        /* Free the attached fields memory */
+        ipfix_delete_exp_template_fields(template);
+    }
+    
+    /* Free the template */
+    memset(template, 0, sizeof(ipfix_exporter_template_t));
+    free(template);
+    template = NULL;
 }
 
 
@@ -2060,19 +2081,17 @@ static inline void ipfix_delete_exp_template(struct ipfix_exporter_template *tem
  *
  * @return A newly allocated ipfix_exporter_data
  */
-static struct ipfix_exporter_data *ipfix_exp_data_record_malloc(void) {
-  struct ipfix_exporter_data *data_record = NULL;
-
-  /* Init a new exporter data record on the heap */
-  data_record = malloc(sizeof(struct ipfix_exporter_data));
-
-  if (data_record != NULL) {
-    memset(data_record, 0, sizeof(struct ipfix_exporter_data));
-  } else {
-    loginfo("error: malloc failed, data record is null");
-  }
-
-  return data_record;
+static ipfix_exporter_data_t *ipfix_exp_data_record_malloc(void) {
+    ipfix_exporter_data_t *data_record = NULL;
+    
+    /* Init a new exporter data record on the heap */
+    data_record = calloc(1, sizeof(ipfix_exporter_data_t));
+    
+    if (data_record == NULL) {
+        loginfo("error: malloc failed, data record is null");
+    }
+    
+    return data_record;
 }
 
 
@@ -2081,34 +2100,35 @@ static struct ipfix_exporter_data *ipfix_exp_data_record_malloc(void) {
  *
  * @param template IPFIX exporter data record that will have it's heap memory freed.
  */
-static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data_record) {
-  enum ipfix_template_type template_type = 0;
-  uint16_t variable_len = 0;
+static inline void ipfix_delete_exp_data_record(ipfix_exporter_data_t *data_record) {
+    ipfix_template_type_e template_type = 0;
+    uint16_t variable_len = 0;
 
-  if (data_record == NULL) {
-    loginfo("api-error: data record is null");
-    return;
-  }
+    if (data_record == NULL) {
+        loginfo("api-error: data record is null");
+        return;
+    }
 
-  template_type = data_record->type;
-  switch (template_type) {
+    template_type = data_record->type;
+    switch (template_type) {
     case IPFIX_IDP_TEMPLATE:
-      variable_len = data_record->record.idp_record.idp_field.length;
-      if (variable_len != 0) {
-        /* Deallocate the IDP memory buffer */
-        memset(data_record->record.idp_record.idp_field.info, 0,
-               variable_len);
-        free(data_record->record.idp_record.idp_field.info);
-      }
-      break;
-
+        variable_len = data_record->record.idp_record.idp_field.length;
+        if (variable_len != 0) {
+            /* Deallocate the IDP memory buffer */
+            memset(data_record->record.idp_record.idp_field.info, 0,
+                   variable_len);
+            free(data_record->record.idp_record.idp_field.info);
+        }
+        break;
+        
     default:
-      break;
-  }
-
-  /* Free the data record */
-  memset(data_record, 0, sizeof(struct ipfix_exporter_data));
-  free(data_record);
+        break;
+    }
+    
+    /* Free the data record */
+    memset(data_record, 0, sizeof(ipfix_exporter_data_t));
+    free(data_record);
+    data_record = NULL;
 }
 
 
@@ -2122,31 +2142,33 @@ static inline void ipfix_delete_exp_data_record(struct ipfix_exporter_data *data
  *
  * @return 0 if templates was added, 1 if template was not added.
  */
-static int ipfix_xts_append(struct ipfix_exporter_template *template) {
-  if (xts_count >= (MAX_IPFIX_TEMPLATES - 1)) {
-    loginfo("warning: ipfix template cannot be added to xts, already at maximum storage threshold");
-    return 1;
-  }
+static int ipfix_xts_append(ipfix_exporter_template_t *template) {
+    if (xts_count >= (MAX_IPFIX_TEMPLATES - 1)) {
+        loginfo("warning: ipfix template cannot be added to xts, already at maximum storage threshold");
+        return 1;
+    }
 
-  /* Write the current time */
-  //template->last_seen = time(NULL);
+    /* Write the current time */
+    //template->last_seen = time(NULL);
+    
+    pthread_mutex_lock(&export_lock);
+    if (export_template_store_head == NULL) {
+        /* This is the first template in store list */
+        export_template_store_head = template;
+    } else {
+        /* Append to the end of store list */
+        export_template_store_tail->next = template;
+        template->prev = export_template_store_tail;
+    }
+    
+    /* Update the tail */
+    export_template_store_tail = template;
+    
+    /* Increment the store count */
+    xts_count += 1;
+    pthread_mutex_unlock(&export_lock);
 
-  if (export_template_store_head == NULL) {
-    /* This is the first template in store list */
-    export_template_store_head = template;
-  } else {
-    /* Append to the end of store list */
-    export_template_store_tail->next = template;
-    template->prev = export_template_store_tail;
-  }
-
-  /* Update the tail */
-  export_template_store_tail = template;
-
-  /* Increment the store count */
-  xts_count += 1;
-
-  return 0;
+    return 0;
 }
 
 
@@ -2163,47 +2185,49 @@ static int ipfix_xts_append(struct ipfix_exporter_template *template) {
  *
  * @return 0 for success, 1 for failure.
  */
-static int ipfix_xts_copy(struct ipfix_exporter_template **dest_template,
-                           struct ipfix_exporter_template *src_template) {
-  uint16_t field_count = src_template->hdr.field_count;
-  struct ipfix_exporter_template_field *new_fields = NULL;
-  struct ipfix_exporter_template *new_template = NULL;
-  size_t field_list_size = field_count * sizeof(struct ipfix_exporter_template_field);
-
-  if (dest_template == NULL || src_template == NULL) {
-    loginfo("api-error: dest or src template is null");
-    return 1;
-  }
-
-  /* Allocate heap memory for new_template */
-  new_template = ipfix_exp_template_malloc(field_count);
-
-  if (new_template == NULL) {
-    loginfo("error: template is null");
-    return 1;
-  }
-
-  /* Save pointer to new_template field memory */
-  new_fields = new_template->fields;
-
-  memcpy(new_template, src_template, sizeof(struct ipfix_exporter_template));
-
-  /* Reattach new_fields */
-  new_template->fields = new_fields;
-
-  /* New template is a copy, so it isn't part of the store */
-  new_template->next = NULL;
-  new_template->prev = NULL;
-
-  /* Copy the fields data */
-  if (src_template->fields && new_template->fields) {
-    memcpy(new_template->fields, src_template->fields, field_list_size);
-  }
-
-  /* Assign dest_template handle to newly allocated template */
-  *dest_template = new_template;
-
-  return 0;
+static int ipfix_xts_copy(ipfix_exporter_template_t **dest_template,
+                          ipfix_exporter_template_t *src_template) {
+    uint16_t field_count = 0;
+    ipfix_exporter_template_field_t *new_fields = NULL;
+    ipfix_exporter_template_t *new_template = NULL;
+    size_t field_list_size = 0;
+    
+    if (dest_template == NULL || src_template == NULL) {
+        loginfo("api-error: dest or src template is null");
+        return 1;
+    }
+    field_count = src_template->hdr.field_count;
+    field_list_size = field_count * sizeof(ipfix_exporter_template_field_t);
+    
+    /* Allocate heap memory for new_template */
+    new_template = ipfix_exp_template_malloc(field_count);
+    
+    if (new_template == NULL) {
+        loginfo("error: template is null");
+        return 1;
+    }
+    
+    /* Save pointer to new_template field memory */
+    new_fields = new_template->fields;
+    
+    memcpy(new_template, src_template, sizeof(ipfix_exporter_template_t));
+    
+    /* Reattach new_fields */
+    new_template->fields = new_fields;
+    
+    /* New template is a copy, so it isn't part of the store */
+    new_template->next = NULL;
+    new_template->prev = NULL;
+    
+    /* Copy the fields data */
+    if (src_template->fields && new_template->fields) {
+        memcpy(new_template->fields, src_template->fields, field_list_size);
+    }
+    
+    /* Assign dest_template handle to newly allocated template */
+    *dest_template = new_template;
+    
+    return 0;
 }
 
 
@@ -2220,35 +2244,29 @@ static int ipfix_xts_copy(struct ipfix_exporter_template **dest_template,
  *
  * @return 1 for match, 0 for not match
  */
-static struct ipfix_exporter_template *ipfix_xts_search
-(enum ipfix_template_type type, struct ipfix_exporter_template **dest_template) {
-  struct ipfix_exporter_template *cur_template;
+static ipfix_exporter_template_t *ipfix_xts_search
+(ipfix_template_type_e type, 
+ ipfix_exporter_template_t **dest_template) {
+    ipfix_exporter_template_t *cur_template = NULL;
 
-  if (export_template_store_head == NULL) {
+    if (export_template_store_head == NULL) {
+        return NULL;
+    }
+    
+    cur_template = export_template_store_head;
+
+    while (cur_template) {
+        if (cur_template->type == type) {
+            /* Found match */
+            if (dest_template != NULL) {
+                ipfix_xts_copy(dest_template, cur_template);
+            }
+            return cur_template;
+        }
+        cur_template = cur_template->next;
+    }
+    
     return NULL;
-  }
-
-  cur_template = export_template_store_head;
-  if (cur_template->type == type) {
-    /* Found match */
-    if (dest_template != NULL) {
-      ipfix_xts_copy(dest_template, cur_template);
-    }
-    return cur_template;
-  }
-
-  while (cur_template->next) {
-    cur_template = cur_template->next;
-    if (cur_template->type == type) {
-      /* Found match */
-      if (dest_template != NULL) {
-        ipfix_xts_copy(dest_template, cur_template);
-      }
-      return cur_template;
-    }
-  }
-
-  return NULL;
 }
 
 
@@ -2259,26 +2277,28 @@ static struct ipfix_exporter_template *ipfix_xts_search
  * be zeroized and have their heap memory freed.
  */
 void ipfix_xts_cleanup(void) {
-  struct ipfix_exporter_template *this_template;
-  struct ipfix_exporter_template *next_template;
+    ipfix_exporter_template_t *this_template;
+    ipfix_exporter_template_t *next_template;
+    
+    if (export_template_store_head == NULL) {
+        return;
+    }
 
-  if (export_template_store_head == NULL) {
-    return;
-  }
-
-  this_template = export_template_store_head;
-  next_template = this_template->next;
-
-  /* Free the first stored template */
-  ipfix_delete_exp_template(this_template);
-
-  while (next_template) {
-    /* Free any remainders */
-    this_template = next_template;
+    pthread_mutex_lock(&export_lock);
+    this_template = export_template_store_head;
     next_template = this_template->next;
-
+    
+    /* Free the first stored template */
     ipfix_delete_exp_template(this_template);
-  }
+
+    while (next_template) {
+        /* Free any remainders */
+        this_template = next_template;
+        next_template = this_template->next;
+        
+        ipfix_delete_exp_template(this_template);
+    }
+    pthread_mutex_unlock(&export_lock);
 }
 
 
@@ -2292,17 +2312,17 @@ void ipfix_xts_cleanup(void) {
  * Taking \p set as input, zeroize the set and then
  * add the necessary set id and length.
  *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param set Pointer to an ipfix_exporter_template_set_t in memory.
  */
-static void ipfix_exp_template_set_init(struct ipfix_exporter_template_set *set) {
-  if (set == NULL) {
-    loginfo("api-error: set is null");
-    return;
-  }
+static void ipfix_exp_template_set_init(ipfix_exporter_template_set_t *set) {
+    if (set == NULL) {
+        loginfo("api-error: set is null");
+        return;
+    }
 
-  memset(set, 0, sizeof(struct ipfix_exporter_template_set));
-  set->set_hdr.set_id = IPFIX_TEMPLATE_SET;
-  set->set_hdr.length = 4; /* size of the header */
+    memset(set, 0, sizeof(ipfix_exporter_template_set_t));
+    set->set_hdr.set_id = IPFIX_TEMPLATE_SET;
+    set->set_hdr.length = 4; /* size of the header */
 }
 
 
@@ -2314,18 +2334,18 @@ static void ipfix_exp_template_set_init(struct ipfix_exporter_template_set *set)
  *
  * @return An allocated IPFIX template set, or NULL
  */
-static struct ipfix_exporter_template_set *ipfix_exp_template_set_malloc(void) {
-  struct ipfix_exporter_template_set *template_set = NULL;
+static ipfix_exporter_template_set_t *ipfix_exp_template_set_malloc(void) {
+    ipfix_exporter_template_set_t *template_set = NULL;
 
-  template_set = malloc(sizeof(struct ipfix_exporter_template_set));
+    template_set = calloc(1, sizeof(ipfix_exporter_template_set_t));
 
-  if (template_set != NULL) {
+    if (template_set != NULL) {
     ipfix_exp_template_set_init(template_set);
-  } else {
-    loginfo("error: template set malloc failed");
-  }
+    } else {
+        loginfo("error: template set malloc failed");
+    }
 
-  return template_set;
+    return template_set;
 }
 
 
@@ -2335,36 +2355,36 @@ static struct ipfix_exporter_template_set *ipfix_exp_template_set_malloc(void) {
  * The \p set contains the head/tail of a list of related templates.
  * Here, \p template will be added to that list.
  *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param set Pointer to an ipfix_exporter_template_set_t in memory.
  * @param template IPFIX exporter template that will be appended.
  */
-static void ipfix_exp_template_set_add(struct ipfix_exporter_template_set *set,
-                                       struct ipfix_exporter_template *template) {
+static void ipfix_exp_template_set_add(ipfix_exporter_template_set_t *set,
+                                       ipfix_exporter_template_t *template) {
 
-  /*
-   * Add the template to the list attached to set.
-   */
-  if (set->records_head == NULL) {
-    /* This is the first template in set list*/
-    set->records_head = template;
-  } else {
-    /* Append to the end of set list */
-    set->records_tail->next = template;
-    template->prev = set->records_tail;
-  }
-
-  /* Update the tail */
-  set->records_tail = template;
-
-  /* Update the set length with total size of template */
-  set->set_hdr.length += template->length;
-  if (set->parent_message) {
     /*
-     * The template set has already been attached to a message,
-     * so update the length of that as well.
+     * Add the template to the list attached to set.
      */
-    set->parent_message->hdr.length += template->length;
-  }
+    if (set->records_head == NULL) {
+        /* This is the first template in set list*/
+        set->records_head = template;
+    } else {
+        /* Append to the end of set list */
+        set->records_tail->next = template;
+        template->prev = set->records_tail;
+    }
+    
+    /* Update the tail */
+    set->records_tail = template;
+    
+    /* Update the set length with total size of template */
+    set->set_hdr.length += template->length;
+    if (set->parent_message) {
+        /*
+         * The template set has already been attached to a message,
+         * so update the length of that as well.
+         */
+        set->parent_message->hdr.length += template->length;
+    }
 }
 
 
@@ -2374,28 +2394,28 @@ static void ipfix_exp_template_set_add(struct ipfix_exporter_template_set *set,
  * A template \p set contains a list of templates that have been allocated on
  * the heap. This function takes care of freeing up that list.
  *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param set Pointer to an ipfix_exporter_template_set_t in memory.
  */
-static void ipfix_exp_template_set_cleanup(struct ipfix_exporter_template_set *set) {
-  struct ipfix_exporter_template *this_template;
-  struct ipfix_exporter_template *next_template;
-
-  if (set->records_head == NULL) {
-    return;
-  }
-
-  this_template = set->records_head;
-  next_template = this_template->next;
-
-  /* Free the first stored template */
-  ipfix_delete_exp_template(this_template);
-
-  while (next_template) {
-    this_template = next_template;
+static void ipfix_exp_template_set_cleanup(ipfix_exporter_template_set_t *set) {
+    ipfix_exporter_template_t *this_template;
+    ipfix_exporter_template_t *next_template;
+    
+    if (set->records_head == NULL) {
+        return;
+    }
+    
+    this_template = set->records_head;
     next_template = this_template->next;
-
+    
+    /* Free the first stored template */
     ipfix_delete_exp_template(this_template);
-  }
+    
+    while (next_template) {
+        this_template = next_template;
+        next_template = this_template->next;
+        
+        ipfix_delete_exp_template(this_template);
+    }
 }
 
 
@@ -2405,17 +2425,18 @@ static void ipfix_exp_template_set_cleanup(struct ipfix_exporter_template_set *s
  * First free the any attached memory to the template \p set.
  * Then free the template \p set itself.
  *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param set Pointer to an ipfix_exporter_template_set_t in memory.
  */
-static void ipfix_delete_exp_template_set(struct ipfix_exporter_template_set *set) {
-  if (set == NULL) {
-    return;
-  }
-
-  ipfix_exp_template_set_cleanup(set);
-
-  memset(set, 0, sizeof(struct ipfix_exporter_template_set));
-  free(set);
+static void ipfix_delete_exp_template_set(ipfix_exporter_template_set_t *set) {
+    if (set == NULL) {
+        return;
+    }
+    
+    ipfix_exp_template_set_cleanup(set);
+    
+    memset(set, 0, sizeof(ipfix_exporter_template_set_t));
+    free(set);
+    set = NULL;
 }
 
 
@@ -2431,16 +2452,16 @@ static void ipfix_delete_exp_template_set(struct ipfix_exporter_template_set *se
  *
  * @param set Pointer to an ipfix_exporter_data_set in memory.
  */
-static void ipfix_exp_data_set_init(struct ipfix_exporter_data_set *set,
+static void ipfix_exp_data_set_init(ipfix_exporter_data_set_t *set,
                                     uint16_t rel_template_id) {
-  if (set == NULL) {
-    loginfo("api-error: set is null");
-    return;
-  }
-
-  memset(set, 0, sizeof(struct ipfix_exporter_data_set));
-  set->set_hdr.set_id = rel_template_id;
-  set->set_hdr.length = 4; /* size of the header */
+    if (set == NULL) {
+        loginfo("api-error: set is null");
+        return;
+    }
+    
+    memset(set, 0, sizeof(ipfix_exporter_data_set_t));
+    set->set_hdr.set_id = rel_template_id;
+    set->set_hdr.length = 4; /* size of the header */
 }
 
 
@@ -2455,18 +2476,18 @@ static void ipfix_exp_data_set_init(struct ipfix_exporter_data_set *set,
  *
  * @return An allocated IPFIX data set, or NULL
  */
-static struct ipfix_exporter_data_set *ipfix_exp_data_set_malloc(uint16_t rel_template_id) {
-  struct ipfix_exporter_data_set *data_set = NULL;
-
-  data_set = malloc(sizeof(struct ipfix_exporter_data_set));
-
-  if (data_set != NULL) {
-    ipfix_exp_data_set_init(data_set, rel_template_id);
-  } else {
-    loginfo("error: data set malloc failed");
-  }
-
-  return data_set;
+static ipfix_exporter_data_set_t *ipfix_exp_data_set_malloc(uint16_t rel_template_id) {
+    ipfix_exporter_data_set_t *data_set = NULL;
+    
+    data_set = calloc(1, sizeof(ipfix_exporter_data_set_t));
+    
+    if (data_set != NULL) {
+        ipfix_exp_data_set_init(data_set, rel_template_id);
+    } else {
+        loginfo("error: data set malloc failed");
+    }
+    
+    return data_set;
 }
 
 
@@ -2479,33 +2500,33 @@ static struct ipfix_exporter_data_set *ipfix_exp_data_set_malloc(uint16_t rel_te
  * @param set Pointer to an ipfix_exporter_data_set in memory.
  * @param data_record IPFIX exporter data record that will be appended.
  */
-static void ipfix_exp_data_set_add(struct ipfix_exporter_data_set *set,
-                                   struct ipfix_exporter_data *data_record) {
+static void ipfix_exp_data_set_add(ipfix_exporter_data_set_t *set,
+                                   ipfix_exporter_data_t *data_record) {
 
-  /*
-   * Add the template to the list attached to set.
-   */
-  if (set->records_head == NULL) {
-    /* This is the first data record in set list*/
-    set->records_head = data_record;
-  } else {
-    /* Append to the end of set list */
-    set->records_tail->next = data_record;
-    data_record->prev = set->records_tail;
-  }
-
-  /* Update the tail */
-  set->records_tail = data_record;
-
-  /* Update the set length with total size of data record */
-  set->set_hdr.length += data_record->length;
-  if (set->parent_message) {
     /*
-     * The data set has already been attached to a message,
-     * so update the length of that as well.
+     * Add the template to the list attached to set.
      */
-    set->parent_message->hdr.length += data_record->length;
-  }
+    if (set->records_head == NULL) {
+        /* This is the first data record in set list*/
+        set->records_head = data_record;
+    } else {
+        /* Append to the end of set list */
+        set->records_tail->next = data_record;
+        data_record->prev = set->records_tail;
+    }
+    
+    /* Update the tail */
+    set->records_tail = data_record;
+    
+    /* Update the set length with total size of data record */
+    set->set_hdr.length += data_record->length;
+    if (set->parent_message) {
+        /*
+         * The data set has already been attached to a message,
+         * so update the length of that as well.
+         */
+        set->parent_message->hdr.length += data_record->length;
+    }
 }
 
 
@@ -2517,26 +2538,26 @@ static void ipfix_exp_data_set_add(struct ipfix_exporter_data_set *set,
  *
  * @param set Pointer to an ipfix_exporter_data_set in memory.
  */
-static void ipfix_exp_data_set_cleanup(struct ipfix_exporter_data_set *set) {
-  struct ipfix_exporter_data *this_data_record;
-  struct ipfix_exporter_data *next_data_record;
+static void ipfix_exp_data_set_cleanup(ipfix_exporter_data_set_t *set) {
+    ipfix_exporter_data_t *this_data_record;
+    ipfix_exporter_data_t *next_data_record;
+    
+    if (set->records_head == NULL) {
+        return;
+    }
 
-  if (set->records_head == NULL) {
-    return;
-  }
-
-  this_data_record = set->records_head;
-  next_data_record = this_data_record->next;
-
-  /* Free the first data record */
-  ipfix_delete_exp_data_record(this_data_record);
-
-  while (next_data_record) {
-    this_data_record = next_data_record;
+    this_data_record = set->records_head;
     next_data_record = this_data_record->next;
 
+    /* Free the first data record */
     ipfix_delete_exp_data_record(this_data_record);
-  }
+    
+    while (next_data_record) {
+        this_data_record = next_data_record;
+        next_data_record = this_data_record->next;
+        
+        ipfix_delete_exp_data_record(this_data_record);
+    }
 }
 
 
@@ -2548,15 +2569,16 @@ static void ipfix_exp_data_set_cleanup(struct ipfix_exporter_data_set *set) {
  *
  * @param set Pointer to an ipfix_exporter_data_set in memory.
  */
-static void ipfix_delete_exp_data_set(struct ipfix_exporter_data_set *set) {
-  if (set == NULL) {
-    return;
-  }
-
-  ipfix_exp_data_set_cleanup(set);
-
-  memset(set, 0, sizeof(struct ipfix_exporter_data_set));
-  free(set);
+static void ipfix_delete_exp_data_set(ipfix_exporter_data_set_t *set) {
+    if (set == NULL) {
+        return;
+    }
+    
+    ipfix_exp_data_set_cleanup(set);
+    
+    memset(set, 0, sizeof(ipfix_exporter_data_set_t));
+    free(set);
+    set = NULL;
 }
 
 
@@ -2579,43 +2601,43 @@ static void ipfix_delete_exp_data_set(struct ipfix_exporter_data_set *set) {
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_set_node_init(struct ipfix_exporter_set_node *node,
+static int ipfix_exp_set_node_init(ipfix_exporter_set_node_t *node,
                                    uint16_t set_id) {
-  struct ipfix_exporter_template_set *template_set = NULL;
-  struct ipfix_exporter_option_set *option_set = NULL;
-  struct ipfix_exporter_data_set *data_set = NULL;
+    ipfix_exporter_template_set_t *template_set = NULL;
+    ipfix_exporter_option_set_t *option_set = NULL;
+    ipfix_exporter_data_set_t *data_set = NULL;
+    
+    if (node == NULL) {
+        loginfo("api-error: set is null");
+        return 1;
+    }
+    
+    memset(node, 0, sizeof(ipfix_exporter_set_node_t));
+    
+    if (set_id == IPFIX_TEMPLATE_SET) {
+        /* Create and attach a template set */
+        template_set = ipfix_exp_template_set_malloc();
+        node->set.template_set = template_set;
+        //node->length = template_set->set_hdr.length;
+    } else if (set_id == IPFIX_OPTION_SET) {
+        /* Create and attached an option set */
+        // TODO change to use option_set api when it has been made
+        option_set = calloc(1, sizeof(ipfix_exporter_option_set_t));
+        node->set.option_set = option_set;
+        //node->length = option_set->set_hdr.length;
+    } else if (set_id >= 256) {
+        /* Create and attach a data set */
+        data_set = ipfix_exp_data_set_malloc(set_id);
+        node->set.data_set = data_set;
+        //node->length = option_set->set_hdr.length;
+    } else {
+        loginfo("api-error: invalid set_id");
+        return 1;
+    }
 
-  if (node == NULL) {
-    loginfo("api-error: set is null");
-    return 1;
-  }
-
-  memset(node, 0, sizeof(struct ipfix_exporter_set_node));
-
-  if (set_id == IPFIX_TEMPLATE_SET) {
-    /* Create and attach a template set */
-    template_set = ipfix_exp_template_set_malloc();
-    node->set.template_set = template_set;
-    //node->length = template_set->set_hdr.length;
-  } else if (set_id == IPFIX_OPTION_SET) {
-    /* Create and attached an option set */
-    // TODO change to use option_set api when it has been made
-    option_set = malloc(sizeof(struct ipfix_exporter_option_set));
-    node->set.option_set = option_set;
-    //node->length = option_set->set_hdr.length;
-  } else if (set_id >= 256) {
-    /* Create and attach a data set */
-    data_set = ipfix_exp_data_set_malloc(set_id);
-    node->set.data_set = data_set;
-    //node->length = option_set->set_hdr.length;
-  } else {
-    loginfo("api-error: invalid set_id");
-    return 1;
-  }
-
-  node->set_type = set_id;
-
-  return 0;
+    node->set_type = set_id;
+    
+    return 0;
 }
 
 
@@ -2632,20 +2654,20 @@ static int ipfix_exp_set_node_init(struct ipfix_exporter_set_node *node,
  *
  * @return An allocated set node container
  */
-static struct ipfix_exporter_set_node *ipfix_exp_set_node_malloc(uint16_t set_id) {
-  struct ipfix_exporter_set_node *node = NULL;
+static ipfix_exporter_set_node_t *ipfix_exp_set_node_malloc(uint16_t set_id) {
+    ipfix_exporter_set_node_t *node = NULL;
 
-  node = malloc(sizeof(struct ipfix_exporter_set_node));
+    node = calloc(1, sizeof(ipfix_exporter_set_node_t));
 
-  if (node != NULL) {
-    if (ipfix_exp_set_node_init(node, set_id)) {
-      loginfo("error: could not init the set_node");
+    if (node != NULL) {
+        if (ipfix_exp_set_node_init(node, set_id)) {
+            loginfo("error: could not init the set_node");
+        }
+    } else {
+        loginfo("error: set_node malloc failed");
     }
-  } else {
-    loginfo("error: set_node malloc failed");
-  }
-
-  return node;
+    
+    return node;
 }
 
 
@@ -2660,32 +2682,33 @@ static struct ipfix_exporter_set_node *ipfix_exp_set_node_malloc(uint16_t set_id
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_set_node_cleanup(struct ipfix_exporter_set_node *node) {
-  uint16_t set_type = 0;
-
-  if (node == NULL) {
-    loginfo("api-error: node is null");
-    return 1;
-  }
-
-  set_type = node->set_type;
-
-  if (set_type == IPFIX_TEMPLATE_SET) {
-    /* Cleanup and delete the template set */
-    ipfix_delete_exp_template_set(node->set.template_set);
-  } else if (set_type == IPFIX_OPTION_SET) {
-    /* Cleanup and delete the option set */
-    // TODO change to use option_set api when it has been made
-    free(node->set.option_set);
-  } else if (set_type >= 256) {
-    /* Cleanup and delete the data set */
-    ipfix_delete_exp_data_set(node->set.data_set);
-  } else {
-    loginfo("error: invalid set type");
-    return 1;
-  }
-
-  return 0;
+static int ipfix_exp_set_node_cleanup(ipfix_exporter_set_node_t *node) {
+    uint16_t set_type = 0;
+    
+    if (node == NULL) {
+        loginfo("api-error: node is null");
+        return 1;
+    }
+    
+    set_type = node->set_type;
+    
+    if (set_type == IPFIX_TEMPLATE_SET) {
+        /* Cleanup and delete the template set */
+        ipfix_delete_exp_template_set(node->set.template_set);
+    } else if (set_type == IPFIX_OPTION_SET) {
+        /* Cleanup and delete the option set */
+        // TODO change to use option_set api when it has been made
+        free(node->set.option_set);
+        node->set.option_set = NULL;
+    } else if (set_type >= 256) {
+        /* Cleanup and delete the data set */
+        ipfix_delete_exp_data_set(node->set.data_set);
+    } else {
+        loginfo("error: invalid set type");
+        return 1;
+    }
+    
+    return 0;
 }
 
 
@@ -2697,16 +2720,17 @@ static int ipfix_exp_set_node_cleanup(struct ipfix_exporter_set_node *node) {
  *
  * @param set Pointer to an ipfix_exporter_set_node in memory.
  */
-static void ipfix_delete_exp_set_node(struct ipfix_exporter_set_node *node) {
-  if (node == NULL) {
-    loginfo("warning: node parameter is null");
-    return;
-  }
-
-  ipfix_exp_set_node_cleanup(node);
-
-  memset(node, 0, sizeof(struct ipfix_exporter_set_node));
-  free(node);
+static void ipfix_delete_exp_set_node(ipfix_exporter_set_node_t *node) {
+    if (node == NULL) {
+        loginfo("warning: node parameter is null");
+        return;
+    }
+    
+    ipfix_exp_set_node_cleanup(node);
+    
+    memset(node, 0, sizeof(ipfix_exporter_set_node_t));
+    free(node);
+    node = NULL;
 }
 
 
@@ -2717,13 +2741,13 @@ static void ipfix_delete_exp_set_node(struct ipfix_exporter_set_node *node) {
 /*
  * @brief Initialize an IPFIX message.
  *
- * @param set Pointer to an ipfix_exporter_template_set in memory.
+ * @param set Pointer to an ipfix_exporter_template_set_t in memory.
  * @param template IPFIX exporter template that will be appended.
  */
-static void ipfix_exp_message_init(struct ipfix_message *message) {
+static void ipfix_exp_message_init(ipfix_message_t *message) {
 
-    memset(message, 0, sizeof(struct ipfix_message));
-
+    memset(message, 0, sizeof(ipfix_message_t));
+    
     /* IPFIX version = 10 */
     message->hdr.version_number = htons(10);
     /* Must be converted to network-byte order before message send */
@@ -2738,15 +2762,15 @@ static void ipfix_exp_message_init(struct ipfix_message *message) {
  *
  * @return An allocated IPFIX message, or NULL
  */
-static struct ipfix_message *ipfix_exp_message_malloc(void) {
-  struct ipfix_message *message = NULL;
-
-  message = malloc(sizeof(struct ipfix_message));
+static ipfix_message_t *ipfix_exp_message_malloc(void) {
+  ipfix_message_t *message = NULL;
+  
+  message = calloc(1, sizeof(ipfix_message_t));
 
   if (message != NULL) {
-    ipfix_exp_message_init(message);
+      ipfix_exp_message_init(message);
   } else {
-    loginfo("error: data set malloc failed");
+      loginfo("error: data set malloc failed");
   }
 
   return message;
@@ -2764,37 +2788,37 @@ static struct ipfix_message *ipfix_exp_message_malloc(void) {
  *
  * @return The desired data set, or NULL
  */
-static struct ipfix_exporter_template_set *ipfix_exp_message_find_template_set
-(struct ipfix_message *message) {
-  struct ipfix_exporter_set_node *set_node = NULL;
-  struct ipfix_exporter_template_set *template_set = NULL;
-  uint16_t set_id = 2;
+static ipfix_exporter_template_set_t *ipfix_exp_message_find_template_set
+(ipfix_message_t *message) {
+    ipfix_exporter_set_node_t *set_node = NULL;
+    ipfix_exporter_template_set_t *template_set = NULL;
+    uint16_t set_id = 2;
 
-  if (message->sets_head == NULL) {
-    return NULL;
-  }
-
-  set_node = message->sets_head;
-  if (set_node->set_type == set_id) {
-    template_set = set_node->set.template_set;
-    /* Found match */
-    if (template_set != NULL) {
-      return template_set;
+    if (message->sets_head == NULL) {
+        return NULL;
     }
-  }
-
-  while (set_node->next) {
-    set_node = set_node->next;
+    
+    set_node = message->sets_head;
     if (set_node->set_type == set_id) {
-      template_set = set_node->set.template_set;
-      /* Found match */
-      if (template_set != NULL) {
-        return template_set;
-      }
+        template_set = set_node->set.template_set;
+        /* Found match */
+        if (template_set != NULL) {
+            return template_set;
+        }
     }
-  }
-
-  return NULL;
+    
+    while (set_node->next) {
+        set_node = set_node->next;
+        if (set_node->set_type == set_id) {
+            template_set = set_node->set.template_set;
+            /* Found match */
+            if (template_set != NULL) {
+                return template_set;
+            }
+        }
+    }
+    
+    return NULL;
 }
 
 
@@ -2809,37 +2833,37 @@ static struct ipfix_exporter_template_set *ipfix_exp_message_find_template_set
  *
  * @return The desired data set, or NULL
  */
-static struct ipfix_exporter_data_set *ipfix_exp_message_find_data_set
-(struct ipfix_message *message,
+static ipfix_exporter_data_set_t *ipfix_exp_message_find_data_set
+(ipfix_message_t *message,
  uint16_t set_id) {
-  struct ipfix_exporter_set_node *set_node = NULL;
-  struct ipfix_exporter_data_set *data_set = NULL;
-
-  if (message->sets_head == NULL) {
-    return NULL;
-  }
-
-  set_node = message->sets_head;
-  if (set_node->set_type == set_id) {
-    data_set = set_node->set.data_set;
-    /* Found match */
-    if (data_set != NULL) {
-      return data_set;
+    ipfix_exporter_set_node_t *set_node = NULL;
+    ipfix_exporter_data_set_t *data_set = NULL;
+    
+    if (message->sets_head == NULL) {
+        return NULL;
     }
-  }
-
-  while (set_node->next) {
-    set_node = set_node->next;
+    
+    set_node = message->sets_head;
     if (set_node->set_type == set_id) {
-      data_set = set_node->set.data_set;
-      /* Found match */
-      if (data_set != NULL) {
-        return data_set;
-      }
+        data_set = set_node->set.data_set;
+        /* Found match */
+        if (data_set != NULL) {
+            return data_set;
+        }
     }
-  }
-
-  return NULL;
+    
+    while (set_node->next) {
+        set_node = set_node->next;
+        if (set_node->set_type == set_id) {
+            data_set = set_node->set.data_set;
+            /* Found match */
+            if (data_set != NULL) {
+                return data_set;
+            }
+        }
+    }
+    
+    return NULL;
 }
 
 
@@ -2854,70 +2878,70 @@ static struct ipfix_exporter_data_set *ipfix_exp_message_find_data_set
  *
  * return 0 for success, 1 for failure, 2 if message full
  */
-static int ipfix_exp_message_add(struct ipfix_message *message,
-                                 struct ipfix_exporter_set_node *node) {
-  uint16_t set_type = 0;
-
-  if (message == NULL) {
-    loginfo("api-error: message is null");
-    return 1;
-  }
-
-  if (node == NULL) {
-    loginfo("api-error: node is null");
-    return 1;
-  }
-
-  /*
-   * Get the set type
-   */
-  set_type = node->set_type;
-
-  if (set_type == IPFIX_TEMPLATE_SET) {
-    /* Add the template set length */
-    if (message->hdr.length + node->set.template_set->set_hdr.length > IPFIX_MTU) {
-      loginfo("info: message is full, please attach to another message");
-      return 2;
+static int ipfix_exp_message_add(ipfix_message_t *message,
+                                 ipfix_exporter_set_node_t *node) {
+    uint16_t set_type = 0;
+    
+    if (message == NULL) {
+        loginfo("api-error: message is null");
+        return 1;
     }
-    node->set.template_set->parent_message = message;
-    message->hdr.length += node->set.template_set->set_hdr.length;
-  } else if (set_type == IPFIX_OPTION_SET) {
-    /* Add the option set length */
-    if (message->hdr.length + node->set.template_set->set_hdr.length > IPFIX_MTU) {
-      loginfo("info: message is full, please attach to another message");
-      return 2;
+    
+    if (node == NULL) {
+        loginfo("api-error: node is null");
+        return 1;
     }
-    // TODO add parent message here for option set
-    message->hdr.length += node->set.option_set->set_hdr.length;
-  } else if (set_type >= 256) {
-    /* Add the data set length */
-    if (message->hdr.length + node->set.template_set->set_hdr.length > IPFIX_MTU) {
-      loginfo("info: message is full, please attach to another message");
-      return 2;
+    
+    /*
+     * Get the set type
+     */
+    set_type = node->set_type;
+    
+    if (set_type == IPFIX_TEMPLATE_SET) {
+        /* Add the template set length */
+        if (message->hdr.length + node->set.template_set->set_hdr.length > IPFIX_MTU) {
+            loginfo("info: message is full, please attach to another message");
+            return 2;
+        }
+        node->set.template_set->parent_message = message;
+        message->hdr.length += node->set.template_set->set_hdr.length;
+    } else if (set_type == IPFIX_OPTION_SET) {
+        /* Add the option set length */
+        if (message->hdr.length + node->set.template_set->set_hdr.length > IPFIX_MTU) {
+            loginfo("info: message is full, please attach to another message");
+            return 2;
+        }
+        // TODO add parent message here for option set
+        message->hdr.length += node->set.option_set->set_hdr.length;
+    } else if (set_type >= 256) {
+        /* Add the data set length */
+        if (message->hdr.length + node->set.template_set->set_hdr.length > IPFIX_MTU) {
+            loginfo("info: message is full, please attach to another message");
+            return 2;
+        }
+        node->set.data_set->parent_message = message;
+        message->hdr.length += node->set.data_set->set_hdr.length;
+    } else {
+        loginfo("error: invalid set type");
+        return 1;
     }
-    node->set.data_set->parent_message = message;
-    message->hdr.length += node->set.data_set->set_hdr.length;
-  } else {
-    loginfo("error: invalid set type");
-    return 1;
-  }
-
-  /*
-   * Add the template to the list attached to set.
-   */
-  if (message->sets_head == NULL) {
-    /* This is the first template in set list*/
-    message->sets_head = node;
-  } else {
-    /* Append to the end of set list */
-    message->sets_tail->next = node;
-    node->prev = message->sets_tail;
-  }
-
-  /* Update the tail */
-  message->sets_tail = node;
-
-  return 0;
+    
+    /*
+     * Add the template to the list attached to set.
+     */
+    if (message->sets_head == NULL) {
+        /* This is the first template in set list*/
+        message->sets_head = node;
+    } else {
+        /* Append to the end of set list */
+        message->sets_tail->next = node;
+        node->prev = message->sets_tail;
+    }
+    
+    /* Update the tail */
+    message->sets_tail = node;
+    
+    return 0;
 }
 
 
@@ -2929,26 +2953,26 @@ static int ipfix_exp_message_add(struct ipfix_message *message,
  *
  * @param set Pointer to an ipfix_message in memory.
  */
-static void ipfix_exp_message_cleanup(struct ipfix_message *message) {
-  struct ipfix_exporter_set_node *this_set_node;
-  struct ipfix_exporter_set_node *next_set_node;
-
-  if (message->sets_head == NULL) {
-    return;
-  }
-
-  this_set_node = message->sets_head;
-  next_set_node = this_set_node->next;
-
-  /* Free the first set node */
-  ipfix_delete_exp_set_node(this_set_node);
-
-  while (next_set_node) {
-    this_set_node = next_set_node;
+static void ipfix_exp_message_cleanup(ipfix_message_t *message) {
+    ipfix_exporter_set_node_t *this_set_node;
+    ipfix_exporter_set_node_t *next_set_node;
+    
+    if (message->sets_head == NULL) {
+        return;
+    }
+    
+    this_set_node = message->sets_head;
     next_set_node = this_set_node->next;
-
+    
+    /* Free the first set node */
     ipfix_delete_exp_set_node(this_set_node);
-  }
+    
+    while (next_set_node) {
+        this_set_node = next_set_node;
+        next_set_node = this_set_node->next;
+        
+        ipfix_delete_exp_set_node(this_set_node);
+    }
 }
 
 
@@ -2960,15 +2984,16 @@ static void ipfix_exp_message_cleanup(struct ipfix_message *message) {
  *
  * @param set Pointer to an ipfix_message in memory.
  */
-static void ipfix_delete_exp_message(struct ipfix_message *message) {
-  if (message == NULL) {
-    return;
-  }
-
-  ipfix_exp_message_cleanup(message);
-
-  memset(message, 0, sizeof(struct ipfix_message));
-  free(message);
+static void ipfix_delete_exp_message(ipfix_message_t *message) {
+    if (message == NULL) {
+        return;
+    }
+    
+    ipfix_exp_message_cleanup(message);
+    
+    memset(message, 0, sizeof(ipfix_message_t));
+    free(message);
+    message = NULL;
 }
 
 
@@ -2980,97 +3005,96 @@ static void ipfix_delete_exp_message(struct ipfix_message *message) {
  * for sending messages. If \p host_name is NULL, the localhost
  * is used as the server (collector) target.
  *
- * @param e Pointer to the ipfix_exporter that will be initialized.
  * @param host_name Host name of the server, a.k.a collector.
  */
-static int ipfix_exporter_init(struct ipfix_exporter *e,
-                               const char *host_name) {
-  struct hostent *host = NULL;
-  char host_desc [HOST_NAME_MAX_SIZE];
-  unsigned long localhost = 0;
-  unsigned int remote_port = 0;
-
-  memset(e, 0, sizeof(struct ipfix_exporter));
-
-  if (host_name != NULL) {
-    strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE);
-  }
-
-  e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (e->socket < 0) {
-    loginfo("error: cannot create socket");
-    return 1;
-  }
-
-  /* Set local (exporter) address */
-  e->exprt_addr.sin_family = AF_INET;
-  e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  e->exprt_addr.sin_port = htons(ipfix_export_port);
-  if (bind(e->socket, (struct sockaddr *)&e->exprt_addr,
-           sizeof(e->exprt_addr)) < 0) {
-    loginfo("error: bind address failed");
-    return 1;
-  }
-
-  /* Set remote (collector) address */
-  e->clctr_addr.sin_family = AF_INET;
-  if (ipfix_export_remote_port) {
-    remote_port = ipfix_export_remote_port;
-    e->clctr_addr.sin_port = htons(remote_port);
-  } else {
-    remote_port = IPFIX_COLLECTOR_DEFAULT_PORT;
-    e->clctr_addr.sin_port = htons(remote_port);
-  }
-
-  if (host_name != NULL) {
-    host = gethostbyname(host_desc);
-    if (!host) {
-      loginfo("error: could not find address for collector %s", host_desc);
-      return 1;
+int ipfix_exporter_init(const char *host_name) {
+    struct hostent *host = NULL;
+    char host_desc [HOST_NAME_MAX_SIZE];
+    unsigned long localhost = 0;
+    unsigned int remote_port = 0;
+    ipfix_exporter_t *e = &gateway_export;
+    
+    memset(e, 0, sizeof(ipfix_exporter_t));
+    
+    if (host_name != NULL) {
+        strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE-1);
     }
-    memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
-  } else {
-    strncpy(host_desc, "127.0.0.1", HOST_NAME_MAX_SIZE);
-    localhost = inet_addr(host_desc);
-    e->clctr_addr.sin_addr.s_addr = localhost;
-  }
-
-  /* Generate the global observation domain id if not done already */
-  if (!exporter_obs_dom_id) {
-    uint8_t rand_buf[4];
-    if (!RAND_pseudo_bytes(rand_buf, sizeof(rand_buf))) {
-      loginfo("error: observation domain id prng failure");
+    
+    e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (e->socket < 0) {
+        loginfo("error: cannot create socket");
+        return 1;
     }
-    exporter_obs_dom_id = bytes_to_u32(rand_buf);
-  }
-
-  loginfo("IPFIX exporter configured...");
-  loginfo("Observation Domain ID: %u", exporter_obs_dom_id);
-  loginfo("Host Port: %u", ipfix_export_port);
-  loginfo("Remote IP Address: %s", host_desc);
-  loginfo("Remote Port: %u", remote_port);
-
-  /* Set the template type to use */
-  if (ipfix_export_template) {
-      if (!strncmp(ipfix_export_template, "simple", TEMPLATE_NAME_MAX_SIZE)) {
-          export_template_type = IPFIX_SIMPLE_TEMPLATE;
-          loginfo("Template Type: %s", "simple");
-      } else if (!strncmp(ipfix_export_template, "idp", TEMPLATE_NAME_MAX_SIZE)) {
-          export_template_type = IPFIX_IDP_TEMPLATE;
-          loginfo("Template Type: %s", "idp");
-      } else {
-          loginfo("warning: template type invalid, defaulting to \"simple\"");
-          export_template_type = IPFIX_SIMPLE_TEMPLATE;
-          loginfo("Template Type: %s", "simple");
-      }
-  } else {
-      export_template_type = IPFIX_SIMPLE_TEMPLATE;
-      loginfo("Template Type: %s", "simple");
-  }
-
-  loginfo("Ready!\n");
-
-  return 0;
+    
+    /* Set local (exporter) address */
+    e->exprt_addr.sin_family = AF_INET;
+    e->exprt_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    e->exprt_addr.sin_port = htons(glb_config->ipfix_export_port);
+    if (bind(e->socket, (struct sockaddr *)&e->exprt_addr,
+             sizeof(e->exprt_addr)) < 0) {
+        loginfo("error: bind address failed");
+        return 1;
+    }
+    
+    /* Set remote (collector) address */
+    e->clctr_addr.sin_family = AF_INET;
+    if (glb_config->ipfix_export_remote_port) {
+        remote_port = glb_config->ipfix_export_remote_port;
+        e->clctr_addr.sin_port = htons(remote_port);
+    } else {
+        remote_port = IPFIX_COLLECTOR_DEFAULT_PORT;
+        e->clctr_addr.sin_port = htons(remote_port);
+    }
+    
+    if (host_name != NULL) {
+        host = gethostbyname(host_desc);
+        if (!host) {
+            loginfo("error: could not find address for collector %s", host_desc);
+            return 1;
+        }
+        memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
+    } else {
+        strncpy(host_desc, "127.0.0.1", HOST_NAME_MAX_SIZE);
+        localhost = inet_addr(host_desc);
+        e->clctr_addr.sin_addr.s_addr = localhost;
+    }
+    
+    /* Generate the global observation domain id if not done already */
+    if (!exporter_obs_dom_id) {
+        uint8_t rand_buf[4];
+        if (!RAND_bytes(rand_buf, sizeof(rand_buf))) {
+            loginfo("error: observation domain id prng failure");
+        }
+        exporter_obs_dom_id = bytes_to_u32(rand_buf);
+    }
+    
+    loginfo("IPFIX exporter configured...");
+    loginfo("Observation Domain ID: %u", exporter_obs_dom_id);
+    loginfo("Host Port: %u", glb_config->ipfix_export_port);
+    loginfo("Remote IP Address: %s", host_desc);
+    loginfo("Remote Port: %u", remote_port);
+    
+    /* Set the template type to use */
+    if (glb_config->ipfix_export_template) {
+        if (!strncmp(glb_config->ipfix_export_template, "simple", TEMPLATE_NAME_MAX_SIZE)) {
+            export_template_type = IPFIX_SIMPLE_TEMPLATE;
+            loginfo("Template Type: %s", "simple");
+        } else if (!strncmp(glb_config->ipfix_export_template, "idp", TEMPLATE_NAME_MAX_SIZE)) {
+            export_template_type = IPFIX_IDP_TEMPLATE;
+            loginfo("Template Type: %s", "idp");
+        } else {
+            loginfo("warning: template type invalid, defaulting to \"simple\"");
+            export_template_type = IPFIX_SIMPLE_TEMPLATE;
+            loginfo("Template Type: %s", "simple");
+        }
+    } else {
+        export_template_type = IPFIX_SIMPLE_TEMPLATE;
+        loginfo("Template Type: %s", "simple");
+    }
+    
+    loginfo("Ready!\n");
+    
+    return 0;
 }
 
 
@@ -3114,58 +3138,56 @@ static uint64_t timeval_pack_uint64_t(const struct timeval *timeval) {
  *
  * @return The desired data record, otherwise NULL for failure.
  */
-static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
-(const struct flow_record *fr_record) {
-  struct ipfix_exporter_data *data_record = NULL;
-  uint8_t protocol = 0;
-
-  data_record = ipfix_exp_data_record_malloc();
-
-  if (data_record != NULL) {
-    /*
-     * Assign the data fields
-     */
-    /* IPFIX_SOURCE_IPV4_ADDRESS */
-    data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
-
-    /* IPFIX_DESTINATION_IPV4_ADDRESS */
-    data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
-
-    /* IPFIX_SOURCE_TRANSPORT_PORT */
-    data_record->record.simple.source_transport_port = fr_record->key.sp;
-
-    /* IPFIX_DESTINATION_TRANSPORT_PORT */
-    data_record->record.simple.destination_transport_port = fr_record->key.dp;
-
-    /* IPFIX_PROTOCOL_IDENTIFIER */
-    protocol = (uint8_t)(fr_record->key.prot & 0xff);
-    data_record->record.simple.protocol_identifier = protocol;
-
-    /*
-     * IPFIX_FLOW_START_MICROSECONDS
-     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
-     * and pack the fractional microseconds into the least-significant 32 bits.
-     */
-    data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
-
-    /*
-     * IPFIX_FLOW_END_MICROSECONDS
-     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
-     * and pack the fractional microseconds into the least-significant 32 bits.
-     */
-    data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
-
-  } else {
-    loginfo("error: unable to malloc data record");
-  }
-
-  /* Set the type of template for identification */
-  data_record->type = IPFIX_SIMPLE_TEMPLATE;
-
-  /* Set the length (number of bytes) of the data record */
-  data_record->length = SIZE_IPFIX_DATA_SIMPLE;
-
-  return data_record;
+static ipfix_exporter_data_t *ipfix_exp_create_simple_data_record
+(const flow_record_t *fr_record) {
+    ipfix_exporter_data_t *data_record = NULL;
+    uint8_t protocol = 0;
+    
+    data_record = ipfix_exp_data_record_malloc();
+    
+    if (data_record != NULL) {
+        /*
+         * Assign the data fields
+         */
+        /* IPFIX_SOURCE_IPV4_ADDRESS */
+        data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
+        
+        /* IPFIX_DESTINATION_IPV4_ADDRESS */
+        data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
+        
+        /* IPFIX_SOURCE_TRANSPORT_PORT */
+        data_record->record.simple.source_transport_port = fr_record->key.sp;
+        
+        /* IPFIX_DESTINATION_TRANSPORT_PORT */
+        data_record->record.simple.destination_transport_port = fr_record->key.dp;
+        
+        /* IPFIX_PROTOCOL_IDENTIFIER */
+        protocol = (uint8_t)(fr_record->key.prot & 0xff);
+        data_record->record.simple.protocol_identifier = protocol;
+        
+        /*
+         * IPFIX_FLOW_START_MICROSECONDS
+         * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+         * and pack the fractional microseconds into the least-significant 32 bits.
+         */
+        data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
+        
+        /*
+         * IPFIX_FLOW_END_MICROSECONDS
+         * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+         * and pack the fractional microseconds into the least-significant 32 bits.
+         */
+        data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
+        /* Set the type of template for identification */
+        data_record->type = IPFIX_SIMPLE_TEMPLATE;
+        
+        /* Set the length (number of bytes) of the data record */
+        data_record->length = SIZE_IPFIX_DATA_SIMPLE;
+    } else {
+        loginfo("error: unable to malloc data record");
+    }
+    
+    return data_record;
 }
 
 /*
@@ -3186,85 +3208,89 @@ static struct ipfix_exporter_data *ipfix_exp_create_simple_data_record
  *
  * @return The desired data record, otherwise NULL for failure.
  */
-static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
-(const struct flow_record *fr_record) {
-  struct ipfix_exporter_data *data_record = NULL;
-  uint8_t protocol = 0;
-  uint16_t idp_payload_len = 0;
-
-  data_record = ipfix_exp_data_record_malloc();
-
-  if (data_record != NULL) {
-    /*
-     * Assign the data fields
-     */
-    /* IPFIX_SOURCE_IPV4_ADDRESS */
-    data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
-
-    /* IPFIX_DESTINATION_IPV4_ADDRESS */
-    data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
-
-    /* IPFIX_SOURCE_TRANSPORT_PORT */
-    data_record->record.simple.source_transport_port = fr_record->key.sp;
-
-    /* IPFIX_DESTINATION_TRANSPORT_PORT */
-    data_record->record.simple.destination_transport_port = fr_record->key.dp;
-
-    /* IPFIX_PROTOCOL_IDENTIFIER */
-    protocol = (uint8_t)(fr_record->key.prot & 0xff);
-    data_record->record.simple.protocol_identifier = protocol;
-
-    /*
-     * IPFIX_FLOW_START_MICROSECONDS
-     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
-     * and pack the fractional microseconds into the least-significant 32 bits.
-     */
-    data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
-
-    /*
-     * IPFIX_FLOW_END_MICROSECONDS
-     * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
-     * and pack the fractional microseconds into the least-significant 32 bits.
-     */
-    data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
-
-    /*
-     * IPFIX_IDP
-     */
-
-    /* 
-     * Set the flag indicating variable length.
-     * Figure S from RFC 7011
-     */
-    data_record->record.idp_record.idp_field.flag = 255;
-
-    /* The length in bytes of the IDP payload */
-    idp_payload_len = fr_record->idp_len;
-
-    /* The length of the whole IDP field inside the IPFIX data record */
-    data_record->record.idp_record.idp_field.length = idp_payload_len;
-
-    /*
-     * Copy the IDP into the data record.
-     */ 
-    if (idp_payload_len != 0) {
-      data_record->record.idp_record.idp_field.info =
-          calloc(idp_payload_len, sizeof(unsigned char));
-
-      memcpy(data_record->record.idp_record.idp_field.info, fr_record->idp,
-             idp_payload_len);
+static ipfix_exporter_data_t *ipfix_exp_create_idp_data_record
+(const flow_record_t *fr_record) {
+    ipfix_exporter_data_t *data_record = NULL;
+    uint8_t protocol = 0;
+    uint16_t idp_payload_len = 0;
+    
+    data_record = ipfix_exp_data_record_malloc();
+    
+    if (data_record != NULL) {
+        /*
+         * Assign the data fields
+         */
+        /* IPFIX_SOURCE_IPV4_ADDRESS */
+        data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
+        
+        /* IPFIX_DESTINATION_IPV4_ADDRESS */
+        data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
+        
+        /* IPFIX_SOURCE_TRANSPORT_PORT */
+        data_record->record.simple.source_transport_port = fr_record->key.sp;
+        
+        /* IPFIX_DESTINATION_TRANSPORT_PORT */
+        data_record->record.simple.destination_transport_port = fr_record->key.dp;
+        
+        /* IPFIX_PROTOCOL_IDENTIFIER */
+        protocol = (uint8_t)(fr_record->key.prot & 0xff);
+        data_record->record.simple.protocol_identifier = protocol;
+        
+        /*
+         * IPFIX_FLOW_START_MICROSECONDS
+         * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+         * and pack the fractional microseconds into the least-significant 32 bits.
+         */
+        data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
+        
+        /*
+         * IPFIX_FLOW_END_MICROSECONDS
+         * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
+         * and pack the fractional microseconds into the least-significant 32 bits.
+         */
+        data_record->record.simple.flow_end_microseconds = timeval_pack_uint64_t(&fr_record->end);
+        
+        /*
+         * IPFIX_IDP
+         */
+        
+        /* 
+         * Set the flag indicating variable length.
+         * Figure S from RFC 7011
+         */
+        data_record->record.idp_record.idp_field.flag = 255;
+        
+        /* The length in bytes of the IDP payload */
+        idp_payload_len = fr_record->idp_len;
+        
+        /* The length of the whole IDP field inside the IPFIX data record */
+        data_record->record.idp_record.idp_field.length = idp_payload_len;
+        
+        /*
+         * Copy the IDP into the data record.
+         */ 
+        if (idp_payload_len != 0) {
+            data_record->record.idp_record.idp_field.info =
+                calloc(idp_payload_len, sizeof(unsigned char));
+            if (!data_record->record.idp_record.idp_field.info){
+                loginfo("error: unable to malloc data record");
+                ipfix_delete_exp_data_record(data_record);
+                return NULL;
+            }
+            
+            memcpy(data_record->record.idp_record.idp_field.info, fr_record->idp,
+                   idp_payload_len);
+        }
+        /* Set the type of template for identification */
+        data_record->type = IPFIX_IDP_TEMPLATE;
+        
+        /* Set the length (number of bytes) of the data record */
+        data_record->length = idp_payload_len + SIZE_IPFIX_DATA_IDP;
+    } else {
+        loginfo("error: unable to malloc data record");
     }
-  } else {
-    loginfo("error: unable to malloc data record");
-  }
-
-  /* Set the type of template for identification */
-  data_record->type = IPFIX_IDP_TEMPLATE;
-
-  /* Set the length (number of bytes) of the data record */
-  data_record->length = idp_payload_len + SIZE_IPFIX_DATA_IDP;
-
-  return data_record;
+    
+    return data_record;
 }
 
 
@@ -3287,43 +3313,43 @@ static struct ipfix_exporter_data *ipfix_exp_create_idp_data_record
  *
  * @return The desired data record, otherwise NULL for failure.
  */
-static struct ipfix_exporter_data *ipfix_exp_create_data_record
-(enum ipfix_template_type template_type,
- const struct flow_record *fr_record) {
+static ipfix_exporter_data_t *ipfix_exp_create_data_record
+(ipfix_template_type_e template_type,
+ const flow_record_t *fr_record) {
 
-  struct ipfix_exporter_data *data_record = NULL;
-
-  switch (template_type) {
+    ipfix_exporter_data_t *data_record = NULL;
+    
+    switch (template_type) {
     case IPFIX_SIMPLE_TEMPLATE:
-      data_record = ipfix_exp_create_simple_data_record(fr_record);
-      break;
-
+        data_record = ipfix_exp_create_simple_data_record(fr_record);
+        break;
+        
     case IPFIX_IDP_TEMPLATE:
-      data_record = ipfix_exp_create_idp_data_record(fr_record);
-      break;
-
+        data_record = ipfix_exp_create_idp_data_record(fr_record);
+        break;
+        
     default:
-      loginfo("api-error: template type is not supported");
-      break;
-  }
-
-  if (data_record == NULL) {
-    loginfo("error: unable to create data record");
-  }
-
-  return data_record;
+        loginfo("api-error: template type is not supported");
+        break;
+    }
+    
+    if (data_record == NULL) {
+        loginfo("error: unable to create data record");
+    }
+    
+    return data_record;
 }
 
 
-static void ipfix_exp_template_add_field(struct ipfix_exporter_template *t,
-                                         struct ipfix_exporter_template_field f) {
+static void ipfix_exp_template_add_field(ipfix_exporter_template_t *t,
+                                         ipfix_exporter_template_field_t f) {
     t->fields[t->hdr.field_count] = f;
     t->hdr.field_count++;
     t->length += 4;
 }
 
-static void ipfix_exp_template_add_ent_field(struct ipfix_exporter_template *t,
-                                             struct ipfix_exporter_template_field f) {
+static void ipfix_exp_template_add_ent_field(ipfix_exporter_template_t *t,
+                                             ipfix_exporter_template_field_t f) {
     t->fields[t->hdr.field_count] = f;
     t->hdr.field_count++;
     t->length += 8;
@@ -3342,45 +3368,44 @@ static void ipfix_exp_template_add_ent_field(struct ipfix_exporter_template *t,
  *
  * @return The desired template, otherwise NULL for failure.
  */
-static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
-  struct ipfix_exporter_template *template = NULL;
-  uint16_t num_fields = 7;
-
-  template = ipfix_exp_template_malloc(num_fields);
-
-  if (template != NULL) {
-    /*
-     * Add the fields
-     */
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_DESTINATION_IPV4_ADDRESS, 4));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_SOURCE_TRANSPORT_PORT, 2));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_DESTINATION_TRANSPORT_PORT, 2));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_FLOW_START_MICROSECONDS, 8));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_FLOW_END_MICROSECONDS, 8));
-
-  } else {
-    loginfo("error: template is null");
-  }
-
-  /* Set the type of template for identification */
-  template->type = IPFIX_SIMPLE_TEMPLATE;
-
-  return template;
+static ipfix_exporter_template_t *ipfix_exp_create_simple_template(void) {
+    ipfix_exporter_template_t *template = NULL;
+    uint16_t num_fields = 7;
+    
+    template = ipfix_exp_template_malloc(num_fields);
+    
+    if (template != NULL) {
+        /*
+         * Add the fields
+         */
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_DESTINATION_IPV4_ADDRESS, 4));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_SOURCE_TRANSPORT_PORT, 2));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_DESTINATION_TRANSPORT_PORT, 2));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_FLOW_START_MICROSECONDS, 8));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_FLOW_END_MICROSECONDS, 8));
+        
+        /* Set the type of template for identification */
+        template->type = IPFIX_SIMPLE_TEMPLATE;
+    } else {
+        loginfo("error: template is null");
+    }
+    
+    return template;
 }
 
 
@@ -3396,48 +3421,48 @@ static struct ipfix_exporter_template *ipfix_exp_create_simple_template(void) {
  *
  * @return The desired template, otherwise NULL for failure.
  */
-static struct ipfix_exporter_template *ipfix_exp_create_idp_template(void) {
-  struct ipfix_exporter_template *template = NULL;
-  uint16_t num_fields = 8;
+static ipfix_exporter_template_t *ipfix_exp_create_idp_template(void) {
+    ipfix_exporter_template_t *template = NULL;
+    uint16_t num_fields = 8;
 
-  template = ipfix_exp_template_malloc(num_fields);
+    template = ipfix_exp_template_malloc(num_fields);
 
-  if (template != NULL) {
-    /*
-     * Add the fields
-     */
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_DESTINATION_IPV4_ADDRESS, 4));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_SOURCE_TRANSPORT_PORT, 2));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_DESTINATION_TRANSPORT_PORT, 2));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_FLOW_START_MICROSECONDS, 8));
-
-    ipfix_exp_template_add_field(template,
-        ipfix_exp_template_field_macro(IPFIX_FLOW_END_MICROSECONDS, 8));
-
-    ipfix_exp_template_add_ent_field(template,
-        ipfix_exp_template_ent_field_macro(IPFIX_IDP, 65535));
-
-  } else {
-    loginfo("error: template is null");
-  }
-
-  /* Set the type of template for identification */
-  template->type = IPFIX_IDP_TEMPLATE;
-
-  return template;
+    if (template != NULL) {
+        /*
+         * Add the fields
+         */
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_SOURCE_IPV4_ADDRESS, 4));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_DESTINATION_IPV4_ADDRESS, 4));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_SOURCE_TRANSPORT_PORT, 2));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_DESTINATION_TRANSPORT_PORT, 2));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_PROTOCOL_IDENTIFIER, 1));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_FLOW_START_MICROSECONDS, 8));
+        
+        ipfix_exp_template_add_field(template,
+                                     ipfix_exp_template_field_macro(IPFIX_FLOW_END_MICROSECONDS, 8));
+        
+        ipfix_exp_template_add_ent_field(template,
+                                         ipfix_exp_template_ent_field_macro(IPFIX_IDP, 65535));
+        
+        /* Set the type of template for identification */
+        template->type = IPFIX_IDP_TEMPLATE;
+        
+    } else {
+        loginfo("error: template is null");
+    }
+    
+    return template;
 }
 
 
@@ -3455,33 +3480,33 @@ static struct ipfix_exporter_template *ipfix_exp_create_idp_template(void) {
  *
  * @return The desired template, otherwise NULL for failure.
  */
-static struct ipfix_exporter_template *ipfix_exp_create_template
-(enum ipfix_template_type template_type) {
+static ipfix_exporter_template_t *ipfix_exp_create_template
+(ipfix_template_type_e template_type) {
 
-  struct ipfix_exporter_template *template = NULL;
-
-  switch (template_type) {
+    ipfix_exporter_template_t *template = NULL;
+    
+    switch (template_type) {
     case IPFIX_SIMPLE_TEMPLATE:
-      template = ipfix_exp_create_simple_template();
-      break;
-
+        template = ipfix_exp_create_simple_template();
+        break;
+        
     case IPFIX_IDP_TEMPLATE:
-      template = ipfix_exp_create_idp_template();
-      break;
-
+        template = ipfix_exp_create_idp_template();
+        break;
+        
     default:
-      loginfo("api-error: template type is not supported");
-      break;
-  }
-
-  if (template != NULL) {
-    template->hdr.template_id = exporter_template_id;
-    ipfix_xts_append(template);
-  } else {
-    loginfo("error: unable to create template");
-  }
-
-  return template;
+        loginfo("api-error: template type is not supported");
+        break;
+    }
+    
+    if (template != NULL) {
+        template->hdr.template_id = exporter_template_id;
+        ipfix_xts_append(template);
+    } else {
+        loginfo("error: unable to create template");
+    }
+    
+    return template;
 }
 
 
@@ -3503,86 +3528,87 @@ static struct ipfix_exporter_template *ipfix_exp_create_template
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set,
+static int ipfix_exp_encode_template_set(ipfix_exporter_template_set_t *set,
                                          unsigned char *message_buf,
                                          uint16_t *msg_length) {
-  struct ipfix_exporter_template *current = NULL;
-  unsigned char *data_ptr = NULL;
-  uint16_t bigend_set_id = 0;
-  uint16_t bigend_set_len = 0;
 
-  if (message_buf == NULL) {
-    loginfo("api-error: message_buf is null");
-    return 1;
-  }
-
-  if (set == NULL) {
-    loginfo("api-error: set is null");
-    return 1;
-  }
-
-  if (set->set_hdr.length > (IPFIX_MAX_SET_LEN - *msg_length)) {
-    loginfo("error: set is larger than remaining message buffer");
-    return 1;
-  }
-
-  data_ptr = message_buf + *msg_length;
-
-  bigend_set_id = htons(set->set_hdr.set_id);
-  bigend_set_len = htons(set->set_hdr.length);
-
-  /* Encode the set header into message */
-  memcpy(data_ptr, (const void *)&bigend_set_id, 2);
-  data_ptr += 2;
-  *msg_length += 2;
-
-  memcpy(data_ptr, (const void *)&bigend_set_len, 2);
-  data_ptr += 2;
-  *msg_length += 2;
-
-  current = set->records_head;
-
-  /* Encode the set templates into message */
-  while (current != NULL) {
-    int i = 0;
-    uint16_t bigend_template_id = htons(current->hdr.template_id);
-    uint16_t bigend_template_field_count = htons(current->hdr.field_count);
-
-    /* Encode the template header into message */
-    memcpy(data_ptr, (const void *)&bigend_template_id, 2);
-    data_ptr += 2;
-    *msg_length += 2;
-
-    memcpy(data_ptr, (const void *)&bigend_template_field_count, 2);
-    data_ptr += 2;
-    *msg_length += 2;
-
-    for (i = 0; i < current->hdr.field_count; i++) {
-      uint16_t bigend_field_id = htons(current->fields[i].info_elem_id);
-      uint16_t bigend_field_len = htons(current->fields[i].fixed_length);
-      uint32_t bigend_ent_num = htonl(current->fields[i].enterprise_num);
-
-      /* Encode the field element into message */
-      memcpy(data_ptr, (const void *)&bigend_field_id, 2);
-      data_ptr += 2;
-      *msg_length += 2;
-
-      memcpy(data_ptr, (const void *)&bigend_field_len, 2);
-      data_ptr += 2;
-      *msg_length += 2;
-
-      /* Enterprise number */
-      if (bigend_ent_num) {
-        memcpy(data_ptr, (const void *)&bigend_ent_num, sizeof(uint32_t));
-        data_ptr += sizeof(uint32_t);
-        *msg_length += sizeof(uint32_t);
-      }
+    ipfix_exporter_template_t *current = NULL;
+    unsigned char *data_ptr = NULL;
+    uint16_t bigend_set_id = 0;
+    uint16_t bigend_set_len = 0;
+    
+    if (message_buf == NULL) {
+        loginfo("api-error: message_buf is null");
+        return 1;
     }
-
-    current = current->next;
-  }
-
-  return 0;
+    
+    if (set == NULL) {
+        loginfo("api-error: set is null");
+        return 1;
+    }
+    
+    if (set->set_hdr.length > (IPFIX_MAX_SET_LEN - *msg_length)) {
+        loginfo("error: set is larger than remaining message buffer");
+        return 1;
+    }
+    
+    data_ptr = message_buf + *msg_length;
+    
+    bigend_set_id = htons(set->set_hdr.set_id);
+    bigend_set_len = htons(set->set_hdr.length);
+    
+    /* Encode the set header into message */
+    memcpy(data_ptr, (const void *)&bigend_set_id, 2);
+    data_ptr += 2;
+    *msg_length += 2;
+    
+    memcpy(data_ptr, (const void *)&bigend_set_len, 2);
+    data_ptr += 2;
+    *msg_length += 2;
+    
+    current = set->records_head;
+    
+    /* Encode the set templates into message */
+    while (current != NULL) {
+        int i = 0;
+        uint16_t bigend_template_id = htons(current->hdr.template_id);
+        uint16_t bigend_template_field_count = htons(current->hdr.field_count);
+        
+        /* Encode the template header into message */
+        memcpy(data_ptr, (const void *)&bigend_template_id, 2);
+        data_ptr += 2;
+        *msg_length += 2;
+        
+        memcpy(data_ptr, (const void *)&bigend_template_field_count, 2);
+        data_ptr += 2;
+        *msg_length += 2;
+        
+        for (i = 0; i < current->hdr.field_count; i++) {
+            uint16_t bigend_field_id = htons(current->fields[i].info_elem_id);
+            uint16_t bigend_field_len = htons(current->fields[i].fixed_length);
+            uint32_t bigend_ent_num = htonl(current->fields[i].enterprise_num);
+            
+            /* Encode the field element into message */
+            memcpy(data_ptr, (const void *)&bigend_field_id, 2);
+            data_ptr += 2;
+            *msg_length += 2;
+            
+            memcpy(data_ptr, (const void *)&bigend_field_len, 2);
+            data_ptr += 2;
+            *msg_length += 2;
+            
+            /* Enterprise number */
+            if (bigend_ent_num) {
+                memcpy(data_ptr, (const void *)&bigend_ent_num, sizeof(uint32_t));
+                data_ptr += sizeof(uint32_t);
+                *msg_length += sizeof(uint32_t);
+            }
+        }
+        
+        current = current->next;
+    }
+    
+    return 0;
 }
 
 
@@ -3600,59 +3626,60 @@ static int ipfix_exp_encode_template_set(struct ipfix_exporter_template_set *set
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_record,
+static int ipfix_exp_encode_data_record_simple(ipfix_exporter_data_t *data_record,
                                                unsigned char *message_buf) {
-  unsigned char *ptr = NULL;
-  uint16_t bigend_src_port = 0;
-  uint16_t bigend_dest_port = 0;
-  uint64_t bigend_end_time = 0;
-  uint64_t bigend_start_time = 0;
 
-  if (data_record == NULL) {
-    loginfo("api-error: data_record is null");
-    return 1;
-  }
-
-  if (data_record->type != IPFIX_SIMPLE_TEMPLATE) {
-    loginfo("api-error: wrong data record type");
-    return 1;
-  }
-
-  /* Get starting position in target message buffer */
-  ptr = message_buf;
-
-  /* IPFIX_SOURCE_IPV4_ADDRESS */
-  memcpy(ptr, &data_record->record.simple.source_ipv4_address, sizeof(uint32_t));
-  ptr += sizeof(uint32_t);
-
-  /* IPFIX_DESTINATION_IPV4_ADDRESS */
-  memcpy(ptr, &data_record->record.simple.destination_ipv4_address, sizeof(uint32_t));
-  ptr += sizeof(uint32_t);
-
-  /* IPFIX_SOURCE_TRANSPORT_PORT */
-  bigend_src_port = htons(data_record->record.simple.source_transport_port);
-  memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
-  ptr += sizeof(uint16_t);
-
-  /* IPFIX_DESTINATION_TRANSPORT_PORT */
-  bigend_dest_port = htons(data_record->record.simple.destination_transport_port);
-  memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
-  ptr += sizeof(uint16_t);
-
-  /* IPFIX_PROTOCOL_IDENTIFIER */
-  memcpy(ptr, &data_record->record.simple.protocol_identifier, sizeof(uint8_t));
-  ptr += sizeof(uint8_t);
-
-  /* IPFIX_FLOW_START_MICROSECONDS */
-  bigend_start_time = hton64(data_record->record.simple.flow_start_microseconds);
-  memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
-  ptr += sizeof(uint64_t);
-
-  /* IPFIX_FLOW_END_MICROSECONDS */
-  bigend_end_time = hton64(data_record->record.simple.flow_end_microseconds);
-  memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
-
-  return 0;
+    unsigned char *ptr = NULL;
+    uint16_t bigend_src_port = 0;
+    uint16_t bigend_dest_port = 0;
+    uint64_t bigend_end_time = 0;
+    uint64_t bigend_start_time = 0;
+    
+    if (data_record == NULL) {
+        loginfo("api-error: data_record is null");
+        return 1;
+    }
+    
+    if (data_record->type != IPFIX_SIMPLE_TEMPLATE) {
+        loginfo("api-error: wrong data record type");
+        return 1;
+    }
+    
+    /* Get starting position in target message buffer */
+    ptr = message_buf;
+    
+    /* IPFIX_SOURCE_IPV4_ADDRESS */
+    memcpy(ptr, &data_record->record.simple.source_ipv4_address, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+    
+    /* IPFIX_DESTINATION_IPV4_ADDRESS */
+    memcpy(ptr, &data_record->record.simple.destination_ipv4_address, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+    
+    /* IPFIX_SOURCE_TRANSPORT_PORT */
+    bigend_src_port = htons(data_record->record.simple.source_transport_port);
+    memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    
+    /* IPFIX_DESTINATION_TRANSPORT_PORT */
+    bigend_dest_port = htons(data_record->record.simple.destination_transport_port);
+    memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    
+    /* IPFIX_PROTOCOL_IDENTIFIER */
+    memcpy(ptr, &data_record->record.simple.protocol_identifier, sizeof(uint8_t));
+    ptr += sizeof(uint8_t);
+    
+    /* IPFIX_FLOW_START_MICROSECONDS */
+    bigend_start_time = hton64(data_record->record.simple.flow_start_microseconds);
+    memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
+    ptr += sizeof(uint64_t);
+    
+    /* IPFIX_FLOW_END_MICROSECONDS */
+    bigend_end_time = hton64(data_record->record.simple.flow_end_microseconds);
+    memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
+    
+    return 0;
 }
 
 
@@ -3670,77 +3697,78 @@ static int ipfix_exp_encode_data_record_simple(struct ipfix_exporter_data *data_
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_encode_data_record_idp(struct ipfix_exporter_data *data_record,
+static int ipfix_exp_encode_data_record_idp(ipfix_exporter_data_t *data_record,
                                             unsigned char *message_buf) {
-  unsigned char *ptr = NULL;
-  uint16_t bigend_src_port = 0;
-  uint16_t bigend_dest_port = 0;
-  uint64_t bigend_end_time = 0;
-  uint64_t bigend_start_time = 0;
-  uint16_t bigend_variable_length = 0;
 
-  if (data_record == NULL) {
-    loginfo("api-error: data_record is null");
-    return 1;
-  }
-
-  if (data_record->type != IPFIX_IDP_TEMPLATE) {
-    loginfo("api-error: wrong data record type");
-    return 1;
-  }
-
-  /* Get starting position in target message buffer */
-  ptr = message_buf;
-
-  /* IPFIX_SOURCE_IPV4_ADDRESS */
-  memcpy(ptr, &data_record->record.idp_record.source_ipv4_address, sizeof(uint32_t));
-  ptr += sizeof(uint32_t);
-
-  /* IPFIX_DESTINATION_IPV4_ADDRESS */
-  memcpy(ptr, &data_record->record.idp_record.destination_ipv4_address, sizeof(uint32_t));
-  ptr += sizeof(uint32_t);
-
-  /* IPFIX_SOURCE_TRANSPORT_PORT */
-  bigend_src_port = htons(data_record->record.idp_record.source_transport_port);
-  memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
-  ptr += sizeof(uint16_t);
-
-  /* IPFIX_DESTINATION_TRANSPORT_PORT */
-  bigend_dest_port = htons(data_record->record.idp_record.destination_transport_port);
-  memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
-  ptr += sizeof(uint16_t);
-
-  /* IPFIX_PROTOCOL_IDENTIFIER */
-  memcpy(ptr, &data_record->record.idp_record.protocol_identifier, sizeof(uint8_t));
-  ptr += sizeof(uint8_t);
-
-  /* IPFIX_FLOW_START_MICROSECONDS */
-  bigend_start_time = hton64(data_record->record.idp_record.flow_start_microseconds);
-  memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
-  ptr += sizeof(uint64_t);
-
-  /* IPFIX_FLOW_END_MICROSECONDS */
-  bigend_end_time = hton64(data_record->record.idp_record.flow_end_microseconds);
-  memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
-  ptr += sizeof(uint64_t);
-
-  /*
-   * IPFIX_IDP
-   */
-  /* Encode the flag */
-  memcpy(ptr, &data_record->record.idp_record.idp_field.flag, sizeof(uint8_t));
-  ptr += sizeof(uint8_t);
-
-  /* Encode the IDP variable length */
-  bigend_variable_length = htons(data_record->record.idp_record.idp_field.length);
-  memcpy(ptr, &bigend_variable_length, sizeof(uint16_t));
-  ptr += sizeof(uint16_t);
-
-  /* Copy the IDP */
-  memcpy(ptr, data_record->record.idp_record.idp_field.info,
-         data_record->record.idp_record.idp_field.length);
-
-  return 0;
+    unsigned char *ptr = NULL;
+    uint16_t bigend_src_port = 0;
+    uint16_t bigend_dest_port = 0;
+    uint64_t bigend_end_time = 0;
+    uint64_t bigend_start_time = 0;
+    uint16_t bigend_variable_length = 0;
+    
+    if (data_record == NULL) {
+        loginfo("api-error: data_record is null");
+        return 1;
+    }
+    
+    if (data_record->type != IPFIX_IDP_TEMPLATE) {
+        loginfo("api-error: wrong data record type");
+        return 1;
+    }
+    
+    /* Get starting position in target message buffer */
+    ptr = message_buf;
+    
+    /* IPFIX_SOURCE_IPV4_ADDRESS */
+    memcpy(ptr, &data_record->record.idp_record.source_ipv4_address, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+    
+    /* IPFIX_DESTINATION_IPV4_ADDRESS */
+    memcpy(ptr, &data_record->record.idp_record.destination_ipv4_address, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+    
+    /* IPFIX_SOURCE_TRANSPORT_PORT */
+    bigend_src_port = htons(data_record->record.idp_record.source_transport_port);
+    memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    
+    /* IPFIX_DESTINATION_TRANSPORT_PORT */
+    bigend_dest_port = htons(data_record->record.idp_record.destination_transport_port);
+    memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    
+    /* IPFIX_PROTOCOL_IDENTIFIER */
+    memcpy(ptr, &data_record->record.idp_record.protocol_identifier, sizeof(uint8_t));
+    ptr += sizeof(uint8_t);
+    
+    /* IPFIX_FLOW_START_MICROSECONDS */
+    bigend_start_time = hton64(data_record->record.idp_record.flow_start_microseconds);
+    memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
+    ptr += sizeof(uint64_t);
+    
+    /* IPFIX_FLOW_END_MICROSECONDS */
+    bigend_end_time = hton64(data_record->record.idp_record.flow_end_microseconds);
+    memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
+    ptr += sizeof(uint64_t);
+    
+    /*
+     * IPFIX_IDP
+     */
+    /* Encode the flag */
+    memcpy(ptr, &data_record->record.idp_record.idp_field.flag, sizeof(uint8_t));
+    ptr += sizeof(uint8_t);
+    
+    /* Encode the IDP variable length */
+    bigend_variable_length = htons(data_record->record.idp_record.idp_field.length);
+    memcpy(ptr, &bigend_variable_length, sizeof(uint16_t));
+    ptr += sizeof(uint16_t);
+    
+    /* Copy the IDP */
+    memcpy(ptr, data_record->record.idp_record.idp_field.info,
+           data_record->record.idp_record.idp_field.length);
+    
+    return 0;
 }
 
 
@@ -3763,73 +3791,74 @@ static int ipfix_exp_encode_data_record_idp(struct ipfix_exporter_data *data_rec
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_encode_data_set(struct ipfix_exporter_data_set *set,
+static int ipfix_exp_encode_data_set(ipfix_exporter_data_set_t *set,
                                      unsigned char *message_buf,
                                      uint16_t *msg_length) {
-  struct ipfix_exporter_data *this_data_record = NULL;
-  unsigned char *data_ptr = NULL;
-  uint16_t bigend_set_id = 0;
-  uint16_t bigend_set_len = 0;
 
-  if (message_buf == NULL) {
-    loginfo("api-error: message_buf is null");
-    return 1;
-  }
-
-  if (set == NULL) {
-    loginfo("api-error: set is null");
-    return 1;
-  }
-
-  if (set->set_hdr.length > (IPFIX_MAX_SET_LEN - *msg_length)) {
-    loginfo("error: set is larger than remaining message buffer");
-    return 1;
-  }
-
-  data_ptr = message_buf + *msg_length;
-
-  bigend_set_id = htons(set->set_hdr.set_id);
-  bigend_set_len = htons(set->set_hdr.length);
-
-  /* Encode the set header into message */
-  memcpy(data_ptr, &bigend_set_id, 2);
-  data_ptr += 2;
-  *msg_length += 2;
-
-  memcpy(data_ptr, &bigend_set_len, 2);
-  data_ptr += 2;
-  *msg_length += 2;
-
-  this_data_record = set->records_head;
-
-  /* Encode the set data records into message */
-  while (this_data_record != NULL) {
-    switch (this_data_record->type) {
-      case IPFIX_SIMPLE_TEMPLATE:
-        if (ipfix_exp_encode_data_record_simple(this_data_record, data_ptr)) {
-          loginfo("error: could not encode the simple data record into message");
-          return 1;
-        }
-        break;
-
-      case IPFIX_IDP_TEMPLATE:
-        if (ipfix_exp_encode_data_record_idp(this_data_record, data_ptr)) {
-          loginfo("error: could not encode the simple data record into message");
-          return 1;
-        }
-        break;
-
-      default:
-        loginfo("error: invalid data record type, cannot encode into message");
+    ipfix_exporter_data_t *this_data_record = NULL;
+    unsigned char *data_ptr = NULL;
+    uint16_t bigend_set_id = 0;
+    uint16_t bigend_set_len = 0;
+    
+    if (message_buf == NULL) {
+        loginfo("api-error: message_buf is null");
         return 1;
     }
-
-    data_ptr += this_data_record->length;
-    *msg_length += this_data_record->length;
-    this_data_record = this_data_record->next;
-  }
-
-  return 0;
+    
+    if (set == NULL) {
+        loginfo("api-error: set is null");
+        return 1;
+    }
+    
+    if (set->set_hdr.length > (IPFIX_MAX_SET_LEN - *msg_length)) {
+        loginfo("error: set is larger than remaining message buffer");
+        return 1;
+    }
+    
+    data_ptr = message_buf + *msg_length;
+    
+    bigend_set_id = htons(set->set_hdr.set_id);
+    bigend_set_len = htons(set->set_hdr.length);
+    
+    /* Encode the set header into message */
+    memcpy(data_ptr, &bigend_set_id, 2);
+    data_ptr += 2;
+    *msg_length += 2;
+    
+    memcpy(data_ptr, &bigend_set_len, 2);
+    data_ptr += 2;
+    *msg_length += 2;
+    
+    this_data_record = set->records_head;
+    
+    /* Encode the set data records into message */
+    while (this_data_record != NULL) {
+        switch (this_data_record->type) {
+        case IPFIX_SIMPLE_TEMPLATE:
+            if (ipfix_exp_encode_data_record_simple(this_data_record, data_ptr)) {
+                loginfo("error: could not encode the simple data record into message");
+                return 1;
+            }
+            break;
+            
+        case IPFIX_IDP_TEMPLATE:
+            if (ipfix_exp_encode_data_record_idp(this_data_record, data_ptr)) {
+                loginfo("error: could not encode the simple data record into message");
+                return 1;
+            }
+            break;
+            
+        default:
+            loginfo("error: invalid data record type, cannot encode into message");
+            return 1;
+        }
+        
+        data_ptr += this_data_record->length;
+        *msg_length += this_data_record->length;
+        this_data_record = this_data_record->next;
+    }
+    
+    return 0;
 }
 
 
@@ -3848,36 +3877,37 @@ static int ipfix_exp_encode_data_set(struct ipfix_exporter_data_set *set,
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_encode_set_node(struct ipfix_exporter_set_node *set_node,
+static int ipfix_exp_encode_set_node(ipfix_exporter_set_node_t *set_node,
                                      unsigned char *raw_msg_buf,
                                      uint16_t *buf_len) {
-  uint16_t set_type = 0;
 
-  if (set_node == NULL) {
-    loginfo("api-error: set_node is null");
-    return 1;
-  }
-
-  set_type = set_node->set_type;
-
-  if (set_type == IPFIX_TEMPLATE_SET) {
-    /* Encode the template set into the message */
-    ipfix_exp_encode_template_set(set_node->set.template_set,
+    uint16_t set_type = 0;
+    
+    if (set_node == NULL) {
+        loginfo("api-error: set_node is null");
+        return 1;
+    }
+    
+    set_type = set_node->set_type;
+    
+    if (set_type == IPFIX_TEMPLATE_SET) {
+        /* Encode the template set into the message */
+        ipfix_exp_encode_template_set(set_node->set.template_set,
+                                      raw_msg_buf, buf_len);
+    } else if (set_type == IPFIX_OPTION_SET) {
+        /* Encode the option set into the message */
+        // TODO call option set encoding function here
+        loginfo("warning: option set encoding not supported yet");
+    } else if (set_type >= 256) {
+        /* Encode the data set into the message */
+        ipfix_exp_encode_data_set(set_node->set.data_set,
                                   raw_msg_buf, buf_len);
-  } else if (set_type == IPFIX_OPTION_SET) {
-    /* Encode the option set into the message */
-    // TODO call option set encoding function here
-    loginfo("warning: option set encoding not supported yet");
-  } else if (set_type >= 256) {
-    /* Encode the data set into the message */
-    ipfix_exp_encode_data_set(set_node->set.data_set,
-                              raw_msg_buf, buf_len);
-  } else {
-    loginfo("error: invalid set type");
-    return 1;
-  }
-
-  return 0;
+    } else {
+        loginfo("error: invalid set type");
+        return 1;
+    }
+    
+    return 0;
 }
 
 
@@ -3894,42 +3924,43 @@ static int ipfix_exp_encode_set_node(struct ipfix_exporter_set_node *set_node,
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_exp_encode_message(struct ipfix_message *message,
+static int ipfix_exp_encode_message(ipfix_message_t *message,
                                     unsigned char *raw_msg_buf) {
-  struct ipfix_exporter_set_node *this_set_node = NULL;
-  uint16_t buf_len = 0;
 
-  if (message == NULL) {
-    loginfo("api_error: message is null");
-    return 1;
-  }
-
-  if (message->sets_head == NULL) {
-    loginfo("error: message does not contain any sets");
-    return 1;
-  }
-
-  /* Get the head of set node list */
-  this_set_node = message->sets_head;
-
-  while (buf_len < IPFIX_MAX_SET_LEN) {
-    /* FIXME need to make this length check actually robust */
-    if (this_set_node == NULL) {
-      /* Reached end of set node list */
-      break;
+    ipfix_exporter_set_node_t *this_set_node = NULL;
+    uint16_t buf_len = 0;
+    
+    if (message == NULL) {
+        loginfo("api_error: message is null");
+        return 1;
     }
-
-    /* Encode the node into the message */
-    if (ipfix_exp_encode_set_node(this_set_node, raw_msg_buf, &buf_len)) {
-      loginfo("error: could not encode set node");
-      return 1;
+    
+    if (message->sets_head == NULL) {
+        loginfo("error: message does not contain any sets");
+        return 1;
     }
-
-    /* Go to next node in the list */
-    this_set_node = this_set_node->next;
-  }
-
-  return 0;
+    
+    /* Get the head of set node list */
+    this_set_node = message->sets_head;
+    
+    while (buf_len < IPFIX_MAX_SET_LEN) {
+        /* FIXME need to make this length check actually robust */
+        if (this_set_node == NULL) {
+            /* Reached end of set node list */
+            break;
+        }
+        
+        /* Encode the node into the message */
+        if (ipfix_exp_encode_set_node(this_set_node, raw_msg_buf, &buf_len)) {
+            loginfo("error: could not encode set node");
+            return 1;
+        }
+        
+        /* Go to next node in the list */
+        this_set_node = this_set_node->next;
+    }
+    
+    return 0;
 }
 
 
@@ -3947,47 +3978,49 @@ static int ipfix_exp_encode_message(struct ipfix_message *message,
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_export_send_message(struct ipfix_exporter *e,
-                                     struct ipfix_message *message) {
-  ssize_t bytes = 0;
-  size_t msg_len = message->hdr.length;
+static int ipfix_export_send_message(ipfix_message_t *message) {
 
-  memset(&raw_message, 0, sizeof(struct ipfix_raw_message));
-
-  /*
-   * Encode the message contents according to RFC7011,
-   * and pack it into the raw_message for sending
-   */
-  ipfix_exp_encode_message(message, raw_message.payload);
-
-  /* Convert the header length to network-byte order */  
-  message->hdr.length = htons(message->hdr.length);
-  /* Write the time message is exported */
-  message->hdr.export_time = htonl(time(NULL));
-  /* Write message sequence number relative to current session */
-  message->hdr.sequence_number = htonl(e->msg_count);
-
-  /*
-   * Copy message header into raw_message header
-   */
-  memcpy(&raw_message.hdr, &message->hdr, sizeof(struct ipfix_hdr));
-
-  /* Send the message */
-  bytes = sendto(e->socket, (const char*)&raw_message, msg_len, 0,
-                 (struct sockaddr *)&e->clctr_addr,
-                 sizeof(e->clctr_addr));
-
-  if (bytes < 0) {
-    loginfo("error: ipfix message could not be sent");
-    return 1;
-  } else {
-    loginfo("info: sequence # %d, sent %lu bytes", e->msg_count, bytes);
-  }
-
-  /* Increment the exporter's message count */
-  e->msg_count++;
-
-  return 0;
+    ssize_t bytes = 0;
+    size_t msg_len = message->hdr.length;
+    ipfix_exporter_t *e = &gateway_export;
+    ipfix_raw_message_t raw_message;
+    
+    memset(&raw_message, 0, sizeof(ipfix_raw_message_t));
+    
+    /*
+     * Encode the message contents according to RFC7011,
+     * and pack it into the raw_message for sending
+     */
+    ipfix_exp_encode_message(message, raw_message.payload);
+    
+    /* Convert the header length to network-byte order */  
+    message->hdr.length = htons(message->hdr.length);
+    /* Write the time message is exported */
+    message->hdr.export_time = htonl(time(NULL));
+    /* Write message sequence number relative to current session */
+    message->hdr.sequence_number = htonl(e->msg_count);
+    
+    /*
+     * Copy message header into raw_message header
+     */
+    memcpy(&raw_message.hdr, &message->hdr, sizeof(ipfix_hdr_t));
+    
+    /* Send the message */
+    bytes = sendto(e->socket, (const char*)&raw_message, msg_len, 0,
+                   (struct sockaddr *)&e->clctr_addr,
+                   sizeof(e->clctr_addr));
+    
+    if (bytes < 0) {
+        loginfo("error: ipfix message could not be sent");
+        return 1;
+    } else {
+        loginfo("info: sequence # %d, sent %lu bytes", e->msg_count, bytes);
+    }
+    
+    /* Increment the exporter's message count */
+    e->msg_count++;
+    
+    return 0;
 }
 
 
@@ -4003,33 +4036,35 @@ static int ipfix_export_send_message(struct ipfix_exporter *e,
  *
  * @return 0 for success, 1 for failure
  */
-int ipfix_export_flush_message(void) {
-  if (gateway_export.socket == 0) {
-    loginfo("error: gateway_export not configured, unable to flush message");
-    return 1;
-  }
+int ipfix_export_flush_message(joy_ctx_data *ctx) {
 
-  if (export_message == NULL) {
+    if (gateway_export.socket == 0) {
+        loginfo("error: gateway_export not configured, unable to flush message");
+        return 1;
+    }
+    
+    if (ctx->export_message == NULL) {
+        return 0;
+    }
+    
+    /* Send the message */
+    if (ipfix_export_send_message(ctx->export_message)) {
+        loginfo("error: unable to send message");
+        return 1;
+    }
+    
     return 0;
-  }
-
-  /* Send the message */
-  if (ipfix_export_send_message(&gateway_export, export_message)) {
-    loginfo("error: unable to send message");
-    return 1;
-  }
-
-  return 0;
 }
 
 
-void ipfix_module_cleanup(void) {
-  ipfix_cts_cleanup();
-  ipfix_xts_cleanup();
-  if (export_message != NULL) {
-    ipfix_delete_exp_message(export_message);
-    export_message = NULL;
-  }
+void ipfix_module_cleanup(joy_ctx_data *ctx) {
+
+    ipfix_cts_cleanup();
+    ipfix_xts_cleanup();
+    if (ctx->export_message != NULL) {
+        ipfix_delete_exp_message(ctx->export_message);
+        ctx->export_message = NULL;
+    }
 }
 
 /*
@@ -4044,13 +4079,14 @@ void ipfix_module_cleanup(void) {
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_export_message_attach_data_set(const struct flow_record *fr_record,
-                                                struct ipfix_message *message,
-                                                enum ipfix_template_type template_type) {
-    struct ipfix_exporter_set_node *set_node = NULL;
-    struct ipfix_exporter_data_set *data_set = NULL;
-    struct ipfix_exporter_data *data_record = NULL;
-    struct ipfix_exporter_template *template = NULL;
+static int ipfix_export_message_attach_data_set(const flow_record_t *fr_record,
+                                                ipfix_message_t *message,
+                                                ipfix_template_type_e template_type) {
+
+    ipfix_exporter_set_node_t *set_node = NULL;
+    ipfix_exporter_data_set_t *data_set = NULL;
+    ipfix_exporter_data_t *data_record = NULL;
+    ipfix_exporter_template_t *template = NULL;
     int signal = 0;
     int rc = 1;
 
@@ -4157,12 +4193,13 @@ end:
  *
  * @return 0 for success, 1 for failure
  */
-static int ipfix_export_message_attach_template_set(struct ipfix_message *message,
-                                                    enum ipfix_template_type template_type) {
-    struct ipfix_exporter_set_node *set_node = NULL;
-    struct ipfix_exporter_template_set *template_set = NULL;
-    struct ipfix_exporter_template *xts_tmp = NULL;
-    struct ipfix_exporter_template *local_tmp = NULL;
+static int ipfix_export_message_attach_template_set(ipfix_message_t *message,
+                                                    ipfix_template_type_e template_type) {
+
+    ipfix_exporter_set_node_t *set_node = NULL;
+    ipfix_exporter_template_set_t *template_set = NULL;
+    ipfix_exporter_template_t *xts_tmp = NULL;
+    ipfix_exporter_template_t *local_tmp = NULL;
     int flag_send_template = 0;
     int signal = 0;
     int flag_cleanup = 1;
@@ -4194,6 +4231,7 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
                 }
             }
             break;
+        case IPFIX_RESERVED_TEMPLATE:
         default:
             loginfo("error: template type not supported for exporting");
             goto end;
@@ -4213,7 +4251,7 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
     }
 
     if (flag_send_template) {
-        struct ipfix_exporter_template *db_tmp = NULL;
+        ipfix_exporter_template_t *db_tmp = NULL;
 
         /* Get a valid template set to attach to, if possible */
         template_set = ipfix_exp_message_find_template_set(message);
@@ -4223,16 +4261,14 @@ static int ipfix_export_message_attach_template_set(struct ipfix_message *messag
          * This is for updating the time and other attributes on
          * the template object.
          */
-        switch (template_type) {
-            case IPFIX_SIMPLE_TEMPLATE:
-                db_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
-                break;
-            case IPFIX_IDP_TEMPLATE:
-                db_tmp = ipfix_xts_search(IPFIX_IDP_TEMPLATE, NULL);
-                break;
-            default:
-                loginfo("error: template type not supported for exporting");
-                goto end;
+        if( template_type == IPFIX_SIMPLE_TEMPLATE) {
+            db_tmp = ipfix_xts_search(IPFIX_SIMPLE_TEMPLATE, NULL);
+        } else if (template_type == IPFIX_IDP_TEMPLATE) {
+            db_tmp = ipfix_xts_search(IPFIX_IDP_TEMPLATE, NULL);
+        } else {
+ 
+            loginfo("error: template type not supported for exporting");
+ 
         }
 
         if (template_set == NULL) {
@@ -4334,17 +4370,19 @@ end:
  *
  * @return 0 for success, 1 for failure
  */
-int ipfix_export_main(const struct flow_record *fr_record) {
+int ipfix_export_main(joy_ctx_data *ctx, const flow_record_t *fr_record) {
+
     int attach_code = 0;
 
     /* Init the exporter for use, if not done already */
     if (gateway_export.socket == 0) {
-        ipfix_exporter_init(&gateway_export, ipfix_export_remote_host);
+        loginfo("error: IPFix export not initialized");
+        return 1;
     }
 
     /* Create and init the IPFIX message */
-    if (export_message == NULL) {
-        if (!(export_message = ipfix_exp_message_malloc())) {
+    if (ctx->export_message == NULL) {
+        if (!(ctx->export_message = ipfix_exp_message_malloc())) {
             loginfo("error: unable to create a message");
             return 1;
         }
@@ -4353,7 +4391,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
     /*
      * Attach a template if necessary.
      */
-    attach_code = ipfix_export_message_attach_template_set(export_message,
+    attach_code = ipfix_export_message_attach_template_set(ctx->export_message,
                                                            export_template_type);
     if (attach_code == 2) {
         /* 
@@ -4361,20 +4399,20 @@ int ipfix_export_main(const struct flow_record *fr_record) {
          * it was already full. Here we send off the packed message
          * and then make a new one to attach this template to.
          */
-        ipfix_export_send_message(&gateway_export, export_message);
+        ipfix_export_send_message(ctx->export_message);
 
-        if (export_message) {
+        if (ctx->export_message) {
             /* Cleanup the message */
-            ipfix_delete_exp_message(export_message);
+            ipfix_delete_exp_message(ctx->export_message);
 
             /* Make new message */
-            if (!(export_message = ipfix_exp_message_malloc())) {
+            if (!(ctx->export_message = ipfix_exp_message_malloc())) {
                 loginfo("error: unable to create a message");
                 return 1;
             }
         }
 
-        if (ipfix_export_message_attach_template_set(export_message,
+        if (ipfix_export_message_attach_template_set(ctx->export_message,
                                                      export_template_type)) {
             /*
              * We either had an error or could not attach again.
@@ -4388,7 +4426,7 @@ int ipfix_export_main(const struct flow_record *fr_record) {
      * Attach data record.
      */
     attach_code = ipfix_export_message_attach_data_set(fr_record,
-                                                       export_message,
+                                                       ctx->export_message,
                                                        export_template_type);
     if (attach_code == 2) {
         /* 
@@ -4396,21 +4434,21 @@ int ipfix_export_main(const struct flow_record *fr_record) {
          * it was already full. Here we send off the packed message
          * and then make a new one to attach this data record to.
          */
-        ipfix_export_send_message(&gateway_export, export_message);
+        ipfix_export_send_message(ctx->export_message);
 
-        if (export_message) {
+        if (ctx->export_message) {
             /* Cleanup the message */
-            ipfix_delete_exp_message(export_message);
+            ipfix_delete_exp_message(ctx->export_message);
 
             /* Make new message */
-            if (!(export_message = ipfix_exp_message_malloc())) {
+            if (!(ctx->export_message = ipfix_exp_message_malloc())) {
                 loginfo("error: unable to create a message");
                 return 1;
             }
         }
 
         if (ipfix_export_message_attach_data_set(fr_record,
-                                                 export_message,
+                                                 ctx->export_message,
                                                  export_template_type)) {
             /*
              * We either had an error or could not attach again.

@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -54,8 +54,17 @@
 
 /** maximum line length */
 #define LINEMAX 512
+#define COMPACT_BD_MAP_MAX 16
 
 #define NULL_KEYWORD "none"
+
+enum SALT_algorithm {
+  reserved = 0,
+  raw = 1,
+  aggregated = 2,
+  defragmented = 3,
+  rle = 4
+};
 
 /** structure for the configuration parameters */
 struct configuration {
@@ -72,7 +81,7 @@ struct configuration {
     unsigned int num_pkts;
     unsigned int type;           /*!< 1=SPLT, 2=SALT */
     unsigned int retain_local;
-    unsigned int max_records;
+    uint32_t max_records;
     unsigned int nfv9_capture_port;
     unsigned int ipfix_collect_port;
     unsigned int ipfix_collect_online;
@@ -83,6 +92,8 @@ struct configuration {
     unsigned int verbosity;
     unsigned int show_config;
     unsigned int show_interfaces;
+    enum SALT_algorithm salt_algo;
+
   
     declare_all_features_config_uint(feature_list) 
   
@@ -105,6 +116,8 @@ struct configuration {
     char *ipfix_export_template;
     char *aux_resource_path;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
+    unsigned short compact_bd_mapping[COMPACT_BD_MAP_MAX];
+    radix_trie_t rt;
 };
 
 
@@ -123,4 +136,5 @@ void config_print(FILE *f, const struct configuration *c);
 /** print out the configuration in JSON format */
 void config_print_json(zfile f, const struct configuration *c);
 
+struct configuration *glb_config;
 #endif /* CONFIG_H */
