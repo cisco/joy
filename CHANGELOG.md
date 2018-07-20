@@ -1,3 +1,34 @@
+## 3.0.0
+
+###### 07-20-2018
+
+#### Changes
+
+* Modified JOY infrastructure code to be thread friendly.
+
+* Modified the Makefile system to build the JOY infrastructure
+  as a static and shared library.
+
+* Modified the JOY infrastructure code to allow for multiple worker
+  threads to process packet data.
+
+* Modified each worker thread to utilize its own output file instead
+  of single shared output file.
+
+* implemented an API for utilizing the JOY Library (joy_api.[hc]).
+
+* implemented a Vector Packet Processing integration scheme to
+  utilize VPP native infrastructure when building that integration.
+
+* created 2 API test programs, joy_api_test.c and joy_api_test2.c.
+
+* modified existing test programs to link against static JOY library
+  instead of re-compiling the infrastructure code.
+
+* cleaned up coverity errors and warnings.
+
+* various bug fixes.
+
 ## 2.1
 
 ###### 07-20-2018
