@@ -48,8 +48,11 @@
 #include <stdlib.h>
 #include "salt.h"
 #include "pkt.h"      /* for tcp macros */
+#include "config.h"
 #include "err.h"
 
+/* external definitions from joy.c */
+extern FILE *info;
 
 /**
  * \brief Initialize the memory of SALT struct.
@@ -63,13 +66,12 @@ void salt_init(struct salt **salt_handle) {
         salt_delete(salt_handle);
     }
 
-    *salt_handle = malloc(sizeof(struct salt));
+    *salt_handle = calloc(1, sizeof(struct salt));
     if (*salt_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*salt_handle, 0, sizeof(struct salt));
 }
 
 /**

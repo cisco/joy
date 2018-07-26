@@ -60,7 +60,12 @@ if [ "$sysname" == "Darwin" ]; then
     # Delete the application files
     delete_file /usr/local/bin/joy
 
+    delete_file /usr/local/lib/libjoy.a
+    delete_file /usr/local/include/joy/joy_api.h
+
     delete_file /usr/local/bin/sleuth
+
+    delete_directory /usr/local/include/joy
 
     delete_directory /usr/local/etc/joy
 
@@ -110,7 +115,12 @@ elif [ "$sysname" == "Linux" ]; then
     # Delete the application files
     delete_file /usr/local/bin/joy
 
+    delete_file /usr/local/lib/libjoy.a
+    delete_file /usr/local/include/joy/joy_api.h
+
     delete_file /usr/local/bin/sleuth
+
+    delete_directory /usr/local/include/joy
 
     delete_directory /usr/local/etc/joy
 

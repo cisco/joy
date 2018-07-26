@@ -42,11 +42,15 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "proto_identify.h"
+#include "config.h"
 #include "err.h"
 
+extern struct configuration *glb_config;
+extern FILE *info;
 
 /* --------------------------------------------------
  * --------------------------------------------------
@@ -488,6 +492,7 @@ static void destroy_kdn(struct keyword_dict_node *node) {
 
     if (node->child == NULL || node->num_children == 0) {
         free(node);
+        node = NULL;
         return;
     }
 
@@ -507,6 +512,7 @@ static void destroy_kdn(struct keyword_dict_node *node) {
 
     /* Now delete the parent */
     free(node);
+    node = NULL;
     return;
 }
 
@@ -784,10 +790,12 @@ int proto_identify_init(void) {
 void proto_identify_cleanup(void) {
     if (kd_tcp_root) {
         destroy_kdn(kd_tcp_root);
+        kd_tcp_root = NULL;
     }
 
     if (kd_udp_root) {
         destroy_kdn(kd_udp_root);
+        kd_udp_root = NULL;
     }
 }
 
@@ -805,11 +813,12 @@ const struct pi_container *proto_identify_tcp(const char *tcp_data,
     const struct pi_container *pi = NULL;
 
     if (len == 0) {
-        return 0;
+        return NULL;
     }
 
     if (kd_tcp_root == NULL) {
-        proto_identify_init();
+        joy_log_err("Protocol identification for TCP was not initialized");
+        return NULL;
     }
 
     pi = search_keyword_dict(kd_tcp_root, tcp_data, len);
@@ -831,11 +840,12 @@ const struct pi_container *proto_identify_udp(const char *udp_data,
     const struct pi_container *pi = NULL;
 
     if (len == 0) {
-        return 0;
+        return NULL;
     }
 
     if (kd_udp_root == NULL) {
-        proto_identify_init();
+        joy_log_err("Protocol identification for UDP was not initialized");
+        return NULL;
     }
 
     pi = search_keyword_dict(kd_udp_root, udp_data, len);

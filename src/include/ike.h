@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,7 +48,7 @@
 #include <pcap.h>
 #include "output.h"
 #include "feature.h"
-#include "utils.h"      /* for enum role */
+#include "utils.h"      /* for joy_role_e */
 
 #define ike_usage "  ike=1                      report IKE information\n"
 
@@ -68,13 +68,21 @@
 #define IKE_MAX_TRANSFORMS 20
 #define IKE_MAX_ATTRIBUTES 20
 
-struct ike_attribute {
+/**
+ * \brief A vector structure contains a pointer to a byte array with a given length.
+ */
+typedef struct vector_ {
+    unsigned int len;
+    unsigned char *bytes;
+} vector_t;
+
+typedef struct ike_attribute_ {
     uint16_t type;
     uint8_t encoding;
-    struct vector *data;
-};
+    vector_t *data;
+} ike_attribute_t;
 
-struct ike_transform {
+typedef struct ike_transform_ {
     uint8_t last;
     uint16_t length;
     uint8_t type;
@@ -82,98 +90,98 @@ struct ike_transform {
     uint8_t num_v1;
     uint8_t id_v1;
     unsigned int num_attributes;
-    struct ike_attribute *attributes[IKE_MAX_ATTRIBUTES];
-};
+    ike_attribute_t *attributes[IKE_MAX_ATTRIBUTES];
+} ike_transform_t;
 
-struct ike_proposal {
+typedef struct ike_proposal_ {
     uint8_t last;
     uint16_t length;
     uint8_t num;
     uint8_t protocol_id;
-    struct vector *spi;
+    vector_t *spi;
     uint8_t num_transforms;
-    struct ike_transform *transforms[IKE_MAX_TRANSFORMS];
-};
+    ike_transform_t *transforms[IKE_MAX_TRANSFORMS];
+} ike_proposal_t;
 
-struct ike_sa {
+typedef struct ike_sa_ {
     uint32_t doi_v1;
     uint32_t situation_v1;
     uint32_t ldi_v1;
-    struct vector *secrecy_level_v1;
-    struct vector *secrecy_category_v1;
-    struct vector *integrity_level_v1;
-    struct vector *integrity_category_v1;
+    vector_t *secrecy_level_v1;
+    vector_t *secrecy_category_v1;
+    vector_t *integrity_level_v1;
+    vector_t *integrity_category_v1;
     unsigned int num_proposals;
-    struct ike_proposal *proposals[IKE_MAX_PROPOSALS];
-};
+    ike_proposal_t *proposals[IKE_MAX_PROPOSALS];
+} ike_sa_t;
 
-struct ike_ke {
+typedef struct ike_ke_ {
     uint16_t group;
-    struct vector *data;
-};
+    vector_t *data;
+} ike_ke_t;
 
-struct ike_id {
+typedef struct ike_id_ {
     uint8_t type;
-    struct vector *data;
-};
+    vector_t *data;
+} ike_id_t;
 
-struct ike_cert {
+typedef struct ike_cert_ {
     uint8_t encoding;
-    struct vector *data;
-};
+    vector_t *data;
+} ike_cert_t;
 
-struct ike_cr {
+typedef struct ike_cr_ {
     uint8_t encoding;
-    struct vector *data;
-};
+    vector_t *data;
+} ike_cr_t;
 
-struct ike_auth {
+typedef struct ike_auth_ {
     uint8_t method;
-    struct vector *data;
-};
+    vector_t *data;
+} ike_auth_t;
 
-struct ike_hash {
-    struct vector *data;
-};
+typedef struct ike_hash_ {
+    vector_t *data;
+} ike_hash_t;
 
-struct ike_notify {
+typedef struct ike_notify_ {
     uint32_t doi_v1;
     uint8_t protocol_id;
     uint16_t type;
-    struct vector *spi;
-    struct vector *data;
-};
+    vector_t *spi;
+    vector_t *data;
+}ike_notify_t;
 
-struct ike_nonce {
-    struct vector *data;
-};
+typedef struct ike_nonce_ {
+    vector_t *data;
+} ike_nonce_t;
 
-struct ike_vendor_id {
-    struct vector *data;
-};
+typedef struct ike_vendor_id_ {
+    vector_t *data;
+} ike_vendor_id_t;
 
 union ike_payload_body {
-    struct ike_sa *sa;
-    struct ike_ke *ke;
-    struct ike_id *id;
-    struct ike_cert *cert;
-    struct ike_cr *cr;
-    struct ike_auth *auth;
-    struct ike_hash *hash;
-    struct ike_nonce *nonce;
-    struct ike_notify *notify;
-    struct ike_vendor_id *vendor_id;
+    ike_sa_t *sa;
+    ike_ke_t *ke;
+    ike_id_t *id;
+    ike_cert_t *cert;
+    ike_cr_t *cr;
+    ike_auth_t *auth;
+    ike_hash_t *hash;
+    ike_nonce_t *nonce;
+    ike_notify_t *notify;
+    ike_vendor_id_t *vendor_id;
 };
 
-struct ike_payload {
+typedef struct ike_payload_ {
     uint8_t type;
     uint8_t next_payload;
     uint8_t reserved;
     uint16_t length;
     union ike_payload_body *body;
-};
+} ike_payload_t;
 
-struct ike_header {
+typedef struct ike_header_ {
     uint8_t init_spi[8]; /* IKEv1 initiator cookie */
     uint8_t resp_spi[8]; /* IKEv1 responder cookie */
     uint8_t next_payload;
@@ -183,36 +191,36 @@ struct ike_header {
     uint8_t flags;
     uint32_t message_id;
     uint32_t length;
-};
+} ike_header_t;
 
-struct ike_message {
-    struct ike_header *header;
+typedef struct ike_message_ {
+    ike_header_t *header;
     unsigned int num_payloads;
-    struct ike_payload *payloads[IKE_MAX_PAYLOADS];
-};
+    ike_payload_t *payloads[IKE_MAX_PAYLOADS];
+} ike_message_t;
 
-typedef struct ike {
-    enum role role;
+typedef struct ike_ {
+    joy_role_e role;
     unsigned int num_messages;
-    struct ike_message *messages[IKE_MAX_MESSAGES];
-    struct vector *buffer;
+    ike_message_t *messages[IKE_MAX_MESSAGES];
+    vector_t *buffer;
 } ike_t;
 
 declare_feature(ike);
 
-void ike_init(struct ike **ike_handle);
+void ike_init(ike_t **ike_handle);
 
-void ike_update(struct ike *ike,
+void ike_update(ike_t *ike,
                 const struct pcap_pkthdr *header,
-        const void *data,
-        unsigned int len,
-        unsigned int report_ike);
+		const void *data,
+		unsigned int len,
+		unsigned int report_ike);
 
-void ike_print_json(const struct ike *w1,
-            const struct ike *w2,
-            zfile f);
+void ike_print_json(const ike_t *w1,
+		    const ike_t *w2,
+		    zfile f);
 
-void ike_delete(struct ike **ike_handle);
+void ike_delete(ike_t **ike_handle);
 
 void ike_unit_test();
 

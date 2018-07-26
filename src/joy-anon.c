@@ -1,5 +1,5 @@
 /*
- *	
+ *      
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
  * 
@@ -74,9 +74,9 @@ static char *addr_string_anonymize (char *addr_string) {
     }
 
 #ifdef WIN32
-	if (inet_pton(AF_INET,addr_string, &addr) == 0) {
+        if (inet_pton(AF_INET,addr_string, &addr) == 0) {
 #else
-	if (inet_aton(addr_string, &addr) == 0) {
+        if (inet_aton(addr_string, &addr) == 0) {
 #endif
         return NULL;
     }
@@ -95,7 +95,7 @@ static char *addr_string_deanonymize (const char *hexstring) {
 
     /* deanonymize */
     if (deanon_string (hexstring, 32, string, sizeof(string)) != ok) {
-	return NULL;
+        return NULL;
     }
     return string;
 
@@ -105,11 +105,11 @@ static char *addr_string_deanonymize (const char *hexstring) {
 static int usage (char *name) {
     fprintf(stderr, "usage:\n%s [-r][-k <kfile>] <value> [ <value2> ... ]\n", name);
     fprintf(stderr, "where:\n"
-	        "   <value> contains the value to be (de)anonymized\n\n"
-	        "   <kfile> contains the key to be used in (de)anonymization; if\n"
-	        "   omitted, the file %s will be used\n\n" 
-    	        "   -r causes anonymization to be removed\n\n",
-	        ANON_KEYFILE_DEFAULT);
+                "   <value> contains the value to be (de)anonymized\n\n"
+                "   <kfile> contains the key to be used in (de)anonymization; if\n"
+                "   omitted, the file %s will be used\n\n" 
+                "   -r causes anonymization to be removed\n\n",
+                ANON_KEYFILE_DEFAULT);
     return 1;
 }
 
@@ -159,12 +159,12 @@ int main (int argc, char *argv[]) {
     }
 
     if (key_init(keyfile) != ok) {
-	fprintf(stderr, "error: could not initialize from keyfile %s\n", keyfile);
-	return usage(argv[0]);
+        fprintf(stderr, "error: could not initialize from keyfile %s\n", keyfile);
+        return usage(argv[0]);
     }
 
     if (argc < 2) {
-	return usage(argv[0]);
+        return usage(argv[0]);
     }
 
     /*
@@ -174,26 +174,26 @@ int main (int argc, char *argv[]) {
 
   if (type == addresses) {
     for (i=optind; i<argc; i++) {
-	    if (mode == mode_anonymize) {
-		char *anon = addr_string_anonymize(argv[i]);
-		
-		if (anon == NULL) {
-		    fprintf(stderr, "error: %s cannot be converted into an IPv4 address\n", argv[i]);
-		    return usage(argv[0]);
-		}
-		printf("%s: %s\n", argv[i], anon);
+            if (mode == mode_anonymize) {
+                char *anon = addr_string_anonymize(argv[i]);
+                
+                if (anon == NULL) {
+                    fprintf(stderr, "error: %s cannot be converted into an IPv4 address\n", argv[i]);
+                    return usage(argv[0]);
+                }
+                printf("%s: %s\n", argv[i], anon);
 
-	    } else if (mode == mode_deanonymize) {
-		char *plain = addr_string_deanonymize(argv[i]);
+            } else if (mode == mode_deanonymize) {
+                char *plain = addr_string_deanonymize(argv[i]);
 
-		if (plain == NULL) {
-		    fprintf(stderr, "error: %s cannot be deanonymized\n", argv[i]);
-		    return usage(argv[0]);
-		}
-		printf("%s: %s\n", argv[i], plain);
-				
-	    }
-	} 
+                if (plain == NULL) {
+                    fprintf(stderr, "error: %s cannot be deanonymized\n", argv[i]);
+                    return usage(argv[0]);
+                }
+                printf("%s: %s\n", argv[i], plain);
+                                
+            }
+        } 
     }
 
     

@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -143,26 +143,26 @@
  * Structures for storing relevant TLS information
  */
 
-struct tls_message_stat {
+typedef struct tls_message_stat_ {
     unsigned char content_type;
     unsigned char handshake_types[MAX_TLS_HANDSHAKES];
     uint16_t handshake_lens[MAX_TLS_HANDSHAKES];
     unsigned char num_handshakes;
-};
+} tls_message_stat_t;
 
-struct tls_extension {
+typedef struct tls_extension_ {
     uint16_t type;
     uint16_t length;
     unsigned char *data;
-};
+} tls_extension_t;
 
-struct tls_item_entry {
+typedef struct tls_item_entry_ {
     char id[MAX_OPENSSL_STRING]; /**< Identification (string) */
     unsigned char *data; /**< Data encapsulated within the item */
     uint16_t data_length; /**< Length of the data in bytes */
-};
+} tls_item_entry_t;
 
-struct tls_certificate {
+typedef struct tls_certificate_ {
     uint16_t length;
     unsigned char *serial_number; /**< Serial Number */
     uint8_t serial_number_length; /**< Length of the serial number in bytes */
@@ -170,13 +170,13 @@ struct tls_certificate {
     uint16_t signature_length; /**< Length of the signature in bytes */
     char signature_algorithm[MAX_OPENSSL_STRING]; /**< Signature algorithm (string) */
     uint16_t signature_key_size; /**< Length of the signature key in bits */
-    struct tls_item_entry issuer[MAX_RDN]; /**< Array of item entries corresponding
+    tls_item_entry_t issuer[MAX_RDN]; /**< Array of item entries corresponding
                                                 to the issuer information */
     uint8_t num_issuer_items;
-    struct tls_item_entry subject[MAX_RDN]; /**< Array of item entries corresponding
+    tls_item_entry_t subject[MAX_RDN]; /**< Array of item entries corresponding
                                                  to the subject information */
     uint8_t num_subject_items;
-    struct tls_item_entry extensions[MAX_CERT_EXTENSIONS]; /**< Array of item entries corresponding
+    tls_item_entry_t extensions[MAX_CERT_EXTENSIONS]; /**< Array of item entries corresponding
                                                                 to the extension information */
     uint8_t num_extension_items;
     unsigned char *validity_not_before;
@@ -185,27 +185,27 @@ struct tls_certificate {
     uint16_t validity_not_after_length;
     char subject_public_key_algorithm[MAX_OPENSSL_STRING]; /**< Subject public key algorithm (string) */
     uint16_t subject_public_key_size; /**< Length of the subject public key in bits */
-};
+} tls_certificate_t;
 
-typedef struct tls {
-    enum role role; /**< client, server, or unknown */
+typedef struct tls_ {
+    joy_role_e role; /**< client, server, or unknown */
     uint16_t op;
     uint16_t lengths[MAX_NUM_RCD_LEN]; /**< TLS record lengths */
     struct timeval times[MAX_NUM_RCD_LEN]; /**< Arrival times */
-    struct tls_message_stat msg_stats[MAX_NUM_RCD_LEN]; /**< Message generic stats */
+    tls_message_stat_t msg_stats[MAX_NUM_RCD_LEN]; /**< Message generic stats */
     uint16_t num_ciphersuites; /**< Number of ciphersuites */
     uint16_t ciphersuites[MAX_CS]; /**< Ciphersuites */
     uint16_t num_extensions; /**< Number of extensions */
     uint16_t num_server_extensions; /**< Number of server extensions */
-    struct tls_extension extensions[MAX_EXTENSIONS]; /**< Extensions */
-    struct tls_extension server_extensions[MAX_EXTENSIONS]; /**< Extensions of server */
+    tls_extension_t extensions[MAX_EXTENSIONS]; /**< Extensions */
+    tls_extension_t server_extensions[MAX_EXTENSIONS]; /**< Extensions of server */
     unsigned char version; /**< TLS version */
     unsigned int client_key_length; /**< clientKeyExchange key length */
     unsigned char clientKeyExchange[MAX_CKE_LEN]; /**< clientKeyExchange data */
     unsigned char sid_len; /**< Session ID length */
     unsigned char sid[MAX_SID_LEN]; /**< Session ID */
     unsigned char random[32]; /**< Random field from hello */
-    struct tls_certificate certificates[MAX_CERTIFICATES]; /**< X.509 certificates */
+    tls_certificate_t certificates[MAX_CERTIFICATES]; /**< X.509 certificates */
     unsigned char num_certificates; /**< Number of certificates */
     unsigned char *sni; /**< SNI a.k.a Server name indication */
     uint16_t sni_length; /**< Length of SNI */
@@ -221,53 +221,53 @@ typedef struct tls {
  * Structures for parsing TLS content
  */
 
-struct tls_protocol_version {
+typedef struct tls_protocol_version_ {
     unsigned char major;
     unsigned char minor;
-};
+} tls_protocol_version_t;
 
 
-struct tls_ciphertext {
-    struct tls_protocol_version protocol_version;
+typedef struct tls_ciphertext_ {
+    tls_protocol_version_t protocol_version;
     unsigned char lengthMid;
     unsigned char lengthLo;
-};
+} tls_ciphertext_t;
 
-struct tls_handshake {
+typedef struct tls_handshake_ {
     unsigned char msg_type; /**< Handshake message type */
     unsigned char lengthHi; /**< First byte of Handshake length (big endian) */
     unsigned char lengthMid; /**< Middle byte of Handshake length (big endian) */
     unsigned char lengthLo; /**< Last byte of Handshake length (big endian) */
     unsigned char body; /**< Body, a.k.a payload of the message */
-};
+} tls_handshake_t;
 
-struct tls_header {
+typedef struct tls_header_ {
     unsigned char content_type;
-    struct tls_protocol_version protocol_version;
+    tls_protocol_version_t protocol_version;
     unsigned char lengthMid;
     unsigned char lengthLo;
     union {
-        struct tls_ciphertext ciphertext;
-        struct tls_handshake handshake;
+        tls_ciphertext_t ciphertext;
+        tls_handshake_t handshake;
     };
-};
+} tls_header_t;
 
-struct tls_random {
+typedef struct tls_random {
     unsigned int gmt_unix_time;
     unsigned char random_bytes[28];
-};
+} tls_random_t;
 
-struct tls_client_hello {
-    struct tls_protocol_version protocol_version;
-    struct tls_random random;
+typedef struct tls_client_hello_ {
+    tls_protocol_version_t protocol_version;
+    tls_random_t random;
     unsigned char session_id_length;
     uint16_t count_cipher_suites;
-};
+} tls_client_hello_t;
 
 /*
  * @brief Enumeration representing TLS versions internal to Joy.
  */
-enum tls_version {
+typedef enum tls_version_ {
     TLS_VERSION_UNKNOWN = 0,
     TLS_VERSION_SSLV2 = 1,
     TLS_VERSION_SSLV3 = 2,
@@ -275,12 +275,12 @@ enum tls_version {
     TLS_VERSION_1_1 = 4,
     TLS_VERSION_1_2 = 5,
     TLS_VERSION_1_3 = 6
-};
+} tls_version_e;
 
 /*
  * @brief Enumeration representing TLS HandshakeTypes.
  */
-enum tls_handshake_type {
+typedef enum tls_handshake_type_ {
     TLS_HANDSHAKE_HELLO_REQUEST = 0,
     TLS_HANDSHAKE_CLIENT_HELLO = 1,
     TLS_HANDSHAKE_SERVER_HELLO = 2,
@@ -291,37 +291,37 @@ enum tls_handshake_type {
     TLS_HANDSHAKE_CERTIFICATE_VERIFY = 15,
     TLS_HANDSHAKE_CLIENT_KEY_EXCHANGE = 16,
     TLS_HANDSHAKE_FINISHED = 20
-};
+} tls_handshake_type_e;
 
 /*
  * @brief Enumeration representing TLS ContentTypes.
  */
-enum tls_content_type {
+typedef enum tls_content_type_ {
     TLS_CONTENT_CHANGE_CIPHER_SPEC = 20,
     TLS_CONTENT_ALERT = 21,
     TLS_CONTENT_HANDSHAKE = 22,
     TLS_CONTENT_APPLICATION_DATA = 23
-};
+} tls_content_type_e;
 
 /*
  * TLS module public functions
  */
 
 /** initialize TLS structure */
-void tls_init(struct tls **tls_handle);
+void tls_init(tls_t **tls_handle);
 
 /** free data associated with TLS record */
-void tls_delete(struct tls **tls_handle);
+void tls_delete(tls_t **tls_handle);
 
 /** process TLS packet for consumption */
-void tls_update(struct tls *r,
+void tls_update(tls_t *r,
                 const struct pcap_pkthdr *header,
                 const void *data,
                 unsigned int data_len,
                 unsigned int report_tls);
 
 /** print out the TLS information to the destination file */
-void tls_print_json(const struct tls *data, const struct tls *data_twin, zfile f);
+void tls_print_json(const tls_t *data, const tls_t *data_twin, zfile f);
 
 void tls_unit_test();
 

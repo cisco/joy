@@ -453,8 +453,13 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
         features[i] = 0.0;
     }
 
-	merged_lens = malloc(sizeof(uint16_t)*(op_n + ip_n));
-	merged_times = malloc(sizeof(uint16_t)*(op_n + ip_n));
+    merged_lens = calloc(1, sizeof(uint16_t)*(op_n + ip_n));
+    merged_times = calloc(1, sizeof(uint16_t)*(op_n + ip_n));
+    if (!merged_lens || !merged_times) {
+	free(merged_lens);
+	free(merged_times);
+	return(score);
+    }
 
     // fill out meta data
     features[1] = (float)dp; // destination port
@@ -512,8 +517,8 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
 
     score = min(-score,500.0); // check b/c overflow
   
-	free(merged_lens);
-	free(merged_times);
+    free(merged_lens);
+    free(merged_times);
 
     return 1.0/(1.0+exp(score));
 }
@@ -562,7 +567,7 @@ void update_params (classifier_type_codes_t param_type, char *param_file) {
             break;
     
         default:
-            fprintf(info, "error: unknown paramerter type (%d)", param_type);
+            joy_log_err("error: unknown paramerter type (%d)", param_type);
             break;
     }
 }

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017 Cisco Systems, Inc.
+ * Copyright (c) 2017-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,6 @@
  *
  */
 #include <stdlib.h>
-#include <string.h>   /* for memset()    */
 #include "dhcp.h"
 #include "p2f.h"
 #include "anon.h"
@@ -131,19 +130,18 @@ static const char *dhcp_option_message_types[] = {
  *
  * \return none
  */
-void dhcp_init(struct dhcp **dhcp_handle)
+void dhcp_init(dhcp_t **dhcp_handle)
 {
     if (*dhcp_handle != NULL) {
         dhcp_delete(dhcp_handle);
     }
 
-    *dhcp_handle = malloc(sizeof(struct dhcp));
+    *dhcp_handle = calloc(1, sizeof(dhcp_t));
     if (*dhcp_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
-    memset(*dhcp_handle, 0, sizeof(struct dhcp));
 }
 
 /**
@@ -153,10 +151,10 @@ void dhcp_init(struct dhcp **dhcp_handle)
  *
  * \return none
  */
-void dhcp_delete(struct dhcp **dhcp_handle)
+void dhcp_delete(dhcp_t **dhcp_handle)
 {
     int i = 0;
-    struct dhcp *dhcp = *dhcp_handle;
+    dhcp_t *dhcp = *dhcp_handle;
 
     if (dhcp == NULL) {
         return;
@@ -195,7 +193,7 @@ void dhcp_delete(struct dhcp **dhcp_handle)
  */
 static const char *dhcp_option_lookup(const unsigned char code)
 {
-    if ((code >= 0 && code <= 83) || (code >= 85 && code <= 95) ||
+    if ((code <= 83) || (code >= 85 && code <= 95) ||
         (code >= 97 && code <= 101) || (code >= 112 && code <= 125) ||
         (code >= 136 && code <= 142) || (code >= 144 && code <= 146) ||
         (code >= 150 && code <= 161) || (code >= 150 && code <= 161) ||
@@ -236,7 +234,7 @@ static const char *dhcp_option_message_lookup(const unsigned char *data)
  *
  * \return 1 if found, 0 otherwise
  */
-static int dhcp_option_value_to_string(struct dhcp_option *opt,
+static int dhcp_option_value_to_string(dhcp_option_t *opt,
                                        const unsigned char *data)
 {
     if (opt == NULL || data == NULL) {
@@ -263,7 +261,7 @@ static int dhcp_option_value_to_string(struct dhcp_option *opt,
  *
  * \return none
  */
-static void dhcp_get_option_value(struct dhcp_option *opt,
+static void dhcp_get_option_value(dhcp_option_t *opt,
                                   unsigned char opt_len,
                                   const unsigned char *data_ptr) {
     /*
@@ -272,8 +270,11 @@ static void dhcp_get_option_value(struct dhcp_option *opt,
      */
     if (!dhcp_option_value_to_string(opt, data_ptr)) {
         /* Allocate memory for the option data */
-        opt->value = malloc(opt_len);
-
+        opt->value = calloc(1, opt_len);
+	if (!opt->value) {
+	    joy_log_err("malloc failed");
+	    return;
+	}
         memcpy(opt->value, data_ptr, opt_len);
     }
 }
@@ -290,14 +291,14 @@ static void dhcp_get_option_value(struct dhcp_option *opt,
  *
  * \return none
  */
-void dhcp_update(struct dhcp *dhcp,
+void dhcp_update(dhcp_t *dhcp,
                  const struct pcap_pkthdr *header,
                  const void *data,
                  unsigned int data_len,
                  unsigned int report_dhcp)
 {
     const unsigned char *ptr = (unsigned char *)data;
-    struct dhcp_message *msg = NULL;
+    dhcp_message_t *msg = NULL;
     const unsigned char magic_cookie[] = {0x63, 0x82, 0x53, 0x63};
 
     /* Check run flag. Bail if 0 */
@@ -352,8 +353,12 @@ void dhcp_update(struct dhcp *dhcp,
 
     if (*ptr != 0) {
         /* Server host name exists so alloc and copy it */
-        msg->sname = malloc(MAX_DHCP_SNAME);
-        memset(msg->sname, 0, MAX_DHCP_SNAME);
+        msg->sname = calloc(1, MAX_DHCP_SNAME);
+	if (!msg->sname) {
+	    joy_log_err("malloc failed");
+	    return;
+	}
+
         strncpy(msg->sname, (const char *)ptr, MAX_DHCP_SNAME);
         msg->sname[MAX_DHCP_SNAME - 1] = '\0';
     }
@@ -361,9 +366,13 @@ void dhcp_update(struct dhcp *dhcp,
 
     if (*ptr != 0) {
         /* Boot file name exists so alloc and copy it */
-        msg->file = malloc(MAX_DHCP_FILE);
-        memset(msg->file, 0, MAX_DHCP_FILE);
-        strncpy(msg->file, (const char *)ptr, MAX_DHCP_FILE);
+        msg->file = calloc(1, MAX_DHCP_FILE);
+	if (!msg->file) {
+	    joy_log_err("malloc failed");
+	    return;
+
+	}
+         strncpy(msg->file, (const char *)ptr, MAX_DHCP_FILE);
         msg->file[MAX_DHCP_FILE - 1] = '\0';
     }
     ptr += MAX_DHCP_FILE;
@@ -415,7 +424,7 @@ void dhcp_update(struct dhcp *dhcp,
     dhcp->message_count += 1;
 }
 
-static void dhcp_print_options(const struct dhcp_option *options,
+static void dhcp_print_options(const dhcp_option_t *options,
                                unsigned short int count,
                                zfile f) {
     int i = 0;
@@ -424,7 +433,7 @@ static void dhcp_print_options(const struct dhcp_option *options,
 
     for (i = 0; i < count; i++) {
         const char *opt_str = NULL;
-        const struct dhcp_option *opt = &options[i];
+        const dhcp_option_t *opt = &options[i];
         opt_str = dhcp_option_lookup(opt->code);
 
         if (opt_str) {
@@ -464,16 +473,17 @@ static void dhcp_print_options(const struct dhcp_option *options,
  *
  * \return none
  */
-void dhcp_print_json(const struct dhcp *d1,
-                     const struct dhcp *d2,
+void dhcp_print_json(const dhcp_t *d1,
+                     const dhcp_t *d2,
                      zfile f)
 {
     int i = 0;
 
     if (d1->message_count) {
+        char ipv4_addr[INET_ADDRSTRLEN];
         zprintf(f, ",\"dhcp\":[");
         for (i = 0; i < d1->message_count; i++) {
-            const struct dhcp_message *msg = &d1->messages[i];
+            const dhcp_message_t *msg = &d1->messages[i];
 
             zprintf(f, "{");
             zprintf(f, "\"op\":\"%u\"", msg->op);
@@ -487,22 +497,26 @@ void dhcp_print_json(const struct dhcp *d1,
             if (ipv4_addr_needs_anonymization(&msg->ciaddr)) {
                 zprintf(f, ",\"ciaddr\":\"%s\"", addr_get_anon_hexstring(&msg->ciaddr));
             } else {
-                zprintf(f, ",\"ciaddr\":\"%s\"", inet_ntoa(msg->ciaddr));
+                inet_ntop(AF_INET, &msg->ciaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"ciaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->yiaddr)) {
                 zprintf(f, ",\"yiaddr\":\"%s\"", addr_get_anon_hexstring(&msg->yiaddr));
             } else {
-                zprintf(f, ",\"yiaddr\":\"%s\"", inet_ntoa(msg->yiaddr));
+                inet_ntop(AF_INET, &msg->yiaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"yiaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->siaddr)) {
                 zprintf(f, ",\"siaddr\":\"%s\"", addr_get_anon_hexstring(&msg->siaddr));
             } else {
-                zprintf(f, ",\"siaddr\":\"%s\"", inet_ntoa(msg->siaddr));
+                inet_ntop(AF_INET, &msg->siaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"siaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->giaddr)) {
                 zprintf(f, ",\"giaddr\":\"%s\"", addr_get_anon_hexstring(&msg->giaddr));
             } else {
-                zprintf(f, ",\"giaddr\":\"%s\"", inet_ntoa(msg->giaddr));
+                inet_ntop(AF_INET, &msg->giaddr, ipv4_addr, INET_ADDRSTRLEN);
+                zprintf(f, ",\"giaddr\":\"%s\"", ipv4_addr);
             }
 
             zprintf(f, ",\"chaddr\":");
@@ -578,8 +592,8 @@ static unsigned char* dhcp_skip_packet_udp_header(const unsigned char *packet_da
  *
  * \return 0 for no, 1 for yes
  */
-static int dhcp_test_message_equality(struct dhcp_message *m1,
-                                      struct dhcp_message *m2) {
+static int dhcp_test_message_equality(dhcp_message_t *m1,
+                                      dhcp_message_t *m2) {
     int i = 0;
 
     if (m1 == NULL || m2 == NULL) {
@@ -740,15 +754,15 @@ static int dhcp_test_message_equality(struct dhcp_message *m1,
  * \return 0 for success, otherwise number of fails
  */
 static int dhcp_test_vanilla_parsing() {
-    struct dhcp *d = NULL;
+    dhcp_t *d = NULL;
     pcap_t *pcap_handle = NULL;
     struct pcap_pkthdr header;
     const unsigned char *pkt_ptr = NULL;
     const unsigned char *payload_ptr = NULL;
     unsigned int payload_len = 0;
     char *filename = "dhcp.pcap";
-    struct dhcp *known_dhcp = NULL;
-    struct dhcp_message *msg = NULL;
+    dhcp_t *known_dhcp = NULL;
+    dhcp_message_t *msg = NULL;
     int num_fails = 0;
 
     unsigned char kat_chaddr[] = {0x08, 0x00, 0x27, 0x83, 0xf4, 0x42, 0x00, 0x00,
@@ -778,8 +792,13 @@ static int dhcp_test_vanilla_parsing() {
     msg->giaddr.s_addr = ntohl(0x00000000);
     memcpy(msg->chaddr, kat_chaddr, MAX_DHCP_CHADDR);
 
-    msg->file = malloc(MAX_DHCP_FILE);
-    memset(msg->file, 0, MAX_DHCP_FILE);
+    msg->file = calloc(1, MAX_DHCP_FILE);
+    if (!msg->file) {
+	joy_log_err("malloc failed");
+	num_fails++;
+	goto end;
+    }
+
     strncpy(msg->file, "Pythagoras.pxe", MAX_DHCP_FILE);
 
     {
