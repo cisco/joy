@@ -669,6 +669,11 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         }
     }
 
+    /* set up BPF expression if specified */
+    if (glb_config->bpf_filter_exp) {
+        filter_exp = glb_config->bpf_filter_exp;
+    }
+
     return 0;
 }
 

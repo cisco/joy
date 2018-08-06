@@ -347,7 +347,7 @@ void tcp_opt_print_json(zfile f,
         break;
         default:
             if (datalen > total_len) {
-            tcp_opt_malformed_print_json(f, *opt, data, datalen);
+            tcp_opt_malformed_print_json(f, *opt, data, total_len);
             } else {
             zprintf(f, "\"kind\":%u", *opt);
                 zprintf(f, ",\"data\":");
