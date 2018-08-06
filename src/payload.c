@@ -96,7 +96,7 @@ void payload_update (struct payload *payload,
 	return;
     }
     if (report_payload && len) {
-	unsigned int copylen = len > PAYLOAD_LEN ? PAYLOAD_LEN : len;
+	unsigned int copylen = len > JOY_PAYLOAD_LEN ? JOY_PAYLOAD_LEN : len;
 	payload->length = copylen;
 	memcpy(payload->data, data, copylen);
     }

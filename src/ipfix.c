@@ -3112,7 +3112,15 @@ static uint64_t timeval_pack_uint64_t(const struct timeval *timeval) {
     uint64_t packed = 0;
 
     /* Shift to the 4 most significant bytes of the packed uint64_t */
-    packed = (uint64_t)timeval->tv_sec << 32;
+    /*
+     * RFC 5905 dictates that microseconds should be published since 1/1/1900.
+     * we need to add the number of seconds from 1/1/1970 to 1/1/1900
+     * in order to export the microseconds in NTP Epoch based time.
+     * 70 years at 365 days plus 17 leap years times 86400 seconds per day
+     * (70*365+17)*86400 = 2208988800 seconds
+     */
+    packed = (((uint64_t)timeval->tv_sec) + 2208988800) << 32;
+
     /* Bit OR into the 4 least significant bytes of the packed uint64_t */
     packed |= timeval->tv_usec;
 

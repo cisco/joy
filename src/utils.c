@@ -354,6 +354,19 @@ unsigned int joy_timeval_to_milliseconds(struct timeval ts) {
     return result;
 }
 
+void joy_log_timestamp(char *log_ts) {
+    struct timeval tv;
+    time_t nowtime;
+    struct tm *nowtm;
+    char tmbuf[JOY_TIMESTAMP_LEN];
+
+    gettimeofday(&tv, NULL);
+    nowtime = tv.tv_sec;
+    nowtm = localtime(&nowtime);
+    strftime(tmbuf, JOY_TIMESTAMP_LEN, "%H:%M:%S", nowtm);
+    snprintf(log_ts, JOY_TIMESTAMP_LEN, "%s.%06d", tmbuf, tv.tv_usec);
+}
+
 #ifdef WIN32
 #include <stdint.h>
 int gettimeofday(struct timeval *tp,

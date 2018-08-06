@@ -1459,7 +1459,7 @@ int main (int argc, char **argv) {
          * start up the updater thread
          *   updater is only active during live capture runs
          */
-         upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)&glb_config);
+         upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)glb_config);
          if (upd_rc) {
              fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
              return -6;
@@ -1470,7 +1470,7 @@ int main (int argc, char **argv) {
          *   uploader is only active during live capture runs
          */
          if (glb_config->upload_servername) {
-             upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)&glb_config);
+             upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)glb_config);
              if (upd_rc) {
                  fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
                  return -7;
@@ -1653,7 +1653,7 @@ int main (int argc, char **argv) {
 
     if (joy_mode != MODE_OFFLINE) {
 	flocap_stats_output(&main_ctx,info);
-	// config_print(info, &glb_config);
+	// config_print(info, glb_config);
     }
     
     if (glb_config->ipfix_export_port) {

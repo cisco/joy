@@ -784,7 +784,8 @@ void joy_export_flows_ipfix(unsigned int index, int type)
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      type - JOY_EXPIRED_FLOWS, JOY_ALL_FLOWS,
+ *             JOY_EXPIRED_FLOWS_NODELETE, JOY_ALL_FLOWS_NODELETE
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -816,7 +817,7 @@ void joy_flow_record_external_processing(unsigned int index,
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
-        if (type == JOY_EXPIRED_FLOWS) {
+        if ((type == JOY_EXPIRED_FLOWS) || (type == JOY_EXPIRED_FLOWS_NODELETE)) {
             /* don't process active flow in this mode */
             if (!flow_record_is_expired(ctx,rec)) {
                 break;
@@ -827,7 +828,9 @@ void joy_flow_record_external_processing(unsigned int index,
         callback_fn(rec);
 
         /* remove the record and advance to next record */
-        remove_record_and_update_list(ctx,rec);
+        if ((type == JOY_EXPIRED_FLOWS) || (type == JOY_ALL_FLOWS)) {
+            remove_record_and_update_list(ctx,rec);
+        }
 
         /* start at the new head of the list */
         rec = ctx->flow_record_chrono_first;
