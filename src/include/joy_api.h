@@ -52,6 +52,8 @@
 /* Definitions of contants used in the Joy Library API */
 #define JOY_EXPIRED_FLOWS 0
 #define JOY_ALL_FLOWS 1
+#define JOY_EXPIRED_FLOWS_NODELETE 2 // only used for debug testing
+#define JOY_ALL_FLOWS_NODELETE 3     // only used for debug testing
 #define JOY_TERMINAL_FORMAT 0
 #define JOY_JSON_FORMAT 1
 #define JOY_SINGLE_SUBNET 0

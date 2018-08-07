@@ -47,6 +47,8 @@
 #include <pcap.h>
 #include "parson.h"
 
+#define JOY_TIMESTAMP_LEN 64
+
 #define CPU_IS_BIG_ENDIAN (__BYTE_ORDER == __BIG_ENDIAN)
 
 #if CPU_IS_BIG_ENDIAN
@@ -88,6 +90,8 @@ pcap_t* joy_utils_open_test_pcap(const char *filename);
 JSON_Value* joy_utils_open_resource_parson(const char *filename);
 
 void joy_utils_convert_to_json_string (char *s, unsigned int len);
+
+void joy_log_timestamp ( char *log_ts);
 
 typedef enum joy_role_ {
   role_unknown = 0,

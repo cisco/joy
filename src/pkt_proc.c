@@ -865,20 +865,22 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 }
 
 /**
- * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
+ * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *plkt_header,
                      const unsigned char *packet)
  * \param ctx_ptr currently used to store the context data pointer
- * \param header pointer to the packer header structure
+ * \param pkt_header pointer to the packer header structure
  * \param packet pointer to the packet
  * \return none
  */
-void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
+void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
                      const unsigned char *packet) {
     //  static int packet_count = 1;
     flow_record_t *record;
     unsigned char proto = 0;
+    unsigned int allocated_packet_header = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
+    struct pcap_pkthdr *header = (struct pcap_pkthdr*)pkt_header;
 
     /* grab the context for this packet */
     joy_ctx_data *ctx = (joy_ctx_data*)ctx_ptr;
@@ -932,6 +934,24 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
         joy_log_err(" Invalid IP header length: %u bytes", ip_hdr_len);
         return;
     }
+
+    /* make sure we have a valid packet header */
+    if (header == NULL) {
+        struct timeval now;
+
+        header = calloc(1,sizeof(struct pcap_pkthdr));
+        if (header == NULL) {
+            joy_log_err(" Couldn't allocate memory for packet header.");
+            return;
+        }
+        allocated_packet_header = 1;
+        gettimeofday(&now,NULL);
+        header->ts.tv_sec = now.tv_sec;
+        header->ts.tv_usec = now.tv_usec;
+        header->caplen = ip->ip_len;
+        header->len = ip->ip_len;
+    }
+
     if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > header->caplen) {
         /*
          * IP packet is malformed (shorter than a complete IP header, or
@@ -939,6 +959,8 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
          * libpcap (which will depend on MTU and SNAPLEN; you can change
          * the latter if need be).
          */
+        if (allocated_packet_header)
+            free(header);
         return ;
     }
     transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
@@ -1022,6 +1044,8 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
          * if the processing of malformed packets causes trouble, choose
          * this code path instead
          */
+        if (allocated_packet_header)
+            free(header);
         return;
 #endif
     }
@@ -1063,15 +1087,21 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *header,
         record->idp = calloc(1, record->idp_len);
         if (!record->idp) {
             joy_log_err("Out of memory");
+            if (allocated_packet_header)
+                free(header);
             return;
         }
 
+        memcpy(record->idp, ip, record->idp_len);
         joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
     }
 
     /* increment overall byte count */
     flocap_stats_incr_num_bytes(ctx,transport_len);
 
+    /* if we allocated the packet header, then free it now */
+    if (allocated_packet_header)
+        free(header);
     return;
 }
 

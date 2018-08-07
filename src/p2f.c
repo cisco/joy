@@ -88,13 +88,13 @@
 #define T_WINDOW 10
 #define T_ACTIVE 20
 
-const struct timeval time_window = { T_WINDOW, 0 };
+static const struct timeval time_window = { T_WINDOW, 0 };
 
-const struct timeval active_timeout = { T_ACTIVE, 0 };
+static const struct timeval active_timeout = { T_ACTIVE, 0 };
 
-const unsigned int active_max = (T_WINDOW + T_ACTIVE);
+static const unsigned int active_max = (T_WINDOW + T_ACTIVE);
 
-const int include_os = 1;
+static const int include_os = 1;
 
 #define expiration_type_reserved 'z'
 #define expiration_type_active  'a'
@@ -163,14 +163,7 @@ void flocap_stats_output (joy_ctx_data *ctx, FILE *f) {
 void flocap_stats_timer_init (joy_ctx_data *ctx) {
     struct timeval now;
 
-#ifdef WIN32
-        DWORD t;
-        t = timeGetTime();
-        now.tv_sec = t / 1000;
-        now.tv_usec = t % 1000;
-#else
-        gettimeofday(&now, NULL);
-#endif
+    gettimeofday(&now, NULL);
     ctx->last_stats_output_time = now;
 }
 
@@ -1673,19 +1666,22 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
 /**
  * \brief Does IPFix sending of flow record data.
  *
- * \param export_all Flag whether to indiscriminately print all flow_records.
- *                  1 to print all of them, 0 to perform expiration check
+ * \param export_type Flag whether to indiscriminately export all flow_records.
+ *                  0 exiration check and remove records
+ *                  1 all records and remove them
+ *                  2 expiration check and do not remove records
+ *                  3 all records and do no remove them
  *
  * \return none
  */
-void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_all) {
+void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_type) {
     flow_record_t *record = NULL;
 
     /* The head of chrono record list */
     record = ctx->flow_record_chrono_first;
 
     while (record != NULL) {
-        if (!export_all) {
+        if ((export_type == JOY_EXPIRED_FLOWS) || (export_type == JOY_EXPIRED_FLOWS_NODELETE)) {
             /* Avoid printing flows that might still be active */
             if (!flow_record_is_expired(ctx,record)) {
                 break;
@@ -1700,17 +1696,20 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_all) {
             ipfix_export_main(ctx,record);
         }
 
-        /*
-         * Delete twin, if there is one
-         */
-        if (record->twin != NULL) {
-            debug_printf("LIST deleting twin\n");
-            flow_record_delete(ctx, record->twin);
-        }
+        /* see if we are required to remove the flows */
+        if ((export_type == JOY_EXPIRED_FLOWS) || (export_type == JOY_ALL_FLOWS)) {
+            /*
+             * Delete twin, if there is one
+             */
+            if (record->twin != NULL) {
+                debug_printf("LIST deleting twin\n");
+                flow_record_delete(ctx, record->twin);
+            }
 
-        /* Remove record from chrono list, then delete from flow_record_list_array */
-        flow_record_chrono_list_remove(ctx, record);
-        flow_record_delete(ctx, record);
+            /* Remove record from chrono list, then delete from flow_record_list_array */
+            flow_record_chrono_list_remove(ctx, record);
+            flow_record_delete(ctx, record);
+        }
 
         /* Advance to next record on chrono list */
         record = ctx->flow_record_chrono_first;
@@ -1720,26 +1719,33 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_all) {
 /**
  * \brief Prints out the flow record list in JSON format.
  *
- * \param print_all Flag whether to indiscriminately print all flow_records.
- *                  1 to print all of them, 0 to perform expiration check
+ * \param print_type Flag whether to indiscriminately print all flow_records.
+ *                  0 perform expiration check and remove records
+ *                  1 all flows and remove records
+ *                  2 perform expiration check and do not remove records
+ *                  3 all flows and do not remove records
  *
  * \return none
  */
-void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_all) {
+void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_type) {
     flow_record_t *record = NULL;
 
     /* The head of chrono record list */
     record = ctx->flow_record_chrono_first;
 
     while (record != NULL) {
-        if (!print_all) {
+        if ((print_type == JOY_EXPIRED_FLOWS) || (print_type == JOY_EXPIRED_FLOWS_NODELETE)) {
             /* Avoid printing flows that might still be active */
             if (!flow_record_is_expired(ctx,record)) {
                 break;
             }
         }
 
-        flow_record_print_and_delete(ctx, record);
+        if ((print_type == JOY_EXPIRED_FLOWS) || (print_type == JOY_ALL_FLOWS)) {
+            flow_record_print_and_delete(ctx, record);
+        } else {
+            flow_record_print_json(ctx, record);
+        }
 
         /* Advance to next record on chrono list */
         record = ctx->flow_record_chrono_first;
