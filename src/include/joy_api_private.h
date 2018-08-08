@@ -85,6 +85,7 @@
 
 /* per instance context data */
 struct joy_ctx_data  {
+    unsigned int ctx_id;
     zfile output;
     char *output_file_basename;
     unsigned int records_in_file;

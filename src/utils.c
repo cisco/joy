@@ -46,6 +46,7 @@
 #include "config.h"
 #include "utils.h"
 #include "err.h"
+#include "time.h"
 
 #define JOY_UTILS_MAX_FILEPATH 128
 
@@ -352,6 +353,23 @@ void joy_timer_clear(struct timeval *a) {
 unsigned int joy_timeval_to_milliseconds(struct timeval ts) {
     unsigned int result = ts.tv_usec / 1000 + ts.tv_sec * 1000;
     return result;
+}
+
+void joy_log_timestamp(char *log_ts) {
+    struct timeval tv;
+    time_t nowtime;
+    struct tm *nowtm;
+    char tmbuf[JOY_TIMESTAMP_LEN];
+
+    gettimeofday(&tv, NULL);
+    nowtime = tv.tv_sec;
+    nowtm = localtime(&nowtime);
+    strftime(tmbuf, JOY_TIMESTAMP_LEN, "%H:%M:%S", nowtm);
+#ifdef DARWIN
+    snprintf(log_ts, JOY_TIMESTAMP_LEN, "%s.%06d", tmbuf, tv.tv_usec);
+#else
+    snprintf(log_ts, JOY_TIMESTAMP_LEN, "%s.%06ld", tmbuf, tv.tv_usec);
+#endif
 }
 
 #ifdef WIN32

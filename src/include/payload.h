@@ -48,7 +48,7 @@
 #include "output.h"
 #include "feature.h"
 
-#define PAYLOAD_LEN 32
+#define JOY_PAYLOAD_LEN 32
 
 /** usage string */
 #define payload_usage "  payload=N                  include N bytes of payload\n"
@@ -59,7 +59,7 @@
 /** payload structure */
 typedef struct payload {
     unsigned int length;
-    unsigned char data[PAYLOAD_LEN]; 
+    unsigned char data[JOY_PAYLOAD_LEN];
 } payload_t;
 
 

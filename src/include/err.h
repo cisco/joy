@@ -44,6 +44,7 @@
 #define ERR_H
 
 #include <stdio.h> 
+#include "utils.h"
 
 typedef enum joy_status_ {
     ok = 0,
@@ -67,6 +68,9 @@ typedef enum joy_log_level {
 
 #define joy_log_debug(...) { \
         if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_DEBUG) { \
+            char log_ts[JOY_TIMESTAMP_LEN]; \
+            joy_log_timestamp(log_ts); \
+            fprintf(info, "%s: ", log_ts); \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_DEBUG_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -75,6 +79,9 @@ typedef enum joy_log_level {
 
 #define joy_log_info(...) { \
         if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_INFO) { \
+            char log_ts[JOY_TIMESTAMP_LEN]; \
+            joy_log_timestamp(log_ts); \
+            fprintf(info, "%s: ", log_ts); \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_INFO_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -83,6 +90,9 @@ typedef enum joy_log_level {
 
 #define joy_log_warn(...) { \
         if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_WARN) { \
+            char log_ts[JOY_TIMESTAMP_LEN]; \
+            joy_log_timestamp(log_ts); \
+            fprintf(info, "%s: ", log_ts); \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_WARN_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -91,6 +101,9 @@ typedef enum joy_log_level {
 
 #define joy_log_err(...) { \
         if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_ERR) { \
+            char log_ts[JOY_TIMESTAMP_LEN]; \
+            joy_log_timestamp(log_ts); \
+            fprintf(info, "%s: ", log_ts); \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_ERR_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
@@ -99,6 +112,9 @@ typedef enum joy_log_level {
 
 #define joy_log_crit(...) { \
         if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_CRIT) { \
+            char log_ts[JOY_TIMESTAMP_LEN]; \
+            joy_log_timestamp(log_ts); \
+            fprintf(info, "%s: ", log_ts); \
             fprintf(info, "%s: %s: %d: ", JOY_LOG_CRIT_STR, __FUNCTION__, __LINE__); \
             fprintf(info, __VA_ARGS__); \
             fprintf(info, "\n"); \
