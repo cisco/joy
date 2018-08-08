@@ -46,6 +46,7 @@
 #include "config.h"
 #include "utils.h"
 #include "err.h"
+#include "time.h"
 
 #define JOY_UTILS_MAX_FILEPATH 128
 
@@ -364,7 +365,11 @@ void joy_log_timestamp(char *log_ts) {
     nowtime = tv.tv_sec;
     nowtm = localtime(&nowtime);
     strftime(tmbuf, JOY_TIMESTAMP_LEN, "%H:%M:%S", nowtm);
+#ifdef DARWIN
     snprintf(log_ts, JOY_TIMESTAMP_LEN, "%s.%06d", tmbuf, tv.tv_usec);
+#else
+    snprintf(log_ts, JOY_TIMESTAMP_LEN, "%s.%06ld", tmbuf, tv.tv_usec);
+#endif
 }
 
 #ifdef WIN32
