@@ -225,24 +225,21 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->report_hd = ((init_data->bitmask & JOY_HEADER_ON) ? 1 : 0);
     glb_config->preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
 
-    /* check for IPFix simple export option and setup template */
-    if (init_data->bitmask & JOY_IPFIX_SIMPLE_EXPORT_ON) {
-        glb_config->ipfix_export_template = "simple";
-        glb_config->idp = 0;
-
-    /* check for IPFix IDP export option andsetup template */
-    } else if (init_data->bitmask & JOY_IPFIX_IDP_EXPORT_ON) {
+    /* check if IDP option is set */
+    if (init_data->bitmask & JOY_IDP_ON) {
         glb_config->ipfix_export_template = "idp";
         if (init_data->idp > 0) {
             glb_config->idp = init_data->idp;
         } else {
             glb_config->idp = DEFAULT_IDP_SIZE;
         }
+    } else {
+        glb_config->ipfix_export_template = "simple";
+        glb_config->idp = 0;
     }
 
     /* setup the IPFix exporter configuration */
-    if ((init_data->bitmask & JOY_IPFIX_SIMPLE_EXPORT_ON) ||
-        (init_data->bitmask & JOY_IPFIX_IDP_EXPORT_ON)) {
+    if (init_data->bitmask & JOY_IPFIX_EXPORT_ON) {
         if (init_data->ipfix_host != NULL) {
             glb_config->ipfix_export_remote_host =  strdup(init_data->ipfix_host);
         } else {
@@ -270,17 +267,20 @@ int joy_initialize(joy_init_t *init_data,
     for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data) ++i) {
         struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i)
 
+        /* id the context */
+        this->ctx_id = i;
+
         /* setup the output file basename for the context */
         memset(output_filename, 0x00, MAX_FILENAME_LEN);
         if (output_file != NULL) {
             if (strlen(output_file) > (MAX_FILENAME_LEN - strlen(output_dirname) - 16)) {
                 /* dirname + filename is too long, use default filename scheme */
-                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,(i+1));
+                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
             } else {
-                snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d",output_dirname,output_file,(i+1));
+                snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d",output_dirname,output_file,this->ctx_id);
             }
         } else {
-            snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,(i+1));
+            snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
         }
 
         /* store off the output file base name */
@@ -301,7 +301,7 @@ int joy_initialize(joy_init_t *init_data,
         } else {
             snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
         }
-        printf("Context :%d Output:%s\n",i,output_filename);
+        printf("Context :%d Output:%s\n",this->ctx_id,output_filename);
         this->output = zopen(output_filename, "w");
         if (this->output == NULL) {
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
@@ -492,7 +492,7 @@ int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
 }
 
 /*
- * Function: joy_get_compact_bd
+ * Function: joy_update_compact_bd
  *
  * Description: This function processes a file to update the
  *      compact BD values used for processing in the machine learning
@@ -506,7 +506,7 @@ int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
  *      1 - failure
  *
  */
-int joy_get_compact_bd(char *filename)
+int joy_update_compact_bd(char *filename)
 {
     FILE *fp;
     int count = 0;
@@ -684,7 +684,7 @@ void joy_process_packet(unsigned char *ctx_index,
  *      none
  *
  */
-void joy_print_flow_data(unsigned int index, int type)
+void joy_print_flow_data(unsigned int index, JOY_FLOW_TYPE type)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -751,7 +751,7 @@ void joy_print_flow_data(unsigned int index, int type)
  *      none
  *
  */
-void joy_export_flows_ipfix(unsigned int index, int type)
+void joy_export_flows_ipfix(unsigned int index, JOY_FLOW_TYPE type)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -773,28 +773,28 @@ void joy_export_flows_ipfix(unsigned int index, int type)
 }
 
 /*
- * Function: joy_flow_record_external_processing
+ * Function: joy_idp_external_processing
  *
  * Description: This function is allows the calling application of
- *      the Joy library to handle the processing of the flow record.
+ *      the Joy library to handle the processing of the flow records
+ *      that have IDP information ready for export.
  *      This function simply goes through the flow records and invokes
- *      the callback function to process the record.
- *      Records that get processed will be removed from the flow
- *      record list.
+ *      the callback function to process the records that have IDP data.
+ *      Records that get processed have the IDP processed flag updated
+ *      but are NOT removed from the flow record list.
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS, JOY_ALL_FLOWS,
- *             JOY_EXPIRED_FLOWS_NODELETE, JOY_ALL_FLOWS_NODELETE
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      callback - function that actually does the flow record processing
  *
  * Returns:
  *      none
  *
  */
-void joy_flow_record_external_processing(unsigned int index,
-					 int type, 
-					 joy_flow_rec_callback callback_fn)
+void joy_idp_external_processing(unsigned int index,
+				 JOY_FLOW_TYPE type, 
+				 joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
@@ -817,24 +817,199 @@ void joy_flow_record_external_processing(unsigned int index,
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
-        if ((type == JOY_EXPIRED_FLOWS) || (type == JOY_EXPIRED_FLOWS_NODELETE)) {
+        /* see if we are processing all flows or just expired flows */
+        if (type == JOY_EXPIRED_FLOWS) {
             /* don't process active flow in this mode */
             if (!flow_record_is_expired(ctx,rec)) {
                 break;
             }
         }
 
-        /* let the callback function process the record */
-        callback_fn(rec);
+        /* see if this record has IDP information */
+        if ((rec->idp_ext_processed == 0) && (rec->idp_len > 0)) {
+            /* let the callback function process the flow record */
+            /* IDP data is pulled directly from flow_record */
+            callback_fn(rec, 0, NULL);
 
-        /* remove the record and advance to next record */
-        if ((type == JOY_EXPIRED_FLOWS) || (type == JOY_ALL_FLOWS)) {
-            remove_record_and_update_list(ctx,rec);
+            /* mark the IDP data as being processed */
+            rec->idp_ext_processed = 1;
         }
 
-        /* start at the new head of the list */
-        rec = ctx->flow_record_chrono_first;
+        /* go to next record */
+        rec = rec->time_next;
     }
+}
+
+/*
+ * Function: joy_tls_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have TLS information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have TLS data.
+ *      Records that get processed have the TLS processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_tls_external_processing(unsigned int index,
+				 JOY_FLOW_TYPE type, 
+				 joy_flow_rec_callback callback_fn)
+{
+    flow_record_t *rec = NULL;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* get the correct context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* go through the records and let the callback function process */
+    rec = ctx->flow_record_chrono_first;
+    while (rec != NULL) {
+        /* see if we are processing all flows or just expired flows */
+        if (type == JOY_EXPIRED_FLOWS) {
+            /* don't process active flow in this mode */
+            if (!flow_record_is_expired(ctx,rec)) {
+                break;
+            }
+        }
+
+        /* see if this record has TLS information */
+        if ((rec->tls_ext_processed == 0) &&
+            (rec->tls != NULL) & (rec->tls->done_handshake)) {
+            /* let the callback function process the flow record */
+            /* TLS data is pulled directly from flow_record */
+            callback_fn(rec, 0, NULL);
+
+            /* mark the TLS data as being processed */
+            rec->tls_ext_processed = 1;
+        }
+
+        /* go to next record */
+        rec = rec->time_next;
+    }
+}
+
+/*
+ * Function: joy_delete_flow_records
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the explicit deletion of flow records
+ *      from the flow_record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      cond - condition on which records to delete
+ *             (IDP processed, TLS processed, SALT processed,
+ *              SPLT processed, BD processed, ANY) 
+ *
+ * Returns:
+ *      unsigned int - number of records deleted
+ *
+ */
+unsigned int joy_delete_flow_records(unsigned int index,
+                                     JOY_FLOW_TYPE type,
+                                     JOY_COND_TYPE cond)
+{
+    unsigned char ok_to_delete = 0;
+    unsigned int records_deleted = 0;
+    flow_record_t *rec = NULL;
+    flow_record_t *next_rec = NULL;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return records_deleted;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return records_deleted;
+    }
+
+    /* get the correct context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* go through the records */
+    rec = ctx->flow_record_chrono_first;
+    while (rec != NULL) {
+        ok_to_delete = 0;
+        if (type == JOY_EXPIRED_FLOWS) {
+            /* don't process active flow in this mode */
+            if (!flow_record_is_expired(ctx,rec)) {
+                break;
+            }
+        }
+
+        /* check if ok to delete this record */
+        switch (cond) {
+            case (JOY_IDP_PROCESSED):
+                if (rec->idp_ext_processed == 1) {
+                    ok_to_delete = 1;
+                }
+                break;
+            case (JOY_TLS_PROCESSED):
+                if (rec->tls_ext_processed == 1) {
+                    ok_to_delete = 1;
+                }
+                break;
+            case (JOY_SALT_PROCESSED):
+                if (rec->salt_ext_processed == 1) {
+                    ok_to_delete = 1;
+                }
+                break;
+            case (JOY_SPLT_PROCESSED):
+                if (rec->splt_ext_processed == 1) {
+                    ok_to_delete = 1;
+                }
+                break;
+            case (JOY_BD_PROCESSED):
+                if (rec->bd_ext_processed == 1) {
+                    ok_to_delete = 1;
+                }
+                break;
+            case (JOY_ANY_PROCESSED):
+                /* doesn't matter, we are forcing this record to be deleted */
+                ok_to_delete = 1;
+                break;
+        }
+
+        /* remove the record and advance to next record */
+        next_rec = rec->time_next;
+        if (ok_to_delete) {
+            remove_record_and_update_list(ctx,rec);
+
+            /* increment the delete count */
+            ++records_deleted;
+        }
+
+        /* go to the next record */
+        rec = next_rec;
+    }
+
+    return records_deleted;
 }
 
 /*

@@ -47,12 +47,11 @@
 #include <unistd.h>
 #include "pthread.h"
 #include "joy_api.h"
-#include "pcap.h"
 
 /* test program variables */
 #define NUM_PACKETS_IN_LOOP 20
 
-int process_pcap_file (unsigned long index, char *file_name) {
+int proc_pcap_file (unsigned long index, char *file_name) {
     int more = 1;
     pcap_t *handle = NULL;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
@@ -96,13 +95,32 @@ int process_pcap_file (unsigned long index, char *file_name) {
     return 0;
 }
 
+void my_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+    flow_record_t *rec = (flow_record_t *)curr_rec;
+
+    printf("IDP len=%d, ",rec->idp_len);
+    if (rec->tls != NULL) {
+       printf("tls version=%d\n",rec->tls->version);
+    } else {
+       printf("tls version=unknown\n");
+    }
+}
+
 void *thread_main1 (void *file)
 {
+    unsigned int recs = 0;
+
     sleep(1);
     printf("Thread 1 Starting\n");
     joy_print_config(0, JOY_JSON_FORMAT);
-    process_pcap_file(0, file);
-    joy_print_flow_data(0, JOY_ALL_FLOWS);
+    proc_pcap_file(0, file);
+    joy_idp_external_processing(0, JOY_ALL_FLOWS, my_callback);
+    recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_TLS_PROCESSED);
+    printf("Thread 1 deleted %d records\n",recs);
+    joy_tls_external_processing(0, JOY_ALL_FLOWS, my_callback);
+    recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_TLS_PROCESSED);
+    printf("Thread 1 deleted %d records\n",recs);
+    //joy_print_flow_data(0, JOY_ALL_FLOWS);
     joy_context_cleanup(0);
     printf("Thread 1 Finished\n");
     return NULL;
@@ -113,7 +131,7 @@ void *thread_main2 (void *file)
     sleep(1);
     printf("Thread 2 Starting\n");
     joy_print_config(1, JOY_JSON_FORMAT);
-    process_pcap_file(1, file);
+    proc_pcap_file(1, file);
     joy_print_flow_data(1, JOY_ALL_FLOWS);
     joy_context_cleanup(1);
     printf("Thread 2 Finished\n");
@@ -125,7 +143,7 @@ void *thread_main3 (void *file)
     sleep(1);
     printf("Thread 3 Starting\n");
     joy_print_config(2, JOY_JSON_FORMAT);
-    process_pcap_file(2, file);
+    proc_pcap_file(2, file);
     joy_print_flow_data(2, JOY_ALL_FLOWS);
     joy_context_cleanup(2);
     printf("Thread 3 Finished\n");
@@ -146,7 +164,7 @@ int main (int argc, char **argv)
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */
     init_data.max_records = 0;    /* max records in output file, 0 means single output file */
     init_data.contexts = 3;       /* use 3 worker contexts for processing */
-    init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON | JOY_EXE_ON);
+    init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);

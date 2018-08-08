@@ -47,13 +47,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "pcap.h"
 
 /* Definitions of contants used in the Joy Library API */
-#define JOY_EXPIRED_FLOWS 0
-#define JOY_ALL_FLOWS 1
-#define JOY_EXPIRED_FLOWS_NODELETE 2 // only used for debug testing
-#define JOY_ALL_FLOWS_NODELETE 3     // only used for debug testing
 #define JOY_TERMINAL_FORMAT 0
 #define JOY_JSON_FORMAT 1
 #define JOY_SINGLE_SUBNET 0
@@ -64,6 +59,20 @@
 #define DEFAULT_IDP_SIZE 1300
 #define MAX_LIB_CONTEXTS 10
 #define MAX_RECORDS 2147483647
+
+typedef enum {
+    JOY_EXPIRED_FLOWS          = 0,
+    JOY_ALL_FLOWS              = 1
+} JOY_FLOW_TYPE;
+
+typedef enum {
+    JOY_IDP_PROCESSED          = 0,
+    JOY_TLS_PROCESSED          = 1,
+    JOY_SALT_PROCESSED         = 2,
+    JOY_SPLT_PROCESSED         = 3,
+    JOY_BD_PROCESSED           = 4,
+    JOY_ANY_PROCESSED          = 5
+} JOY_COND_TYPE;
 
 /*
  * Joy Library Bitmask Values
@@ -89,8 +98,8 @@
 #define JOY_CLASSIFY_ON            (1 << 13)
 #define JOY_HEADER_ON              (1 << 14)
 #define JOY_PREMPTIVE_TMO_ON       (1 << 15)
-#define JOY_IPFIX_SIMPLE_EXPORT_ON (1 << 16)
-#define JOY_IPFIX_IDP_EXPORT_ON    (1 << 17)
+#define JOY_IDP_ON                 (1 << 16)
+#define JOY_IPFIX_EXPORT_ON        (1 << 17)
 
 
 /* structure used to initialize joy through the API Library */
@@ -109,7 +118,10 @@ typedef struct joy_init {
 typedef struct joy_ctx_data joy_ctx_data;
 
 /* definition for external processing callback */
-typedef void (joy_flow_rec_callback)(void*);
+typedef void (joy_flow_rec_callback)(void *rec, unsigned int data_len, unsigned char *data);
+
+#include "pcap.h"
+#include "p2f.h"
 
 /* prototypes for the API interface */
 
@@ -223,7 +235,7 @@ extern int joy_anon_http_usernames (char *anon_http_file);
 extern int joy_update_splt_bd_params (char *splt_filename, char *bd_filename);
 
 /*
- * Function: joy_get_compact_bd
+ * Function: joy_update_compact_bd
  *
  * Description: This function processes a file to update the
  *      compact BD values used for counting the distribution 
@@ -237,7 +249,7 @@ extern int joy_update_splt_bd_params (char *splt_filename, char *bd_filename);
  *      1 - failure
  *
  */
-extern int joy_get_compact_bd (char *filename);
+extern int joy_update_compact_bd (char *filename);
 
 /*
  * Function: joy_label_subnets
@@ -296,7 +308,7 @@ extern void joy_process_packet (unsigned char *ctx_idx,
  *      none
  *
  */
-extern void joy_print_flow_data (unsigned int index, int type);
+extern void joy_print_flow_data (unsigned int index, JOY_FLOW_TYPE type);
 
 /*
  * Function: joy_export_flows_ipfix
@@ -314,17 +326,18 @@ extern void joy_print_flow_data (unsigned int index, int type);
  *      none
  *
  */
-extern void joy_export_flows_ipfix (unsigned int index, int type);
+extern void joy_export_flows_ipfix (unsigned int index, JOY_FLOW_TYPE type);
 
 /*
- * Function: joy_flow_record_external_processing
+ * Function: joy_idp_external_processing
  *
- * Description: This function allows the calling application of
- *      the Joy library to handle the processing of the flow record.
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have IDP information ready for export.
  *      This function simply goes through the flow records and invokes
- *      the callback function to process the record.
- *      Records that get processed will be removed from the flow
- *      record list.
+ *      the callback function to process the records that have IDP data.
+ *      Records that get processed have the IDP sent flag updated but are
+ *      NOT removed from the flow record list.
  *
  * Parameters:
  *      index - index of the context to use
@@ -335,9 +348,54 @@ extern void joy_export_flows_ipfix (unsigned int index, int type);
  *      none
  *
  */
-extern void joy_flow_record_external_processing(unsigned int index, 
-						int type, 
-						joy_flow_rec_callback callback_fn);
+void joy_idp_external_processing (unsigned int index,
+                                  JOY_FLOW_TYPE type,
+                                  joy_flow_rec_callback callback_fn);
+
+/*
+ * Function: joy_tls_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have TLS information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have TLS data.
+ *      Records that get processed have the TLS processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_tls_external_processing (unsigned int index,
+                                  JOY_FLOW_TYPE type,
+                                  joy_flow_rec_callback callback_fn);
+
+/*
+ * Function: joy_delete_flow_records
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the explicit deletion of flow records
+ *      from the flow_record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      cond - JOY_IDP_PROCESSED, JOY_TLS_PROCESSED, JOY_SALT_PROCESSED
+ *             JOY_SPLT_PROCESSED, JOY_BD_PROCESSED, JOY_ANY_PROCESSED
+ *
+ * Returns:
+ *      unsigned int - number of records deleted
+ *
+ */
+unsigned int joy_delete_flow_records (unsigned int index,
+                                      JOY_FLOW_TYPE type,
+                                      JOY_COND_TYPE cond);
 
 /*
  * Function: joy_context_cleanup

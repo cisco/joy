@@ -150,6 +150,11 @@ typedef struct flow_record_ {
     unsigned long uptime_seconds;         /*!< executable uptime associated with flow    */
     unsigned char exp_type;
     unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
+    unsigned char idp_ext_processed;
+    unsigned char tls_ext_processed;
+    unsigned char salt_ext_processed;
+    unsigned char splt_ext_processed;
+    unsigned char bd_ext_processed;
   
     define_all_features(feature_list)     /*!< define all features listed in feature.h */
   

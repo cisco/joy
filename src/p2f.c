@@ -1681,7 +1681,7 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_type) {
     record = ctx->flow_record_chrono_first;
 
     while (record != NULL) {
-        if ((export_type == JOY_EXPIRED_FLOWS) || (export_type == JOY_EXPIRED_FLOWS_NODELETE)) {
+        if (export_type == JOY_EXPIRED_FLOWS) {
             /* Avoid printing flows that might still be active */
             if (!flow_record_is_expired(ctx,record)) {
                 break;
@@ -1696,20 +1696,17 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_type) {
             ipfix_export_main(ctx,record);
         }
 
-        /* see if we are required to remove the flows */
-        if ((export_type == JOY_EXPIRED_FLOWS) || (export_type == JOY_ALL_FLOWS)) {
-            /*
-             * Delete twin, if there is one
-             */
-            if (record->twin != NULL) {
-                debug_printf("LIST deleting twin\n");
-                flow_record_delete(ctx, record->twin);
-            }
-
-            /* Remove record from chrono list, then delete from flow_record_list_array */
-            flow_record_chrono_list_remove(ctx, record);
-            flow_record_delete(ctx, record);
+        /*
+         * Delete twin, if there is one
+         */
+        if (record->twin != NULL) {
+            debug_printf("LIST deleting twin\n");
+            flow_record_delete(ctx, record->twin);
         }
+
+        /* Remove record from chrono list, then delete from flow_record_list_array */
+        flow_record_chrono_list_remove(ctx, record);
+        flow_record_delete(ctx, record);
 
         /* Advance to next record on chrono list */
         record = ctx->flow_record_chrono_first;
@@ -1734,18 +1731,15 @@ void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_type) {
     record = ctx->flow_record_chrono_first;
 
     while (record != NULL) {
-        if ((print_type == JOY_EXPIRED_FLOWS) || (print_type == JOY_EXPIRED_FLOWS_NODELETE)) {
+        if (print_type == JOY_EXPIRED_FLOWS) {
             /* Avoid printing flows that might still be active */
             if (!flow_record_is_expired(ctx,record)) {
                 break;
             }
         }
 
-        if ((print_type == JOY_EXPIRED_FLOWS) || (print_type == JOY_ALL_FLOWS)) {
-            flow_record_print_and_delete(ctx, record);
-        } else {
-            flow_record_print_json(ctx, record);
-        }
+        /* print and remove the record */
+        flow_record_print_and_delete(ctx, record);
 
         /* Advance to next record on chrono list */
         record = ctx->flow_record_chrono_first;
