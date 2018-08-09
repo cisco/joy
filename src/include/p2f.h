@@ -93,9 +93,6 @@ typedef struct tcp_info_ {
     unsigned char opts[TCP_OPT_LEN];
 } tcp_info_t;
 
-#define FLOW_LIST_CHECK_EXPIRE 0
-#define FLOW_LIST_PRINT_ALL 1
-
 typedef struct flow_key_ {
     struct in_addr sa;
     struct in_addr da;

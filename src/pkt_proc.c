@@ -865,7 +865,7 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 }
 
 /**
- * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *plkt_header,
+ * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
                      const unsigned char *packet)
  * \param ctx_ptr currently used to store the context data pointer
  * \param pkt_header pointer to the packer header structure

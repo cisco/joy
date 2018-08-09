@@ -1666,11 +1666,9 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
 /**
  * \brief Does IPFix sending of flow record data.
  *
- * \param export_type Flag whether to indiscriminately export all flow_records.
- *                  0 exiration check and remove records
- *                  1 all records and remove them
- *                  2 expiration check and do not remove records
- *                  3 all records and do no remove them
+ * \param export_all Flag whether to indiscriminately print all flow_records.
+ *                  JOY_EXPIRED_FLOWS - perform expiration check
+ *                  JOY_ALL_FLOWS - print all of them
  *
  * \return none
  */
@@ -1716,11 +1714,9 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_type) {
 /**
  * \brief Prints out the flow record list in JSON format.
  *
- * \param print_type Flag whether to indiscriminately print all flow_records.
- *                  0 perform expiration check and remove records
- *                  1 all flows and remove records
- *                  2 perform expiration check and do not remove records
- *                  3 all flows and do not remove records
+ * \param export_all Flag whether to indiscriminately print all flow_records.
+ *                  JOY_EXPIRED_FLOWS - perform expiration check
+ *                  JOY_ALL_FLOWS - print all of them
  *
  * \return none
  */
