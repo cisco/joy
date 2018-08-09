@@ -95,12 +95,10 @@ void salt_update (struct salt *salt,
           unsigned int report_salt) {
     const struct tcp_hdr *tcp = tcp_start;
 
-    if (report_salt) {
-        if (salt->np < MAX_NUM_PKT) {
-            salt->seq[salt->np] = ntohl(tcp->tcp_seq);
-            salt->ack[salt->np] = ntohl(tcp->tcp_ack);
-            salt->np++;
-        }
+    if (salt->np < MAX_NUM_PKT) {
+        salt->seq[salt->np] = ntohl(tcp->tcp_seq);
+        salt->ack[salt->np] = ntohl(tcp->tcp_ack);
+        salt->np++;
     }
 }
 

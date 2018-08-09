@@ -100,11 +100,11 @@ typedef enum {
 #define JOY_PREMPTIVE_TMO_ON       (1 << 15)
 #define JOY_IDP_ON                 (1 << 16)
 #define JOY_IPFIX_EXPORT_ON        (1 << 17)
+#define JOY_PPI_ON                 (1 << 18)
 
 
 /* structure used to initialize joy through the API Library */
 typedef struct joy_init {
-    int type;                    /* type 1 (SPLT) 2 (SALT) */
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
     uint32_t max_records;        /* max record in output file */
     int contexts;                /* number of contexts the app wants to use */
@@ -149,7 +149,7 @@ typedef void (joy_flow_rec_callback)(void *rec, unsigned int data_len, unsigned 
  *
  */
 extern int joy_initialize (joy_init_t *data, char *output_dir,
-			   char *output_file, char *logfile);
+                           char *output_file, char *logfile);
 
 /*
  * Function: joy_print_config
@@ -238,8 +238,8 @@ extern int joy_update_splt_bd_params (char *splt_filename, char *bd_filename);
  * Function: joy_update_compact_bd
  *
  * Description: This function processes a file to update the
- *      compact BD values used for counting the distribution 
- *      in a given flow.
+ *      compact BD values used for processing in the machine learning
+ *      classifier.
  *
  * Parameters:
  *      filename - file of compact BD values
@@ -277,7 +277,7 @@ extern int joy_label_subnets (char *label, int type, char* subnet_str);
  *      wrapper function for the code used within the Joy library.
  *
  * Parameters:
- *      ctx_index - index of the context to use
+ *      ctx_index - index of the thread context to use
  *      header - libpcap header which contains timestamp, cap length
  *               and length
  *      packet - the actual data packet
@@ -297,8 +297,12 @@ extern void joy_process_packet (unsigned char *ctx_idx,
  *      the Joy data structures to the output destination specified
  *      in the joy_initialize call. The output is formatted as
  *      Joy JSON objects.
+ *
  *      Part this operation will check to see if there is any
  *      host flow data to collect, if the option is turned on.
+ *
+ *      This function will remove the records that are printed from
+ *      the flow record list.
  *
  * Parameters:
  *      index - index of the context to use
@@ -318,6 +322,9 @@ extern void joy_print_flow_data (unsigned int index, JOY_FLOW_TYPE type);
  *      in the joy_initialize call. The flow data is exported
  *      as IPFix packets to the destination.
  *
+ *      This function will remove the records that are exported
+ *      from the flow record list.
+ *
  * Parameters:
  *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
@@ -336,8 +343,9 @@ extern void joy_export_flows_ipfix (unsigned int index, JOY_FLOW_TYPE type);
  *      that have IDP information ready for export.
  *      This function simply goes through the flow records and invokes
  *      the callback function to process the records that have IDP data.
- *      Records that get processed have the IDP sent flag updated but are
- *      NOT removed from the flow record list.
+ *
+ *      Records that get processed have the IDP processed flag updated
+ *      but are NOT removed from the flow record list.
  *
  * Parameters:
  *      index - index of the context to use
@@ -347,10 +355,14 @@ extern void joy_export_flows_ipfix (unsigned int index, JOY_FLOW_TYPE type);
  * Returns:
  *      none
  *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The data_len and data fields will be ZERO and NULL respectively. This
+ *      is because the IDP data can be retrieved directly from the flow record.
  */
-void joy_idp_external_processing (unsigned int index,
-                                  JOY_FLOW_TYPE type,
-                                  joy_flow_rec_callback callback_fn);
+extern void joy_idp_external_processing (unsigned int index,
+                                         JOY_FLOW_TYPE type,
+                                         joy_flow_rec_callback callback_fn);
 
 /*
  * Function: joy_tls_external_processing
@@ -360,6 +372,7 @@ void joy_idp_external_processing (unsigned int index,
  *      that have TLS information ready for export.
  *      This function simply goes through the flow records and invokes
  *      the callback function to process the records that have TLS data.
+ *
  *      Records that get processed have the TLS processed flag updated
  *      but are NOT removed from the flow record list.
  *
@@ -371,10 +384,122 @@ void joy_idp_external_processing (unsigned int index,
  * Returns:
  *      none
  *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The data_len and data fields will be ZERO and NULL respectively. This
+ *      is because the TLS data can be retrieved directly from the flow record.
  */
-void joy_tls_external_processing (unsigned int index,
-                                  JOY_FLOW_TYPE type,
-                                  joy_flow_rec_callback callback_fn);
+extern void joy_tls_external_processing (unsigned int index,
+                                         JOY_FLOW_TYPE type,
+                                         joy_flow_rec_callback callback_fn);
+
+/*
+ * Function: joy_splt_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have SPLT information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have SPLT data.
+ *
+ *      Records that get processed have the SPLT processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      min_pkts - minimum number of packets processed before ready
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The SPLT data needs to be preprocessed for export and as such, the
+ *      data_len field will be the length of the preprocessed data and the
+ *      data field will be a pointer to the actual preprocessed data. The callback
+ *      does not need to worry about freeing the memory associated with the data.
+ *      Once control returns from the callback function, the library will free that
+ *      memory. IF the callback function needs access to this data after it returns
+ *      control to the library, then it should copy that data for later use.
+ */
+extern void joy_splt_external_processing (unsigned int index,
+                                          JOY_FLOW_TYPE type,
+                                          unsigned int min_pkts,
+                                          joy_flow_rec_callback callback_fn);
+
+/*
+ * Function: joy_salt_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have SALT information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have SPLT data.
+ *
+ *      Records that get processed have the SALT processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      min_pkts - minimum number of packets processed before ready
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The SALT data needs to be preprocessed for export and as such, the
+ *      data_len field will be the length of the preprocessed data and the
+ *      data field will be a pointer to the actual preprocessed data. The callback
+ *      does not need to worry about freeing the memory associated with the data.
+ *      Once control returns from the callback function, the library will free that
+ *      memory. IF the callback function needs access to this data after it returns
+ *      control to the library, then it should copy that data for later use.
+ */
+extern void joy_salt_external_processing (unsigned int index,
+                                          JOY_FLOW_TYPE type,
+                                          unsigned int min_pkts,
+                                          joy_flow_rec_callback callback_fn);
+
+/*
+ * Function: joy_bd_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have BD (byte distribution) information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have SPLT data.
+ *
+ *      Records that get processed have the BD processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      min_pkts - minimum number of packets processed before ready
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The BD data needs to be preprocessed for export and as such, the
+ *      data_len field will be the length of the preprocessed data and the
+ *      data field will be a pointer to the actual preprocessed data. The callback
+ *      does not need to worry about freeing the memory associated with the data.
+ *      Once control returns from the callback function, the library will free that
+ *      memory. IF the callback function needs access to this data after it returns
+ *      control to the library, then it should copy that data for later use.
+ */
+extern void joy_bd_external_processing (unsigned int index,
+                                        JOY_FLOW_TYPE type,
+                                        unsigned int min_pkts,
+                                        joy_flow_rec_callback callback_fn);
 
 /*
  * Function: joy_delete_flow_records
@@ -386,23 +511,24 @@ void joy_tls_external_processing (unsigned int index,
  * Parameters:
  *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
- *      cond - JOY_IDP_PROCESSED, JOY_TLS_PROCESSED, JOY_SALT_PROCESSED
- *             JOY_SPLT_PROCESSED, JOY_BD_PROCESSED, JOY_ANY_PROCESSED
+ *      cond - condition on which records to delete
+ *             (JOY_IDP_PROCESSED, JOY_TLS_PROCESSED, JOY_SALT_PROCESSED,
+ *              JOY_SPLT_PROCESSED, JOY_BD_PROCESSED, JOY_ANY_PROCESSED)
  *
  * Returns:
  *      unsigned int - number of records deleted
  *
  */
-unsigned int joy_delete_flow_records (unsigned int index,
-                                      JOY_FLOW_TYPE type,
-                                      JOY_COND_TYPE cond);
+extern unsigned int joy_delete_flow_records (unsigned int index,
+                                             JOY_FLOW_TYPE type,
+                                             JOY_COND_TYPE cond);
 
 /*
  * Function: joy_context_cleanup
  *
- * Description: This function cleans up any leftover data that maybe
- *      hanging around. If IPFix exporting is turned on, then it also
- *      flushes any remaining records out to the destination.
+ * Description: This function cleans up any lefotover data that maybe
+ *      hanging around for the context worker. If IPFix exporting is turned
+ *      on, then it also flushes any remaining records out to the destination.
  *
  * Parameters:
  *      index - index of the context to use
@@ -417,7 +543,7 @@ extern void joy_context_cleanup (unsigned int index);
  * Function: joy_shutdown
  *
  * Description: This function cleans up the JOY library and essentially
- *      shuts the library down and reverts back to clean unsed state.
+ *      shuts the library down and reverts back to clean unused state.
  *
  * Parameters:
  *      none

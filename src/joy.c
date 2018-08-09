@@ -506,7 +506,6 @@ static int usage (char *s) {
            "  exe=1                      include information about host process associated with flow\n" 
            "  classify=1                 include results of post-collection classification\n" 
            "  num_pkts=N                 report on at most N packets per flow (0 <= N < %d)\n" 
-           "  type=T                     select message type: 1=SPLT, 2=SALT\n" 
            "  idp=N                      report N bytes of the initial data packet of each flow\n"
            "  label=L:F                  add label L to addresses that match the subnets in file F\n"
            "  URLmodel=URL               URL to be used to retrieve classisifer updates\n" 
@@ -1337,6 +1336,9 @@ int main (int argc, char **argv) {
         fprintf(info, "--- Joy Initialization ---\n");
         flocap_stats_output(&main_ctx,info);
     }
+
+    /* make sure to turn SALT on - collect SALT & SPLT always */
+    glb_config->report_salt = 1;
 
     /* 
      * Retrieve sequence of packet lengths/times and byte distribution

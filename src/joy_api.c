@@ -78,6 +78,111 @@ static int joy_num_contexts = 0;
 static struct joy_ctx_data *ctx_data = NULL;
 
 /*
+ * Function: joy_splt_format_data
+ *
+ * Description: This function formats the SPLT data from a flow
+ *      record into a character string ready for use by an external
+ *      entity. Typically the external entity can just grab the
+ *      formatted data and send it along in an IPFix or NFv9 record.
+ *
+ * Parameters:
+ *      rec - the flow record
+ *      data - pointer to a pointer to the formatted data
+ *
+ * Returns:
+ *      formatted data length is returned
+ *
+ * Notes:
+ *      the data parameter will be allocated memory to handle the formatted
+ *      data being returned. The caller is reponsible for freeing this data.
+ */
+static unsigned int joy_splt_format_data(flow_record_t *rec, unsigned char **data)
+{
+    int i = 0;
+    unsigned int data_len = 0;
+
+    /* debugging */
+    printf("SPLT Packets (%d): ", rec->op);
+    for (i=0; i < rec->op; ++i) {
+        printf("[%d],", rec->pkt_len[i]);
+    }
+    printf("\n");
+
+    *data = NULL;
+    return data_len;
+}
+
+/*
+ * Function: joy_salt_format_data
+ *
+ * Description: This function formats the SALT data from a flow
+ *      record into a character string ready for use by an external
+ *      entity. Typically the external entity can just grab the
+ *      formatted data and send it along in an IPFix or NFv9 record.
+ *
+ * Parameters:
+ *      rec - the flow record
+ *      data - pointer to a pointer to the formatted data
+ *
+ * Returns:
+ *      formatted data length is returned
+ *
+ * Notes:
+ *      the data parameter will be allocated memory to handle the formatted
+ *      data being returned. The caller is reponsible for freeing this data.
+ */
+static unsigned int joy_salt_format_data(flow_record_t *rec, unsigned char **data)
+{
+    int i = 0;
+    unsigned int data_len = 0;
+
+    /* debugging */
+    printf("SALT Packets (%d): ", rec->salt->np);
+    for (i=0; i < rec->salt->np; ++i) {
+        printf("[%d][%d], ", rec->salt->seq[i],rec->salt->ack[i]);
+    }
+
+    printf("\n");
+    *data = NULL;
+    return data_len;
+}
+
+/*
+ * Function: joy_bd_format_data
+ *
+ * Description: This function formats the BD data from a flow
+ *      record into a character string ready for use by an external
+ *      entity. Typically the external entity can just grab the
+ *      formatted data and send it along in an IPFix or NFv9 record.
+ *
+ * Parameters:
+ *      rec - the flow record
+ *      data - pointer to a pointer to the formatted data
+ *
+ * Returns:
+ *      formatted data length is returned
+ *
+ * Notes:
+ *      the data parameter will be allocated memory to handle the formatted
+ *      data being returned. The caller is reponsible for freeing this data.
+ */
+static unsigned int joy_bd_format_data(flow_record_t *rec, unsigned char **data)
+{
+    int i = 0;
+    unsigned int data_len = 0;
+
+    /* debugging */
+    printf("BD (0-255): ");
+    for (i=0; i < 256; ++i) {
+        printf("[%d],", rec->byte_count[i]);
+    }
+
+    printf("\n");
+    *data = NULL;
+    return data_len;
+}
+
+/*
  * Function: format_output_filename
  *
  * Description: This function formats the output filename
@@ -183,10 +288,6 @@ int joy_initialize(joy_init_t *init_data,
         strncpy(output_dirname, "/tmp/", 5);
     }
 
-    /* set the configuration defaults */
-    if ((init_data->type > 0) && (init_data->type < 3)) {
-        glb_config->type = init_data->type;
-    }
     glb_config->verbosity = init_data->verbosity;
     glb_config->flow_key_match_method = EXACT_MATCH;
 
@@ -209,6 +310,7 @@ int joy_initialize(joy_init_t *init_data,
     }
 
     /* data features */
+    glb_config->report_salt = 1; /* always include the SALT data */
     glb_config->bidir = ((init_data->bitmask & JOY_BIDIR_ON) ? 1 : 0);
     glb_config->report_dns = ((init_data->bitmask & JOY_DNS_ON) ? 1 : 0);
     glb_config->report_ssh = ((init_data->bitmask & JOY_SSH_ON) ? 1 : 0);
@@ -224,6 +326,7 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->report_entropy = ((init_data->bitmask & JOY_ENTROPY_ON) ? 1 : 0);
     glb_config->report_hd = ((init_data->bitmask & JOY_HEADER_ON) ? 1 : 0);
     glb_config->preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
+    glb_config->report_ppi = ((init_data->bitmask & JOY_PPI_ON) ? 1 : 0);
 
     /* check if IDP option is set */
     if (init_data->bitmask & JOY_IDP_ON) {
@@ -673,8 +776,12 @@ void joy_process_packet(unsigned char *ctx_index,
  *      the Joy data structures to the output destination specified
  *      in the joy_initialize call. The output is formatted as
  *      Joy JSON objects.
+ *
  *      Part this operation will check to see if there is any
  *      host flow data to collect, if the option is turned on.
+ *
+ *      This function will remove the records that are printed from
+ *      the flow record list.
  *
  * Parameters:
  *      index - index of the context to use
@@ -743,6 +850,9 @@ void joy_print_flow_data(unsigned int index, JOY_FLOW_TYPE type)
  *      in the joy_initialize call. The flow data is exported
  *      as IPFix packets to the destination.
  *
+ *      This function will remove the records that are exported
+ *      from the flow record list.
+ *
  * Parameters:
  *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
@@ -780,6 +890,7 @@ void joy_export_flows_ipfix(unsigned int index, JOY_FLOW_TYPE type)
  *      that have IDP information ready for export.
  *      This function simply goes through the flow records and invokes
  *      the callback function to process the records that have IDP data.
+ *
  *      Records that get processed have the IDP processed flag updated
  *      but are NOT removed from the flow record list.
  *
@@ -791,10 +902,14 @@ void joy_export_flows_ipfix(unsigned int index, JOY_FLOW_TYPE type)
  * Returns:
  *      none
  *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The data_len and data fields will be ZERO and NULL respectively. This
+ *      is because the IDP data can be retrieved directly from the flow record.
  */
 void joy_idp_external_processing(unsigned int index,
-				 JOY_FLOW_TYPE type, 
-				 joy_flow_rec_callback callback_fn)
+                                 JOY_FLOW_TYPE type, 
+                                 joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
@@ -817,6 +932,7 @@ void joy_idp_external_processing(unsigned int index,
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
+
         /* see if we are processing all flows or just expired flows */
         if (type == JOY_EXPIRED_FLOWS) {
             /* don't process active flow in this mode */
@@ -848,6 +964,7 @@ void joy_idp_external_processing(unsigned int index,
  *      that have TLS information ready for export.
  *      This function simply goes through the flow records and invokes
  *      the callback function to process the records that have TLS data.
+ *
  *      Records that get processed have the TLS processed flag updated
  *      but are NOT removed from the flow record list.
  *
@@ -859,10 +976,14 @@ void joy_idp_external_processing(unsigned int index,
  * Returns:
  *      none
  *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The data_len and data fields will be ZERO and NULL respectively. This
+ *      is because the TLS data can be retrieved directly from the flow record.
  */
 void joy_tls_external_processing(unsigned int index,
-				 JOY_FLOW_TYPE type, 
-				 joy_flow_rec_callback callback_fn)
+                                 JOY_FLOW_TYPE type,
+                                 joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
@@ -885,6 +1006,7 @@ void joy_tls_external_processing(unsigned int index,
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
+
         /* see if we are processing all flows or just expired flows */
         if (type == JOY_EXPIRED_FLOWS) {
             /* don't process active flow in this mode */
@@ -894,14 +1016,290 @@ void joy_tls_external_processing(unsigned int index,
         }
 
         /* see if this record has TLS information */
-        if ((rec->tls_ext_processed == 0) &&
-            (rec->tls != NULL) & (rec->tls->done_handshake)) {
-            /* let the callback function process the flow record */
-            /* TLS data is pulled directly from flow_record */
-            callback_fn(rec, 0, NULL);
+        if ((rec->tls_ext_processed == 0) && (rec->tls != NULL)) {
+            if (rec->tls->done_handshake) {
+                /* let the callback function process the flow record */
+                /* TLS data is pulled directly from flow_record */
+                callback_fn(rec, 0, NULL);
 
-            /* mark the TLS data as being processed */
-            rec->tls_ext_processed = 1;
+                /* mark the TLS data as being processed */
+                rec->tls_ext_processed = 1;
+            }
+        }
+
+        /* go to next record */
+        rec = rec->time_next;
+    }
+}
+
+/*
+ * Function: joy_splt_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have SPLT information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have SPLT data.
+ *
+ *      Records that get processed have the SPLT processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      min_pkts - minimum number of packets processed before export occurs
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The SPLT data needs to be preprocessed for export and as such, the
+ *      data_len field will be the length of the preprocessed data and the
+ *      data field will be a pointer to the actual preprocessed data. The callback
+ *      does not need to worry about freeing the memory associated with the data.
+ *      Once control returns from the callback function, the library will free that
+ *      memory. IF the callback function needs access to this data after it returns
+ *      control to the library, then it should copy that data for later use.
+ */
+void joy_splt_external_processing(unsigned int index,
+                                 JOY_FLOW_TYPE type,
+                                 unsigned int min_pkts,
+                                 joy_flow_rec_callback callback_fn)
+{
+    unsigned data_len = 0;
+    unsigned char *data = NULL;
+    flow_record_t *rec = NULL;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* get the correct context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* go through the records and let the callback function process */
+    rec = ctx->flow_record_chrono_first;
+    while (rec != NULL) {
+
+        /* see if we are processing all flows or just expired flows */
+        if (type == JOY_EXPIRED_FLOWS) {
+            /* don't process active flow in this mode */
+            if (!flow_record_is_expired(ctx,rec)) {
+                break;
+            }
+        }
+
+        /* see if this record has SPLT information */
+        if ((rec->splt_ext_processed == 0) && (rec->op > min_pkts)) {
+            /* format the SPLT data for external processing */
+            data_len = joy_splt_format_data(rec, &data);
+
+            /* let the callback function process the flow record */
+            callback_fn(rec, data_len, data);
+
+            /* mark the SPLT data as being processed */
+            rec->splt_ext_processed = 1;
+
+            /* clean up preprocessed data items */
+            if (data != NULL) {
+                free(data);
+            }
+            data_len = 0;
+        }
+
+        /* go to next record */
+        rec = rec->time_next;
+    }
+}
+
+/*
+ * Function: joy_salt_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have SALT information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have SPLT data.
+ *
+ *      Records that get processed have the SALT processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      min_pkts - minimum number of packets processed before export occurs
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The SALT data needs to be preprocessed for export and as such, the
+ *      data_len field will be the length of the preprocessed data and the
+ *      data field will be a pointer to the actual preprocessed data. The callback
+ *      does not need to worry about freeing the memory associated with the data.
+ *      Once control returns from the callback function, the library will free that
+ *      memory. IF the callback function needs access to this data after it returns
+ *      control to the library, then it should copy that data for later use.
+ */
+void joy_salt_external_processing(unsigned int index,
+                                 JOY_FLOW_TYPE type,
+                                 unsigned int min_pkts,
+                                 joy_flow_rec_callback callback_fn)
+{
+    unsigned data_len = 0;
+    unsigned char *data = NULL;
+    flow_record_t *rec = NULL;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* get the correct context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* go through the records and let the callback function process */
+    rec = ctx->flow_record_chrono_first;
+    while (rec != NULL) {
+
+        /* see if we are processing all flows or just expired flows */
+        if (type == JOY_EXPIRED_FLOWS) {
+            /* don't process active flow in this mode */
+            if (!flow_record_is_expired(ctx,rec)) {
+                break;
+            }
+        }
+
+        /* see if this record has SALT information */
+        if ((rec->salt_ext_processed == 0) && (rec->salt != NULL)) {
+            if (rec->salt->np > min_pkts) {
+                /* format the SALT data for external processing */
+                data_len = joy_salt_format_data(rec, &data);
+
+                /* let the callback function process the flow record */
+                callback_fn(rec, data_len, data);
+
+                /* mark the SALT data as being processed */
+                rec->salt_ext_processed = 1;
+
+                /* clean up preprocessed data items */
+                if (data != NULL) {
+                    free(data);
+                }
+            }
+            data_len = 0;
+        }
+
+        /* go to next record */
+        rec = rec->time_next;
+    }
+}
+
+/*
+ * Function: joy_bd_external_processing
+ *
+ * Description: This function is allows the calling application of
+ *      the Joy library to handle the processing of the flow records
+ *      that have BD (byte distribution) information ready for export.
+ *      This function simply goes through the flow records and invokes
+ *      the callback function to process the records that have SPLT data.
+ *
+ *      Records that get processed have the BD processed flag updated
+ *      but are NOT removed from the flow record list.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      min_pkts - minimum number of packets processed before export occurs
+ *      callback - function that actually does the flow record processing
+ *
+ * Returns:
+ *      none
+ *
+ * Notes:
+ *      The callback function will get passed a pointer to the flow record.
+ *      The BD data needs to be preprocessed for export and as such, the
+ *      data_len field will be the length of the preprocessed data and the
+ *      data field will be a pointer to the actual preprocessed data. The callback
+ *      does not need to worry about freeing the memory associated with the data.
+ *      Once control returns from the callback function, the library will free that
+ *      memory. IF the callback function needs access to this data after it returns
+ *      control to the library, then it should copy that data for later use.
+ */
+void joy_bd_external_processing(unsigned int index,
+                                JOY_FLOW_TYPE type,
+                                unsigned int min_pkts,
+                                joy_flow_rec_callback callback_fn)
+{
+    unsigned data_len = 0;
+    unsigned char *data = NULL;
+    flow_record_t *rec = NULL;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* get the correct context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* go through the records and let the callback function process */
+    rec = ctx->flow_record_chrono_first;
+    while (rec != NULL) {
+
+        /* see if we are processing all flows or just expired flows */
+        if (type == JOY_EXPIRED_FLOWS) {
+            /* don't process active flow in this mode */
+            if (!flow_record_is_expired(ctx,rec)) {
+                break;
+            }
+        }
+
+        /* see if this record has BD information */
+        if ((rec->bd_ext_processed == 0) && (rec->op > min_pkts)) {
+            /* format the BD data for external processing */
+            data_len = joy_bd_format_data(rec, &data);
+
+            /* let the callback function process the flow record */
+            callback_fn(rec, data_len, data);
+
+            /* mark the BD data as being processed */
+            rec->bd_ext_processed = 1;
+
+            /* clean up preprocessed data items */
+            if (data != NULL) {
+                free(data);
+            }
+            data_len = 0;
         }
 
         /* go to next record */
@@ -920,8 +1318,8 @@ void joy_tls_external_processing(unsigned int index,
  *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      cond - condition on which records to delete
- *             (IDP processed, TLS processed, SALT processed,
- *              SPLT processed, BD processed, ANY) 
+ *             (JOY_IDP_PROCESSED, JOY_TLS_PROCESSED, JOY_SALT_PROCESSED,
+ *              JOY_SPLT_PROCESSED, JOY_BD_PROCESSED, JOY_ANY_PROCESSED)
  *
  * Returns:
  *      unsigned int - number of records deleted

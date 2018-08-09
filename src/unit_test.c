@@ -64,7 +64,6 @@ int main (int argc, char *argv[]) {
     memset(&init_data, 0x00, sizeof(joy_init_t));
 
     /* Set logging to warning level */
-    init_data.type = 1;
     init_data.verbosity = JOY_LOG_WARN;
 
     /* intialize joy */

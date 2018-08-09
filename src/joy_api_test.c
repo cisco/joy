@@ -95,15 +95,23 @@ int proc_pcap_file (unsigned long index, char *file_name) {
     return 0;
 }
 
-void my_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+void my_idp_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
     flow_record_t *rec = (flow_record_t *)curr_rec;
 
-    printf("IDP len=%d, ",rec->idp_len);
+    printf("IDP len=%d\n",rec->idp_len);
+}
+
+void my_tls_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+    flow_record_t *rec = (flow_record_t *)curr_rec;
+
     if (rec->tls != NULL) {
        printf("tls version=%d\n",rec->tls->version);
     } else {
        printf("tls version=unknown\n");
     }
+}
+
+void my_gen_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
 }
 
 void *thread_main1 (void *file)
@@ -114,11 +122,12 @@ void *thread_main1 (void *file)
     printf("Thread 1 Starting\n");
     joy_print_config(0, JOY_JSON_FORMAT);
     proc_pcap_file(0, file);
-    joy_idp_external_processing(0, JOY_ALL_FLOWS, my_callback);
-    recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_TLS_PROCESSED);
-    printf("Thread 1 deleted %d records\n",recs);
-    joy_tls_external_processing(0, JOY_ALL_FLOWS, my_callback);
-    recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_TLS_PROCESSED);
+    joy_idp_external_processing(0, JOY_ALL_FLOWS, my_idp_callback);
+    joy_tls_external_processing(0, JOY_ALL_FLOWS, my_tls_callback);
+    joy_splt_external_processing(0, JOY_ALL_FLOWS, 1, my_gen_callback);
+    joy_salt_external_processing(0, JOY_ALL_FLOWS, 1, my_gen_callback);
+    joy_bd_external_processing(0, JOY_ALL_FLOWS, 1, my_gen_callback);
+    recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_ANY_PROCESSED);
     printf("Thread 1 deleted %d records\n",recs);
     //joy_print_flow_data(0, JOY_ALL_FLOWS);
     joy_context_cleanup(0);
@@ -160,11 +169,10 @@ int main (int argc, char **argv)
     memset(&init_data, 0x00, sizeof(joy_init_t));
 
    /* this setup is for general processing */
-    init_data.type = 1;           /* type 1 (SPLT) 2 (SALT) */
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */
     init_data.max_records = 0;    /* max records in output file, 0 means single output file */
     init_data.contexts = 3;       /* use 3 worker contexts for processing */
-    init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON);
+    init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_BYTE_DIST_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);

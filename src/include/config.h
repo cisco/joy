@@ -79,7 +79,6 @@ struct configuration {
     unsigned int idp;
     unsigned int promisc;
     unsigned int num_pkts;
-    unsigned int type;           /*!< 1=SPLT, 2=SALT */
     unsigned int retain_local;
     uint32_t max_records;
     unsigned int nfv9_capture_port;

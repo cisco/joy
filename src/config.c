@@ -226,9 +226,6 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "num_pkts")) {
         parse_check(parse_int(&config->num_pkts, arg, num, 0, MAX_NUM_PKT_LEN));
 
-    } else if (match(command, "type")) {
-        parse_check(parse_int(&config->type, arg, num, 1, 2));
-  
     } else if (match(command, "count")) {
         parse_check(parse_int(&config->max_records, arg, num, 1, INT_MAX));
 
@@ -297,7 +294,6 @@ static int config_parse_command (struct configuration *config,
  * \return none
  */
 void config_set_defaults (struct configuration *config) {
-    config->type = 1;
     config->verbosity = 4;
     config->show_config = 0;
     config->show_interfaces = 0;
@@ -514,7 +510,6 @@ void config_print (FILE *f, const struct configuration *c) {
     fprintf(f, "retain = %u\n", c->retain_local);
     fprintf(f, "bidir = %u\n", c->bidir);
     fprintf(f, "num_pkts = %u\n", c->num_pkts);
-    fprintf(f, "type = %u\n", c->type);
     fprintf(f, "zeros = %u\n", c->include_zeroes);
     fprintf(f, "retrans = %u\n", c->include_retrans);
     fprintf(f, "dist = %u\n", c->byte_distribution);
@@ -561,7 +556,6 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"retain\":%u,", c->retain_local);
     zprintf(f, "\"bidir\":%u,", c->bidir);
     zprintf(f, "\"num_pkts\":%u,", c->num_pkts);
-    zprintf(f, "\"type\":%u,", c->type);
     zprintf(f, "\"zeros\":%u,", c->include_zeroes);
     zprintf(f, "\"retrans\":%u,", c->include_retrans);
     zprintf(f, "\"dist\":%u,", c->byte_distribution);
