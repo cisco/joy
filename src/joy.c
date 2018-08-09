@@ -419,7 +419,7 @@ static void sig_close (int signal_arg) {
      * flush remaining flow records, and print them even though they are
      * not expired
      */
-    flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
+    flow_record_list_print_json(&main_ctx, JOY_ALL_FLOWS);
     zclose(main_ctx.output);
 
     if (glb_config->ipfix_export_port) {
@@ -1515,7 +1515,7 @@ int main (int argc, char **argv) {
            }
 
            /* Print out expired flows */
-           flow_record_list_print_json(&main_ctx, FLOW_LIST_CHECK_EXPIRE);
+           flow_record_list_print_json(&main_ctx, JOY_EXPIRED_FLOWS);
 
            if (glb_config->filename) {
     
@@ -1590,7 +1590,7 @@ int main (int argc, char **argv) {
 
         ipfix_collect_main(&main_ctx);
 
-        flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
+        flow_record_list_print_json(&main_ctx, JOY_ALL_FLOWS);
         fflush(info);
 
     } else { /* mode = mode_offline */
@@ -1725,7 +1725,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
         /* Loop over all packets in capture file */
         more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, (unsigned char *)&main_ctx);
         /* Print out expired flows */
-        flow_record_list_print_json(&main_ctx, FLOW_LIST_CHECK_EXPIRE);
+        flow_record_list_print_json(&main_ctx, JOY_EXPIRED_FLOWS);
     }
 
     joy_log_info("all flows processed");
@@ -1737,7 +1737,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
   
     pcap_close(handle);
   
-    flow_record_list_print_json(&main_ctx, FLOW_LIST_PRINT_ALL);
+    flow_record_list_print_json(&main_ctx, JOY_ALL_FLOWS);
     flow_record_list_free(&main_ctx);
 
     return 0;
