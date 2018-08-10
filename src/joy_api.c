@@ -1101,7 +1101,7 @@ void joy_splt_external_processing(unsigned int index,
         }
 
         /* see if this record has SPLT information */
-        if ((rec->splt_ext_processed == 0) && (rec->op > min_pkts)) {
+        if ((rec->splt_ext_processed == 0) && (rec->op >= min_pkts)) {
             /* format the SPLT data for external processing */
             data_len = joy_splt_format_data(rec, &data);
 
@@ -1193,7 +1193,7 @@ void joy_salt_external_processing(unsigned int index,
 
         /* see if this record has SALT information */
         if ((rec->salt_ext_processed == 0) && (rec->salt != NULL)) {
-            if (rec->salt->np > min_pkts) {
+            if (rec->salt->np >= min_pkts) {
                 /* format the SALT data for external processing */
                 data_len = joy_salt_format_data(rec, &data);
 
@@ -1285,7 +1285,7 @@ void joy_bd_external_processing(unsigned int index,
         }
 
         /* see if this record has BD information */
-        if ((rec->bd_ext_processed == 0) && (rec->op > min_pkts)) {
+        if ((rec->bd_ext_processed == 0) && (rec->op >= min_pkts)) {
             /* format the BD data for external processing */
             data_len = joy_bd_format_data(rec, &data);
 
