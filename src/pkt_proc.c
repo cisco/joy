@@ -171,6 +171,38 @@ static void print_payload (const char *payload, int len) {
 }
 #endif
 
+/*
+ * re-implement this function to handle SPLT properly by itself. SALT
+ * is handled by the function feature update function in the feature module.
+ * The original function is conditionally compiled out and still exists
+ * in its entirty below this implementation.
+ */
+static void flow_record_process_packet_length_and_time_ack (flow_record_t *record,
+                                                            unsigned int length,
+                                                            const struct timeval *time,
+                                                            const struct tcp_hdr *tcp) {
+
+    /* make sure we have room in the array */
+    if (record->op >= NUM_PKT_LEN) {
+        return;  /* no more room */
+    }
+
+    /*
+     * let's figure out the SPLT values
+     * This is the "raw" case from the original function below
+     */
+    if (glb_config->include_zeroes || (length != 0)) {
+        record->pkt_len[record->op] = length;
+        record->pkt_time[record->op] = *time;
+        record->op++;
+    }
+
+    record->pkt_flags[record->op] = tcp->tcp_flags;
+    record->tcp.seq = ntohl(tcp->tcp_seq);
+    record->tcp.ack = ntohl(tcp->tcp_ack);
+}
+
+#if 0
 static void flow_record_process_packet_length_and_time_ack (flow_record_t *record,
                                                             unsigned int length, 
                                                             const struct timeval *time,
@@ -207,7 +239,7 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
                 record->pkt_len[record->op] += length;
                 record->pkt_time[record->op] = *time;
             }
-            if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
+            if (ntohl(tcp->tcp_ack) > record->tcp_ack) {
 		if (record->pkt_len[record->op] != 0) {
 		    record->op++;
 		}
@@ -228,7 +260,7 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
 		    record->op++;
                 }
             }
-            if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
+            if (ntohl(tcp->tcp_ack) > record->tcp_ack) {
                 if (record->pkt_len[record->op] != 0) {
 		    record->op++;
                 }
@@ -250,6 +282,7 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
     record->tcp.seq = ntohl(tcp->tcp_seq);
     record->tcp.ack = ntohl(tcp->tcp_ack);
 }
+#endif
 
 /*
  * @brief Process IPFIX message contents.

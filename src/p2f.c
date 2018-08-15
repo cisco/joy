@@ -661,7 +661,7 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
     if (create_new_records) {
 
         /* allocate and initialize a new flow record */
-        record = malloc(sizeof(flow_record_t));
+        record = calloc(1, sizeof(flow_record_t));
         debug_printf("LIST record %p allocated\n", record);
 
         if (record == NULL) {

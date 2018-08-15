@@ -64,6 +64,9 @@
 #include "ipfix.h"
 #include "pkt_proc.h"
 
+#define MAX_NFV9_SPLT_SALT_PKTS 10
+#define MAX_NFV9_SPLT_SALT_ARRAY_LENGTH 40
+
 /* file destination variables */
 FILE *info = NULL;
 
@@ -87,28 +90,65 @@ static struct joy_ctx_data *ctx_data = NULL;
  *
  * Parameters:
  *      rec - the flow record
- *      data - pointer to a pointer to the formatted data
+ *      data - pointer to the formatted data memory buffer
  *
  * Returns:
  *      formatted data length is returned
  *
- * Notes:
- *      the data parameter will be allocated memory to handle the formatted
- *      data being returned. The caller is reponsible for freeing this data.
  */
-static unsigned int joy_splt_format_data(flow_record_t *rec, unsigned char **data)
+static unsigned int joy_splt_format_data(flow_record_t *rec,
+                                         unsigned char *data)
 {
     int i = 0;
+    unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
+    struct timeval ts;
+    short *formatted_data = (short*)data;
 
-    /* debugging */
-    printf("SPLT Packets (%d): ", rec->op);
-    for (i=0; i < rec->op; ++i) {
-        printf("[%d],", rec->pkt_len[i]);
+    /* sanity check */
+    if (data == NULL) {
+        joy_log_err("NULL data buffer passed in!");
+        return data_len;
+    } else {
+        data_len = MAX_NFV9_SPLT_SALT_ARRAY_LENGTH;
     }
-    printf("\n");
 
-    *data = NULL;
+    /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
+    num_of_pkts = (rec->op < MAX_NFV9_SPLT_SALT_PKTS) ? rec->op : MAX_NFV9_SPLT_SALT_PKTS;
+
+    /* loop through the SPLT lengths and store appropriately */
+    for (i=0; i < num_of_pkts; ++i) {
+        *(formatted_data+i) = (short)rec->pkt_len[i];
+    }
+
+    /* see if we need to pad the length array */
+    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+        /* padding needs to occur */
+        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
+           *(formatted_data+i) = (short)-32768;
+        }
+    }
+
+    /* loop through the SPLT times and store appropriately */
+    for (i=0; i < num_of_pkts; ++i) {
+        if (i > 0) {
+            joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
+        } else {
+            joy_timer_clear(&ts);
+        }
+        *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
+             (short)joy_timeval_to_milliseconds(ts);
+    }
+
+    /* see if we need to pad the time array */
+    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+        /* padding needs to occur */
+        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
+           *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (short)0x00;
+        }
+    }
+
+    /* return the formatted data */
     return data_len;
 }
 
@@ -122,28 +162,65 @@ static unsigned int joy_splt_format_data(flow_record_t *rec, unsigned char **dat
  *
  * Parameters:
  *      rec - the flow record
- *      data - pointer to a pointer to the formatted data
+ *      data - pointer to the formatted data memory buffer
  *
  * Returns:
  *      formatted data length is returned
  *
- * Notes:
- *      the data parameter will be allocated memory to handle the formatted
- *      data being returned. The caller is reponsible for freeing this data.
  */
-static unsigned int joy_salt_format_data(flow_record_t *rec, unsigned char **data)
+static unsigned int joy_salt_format_data(flow_record_t *rec,
+                                         unsigned char *data)
 {
     int i = 0;
+    unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
+    struct timeval ts;
+    short *formatted_data = (short*)data;
 
-    /* debugging */
-    printf("SALT Packets (%d): ", rec->salt->np);
-    for (i=0; i < rec->salt->np; ++i) {
-        printf("[%d][%d], ", rec->salt->seq[i],rec->salt->ack[i]);
+    /* sanity check */
+    if (data == NULL) {
+        joy_log_err("NULL data buffer passed in!");
+        return data_len;
+    } else {
+        data_len = MAX_NFV9_SPLT_SALT_ARRAY_LENGTH;
     }
 
-    printf("\n");
-    *data = NULL;
+    /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
+    num_of_pkts = (rec->salt->op < MAX_NFV9_SPLT_SALT_PKTS) ? rec->salt->op : MAX_NFV9_SPLT_SALT_PKTS;
+
+    /* loop through the SALT lengths and store appropriately */
+    for (i=0; i < num_of_pkts; ++i) {
+        *(formatted_data+i) = (short)rec->salt->pkt_len[i];
+    }
+
+    /* see if we need to pad the length array */
+    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+        /* padding needs to occur */
+        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
+           *(formatted_data+i) = (short)0x00;
+        }
+    }
+
+    /* loop through the SALT times and store appropriately */
+    for (i=0; i < num_of_pkts; ++i) {
+        if (i > 0) {
+            joy_timer_sub(&rec->salt->pkt_time[i], &rec->salt->pkt_time[i-1], &ts);
+        } else {
+            joy_timer_clear(&ts);
+        }
+        *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
+             (short)joy_timeval_to_milliseconds(ts);
+    }
+
+    /* see if we need to pad the time array */
+    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+        /* padding needs to occur */
+        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
+           *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (short)0x00;
+        }
+    }
+
+    /* return the formatted data */
     return data_len;
 }
 
@@ -157,28 +234,17 @@ static unsigned int joy_salt_format_data(flow_record_t *rec, unsigned char **dat
  *
  * Parameters:
  *      rec - the flow record
- *      data - pointer to a pointer to the formatted data
+ *      data - pointer to the formatted data buffer
  *
  * Returns:
  *      formatted data length is returned
  *
- * Notes:
- *      the data parameter will be allocated memory to handle the formatted
- *      data being returned. The caller is reponsible for freeing this data.
  */
-static unsigned int joy_bd_format_data(flow_record_t *rec, unsigned char **data)
+static unsigned int joy_bd_format_data(flow_record_t *rec, unsigned char *data)
 {
-    int i = 0;
     unsigned int data_len = 0;
 
-    /* debugging */
-    printf("BD (0-255): ");
-    for (i=0; i < 256; ++i) {
-        printf("[%d],", rec->byte_count[i]);
-    }
-
-    printf("\n");
-    *data = NULL;
+    memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
     return data_len;
 }
 
@@ -1059,7 +1125,7 @@ void joy_tls_external_processing(unsigned int index,
  *      data_len field will be the length of the preprocessed data and the
  *      data field will be a pointer to the actual preprocessed data. The callback
  *      does not need to worry about freeing the memory associated with the data.
- *      Once control returns from the callback function, the library will free that
+ *      Once control returns from the callback function, the library will handle that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
  */
@@ -1069,7 +1135,7 @@ void joy_splt_external_processing(unsigned int index,
                                  joy_flow_rec_callback callback_fn)
 {
     unsigned data_len = 0;
-    unsigned char *data = NULL;
+    unsigned char data[MAX_NFV9_SPLT_SALT_ARRAY_LENGTH];
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
 
@@ -1100,22 +1166,20 @@ void joy_splt_external_processing(unsigned int index,
             }
         }
 
+        /* clean up the formatted data structures */
+        data_len = 0;
+        memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
+
         /* see if this record has SPLT information */
         if ((rec->splt_ext_processed == 0) && (rec->op >= min_pkts)) {
             /* format the SPLT data for external processing */
-            data_len = joy_splt_format_data(rec, &data);
+            data_len = joy_splt_format_data(rec, data);
 
             /* let the callback function process the flow record */
             callback_fn(rec, data_len, data);
 
             /* mark the SPLT data as being processed */
             rec->splt_ext_processed = 1;
-
-            /* clean up preprocessed data items */
-            if (data != NULL) {
-                free(data);
-            }
-            data_len = 0;
         }
 
         /* go to next record */
@@ -1160,7 +1224,7 @@ void joy_salt_external_processing(unsigned int index,
                                  joy_flow_rec_callback callback_fn)
 {
     unsigned data_len = 0;
-    unsigned char *data = NULL;
+    unsigned char data[MAX_NFV9_SPLT_SALT_ARRAY_LENGTH];
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
 
@@ -1191,24 +1255,22 @@ void joy_salt_external_processing(unsigned int index,
             }
         }
 
+        /* clean up the formatted data structures */
+        data_len = 0;
+        memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
+
         /* see if this record has SALT information */
         if ((rec->salt_ext_processed == 0) && (rec->salt != NULL)) {
             if (rec->salt->np >= min_pkts) {
                 /* format the SALT data for external processing */
-                data_len = joy_salt_format_data(rec, &data);
+                data_len = joy_salt_format_data(rec, data);
 
                 /* let the callback function process the flow record */
                 callback_fn(rec, data_len, data);
 
                 /* mark the SALT data as being processed */
                 rec->salt_ext_processed = 1;
-
-                /* clean up preprocessed data items */
-                if (data != NULL) {
-                    free(data);
-                }
             }
-            data_len = 0;
         }
 
         /* go to next record */
@@ -1243,7 +1305,7 @@ void joy_salt_external_processing(unsigned int index,
  *      data_len field will be the length of the preprocessed data and the
  *      data field will be a pointer to the actual preprocessed data. The callback
  *      does not need to worry about freeing the memory associated with the data.
- *      Once control returns from the callback function, the library will free that
+ *      Once control returns from the callback function, the library will handle that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
  */
@@ -1253,7 +1315,7 @@ void joy_bd_external_processing(unsigned int index,
                                 joy_flow_rec_callback callback_fn)
 {
     unsigned data_len = 0;
-    unsigned char *data = NULL;
+    unsigned char data[MAX_NFV9_SPLT_SALT_ARRAY_LENGTH];
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
 
@@ -1284,22 +1346,20 @@ void joy_bd_external_processing(unsigned int index,
             }
         }
 
+        /* clean up the formatted data structures */
+        data_len = 0;
+        memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
+
         /* see if this record has BD information */
         if ((rec->bd_ext_processed == 0) && (rec->op >= min_pkts)) {
             /* format the BD data for external processing */
-            data_len = joy_bd_format_data(rec, &data);
+            data_len = joy_bd_format_data(rec, data);
 
             /* let the callback function process the flow record */
             callback_fn(rec, data_len, data);
 
             /* mark the BD data as being processed */
             rec->bd_ext_processed = 1;
-
-            /* clean up preprocessed data items */
-            if (data != NULL) {
-                free(data);
-            }
-            data_len = 0;
         }
 
         /* go to next record */

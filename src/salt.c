@@ -93,13 +93,40 @@ void salt_update (struct salt *salt,
           const void *tcp_start,
           unsigned int len,
           unsigned int report_salt) {
+
+    unsigned int curr_tcp_ack = 0;
+    unsigned int payload_len = 0;
+    const struct timeval *time = &header->ts;
     const struct tcp_hdr *tcp = tcp_start;
+
+    /* see if we are configured to report SALT */
+    if (!report_salt) {
+        return;
+    }
 
     if (salt->np < MAX_NUM_PKT) {
         salt->seq[salt->np] = ntohl(tcp->tcp_seq);
         salt->ack[salt->np] = ntohl(tcp->tcp_ack);
         salt->np++;
     }
+
+    /* see if the ack number changed */
+    curr_tcp_ack = ntohl(tcp->tcp_ack);
+    if (curr_tcp_ack > salt->tcp_ack) {
+        if (salt->pkt_len[salt->op] != 0) {
+            salt->op++;
+        }
+    }
+
+    /* figure out the Len and Time values */
+    payload_len = len - tcp_hdr_length(tcp);
+    if (glb_config->include_zeroes || payload_len != 0) {
+        salt->pkt_len[salt->op] += payload_len;
+        salt->pkt_time[salt->op] = *time;
+    }
+
+    /* store the TCP ack number */
+    salt->tcp_ack = curr_tcp_ack;
 }
 
 /**
@@ -202,14 +229,13 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
  * \return none
  */
 void salt_delete (struct salt **salt_handle) {
-    struct salt *salt = *salt_handle;
 
-    if (salt == NULL) {
+    if (*salt_handle == NULL) {
         return;
     }
 
     /* Free the memory and set to NULL */
-    free(salt);
+    free(*salt_handle);
     *salt_handle = NULL;
 }
 

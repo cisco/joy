@@ -111,7 +111,49 @@ void my_tls_callback(void *curr_rec, unsigned int data_len, unsigned char *data)
     }
 }
 
-void my_gen_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+void my_splt_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+    int i = 0;
+    short *formatted_data = (short*)data;
+
+    if (formatted_data == NULL) return;
+
+    /* 10 lengths (20 bytes) */
+    printf("SPLT LENGTHS: ");
+    for (i=0; i<10; ++i) {
+        printf("%d, ", *(formatted_data+i));
+    }
+    printf("\n");
+
+    /* 10 times (20 bytes) */
+    printf("SPLT TIMES: ");
+    for (i=0; i<10; ++i) {
+        printf("%d, ", *(formatted_data+10+i));
+    }
+    printf("\n");
+}
+
+void my_salt_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+    int i = 0;
+    short *formatted_data = (short*)data;
+
+    if (formatted_data == NULL) return;
+
+    /* 10 lengths (20 bytes) */
+    printf("SALT LENGTHS: ");
+    for (i=0; i<10; ++i) {
+        printf("%d, ", *(formatted_data+i));
+    }
+    printf("\n");
+
+    /* 10 times (20 bytes) */
+    printf("SALT TIMES: ");
+    for (i=0; i<10; ++i) {
+        printf("%d, ", *(formatted_data+10+i));
+    }
+    printf("\n");
+}
+
+void my_bd_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
 }
 
 void *thread_main1 (void *file)
@@ -124,12 +166,12 @@ void *thread_main1 (void *file)
     proc_pcap_file(0, file);
     joy_idp_external_processing(0, JOY_ALL_FLOWS, my_idp_callback);
     joy_tls_external_processing(0, JOY_ALL_FLOWS, my_tls_callback);
-    joy_splt_external_processing(0, JOY_ALL_FLOWS, 1, my_gen_callback);
-    joy_salt_external_processing(0, JOY_ALL_FLOWS, 1, my_gen_callback);
-    joy_bd_external_processing(0, JOY_ALL_FLOWS, 1, my_gen_callback);
-    recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_ANY_PROCESSED);
+    joy_splt_external_processing(0, JOY_ALL_FLOWS, 1, my_splt_callback);
+    joy_salt_external_processing(0, JOY_ALL_FLOWS, 1, my_salt_callback);
+    joy_bd_external_processing(0, JOY_ALL_FLOWS, 1, my_bd_callback);
+    joy_print_flow_data(0, JOY_ALL_FLOWS);
+    //recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_ANY_PROCESSED);
     printf("Thread 1 deleted %d records\n",recs);
-    //joy_print_flow_data(0, JOY_ALL_FLOWS);
     joy_context_cleanup(0);
     printf("Thread 1 Finished\n");
     return NULL;
