@@ -1069,6 +1069,9 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
         record = process_ip(ctx, header, transport_start, transport_len, &key);
         if (record == NULL) {
             joy_log_err("Unable to process ip packet (improper length or otherwise malformed)");
+	    if (allocated_packet_header) {
+		free(header);
+	    }
             return;
         }
         record->invalid++;
