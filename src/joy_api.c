@@ -376,7 +376,6 @@ int joy_initialize(joy_init_t *init_data,
     }
 
     /* data features */
-    glb_config->report_salt = 1; /* always include the SALT data */
     glb_config->bidir = ((init_data->bitmask & JOY_BIDIR_ON) ? 1 : 0);
     glb_config->report_dns = ((init_data->bitmask & JOY_DNS_ON) ? 1 : 0);
     glb_config->report_ssh = ((init_data->bitmask & JOY_SSH_ON) ? 1 : 0);
@@ -393,6 +392,7 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->report_hd = ((init_data->bitmask & JOY_HEADER_ON) ? 1 : 0);
     glb_config->preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
     glb_config->report_ppi = ((init_data->bitmask & JOY_PPI_ON) ? 1 : 0);
+    glb_config->report_salt = ((init_data->bitmask & JOY_SALT_ON) ? 1 : 0);
 
     /* check if IDP option is set */
     if (init_data->bitmask & JOY_IDP_ON) {

@@ -101,6 +101,7 @@ typedef enum {
 #define JOY_IDP_ON                 (1 << 16)
 #define JOY_IPFIX_EXPORT_ON        (1 << 17)
 #define JOY_PPI_ON                 (1 << 18)
+#define JOY_SALT_ON                (1 << 19)
 
 
 /* structure used to initialize joy through the API Library */
