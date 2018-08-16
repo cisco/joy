@@ -134,7 +134,7 @@ void my_splt_callback(void *curr_rec, unsigned int data_len, unsigned char *data
 
 void my_salt_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
     int i = 0;
-    short *formatted_data = (short*)data;
+    unsigned short *formatted_data = (unsigned short*)data;
 
     if (formatted_data == NULL) return;
 

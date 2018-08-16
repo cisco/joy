@@ -134,7 +134,7 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
         if (i > 0) {
             joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
         } else {
-            joy_timer_clear(&ts);
+            joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
         }
         *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
              (short)joy_timeval_to_milliseconds(ts);
@@ -175,7 +175,7 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
     struct timeval ts;
-    short *formatted_data = (short*)data;
+    unsigned short *formatted_data = (unsigned short*)data;
 
     /* sanity check */
     if (data == NULL) {
@@ -190,14 +190,14 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
 
     /* loop through the SALT lengths and store appropriately */
     for (i=0; i < num_of_pkts; ++i) {
-        *(formatted_data+i) = (short)rec->salt->pkt_len[i];
+        *(formatted_data+i) = (unsigned short)rec->salt->pkt_len[i];
     }
 
     /* see if we need to pad the length array */
     if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
         /* padding needs to occur */
         for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
-           *(formatted_data+i) = (short)0x00;
+           *(formatted_data+i) = (unsigned short)0x00;
         }
     }
 
@@ -206,17 +206,17 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
         if (i > 0) {
             joy_timer_sub(&rec->salt->pkt_time[i], &rec->salt->pkt_time[i-1], &ts);
         } else {
-            joy_timer_clear(&ts);
+            joy_timer_sub(&rec->salt->pkt_time[i], &rec->start, &ts);
         }
         *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
-             (short)joy_timeval_to_milliseconds(ts);
+             (unsigned short)joy_timeval_to_milliseconds(ts);
     }
 
     /* see if we need to pad the time array */
     if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
         /* padding needs to occur */
         for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
-           *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (short)0x00;
+           *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (unsigned short)0x00;
         }
     }
 

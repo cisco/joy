@@ -110,6 +110,13 @@ void salt_update (struct salt *salt,
         salt->np++;
     }
 
+    /* figure out the Len and Time values */
+    payload_len = len - tcp_hdr_length(tcp);
+    if (glb_config->include_zeroes || payload_len != 0) {
+        salt->pkt_len[salt->op] += payload_len;
+        salt->pkt_time[salt->op] = *time;
+    }
+
     /* see if the ack number changed */
     curr_tcp_ack = ntohl(tcp->tcp_ack);
     if (curr_tcp_ack > salt->tcp_ack) {
@@ -118,12 +125,6 @@ void salt_update (struct salt *salt,
         }
     }
 
-    /* figure out the Len and Time values */
-    payload_len = len - tcp_hdr_length(tcp);
-    if (glb_config->include_zeroes || payload_len != 0) {
-        salt->pkt_len[salt->op] += payload_len;
-        salt->pkt_time[salt->op] = *time;
-    }
 
     /* store the TCP ack number */
     salt->tcp_ack = curr_tcp_ack;
