@@ -138,6 +138,7 @@
     <ClCompile Include="..\..\src\http.c" />
     <ClCompile Include="..\..\src\ike.c" />
     <ClCompile Include="..\..\src\ipfix.c" />
+    <ClCompile Include="..\..\src\joy_api.c" />
     <ClCompile Include="..\..\src\nfv9.c" />
     <ClCompile Include="..\..\src\osdetect.c" />
     <ClCompile Include="..\..\src\p2f.c" />
@@ -174,6 +175,8 @@
     <ClInclude Include="..\..\src\include\http.h" />
     <ClInclude Include="..\..\src\include\ike.h" />
     <ClInclude Include="..\..\src\include\ipfix.h" />
+    <ClInclude Include="..\..\src\include\joy_api.h" />
+    <ClInclude Include="..\..\src\include\joy_api_private.h" />
     <ClInclude Include="..\..\src\include\map.h" />
     <ClInclude Include="..\..\src\include\modules.h" />
     <ClInclude Include="..\..\src\include\nfv9.h" />
