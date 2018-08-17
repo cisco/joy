@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -35,27 +35,52 @@
  */
 
 /**
- * \file modules.h
+ * \file plaintext.h
  *
- * \brief module interface
- *
+ * \brief Plaintext RAT command detection
  */
-#ifndef MODULES_H
-#define MODULES_H
+#ifndef PLAINTEXT_H
+#define PLAINTEXT_H
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* secure shell protocol         */
-#include "ike.h"          /* ike protocol                  */
-#include "salt.h"         /* seq of app lengths and times  */
-#include "ppi.h"          /* per-packet information        */
-#include "tls.h"          /* tls protocol                  */
-#include "dhcp.h"         /* dhcp protocol                 */
-#include "http.h"         /* http protocol                 */
-#include "payload.h"      /* TCP, UDP, IP payload prefix   */
-#include "smb.h"          /* simple SMB parser             */
-#include "mtpt.h"         /* xor-meterpreter detection     */
-#include "plaintext.h"    /* plaintext word matching       */ 
+#include <stdio.h>
+#include <stdint.h>
+#include <pcap.h>
+#include "output.h"
 
-#endif /* MODULES_H */
+#define plaintext_usage "  plaintext=1                     RAT plaintext command detection\n"
+
+#define plaintext_filter(record) \
+    ((record->key.prot == 6))
+
+#define PLAINTEXT_KEYWORDS_LENGTH (100)
+#define MAX_SEARCH_LEN (32)
+#define MAX_MATCHES (5)
+
+typedef struct plaintext{
+    int detected;
+    int matches[MAX_MATCHES];
+    int match_len;
+} plaintext_t;
+
+/** initialize http data structure */
+void plaintext_init(struct plaintext **plaintext_handle);
+
+/** update http data structure */
+void plaintext_update(struct plaintext *plaintext,
+                 const struct pcap_pkthdr *header,
+                 const void *data,
+                 unsigned int data_len,
+                 unsigned int report_plaintext);
+
+/** print out an http data structure */
+void plaintext_print_json(const struct plaintext *h1,
+                      const struct plaintext *h2,
+                      zfile f);
+
+
+/** remove an http data structure */
+void plaintext_delete(struct plaintext **plaintext_handle);
+
+void plaintext_unit_test();
+
+#endif /* PLAINTEXT_H */

@@ -59,7 +59,7 @@ extern str_match_ctx usernames_ctx;
  * bytes of that field may contain the file "magic number" that can
  * identify its type
  */
-#define MAGIC 16
+#define MAGIC 32
 
 #define PARSE_FAIL (-1)
 
