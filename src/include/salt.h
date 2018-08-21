@@ -64,6 +64,7 @@
 typedef struct salt {
     unsigned int np;                      /* used for tracking ack/seq array */
     unsigned int op;                      /* used for tracking len/time array */
+    unsigned int idx;                     /* used for tracking array entries */
     unsigned int tcp_ack;                 /* acknowledgement number */
     unsigned short pkt_len[MAX_NUM_PKT];  /*!< array of packet appdata lengths */  
     struct timeval pkt_time[MAX_NUM_PKT]; /*!< array of arrival times          */

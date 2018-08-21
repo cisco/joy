@@ -625,6 +625,25 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
     joy_log_debug("SEQ: %d -- relative SEQ: %d", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->tcp.seq);
     joy_log_debug("ACK: %d -- relative ACK: %d", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->tcp.ack);
 
+    /* look for IDP packet potential before retrans detection for OOO packets */
+    if (tcp->tcp_flags & TCP_SYN) {
+        /* we have the SYN packet, store the sequence number */
+        record->idp_seq_num = ntohl(tcp->tcp_seq);
+    } else {
+        /* see if we have the SYN packet sequence number already */
+        if (record->idp_seq_num != 0) {
+            if ((size_payload > 0) && (ntohl(tcp->tcp_seq) == (record->idp_seq_num + 1))) {
+                record->idp_seq_num = 0;
+                record->idp_packet = 1;
+            }
+        } else {
+            if (size_payload > 0) {
+                record->idp_packet = 1;
+            }
+        }
+    }
+
+    /* retrans packet detection */
     if (size_payload > 0) {
         if (ntohl(tcp->tcp_seq) < record->tcp.seq) {
             joy_log_debug("retransmission detected");
@@ -1128,8 +1147,23 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
             return;
         }
 
-        memcpy(record->idp, ip, record->idp_len);
-        joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
+        /* for TCP we guard against out of order packets */
+        if (proto == IPPROTO_TCP) {
+            /* SYN flag processed and got the next non-zero packet */
+            if (record->idp_packet == 1) {
+                memcpy(record->idp, ip, record->idp_len);
+                record->idp_packet = 0;
+                joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
+            } else {
+                /* not IDP packet, free up resources */
+                record->idp_len = 0;
+                free(record->idp);
+                record->idp = NULL;
+            }
+        } else {
+            memcpy(record->idp, ip, record->idp_len);
+            joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
+        }
     }
 
     /* increment overall byte count */

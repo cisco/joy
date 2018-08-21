@@ -88,6 +88,9 @@
 #define T_WINDOW 10
 #define T_ACTIVE 20
 
+/* The ETTA Spec says that 4000 packets is suffient for byte distribution */
+#define MAX_JOY_BD_PACKETS 4000
+
 static const struct timeval time_window = { T_WINDOW, 0 };
 
 static const struct timeval active_timeout = { T_ACTIVE, 0 };
@@ -804,18 +807,20 @@ void flow_record_update_byte_count (flow_record_t *f, const void *x, unsigned in
     const unsigned char *data = x;
     int i;
 
-    if (glb_config->byte_distribution || glb_config->report_entropy) {
-        for (i=0; i<len; i++) {
-            f->byte_count[data[i]]++;
-        }
-    }
-
     /*
-     * implementation note: overflow might occur in the byte_count
-     * array; if the integer type for that array is small, then we
-     * should check for overflow and rebalance the array as needed
+     * implementation note: The spec says that 4000 packets is enough of a
+     * sample size to accurately reflect the byte distribution. Also, to avoid
+     * wrapping of the byte count at the 16-bit boundry, we stop counting once
+     * the 4000th packet has been seen for a flow.
      */
 
+    if (glb_config->byte_distribution || glb_config->report_entropy) {
+        if (f->np < MAX_JOY_BD_PACKETS) {
+            for (i=0; i<len; i++) {
+                f->byte_count[data[i]]++;
+            }
+        }
+    }
 }
 
 /**

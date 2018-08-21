@@ -66,6 +66,7 @@
 
 #define MAX_NFV9_SPLT_SALT_PKTS 10
 #define MAX_NFV9_SPLT_SALT_ARRAY_LENGTH 40
+#define MAX_BYTE_COUNT_ARRAY_LENGTH 256
 
 /* file destination variables */
 FILE *info = NULL;
@@ -242,9 +243,24 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
  */
 static unsigned int joy_bd_format_data(flow_record_t *rec, unsigned char *data)
 {
+    int i;
     unsigned int data_len = 0;
+    uint16_t *formatted_data = (uint16_t*)data;
 
-    memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
+    /* sanity check */
+    if (data == NULL) {
+        joy_log_err("NULL data buffer passed in!");
+        return data_len;
+    } else {
+        /* 256 values at 16 bits each = 512 bytes */
+        data_len = (MAX_BYTE_COUNT_ARRAY_LENGTH * 2);
+    }
+
+    /* store the byte counts into the data buffer */
+    for (i=0; i < MAX_BYTE_COUNT_ARRAY_LENGTH; ++i) {
+        *(formatted_data+i) = (uint16_t)rec->byte_count[i];
+    }
+
     return data_len;
 }
 
@@ -700,7 +716,7 @@ int joy_update_compact_bd(char *filename)
 	    if (b_value < COMPACT_BD_MAP_MAX) {
 		glb_config->compact_bd_mapping[b_value] = map_b_value;
 		count++;
-		if (count >= 256) {
+		if (count >= MAX_BYTE_COUNT_ARRAY_LENGTH) {
 		    break;
 		}
 	    }
@@ -1315,7 +1331,7 @@ void joy_bd_external_processing(unsigned int index,
                                 joy_flow_rec_callback callback_fn)
 {
     unsigned data_len = 0;
-    unsigned char data[MAX_NFV9_SPLT_SALT_ARRAY_LENGTH];
+    unsigned char data[MAX_BYTE_COUNT_ARRAY_LENGTH*2];
     flow_record_t *rec = NULL;
     joy_ctx_data *ctx = NULL;
 
@@ -1348,7 +1364,7 @@ void joy_bd_external_processing(unsigned int index,
 
         /* clean up the formatted data structures */
         data_len = 0;
-        memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
+        memset(data, 0x00, (MAX_BYTE_COUNT_ARRAY_LENGTH*2));
 
         /* see if this record has BD information */
         if ((rec->bd_ext_processed == 0) && (rec->op >= min_pkts)) {

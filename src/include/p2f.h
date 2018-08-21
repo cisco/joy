@@ -134,7 +134,9 @@ typedef struct flow_record_ {
     unsigned long int num_bytes;
     double bd_mean;
     double bd_variance;
-    header_description_t hd;         /*!< header description (proto ident)    */
+    header_description_t hd;              /*!< header description (proto ident)    */
+    uint8_t idp_packet;                   /*!< determines if packet is used for IDP */
+    int32_t idp_seq_num;                  /*!< marks the SYN packet for IDP determination */
     void *idp;
     unsigned int idp_len;
     ip_info_t ip;

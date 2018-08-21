@@ -120,14 +120,20 @@ void my_splt_callback(void *curr_rec, unsigned int data_len, unsigned char *data
     /* 10 lengths (20 bytes) */
     printf("SPLT LENGTHS: ");
     for (i=0; i<10; ++i) {
-        printf("%d, ", *(formatted_data+i));
+        if (i == 9)
+            printf("%d", *(formatted_data+i));
+        else
+            printf("%d, ", *(formatted_data+i));
     }
     printf("\n");
 
     /* 10 times (20 bytes) */
     printf("SPLT TIMES: ");
     for (i=0; i<10; ++i) {
-        printf("%d, ", *(formatted_data+10+i));
+        if (i == 9)
+            printf("%d", *(formatted_data+10+i));
+        else
+            printf("%d, ", *(formatted_data+10+i));
     }
     printf("\n");
 }
@@ -141,19 +147,39 @@ void my_salt_callback(void *curr_rec, unsigned int data_len, unsigned char *data
     /* 10 lengths (20 bytes) */
     printf("SALT LENGTHS: ");
     for (i=0; i<10; ++i) {
-        printf("%d, ", *(formatted_data+i));
+        if (i == 9)
+            printf("%d", *(formatted_data+i));
+        else
+            printf("%d, ", *(formatted_data+i));
     }
     printf("\n");
 
     /* 10 times (20 bytes) */
     printf("SALT TIMES: ");
     for (i=0; i<10; ++i) {
-        printf("%d, ", *(formatted_data+10+i));
+        if (i == 9)
+            printf("%d", *(formatted_data+10+i));
+        else
+            printf("%d, ", *(formatted_data+10+i));
     }
     printf("\n");
 }
 
 void my_bd_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+    int i = 0;
+    uint16_t *formatted_data = (uint16_t*)data;
+
+    if (data == NULL) return;
+
+    /* Each ASCII byte value */
+    printf("BYTE COUNTS: ");
+    for (i=0; i<256; ++i) {
+        if (i == 255)
+            printf("[%d]", *(formatted_data+i));
+        else
+            printf("[%d], ", *(formatted_data+i));
+    }
+    printf("\n");
 }
 
 void *thread_main1 (void *file)
@@ -163,15 +189,20 @@ void *thread_main1 (void *file)
     sleep(1);
     printf("Thread 1 Starting\n");
     joy_print_config(0, JOY_JSON_FORMAT);
-    proc_pcap_file(0, file);
-    joy_idp_external_processing(0, JOY_ALL_FLOWS, my_idp_callback);
-    joy_tls_external_processing(0, JOY_ALL_FLOWS, my_tls_callback);
-    joy_splt_external_processing(0, JOY_ALL_FLOWS, 1, my_splt_callback);
-    joy_salt_external_processing(0, JOY_ALL_FLOWS, 1, my_salt_callback);
-    joy_bd_external_processing(0, JOY_ALL_FLOWS, 1, my_bd_callback);
-    joy_print_flow_data(0, JOY_ALL_FLOWS);
-    //recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_ANY_PROCESSED);
-    printf("Thread 1 deleted %d records\n",recs);
+    if (file != NULL) {
+        proc_pcap_file(0, file);
+        joy_idp_external_processing(0, JOY_ALL_FLOWS, my_idp_callback);
+        joy_tls_external_processing(0, JOY_ALL_FLOWS, my_tls_callback);
+        joy_splt_external_processing(0, JOY_ALL_FLOWS, 1, my_splt_callback);
+        joy_salt_external_processing(0, JOY_ALL_FLOWS, 1, my_salt_callback);
+        joy_bd_external_processing(0, JOY_ALL_FLOWS, 1, my_bd_callback);
+        //joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
+        //joy_print_flow_data(0, JOY_ALL_FLOWS);
+        recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_ANY_PROCESSED);
+        printf("Thread 1 deleted %d records\n",recs);
+    } else {
+        printf("Thread 1 No File to Process\n");
+    }
     joy_context_cleanup(0);
     printf("Thread 1 Finished\n");
     return NULL;
@@ -182,8 +213,12 @@ void *thread_main2 (void *file)
     sleep(1);
     printf("Thread 2 Starting\n");
     joy_print_config(1, JOY_JSON_FORMAT);
-    proc_pcap_file(1, file);
-    joy_print_flow_data(1, JOY_ALL_FLOWS);
+    if (file != NULL) {
+        proc_pcap_file(1, file);
+        joy_print_flow_data(1, JOY_ALL_FLOWS);
+    } else {
+        printf("Thread 2 No File to Process\n");
+    }
     joy_context_cleanup(1);
     printf("Thread 2 Finished\n");
     return NULL;
@@ -194,8 +229,12 @@ void *thread_main3 (void *file)
     sleep(1);
     printf("Thread 3 Starting\n");
     joy_print_config(2, JOY_JSON_FORMAT);
-    proc_pcap_file(2, file);
-    joy_print_flow_data(2, JOY_ALL_FLOWS);
+    if (file != NULL) {
+        proc_pcap_file(2, file);
+        joy_print_flow_data(2, JOY_ALL_FLOWS);
+    } else {
+        printf("Thread 3 No File to Process\n");
+    }
     joy_context_cleanup(2);
     printf("Thread 3 Finished\n");
     return NULL;
@@ -206,6 +245,27 @@ int main (int argc, char **argv)
     int rc = 0;
     joy_init_t init_data;
     pthread_t thread1, thread2, thread3;
+    char *file1, *file2, *file3;
+
+    /* setup files */
+    if (argc < 2) {
+        printf("No files Specified to process\n");
+        exit(0);
+    } else {
+        if (argc == 2) {
+            file1 = (char*)argv[1];
+            file2 = (char*)NULL;
+            file3 = (char*)NULL;
+        } else if (argc == 3) {
+            file1 = (char*)argv[1];
+            file2 = (char*)argv[2];
+            file3 = (char*)NULL;
+        } else if (argc == 4) {
+            file1 = (char*)argv[1];
+            file2 = (char*)argv[2];
+            file3 = (char*)argv[3];
+        }
+    }
 
     /* setup the joy options we want */
     memset(&init_data, 0x00, sizeof(joy_init_t));
@@ -214,7 +274,10 @@ int main (int argc, char **argv)
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */
     init_data.max_records = 0;    /* max records in output file, 0 means single output file */
     init_data.contexts = 3;       /* use 3 worker contexts for processing */
-    init_data.bitmask = (JOY_IDP_ON | JOY_SALT_ON);
+    init_data.idp = 2048;
+    init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
+    init_data.ipfix_port = 0;                 /* use default IPFix port */
+    init_data.bitmask = (JOY_RETRANS_ON | JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
@@ -224,30 +287,30 @@ int main (int argc, char **argv)
     }
 
     /* setup anonymization of subnets */
-    joy_anon_subnets("internal.net");
+    //joy_anon_subnets("internal.net");
 
     /* setup anonymization of http usernames */
-    joy_anon_http_usernames("anon_http.txt");
+    //joy_anon_http_usernames("anon_http.txt");
 
     /* setup subnet labels */
-    joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
+    //joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");
 
     /* start up thread1 for processing */
-    rc = pthread_create(&thread1, NULL, thread_main1, (char*)argv[1]);
+    rc = pthread_create(&thread1, NULL, thread_main1, file1);
     if (rc) {
          printf("error: could not thread1 pthread_create() rc: %d\n", rc);
          return -6;
     }
 
     /* start up thread2 for processing */
-    rc = pthread_create(&thread2, NULL, thread_main2, (char*)argv[2]);
+    rc = pthread_create(&thread2, NULL, thread_main2, file2);
     if (rc) {
          printf("error: could not thread2 pthread_create() rc: %d\n", rc);
          return -6;
     }
 
     /* start up thread3 for processing */
-    rc = pthread_create(&thread3, NULL, thread_main3, (char*)argv[3]);
+    rc = pthread_create(&thread3, NULL, thread_main3, file3);
     if (rc) {
          printf("error: could not thread3 pthread_create() rc: %d\n", rc);
          return -6;
