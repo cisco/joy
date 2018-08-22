@@ -200,6 +200,15 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
     record->pkt_flags[record->op] = tcp->tcp_flags;
     record->tcp.seq = ntohl(tcp->tcp_seq);
     record->tcp.ack = ntohl(tcp->tcp_ack);
+
+    /* store the sequence number and length into the retransmission buffer */
+    record->tcp_retrans[record->tcp_retrans_tail].seq = ntohl(tcp->tcp_seq);
+    record->tcp_retrans[record->tcp_retrans_tail].len = length;
+    record->tcp_retrans_tail++;
+    if (record->tcp_retrans_tail == MAX_TCP_RETRANS_BUFFER) {
+        /* go back to the beginning of the buffer */
+        record->tcp_retrans_tail = 0;
+    }
 }
 
 #if 0
@@ -568,6 +577,47 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
     return ok;
 }
 
+/*
+ * Function: retrans_detected
+ *
+ * Description: This function loks over the last 10 stored TCP sequence numbers
+ *         to see if we have a retransmitted TCP packet.
+ *
+ * Parameters:
+ *         rec - pointer to the flow record
+ *         seq_num - current TCP packets sequence number
+ *         len - current TCP packets payload size
+ *
+ * Returns:
+ *         0 - no retransmission detected
+ *         1 - retransmission with same data detected
+ *         2 - retransmission with new data detected
+ */
+static int retrans_detected (flow_record_t *rec, uint32_t seq_num, uint16_t len) {
+    int i;
+    int rc = 0;
+
+    /* look for the sequence number in the stored array */
+    for (i=0; i < MAX_TCP_RETRANS_BUFFER; ++i) {
+        if (rec->tcp_retrans[i].seq == seq_num) {
+            if (rec->tcp_retrans[i].len < len) {
+                joy_log_debug("Retransmission with new data detected! "
+                             "SEQ(%d), Orig LEN(%d), New LEN (%d)",
+                             seq_num, rec->tcp_retrans[i].len, len);
+                /* update length with new length */
+                rec->tcp_retrans[i].len = len;
+                rc = 2;
+            } else {
+                joy_log_debug("Retransmission detected! "
+                             "SEQ(%d), LEN(%d)", seq_num, len);
+                rc = 1;
+            }
+            break;
+        }
+    }
+    return rc;
+}
+
 static flow_record_t *
 process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, flow_key_t *key) {
     unsigned int tcp_hdr_len;
@@ -619,34 +669,18 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
 
     joy_log_debug("SEQ: %d -- relative SEQ: %d", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->tcp.seq);
     joy_log_debug("ACK: %d -- relative ACK: %d", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->tcp.ack);
 
-    /* look for IDP packet potential before retrans detection for OOO packets */
-    if (tcp->tcp_flags & TCP_SYN) {
-        /* we have the SYN packet, store the sequence number */
-        record->idp_seq_num = ntohl(tcp->tcp_seq);
-    } else {
-        /* see if we have the SYN packet sequence number already */
-        if (record->idp_seq_num != 0) {
-            if ((size_payload > 0) && (ntohl(tcp->tcp_seq) == (record->idp_seq_num + 1))) {
-                record->idp_seq_num = 0;
-                record->idp_packet = 1;
-            }
-        } else {
-            if (size_payload > 0) {
-                record->idp_packet = 1;
-            }
-        }
-    }
-
-    /* retrans packet detection */
+    /* see if this is a retransmission */
     if (size_payload > 0) {
-        if (ntohl(tcp->tcp_seq) < record->tcp.seq) {
-            joy_log_debug("retransmission detected");
+        uint32_t curr_seq = ntohl(tcp->tcp_seq);
+        record->is_tcp_retrans = retrans_detected(record, curr_seq, (uint16_t)size_payload);
+        if (record->is_tcp_retrans != 0) {
             record->tcp.retrans++;
             if (!glb_config->include_retrans) {
                 // do not process TCP retransmissions
@@ -654,6 +688,7 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
             }
         }
     }
+
     if (glb_config->include_zeroes || size_payload > 0) {
           flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
     }
@@ -718,6 +753,24 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
         header_description_update(&record->hd, payload, glb_config->report_hd);
     }
 
+    /* look for IDP packet potential before retrans detection for OOO packets */
+    if (tcp->tcp_flags & TCP_SYN) {
+        /* we have the SYN packet, store the sequence number */
+        record->idp_seq_num = ntohl(tcp->tcp_seq);
+    } else {
+        /* see if we have the SYN packet sequence number already */
+        if (record->idp_seq_num != 0) {
+            if ((size_payload > 0) && (ntohl(tcp->tcp_seq) == (record->idp_seq_num + 1))) {
+                record->idp_seq_num = 0;
+                record->idp_packet = 1;
+            }
+        } else {
+            if (size_payload > 0) {
+                record->idp_packet = 1;
+            }
+        }
+    }
+
     return record;
 }
 
@@ -762,6 +815,7 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
     if (record->op < NUM_PKT_LEN) {
@@ -852,6 +906,7 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
     if (record->op < NUM_PKT_LEN) {
@@ -897,6 +952,7 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
     if (record->op < NUM_PKT_LEN) {
@@ -1064,6 +1120,50 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
             record = process_tcp(ctx, header, transport_start, transport_len, &key);
             if (record) {
               update_all_tcp_features(tcp_feature_list);
+            } else {
+                /*
+                 * if record is NULL at this point, it is either a retransmission or
+                 * a malformed packet, or we couldn't create a new record. Try to find the
+                 * record. If we don't find it, then its the memory error issue and just
+                 * return at this point. If we do find it, check for retransmission flag.
+                 * If we do find it and the retransmission flag is not set, then its a
+                 * malformed packet and let it get processed as plain IP.
+                 */
+                flow_key_t key;
+                const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
+                key.sa = ip->ip_src;
+                key.da = ip->ip_dst;
+                key.sp = ntohs(tcp->src_port);
+                key.dp = ntohs(tcp->dst_port);
+                key.prot = IPPROTO_IP;
+                record = flow_key_get_record(ctx, &key, DONT_CREATE_RECORDS, header);
+                if (record == NULL) {
+                    /* couldn't find the record, memory error scenario */
+	            if (allocated_packet_header) {
+		        free(header);
+	            }
+                    return;
+                } else {
+                    /* found record, check for retransmission flag */
+                    if (record->is_tcp_retrans == 1) {
+                        /* same packet retransmitted, just bail */
+	                if (allocated_packet_header) {
+		            free(header);
+	                }
+                        return;
+                    } else if (record->is_tcp_retrans == 2) {
+                        /* same packet retransmitted but with additional data */
+                        /* TODO: process the additional data */
+	                if (allocated_packet_header) {
+		            free(header);
+	                }
+                        return;
+                    }
+                    /* if we found the record but retransmission flag not set, then
+                     * its a malformed packet and let the process_ip function below
+                     * handle the packet. FALL THROUGH
+                     */
+                }
             }
             break;
         case IPPROTO_UDP:

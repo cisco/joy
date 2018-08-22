@@ -101,6 +101,11 @@ typedef struct flow_key_ {
     unsigned short int prot;
 } flow_key_t;
 
+typedef struct tcp_retrans_ {
+    uint32_t seq;
+    uint16_t len;
+} tcp_retrans_t;
+
 #include "procwatch.h"
 #include "config.h"
 
@@ -115,6 +120,7 @@ extern FILE *info;
 #define NUM_PKT_LEN 50
 #define MAX_NUM_PKT_LEN 200
 #define MAX_IDP 1500
+#define MAX_TCP_RETRANS_BUFFER 10
 
 typedef struct flow_record_ {
     flow_key_t key;                       /*!< identifies flow by 5-tuple          */
@@ -141,6 +147,9 @@ typedef struct flow_record_ {
     unsigned int idp_len;
     ip_info_t ip;
     tcp_info_t tcp;
+    unsigned char is_tcp_retrans;
+    unsigned char tcp_retrans_tail;
+    tcp_retrans_t tcp_retrans[MAX_TCP_RETRANS_BUFFER];
     unsigned int invalid;
     char *exe_name;                       /*!< executable associated with flow    */
     char *full_path;                      /*!< executable path associated with flow    */

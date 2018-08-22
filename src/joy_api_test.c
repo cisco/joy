@@ -87,7 +87,7 @@ int proc_pcap_file (unsigned long index, char *file_name) {
         /* Loop over all packets in capture file */
         more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_process_packet, (unsigned char*)index);
         /* Print out expired flows */
-        joy_print_flow_data(index,JOY_EXPIRED_FLOWS);
+        //joy_print_flow_data(index,JOY_EXPIRED_FLOWS);
     }
 
     /* Cleanup */
@@ -277,7 +277,7 @@ int main (int argc, char **argv)
     init_data.idp = 2048;
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
     init_data.ipfix_port = 0;                 /* use default IPFix port */
-    init_data.bitmask = (JOY_RETRANS_ON | JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
+    init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
