@@ -73,7 +73,7 @@
 typedef struct radix_trie *radix_trie_t;
 
 /** allocates a radix_trie and returns a pointer */
-radix_trie_t radix_trie_alloc();
+radix_trie_t radix_trie_alloc(void);
 
 /** does a deep free of radix_trie memory */
 joy_status_e radix_trie_free(struct radix_trie *rt);
@@ -98,7 +98,7 @@ joy_status_e radix_trie_add_subnet(struct radix_trie *trie,
 
 /** writes a json-encoded form of the labels associated with the flags */
 void attr_flags_json_print_labels(const struct radix_trie *rt, 
-			  attr_flags f, char *prefix, zfile file);
+			  attr_flags f, const char *prefix, zfile file);
 
 /*
  * the function call radix_trie_lookup_addr(rt, addr) checks for
@@ -113,6 +113,6 @@ attr_flags radix_trie_lookup_addr(struct radix_trie *trie, struct in_addr addr);
 attr_flags radix_trie_add_attr_label(struct radix_trie *rt, const char *label);
 
 /** unit test function */
-int radix_trie_unit_test();
+int radix_trie_unit_test(void);
 
 #endif /* RADIX_TRIE_H  */

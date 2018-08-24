@@ -272,7 +272,7 @@ enum nfv9_type {
 
 
 struct nfv9_field_type {
-    char *FieldName;
+    const char *FieldName;
     u_short Value;
     u_short Length;
 };

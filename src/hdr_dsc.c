@@ -121,7 +121,7 @@ void header_description_set (header_description_t *hd, const void *packet, unsig
      * find constant part of header, and set the constant mask and value
      * in the header description
      */
-    for (i=0; i<len; i++) {
+    for (i=0; i<(int)len; i++) {
         hd->const_mask[i] &= ~(hd->const_value[i] ^ p[i]);
         hd->const_value[i] = hd->const_mask[i] & p[i];
     }

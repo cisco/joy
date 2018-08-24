@@ -105,8 +105,12 @@ void wht_update (wht_t *wht, const struct pcap_pkthdr *header, const void *data,
     const uint8_t *d = data;
 
     /* sanity checks */
-    if (data == NULL)
+    if (data == NULL) {
         return;
+    }
+
+    joy_log_debug("wht[%p],header[%p],data[%p],len[%d],report[%d]",
+            wht,header,data,len,report_wht);
 
     /* see if we should process */
     if (report_wht) {

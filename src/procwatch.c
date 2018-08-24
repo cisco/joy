@@ -132,7 +132,7 @@ int calculate_sha256_hash(unsigned char* path, unsigned char *output)
     return 0;
 }
 
-static void host_flow_table_init() {
+static void host_flow_table_init(void) {
     int i;
 
     for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
@@ -411,6 +411,7 @@ int host_flow_table_add_tcp(int all_sockets) {
     host_flow_t *record = NULL;
     int i;
     
+    joy_log_debug("Parameter sockets values (%d)",all_sockets);
     // Take a snapshot of all processes in the system.
     hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hProcessSnap == INVALID_HANDLE_VALUE)
@@ -678,6 +679,7 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
     host_flow_t *hf = NULL;
     FILE *ss_file;
 
+    joy_log_debug("passed in parameter all sockets (%d)", all_sockets);
     ss_file = popen(SS_COMMAND, "r");
     if (ss_file == NULL) {
         joy_log_err("popen returned null (command(%d): %s)\n", rc, SS_COMMAND);
@@ -1024,7 +1026,7 @@ int get_host_flow_data(joy_ctx_data *ctx) {
     /* get current time and determine the delta from last refresh */
     gettimeofday(&current_time, NULL);
     joy_timer_sub(&current_time, &last_refresh_time, &delta_time);
-    seconds = (float) joy_timeval_to_milliseconds(delta_time) / 1000.0;
+    seconds = (float) (joy_timeval_to_milliseconds(delta_time) / 1000.0);
 
     /* see if we need to refresh the application process data */
     if (seconds > 45) {

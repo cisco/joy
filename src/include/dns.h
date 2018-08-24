@@ -83,6 +83,6 @@ void dns_print_json(const dns_t *dns1, const dns_t *dns2, zfile f);
 void dns_delete(dns_t **dns_handle);
 
 /** main entry point for DNS unit testing */
-void dns_unit_test();
+void dns_unit_test(void);
 
 #endif /* DNS_H */

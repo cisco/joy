@@ -55,7 +55,7 @@ size_t getline(char **lineptr, size_t *n, FILE *stream);
 #define matches_init(x) (x->count = 0)
 
 static void matches_add (struct matches *matches, size_t stop, size_t length) {
-    int i;
+    unsigned int i;
     size_t start = stop - length + 1;
 
     if (matches->count >= MATCH_ARRAY_LEN) {

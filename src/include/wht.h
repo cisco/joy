@@ -81,6 +81,6 @@ void wht_print_json(const wht_t *w1, const wht_t *w2, zfile f);
 void wht_delete(wht_t **wht_handle);
 
 /** unit test entry point */
-void wht_unit_test();
+void wht_unit_test(void);
   
 #endif /* WHT_H */

@@ -137,7 +137,7 @@ extern int optind, opterr, optopt;
  \return 0 success
  */
 int main (int argc, char *argv[]) {
-    char *keyfile = ANON_KEYFILE_DEFAULT;
+    const char *keyfile = ANON_KEYFILE_DEFAULT;
     enum anon_mode mode = mode_anonymize;
     enum type type = addresses;    /* we don't handle userids for now */
     int i, opt;

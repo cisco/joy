@@ -122,6 +122,6 @@ void  http_print_json(const http_t *h1,
 /** remove an http data structure */
 void http_delete(http_t **http_handle);
 
-void http_unit_test();
+void http_unit_test(void);
 
 #endif /* HTTP_H */

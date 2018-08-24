@@ -78,7 +78,7 @@ struct configuration active_config;
 static int joy_library_initialized = 0;
 
 /* global data for the context configuration */
-static int joy_num_contexts = 0;
+static unsigned int joy_num_contexts = 0;
 static struct joy_ctx_data *ctx_data = NULL;
 
 /*
@@ -100,7 +100,7 @@ static struct joy_ctx_data *ctx_data = NULL;
 static unsigned int joy_splt_format_data(flow_record_t *rec,
                                          unsigned char *data)
 {
-    int i = 0;
+    unsigned int i = 0;
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
     struct timeval ts;
@@ -172,7 +172,7 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
 static unsigned int joy_salt_format_data(flow_record_t *rec,
                                          unsigned char *data)
 {
-    int i = 0;
+    unsigned int i = 0;
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
     struct timeval ts;
@@ -315,9 +315,9 @@ static void format_output_filename(char *basename, char *output_filename)
  *
  */
 int joy_initialize(joy_init_t *init_data,
-        char *output_dir, char *output_file, char *logfile)
+        const char *output_dir, const char *output_file, const char *logfile)
 {
-    int i = 0;
+    unsigned int i = 0;
     char output_dirname[MAX_DIRNAME_LEN];
     char output_filename[MAX_FILENAME_LEN];
 
@@ -519,7 +519,7 @@ int joy_initialize(joy_init_t *init_data,
  *      none
  *
  */
-void joy_print_config(int index, int format)
+void joy_print_config(unsigned int index, int format)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -568,7 +568,7 @@ void joy_print_config(int index, int format)
  *      1 - failure
  *
  */
-int joy_anon_subnets(char *anon_file)
+int joy_anon_subnets(const char *anon_file)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -614,7 +614,7 @@ int joy_anon_subnets(char *anon_file)
  *      1 - failure
  *
  */
-int joy_anon_http_usernames(char *anon_http_file)
+int joy_anon_http_usernames(const char *anon_http_file)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -656,7 +656,7 @@ int joy_anon_http_usernames(char *anon_http_file)
  *      1 - failure
  *
  */
-int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
+int joy_update_splt_bd_params(const char *splt_filename, const char *bd_filename)
 {
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -691,7 +691,7 @@ int joy_update_splt_bd_params(char *splt_filename, char *bd_filename)
  *      1 - failure
  *
  */
-int joy_update_compact_bd(char *filename)
+int joy_update_compact_bd(const char *filename)
 {
     FILE *fp;
     int count = 0;
@@ -747,7 +747,7 @@ int joy_update_compact_bd(char *filename)
  *      1 - failure
  *
  */
-int joy_label_subnets(char *label, int type, char *subnet_str)
+int joy_label_subnets(const char *label, int type, const char *subnet_str)
 {
     attr_flags subnet_flag;
     joy_status_e err;
@@ -1468,6 +1468,9 @@ unsigned int joy_delete_flow_records(unsigned int index,
                 /* doesn't matter, we are forcing this record to be deleted */
                 ok_to_delete = 1;
                 break;
+            default:
+                /* invlaid option */
+                return records_deleted;
         }
 
         /* remove the record and advance to next record */

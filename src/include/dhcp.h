@@ -119,7 +119,7 @@ void dhcp_print_json(const dhcp_t *d1,
 
 void dhcp_delete(dhcp_t **dhcp_handle);
 
-void dhcp_unit_test();
+void dhcp_unit_test(void);
 
 #endif /* DHCP_H */
 

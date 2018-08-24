@@ -88,6 +88,15 @@ void example_update (struct example *example,
 		     const void *data, 
 		     unsigned int len, 
 		     unsigned int report_example) {
+
+    /* sanity check */
+    if (example == NULL) {
+        return;
+    }
+
+    joy_log_debug("example[%p],header[%p],data[%p],len[%d],report[%d]",
+            example,header,data,len,report_example);
+
     if (report_example) {
         example->counter += len;
     }

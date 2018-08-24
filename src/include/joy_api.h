@@ -110,7 +110,7 @@ typedef struct joy_init {
     uint32_t max_records;        /* max record in output file */
     int contexts;                /* number of contexts the app wants to use */
     int idp;                     /* idp size to report, recommend 1300 */
-    char *ipfix_host;            /* ip string of the host to send IPFix data to */
+    const char *ipfix_host;      /* ip string of the host to send IPFix data to */
     uint32_t ipfix_port;         /* port to send IPFix to remote on */
     uint32_t bitmask;            /* bitmask representing which features are on */
 } joy_init_t;
@@ -149,8 +149,8 @@ typedef void (joy_flow_rec_callback)(void *rec, unsigned int data_len, unsigned 
  *      1 - failure
  *
  */
-extern int joy_initialize (joy_init_t *data, char *output_dir,
-                           char *output_file, char *logfile);
+extern int joy_initialize (joy_init_t *data, const char *output_dir,
+                           const char *output_file, const char *logfile);
 
 /*
  * Function: joy_print_config
@@ -166,7 +166,7 @@ extern int joy_initialize (joy_init_t *data, char *output_dir,
  *      none
  *
  */
-extern void joy_print_config (int index, int format);
+extern void joy_print_config (unsigned int index, int format);
 
 /*
  * Function: joy_anon_subnets
@@ -189,7 +189,7 @@ extern void joy_print_config (int index, int format);
  *      1 - failure
  *
  */
-extern int joy_anon_subnets (char *anon_file);
+extern int joy_anon_subnets (const char *anon_file);
 
 /*
  * Function: joy_anon_http_usernames
@@ -213,7 +213,7 @@ extern int joy_anon_subnets (char *anon_file);
  *      1 - failure
  *
  */
-extern int joy_anon_http_usernames (char *anon_http_file);
+extern int joy_anon_http_usernames (const char *anon_http_file);
 
 /*
  * Function: joy_update_splt_bd_params
@@ -233,7 +233,7 @@ extern int joy_anon_http_usernames (char *anon_http_file);
  *      1 - failure
  *
  */
-extern int joy_update_splt_bd_params (char *splt_filename, char *bd_filename);
+extern int joy_update_splt_bd_params (const char *splt_filename, const char *bd_filename);
 
 /*
  * Function: joy_update_compact_bd
@@ -250,7 +250,7 @@ extern int joy_update_splt_bd_params (char *splt_filename, char *bd_filename);
  *      1 - failure
  *
  */
-extern int joy_update_compact_bd (char *filename);
+extern int joy_update_compact_bd (const char *filename);
 
 /*
  * Function: joy_label_subnets
@@ -268,7 +268,7 @@ extern int joy_update_compact_bd (char *filename);
  *      1 - failure
  *
  */
-extern int joy_label_subnets (char *label, int type, char* subnet_str);
+extern int joy_label_subnets (const char *label, int type, const char* subnet_str);
 
 /*
  * Function: joy_process_packet

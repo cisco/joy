@@ -197,7 +197,7 @@ int main (int argc, char *argv[]) {
     size_t len;
     char *line = NULL;  
     joy_status_e err;
-    char *keyfile = ANON_KEYFILE_DEFAULT;
+    const char *keyfile = ANON_KEYFILE_DEFAULT;
     char *userfile = NULL;
     char *subnetfile = NULL;
     char *datafile = NULL;

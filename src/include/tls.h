@@ -323,7 +323,7 @@ void tls_update(tls_t *r,
 /** print out the TLS information to the destination file */
 void tls_print_json(const tls_t *data, const tls_t *data_twin, zfile f);
 
-void tls_unit_test();
+void tls_unit_test(void);
 
 #if 0
 int tls_load_fingerprints(void);

@@ -146,7 +146,7 @@ void process_hardcoded_packets (unsigned long index)
 
 }
 
-int main (int argc, char **argv)
+int main (void)
 {
     int rc = 0;
     struct joy_init init_data;

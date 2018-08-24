@@ -98,16 +98,20 @@ int proc_pcap_file (unsigned long index, char *file_name) {
 void my_idp_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
     flow_record_t *rec = (flow_record_t *)curr_rec;
 
-    printf("IDP len=%d\n",rec->idp_len);
+    if ((data_len == 0) && (data == NULL)) {
+        printf("IDP len=%d\n",rec->idp_len);
+    }
 }
 
 void my_tls_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
     flow_record_t *rec = (flow_record_t *)curr_rec;
 
-    if (rec->tls != NULL) {
-       printf("tls version=%d\n",rec->tls->version);
-    } else {
-       printf("tls version=unknown\n");
+    if ((data_len == 0) && (data == NULL)) {
+        if (rec->tls != NULL) {
+           printf("tls version=%d\n",rec->tls->version);
+        } else {
+           printf("tls version=unknown\n");
+        }
     }
 }
 
@@ -115,7 +119,9 @@ void my_splt_callback(void *curr_rec, unsigned int data_len, unsigned char *data
     int i = 0;
     short *formatted_data = (short*)data;
 
-    if (formatted_data == NULL) return;
+    if ((curr_rec == NULL) || (formatted_data == NULL)) return;
+
+    if (data_len != 40) return;
 
     /* 10 lengths (20 bytes) */
     printf("SPLT LENGTHS: ");
@@ -142,7 +148,9 @@ void my_salt_callback(void *curr_rec, unsigned int data_len, unsigned char *data
     int i = 0;
     unsigned short *formatted_data = (unsigned short*)data;
 
-    if (formatted_data == NULL) return;
+    if ((curr_rec == NULL) || (formatted_data == NULL)) return;
+
+    if (data_len != 40) return;
 
     /* 10 lengths (20 bytes) */
     printf("SALT LENGTHS: ");
@@ -169,7 +177,9 @@ void my_bd_callback(void *curr_rec, unsigned int data_len, unsigned char *data) 
     int i = 0;
     uint16_t *formatted_data = (uint16_t*)data;
 
-    if (data == NULL) return;
+    if ((curr_rec == NULL) || (formatted_data == NULL)) return;
+
+    if (data_len != 512) return;
 
     /* Each ASCII byte value */
     printf("BYTE COUNTS: ");
@@ -245,7 +255,9 @@ int main (int argc, char **argv)
     int rc = 0;
     joy_init_t init_data;
     pthread_t thread1, thread2, thread3;
-    char *file1, *file2, *file3;
+    char *file1 = NULL;
+    char *file2 = NULL;
+    char *file3 = NULL;
 
     /* setup files */
     if (argc < 2) {

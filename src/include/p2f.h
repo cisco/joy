@@ -329,11 +329,15 @@ void flocap_stats_timer_init(joy_ctx_data *ctx);
 int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const host_flow_t *data);
 
 /** Main entry point for the uploader thread */
-void *uploader_main(void* ptr);
+#ifdef WIN32
+__declspec(noreturn) void *uploader_main(void *ptr);
+#else
+__attribute__((__noreturn__)) void *uploader_main(void *ptr);
+#endif
 
 int upload_file(char *filename);
 
-void p2f_unit_test();
+void p2f_unit_test(void);
 
 /** print a buffer as hexadecimal */
 void zprintf_raw_as_hex(zfile f, const unsigned char *data, unsigned int len);

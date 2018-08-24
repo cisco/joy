@@ -77,10 +77,9 @@ void merge_splt_arrays(const uint16_t *pkt_len, const struct timeval *pkt_time,
        const uint16_t *pkt_len_twin, const struct timeval *pkt_time_twin,
        struct timeval start_time, struct timeval start_time_twin,
        uint16_t s_idx, uint16_t r_idx,
-       uint16_t *merged_lens, uint16_t *merged_times,
-       uint32_t max_num_pkt_len, uint32_t max_merged_num_pkts);
+       uint16_t *merged_lens, uint16_t *merged_times);
 
-void update_params(classifier_type_codes_t param_type, char *param_file);
+void update_params(classifier_type_codes_t param_type, const char *param_file);
 
 #endif /* CLASSIFY_H */
 

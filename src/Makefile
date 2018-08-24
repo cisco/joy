@@ -64,7 +64,8 @@ endif
 # compiler directives
 ##
 CDEFS     = -D$(SYS_NAME)=1 -DVERSION=\"$(JOY_VERSION)\"
-CFLAGS = -Wall -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g # -pg # -g # -fstack-protector-all 
+##CFLAGS = -Wall -D_FORTIFY_SOURCE=2 -O -Wno-deprecated-declarations -g # -pg # -g # -fstack-protector-all
+CFLAGS = -Werror -Wall -Wbad-function-cast -Wchar-subscripts -Wcomment -Wdeprecated-declarations -Wdisabled-optimization -Wdiv-by-zero -Wendif-labels -Wformat -Wformat-extra-args -Wformat-security -Wformat-y2k -Wimplicit -Wimplicit-function-declaration -Wimplicit-int -Wimport -Winline -Winvalid-pch -Wmain -Wmissing-braces -Wmissing-format-attribute -Wmissing-noreturn -Wmultichar -Wnested-externs -Wnonnull -Wparentheses -Wpointer-arith -Wreturn-type -Wsequence-point -Wshadow -Wsign-compare -Wstrict-aliasing -Wstrict-prototypes -Wswitch -Wswitch-default -Wswitch-enum -Wsystem-headers -Wtrigraphs -Wunknown-pragmas -Wunused -Wunused-function -Wunused-label -Wunused-parameter -Wunused-value -Wunused-variable -Wwrite-strings -Wno-pointer-sign -Wextra -Wno-nullability-completeness -Wno-cast-align -Wno-expansion-to-defined -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -g # -pg # -g # -fstack-protector-all
 
 ##
 # see if this is a package build directive

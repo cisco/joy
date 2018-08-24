@@ -197,7 +197,7 @@ void F##_print_json(const F##_t *F,      \
  * (src/unit_test.c).
  * \endverbatim
  */
-#define declare_unit_test(F) void F##_unit_test();
+#define declare_unit_test(F) void F##_unit_test(void);
 
 /** The macro declare_feature(F) declares all of the functions
  * associated with the feature F_t

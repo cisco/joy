@@ -59,19 +59,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define DEBUG 0
 
+#if (DEBUG)
 static void
 debug_printf(const char *fmt, ...)
 {
-
-#if (DEBUG)
     va_list ap;
 
     va_start(ap, fmt);
     (void) vprintf(fmt, ap);
     va_end(ap);
-#endif
-
 }
+#else
+# define debug_printf(a, ...)
+#endif
 
 
 #define acsm_queue_init(q)                                                    \

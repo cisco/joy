@@ -394,7 +394,6 @@ joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
 }
 
 static joy_status_e process_nfv9 (joy_ctx_data *ctx, 
-                                  const struct pcap_pkthdr *header, 
                                   const char *start, int len, 
                                   flow_record_t *r) {
 
@@ -425,7 +424,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
     len -= 20;
     const struct nfv9_flowset_hdr *nfv9_fh;
 
-    while (len > sizeof(struct nfv9_flowset_hdr)) {
+    while (len > (int)sizeof(struct nfv9_flowset_hdr)) {
         flowset_num += 1;
         nfv9_fh = (const struct nfv9_flowset_hdr*)start;
 
@@ -620,7 +619,7 @@ static int retrans_detected (flow_record_t *rec, uint32_t seq_num, uint16_t len)
 
 static flow_record_t *
 process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, flow_key_t *key) {
-    unsigned int tcp_hdr_len;
+    int tcp_hdr_len;
     const char *payload;
     unsigned int size_payload;
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
@@ -760,7 +759,7 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
     } else {
         /* see if we have the SYN packet sequence number already */
         if (record->idp_seq_num != 0) {
-            if ((size_payload > 0) && (ntohl(tcp->tcp_seq) == (record->idp_seq_num + 1))) {
+            if ((size_payload > 0) && ((int)ntohl(tcp->tcp_seq) == (record->idp_seq_num + 1))) {
                 record->idp_seq_num = 0;
                 record->idp_packet = 1;
             }
@@ -850,7 +849,7 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
 
     if (glb_config->nfv9_capture_port && (key->dp == glb_config->nfv9_capture_port)) {
         pthread_mutex_lock(&nfv9_lock);
-        process_nfv9(ctx, header, payload, size_payload, record);
+        process_nfv9(ctx, payload, size_payload, record);
         pthread_mutex_unlock(&nfv9_lock);
     }
 
@@ -1129,14 +1128,14 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
                  * If we do find it and the retransmission flag is not set, then its a
                  * malformed packet and let it get processed as plain IP.
                  */
-                flow_key_t key;
+                flow_key_t tcp_retrans_key;
                 const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
-                key.sa = ip->ip_src;
-                key.da = ip->ip_dst;
-                key.sp = ntohs(tcp->src_port);
-                key.dp = ntohs(tcp->dst_port);
-                key.prot = IPPROTO_IP;
-                record = flow_key_get_record(ctx, &key, DONT_CREATE_RECORDS, header);
+                tcp_retrans_key.sa = ip->ip_src;
+                tcp_retrans_key.da = ip->ip_dst;
+                tcp_retrans_key.sp = ntohs(tcp->src_port);
+                tcp_retrans_key.dp = ntohs(tcp->dst_port);
+                tcp_retrans_key.prot = IPPROTO_IP;
+                record = flow_key_get_record(ctx, &tcp_retrans_key, DONT_CREATE_RECORDS, header);
                 if (record == NULL) {
                     /* couldn't find the record, memory error scenario */
 	            if (allocated_packet_header) {

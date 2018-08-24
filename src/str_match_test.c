@@ -80,7 +80,7 @@ static void anon_print (zfile f, struct matches *matches, char *text) {
 
     zprintf_nbytes(f, text, matches->start[0]);   /* nonmatching */
     for (i=0; i < matches->count; i++) {
-        zprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);   /* matching */
+        zprintf_anon_nbytes(f, matches->stop[i] - matches->start[i] + 1);   /* matching */
         if (i < matches->count-1) {
             zprintf_nbytes(f, text + matches->stop[i] + 1, matches->start[i+1] - matches->stop[i] - 1); /* nonmatching */
         } else {
@@ -90,7 +90,7 @@ static void anon_print (zfile f, struct matches *matches, char *text) {
 }
 
 
-static void str_match_test (str_match_ctx ctx, char *search) {
+static void str_match_test (str_match_ctx ctx, const char *search) {
     struct matches matches;
 
     str_match_ctx_find_all_longest(ctx, (const unsigned char *)search, strlen(search), &matches);
@@ -112,25 +112,23 @@ static void str_match_test (str_match_ctx ctx, char *search) {
     zprintf(output, "\n");
 }
 
-static char *text = "prefix middle suffix prefixmiddle middlesuffix prefixmiddlesuffix frogers2 velmad vdinkey";
+static const char *text = "prefix middle suffix prefixmiddle middlesuffix prefixmiddlesuffix frogers2 velmad vdinkey";
 
-static char *text2 = "EXAMPLE TEXT WITH prefix AND middle BUT NOT suffix HAS prefixmiddle THIS middlesuffix TEST TEST prefixmiddlesuffix, IPSO FACTO frogers2 BLAHvelmadBLAH BLAHvdinkey EXCELSIOR";
+static const char *text2 = "EXAMPLE TEXT WITH prefix AND middle BUT NOT suffix HAS prefixmiddle THIS middlesuffix TEST TEST prefixmiddlesuffix, IPSO FACTO frogers2 BLAHvelmadBLAH BLAHvdinkey EXCELSIOR";
 
-static char *text3 = "/root/shaggy/blahvelmablah/query?username=fred;subject=daphne;docname=blahscooby;alt=scoobyblah;path=velma";
+static const char *text3 = "/root/shaggy/blahvelmablah/query?username=fred;subject=daphne;docname=blahscooby;alt=scoobyblah;path=velma";
 
 //static char *text4 = "/pca3.crl";
-static char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400e76571fe%22,%22s%22:%2210.241.40.128%22}&m=[]&_=1458318857011";
+static const char *text4 = "/bg/api/Pickup.ashx?c={%22c%22:%225a9760de94b24d3c806a6400e76571fe%22,%22s%22:%2210.241.40.128%22}&m=[]&_=1458318857011";
 
 /**
  * \fn int main (int argc, char* argv[])
  * \brief main entry point for string matching tests
- * \param argc command line argument count
- * \param argv command line arguments
  * \return -1 error
  * \return EXIT_FAILURE
  * \return 0
  */
-int main (int argc, char* argv[]) {
+int main (void) {
     str_match_ctx ctx;
     int rc = 0;
     joy_init_t init_data;

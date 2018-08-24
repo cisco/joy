@@ -101,6 +101,6 @@ void ppi_print_json(const struct ppi *w1,
 void ppi_delete(struct ppi **ppi_handle);
 
 /** ppi unit test entry point */
-void ppi_unit_test();
+void ppi_unit_test(void);
 
 #endif /* PPI_H */

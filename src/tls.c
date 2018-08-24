@@ -430,7 +430,6 @@ static void tls_client_hello_get_extensions (const unsigned char *y,
 }
 
 static void tls_handshake_get_client_key_exchange (const tls_handshake_t *h,
-                                                   int len,
                                                    tls_t *r) {
     const unsigned char *y = &h->body;
     unsigned int byte_len = 0;
@@ -1642,6 +1641,8 @@ static int tls_version_to_internal(unsigned char major,
                 case 4:
                     internal_version = TLS_VERSION_1_3;
                     break;
+                default:
+                    ;
             }
             break;
 #if 0
@@ -1655,6 +1656,8 @@ static int tls_version_to_internal(unsigned char major,
                 case 0x12:
                     internal_version = TLS_VERSION_1_3;
                     break;
+                default:
+                    ;
             }
         default:
             ;
@@ -1741,7 +1744,7 @@ static void tls_handshake_buffer_parse(tls_t *r) {
         if (data_len <= 0) return;
 
         while (tls_len > 0) {
-            unsigned int body_len = 0;
+            int body_len = 0;
 
             if (data_len < TLS_HANDSHAKE_HDR_LEN) {
                 /* Not enough data to possibly have a header */
@@ -1824,7 +1827,7 @@ static void tls_handshake_buffer_parse(tls_t *r) {
                 /*
                  * ClientKeyExchange
                  */
-                tls_handshake_get_client_key_exchange(handshake, tls_len, r);
+                tls_handshake_get_client_key_exchange(handshake, r);
             }
             else if (handshake->msg_type == TLS_HANDSHAKE_CERTIFICATE) {
                 /* 
@@ -1870,7 +1873,7 @@ static void tls_write_message_stats(tls_t *r,
         r->lengths[r->op] = tls_len;
         if (pkt_hdr == NULL) {
             /* The pcap_pkthdr is not available, cannot get timestamp */
-            const struct timeval ts = {0};
+            const struct timeval ts = {0,0};
             r->times[r->op] = ts;
         } else {
             r->times[r->op] = pkt_hdr->ts;
@@ -1899,7 +1902,7 @@ void tls_update (tls_t *r,
                  unsigned int report_tls) {
     const unsigned char *data = payload;
     const tls_header_t*hdr = NULL;
-    unsigned int msg_len = 0;
+    int msg_len = 0;
     int rem_len = len;
 
     /* see if we are configured to process TLS */
@@ -1924,7 +1927,7 @@ void tls_update (tls_t *r,
          * This may be segmented data i.e. doesn't contain
          * the start of message in this packet.
          */
-        if (len >= (MAX_HANDSHAKE_LENGTH - r->handshake_length)) {
+        if (len >= (unsigned int)(MAX_HANDSHAKE_LENGTH - r->handshake_length)) {
             /* Not enough space for the handshake data */
             joy_log_warn("not enough space for handshake data");
             return;
@@ -1980,7 +1983,7 @@ void tls_update (tls_t *r,
         hdr = (const tls_header_t*)data;
         msg_len = tls_header_get_length(hdr);
 
-        if (msg_len > rem_len && !glb_config->ipfix_collect_port) {
+        if ((msg_len > rem_len) && (!glb_config->ipfix_collect_port)) {
             /* The message has been split into segments */
             r->seg_offset = msg_len - (rem_len - TLS_HDR_LEN);
         }
@@ -2070,9 +2073,9 @@ static void zprintf_raw_as_hex_tls (zfile f, const unsigned char *data, unsigned
     zprintf(f, "\"");
 }
 
-static void print_bytes_dir_time_tls(unsigned short int pkt_len, char *dir,
+static void print_bytes_dir_time_tls(unsigned short int pkt_len, const char *dir,
                                      struct timeval ts, tls_message_stat_t m,
-                                     char *term, zfile f) {
+                                     const char *term, zfile f) {
     int i = 0;
 
     zprintf(f, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u,\"tp\":%u",
@@ -2111,7 +2114,7 @@ static void len_time_print_interleaved_tls (unsigned int op, const unsigned shor
     unsigned int i, j, imax, jmax;
     struct timeval ts, ts_last, ts_start, tmp;
     unsigned int pkt_len;
-    char *dir;
+    const char *dir;
     tls_message_stat_t stat;
 
     zprintf(f, ",\"srlt\":[");
@@ -2659,7 +2662,7 @@ static int tls_test_client_fingerprint_match() {
  *
  * \return 0 for success, otherwise number of failures
  */
-static int tls_test_certificate_parsing() {
+static int tls_test_certificate_parsing(void) {
     const char *test_cert_filenames[] = {"dummy_cert_rsa2048.pem"};
     int max_filename_len = 50;
     int num_test_cert_files = 1;
@@ -2889,9 +2892,9 @@ static int tls_test_certificate_parsing() {
                 uint16_t known_not_after_length = 24;
                 int failed = 0;
 
-                char *known_not_before = "Mar 31 18:28:35 2017 GMT";
+                const char *known_not_before = "Mar 31 18:28:35 2017 GMT";
 
-                char *known_not_after = "Mar 31 18:28:35 2018 GMT";
+                const char *known_not_after = "Mar 31 18:28:35 2018 GMT";
 
                 if (cert_record->validity_not_before_length != known_not_before_length) {
                     joy_log_err("not_before length does not match");
@@ -2975,13 +2978,13 @@ static int tls_test_certificate_parsing() {
                                         tls_item_entry_t kat_extensions[3];
                                         int j = 0;
 
-                    char *known_subject_key_identifier = "CE:BF:D3:46:C6:75:AB:8C:B2:E8:"
+                    const char *known_subject_key_identifier = "CE:BF:D3:46:C6:75:AB:8C:B2:E8:"
                                                          "CF:B8:2E:2F:43:6E:C9:17:AD:BA";
 
-                    char *known_authority_key_identifier = "keyid:CE:BF:D3:46:C6:75:AB:8C:B2:"
+                    const char *known_authority_key_identifier = "keyid:CE:BF:D3:46:C6:75:AB:8C:B2:"
                                                            "E8:CF:B8:2E:2F:43:6E:C9:17:AD:BA.";
 
-                    char *known_basic_constraints = "CA:TRUE";
+                    const char *known_basic_constraints = "CA:TRUE";
 
                     /* Known values */
                     strncpy(kat_extensions[0].id, "X509v3 Subject Key Identifier", MAX_OPENSSL_STRING);
@@ -3048,7 +3051,7 @@ static int tls_test_certificate_parsing() {
                 /* We are using the dummy_rsa2048 for this case */
                 uint16_t known_signature_length = 256;
                 uint16_t known_signature_key_size = 2048;
-                char *known_signature_algorithm = "sha256WithRSAEncryption";
+                const char *known_signature_algorithm = "sha256WithRSAEncryption";
                 int failed = 0;
 
                 unsigned char known_signature[] = {
@@ -3123,7 +3126,7 @@ static int tls_test_certificate_parsing() {
         } else {
             if (!strncmp(filename, "dummy_cert_rsa2048.pem", max_filename_len)) {
                 /* We are using the dummy_rsa2048 for this case */
-                char *known_public_key_algorithm = "rsaEncryption";
+                const char *known_public_key_algorithm = "rsaEncryption";
                 uint16_t known_public_key_size = 2048;
                 int failed = 0;
 
@@ -3204,7 +3207,7 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
 
 static int tls_test_extract_client_hello(const unsigned char *data,
                                          unsigned int data_len,
-                                         char *filename) {
+                                         const char *filename) {
     tls_t *record = NULL;
     const tls_header_t*tls_hdr = NULL;
     const unsigned char *body = NULL;
@@ -3466,13 +3469,13 @@ end:
     return num_fails;
 }
 
-static int tls_test_initial_handshake() {
+static int tls_test_initial_handshake(void) {
     pcap_t *pcap_handle = NULL;
     struct pcap_pkthdr header;
     const unsigned char *pkt_ptr = NULL;
     const unsigned char *payload_ptr = NULL;
     unsigned int payload_len = 0;
-    char *filename = "sample_tls12_handshake_0.pcap";
+    const char *filename = "sample_tls12_handshake_0.pcap";
     int num_fails = 0;
 
     pcap_handle = joy_utils_open_test_pcap(filename);
@@ -3509,7 +3512,7 @@ end:
  *
  * \return 0 for success, otherwise number of failures
  */
-static int tls_test_handshake_hello_get_version() {
+static int tls_test_handshake_hello_get_version(void) {
     tls_t *record = NULL;
     unsigned char ssl_v3[] = {0x03, 0x00};
     unsigned char tls_1_0[] = {0x03, 0x01};
@@ -3555,7 +3558,7 @@ static int tls_test_handshake_hello_get_version() {
     return num_fails;
 }
 
-static int tls_test_calculate_handshake_length() {
+static int tls_test_calculate_handshake_length(void) {
     tls_handshake_t hand;
     unsigned int result = 0;
     int num_fails = 0;

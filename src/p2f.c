@@ -135,7 +135,7 @@ void flocap_stats_output (joy_ctx_data *ctx, FILE *f) {
         memset(time_str, 0x00, sizeof(time_str));
 
         joy_timer_sub(&now, &ctx->last_stats_output_time, &tmp);
-    seconds = (float) joy_timeval_to_milliseconds(tmp) / 1000.0;
+    seconds = (float) (joy_timeval_to_milliseconds(tmp) / 1000.0);
 
     bps = (float) (ctx->stats.num_bytes - ctx->last_stats.num_bytes) / seconds;
     pps = (float) (ctx->stats.num_packets - ctx->last_stats.num_packets) / seconds;
@@ -805,7 +805,7 @@ int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const ho
  */
 void flow_record_update_byte_count (flow_record_t *f, const void *x, unsigned int len) {
     const unsigned char *data = x;
-    int i;
+    unsigned int i;
 
     /*
      * implementation note: The spec says that 4000 packets is enough of a
@@ -832,7 +832,7 @@ void flow_record_update_byte_count (flow_record_t *f, const void *x, unsigned in
  */
 void flow_record_update_compact_byte_count (flow_record_t *f, const void *x, unsigned int len) {
     const unsigned char *data = x;
-    int i;
+    unsigned int i;
 
     if (glb_config->compact_byte_distribution) {
         for (i=0; i<len; i++) {
@@ -851,7 +851,7 @@ void flow_record_update_compact_byte_count (flow_record_t *f, const void *x, uns
 void flow_record_update_byte_dist_mean_var (flow_record_t *f, const void *x, unsigned int len) {
     const unsigned char *data = x;
     double delta;
-    int i;
+    unsigned int i;
 
     if (glb_config->byte_distribution || glb_config->report_entropy) {
         for (i=0; i<len; i++) {
@@ -880,9 +880,9 @@ static float flow_record_get_byte_count_entropy (const unsigned int byte_count[2
 
 static void print_bytes_dir_time (joy_ctx_data *ctx,
                                   unsigned short int pkt_len,
-                                  char *dir,
+                                  const char *dir,
                                   struct timeval ts,
-                                  char *term) {
+                                  const char *term) {
     if (pkt_len < 32768) {
         zprintf(ctx->output, "{\"b\":%u,\"dir\":\"%s\",\"ipt\":%u}%s",
                     pkt_len, dir, joy_timeval_to_milliseconds(ts), term);
@@ -916,7 +916,7 @@ static void reduce_bd_bits (unsigned int *bd,
                             unsigned int len) {
     int mask = 0;
     int shift = 0;
-    int i = 0;
+    unsigned int i = 0;
 
     for (i = 0; i < len; i++) {
         mask = mask | bd[i];
@@ -1218,10 +1218,10 @@ static const flow_record_t *get_client_flow(const flow_record_t *a,
 static void flow_record_print_json
  (joy_ctx_data *ctx, const flow_record_t *record) {
     unsigned int i, j, imax, jmax;
-    struct timeval ts, ts_last, ts_start, ts_end, tmp;
+    struct timeval ts, ts_last, ts_start, ts_end, ts_tmp;
     const flow_record_t *rec = NULL;
     unsigned int pkt_len;
-    char *dir;
+    const char *dir;
     char ipv4_addr[INET_ADDRSTRLEN];
 
     flocap_stats_incr_records_output(ctx);
@@ -1383,9 +1383,9 @@ static void flow_record_print_json
             } else if (j >= jmax) {
                 /* twin list is exhausted, so use record */
                 dir = IN;
-                    ts = rec->pkt_time[i];
-                    pkt_len = rec->pkt_len[i];
-                    i++;
+                ts = rec->pkt_time[i];
+                pkt_len = rec->pkt_len[i];
+                i++;
             } else {
                 /* Neither list is exhausted, so use list with lowest time */
                 if (joy_timer_lt(&rec->pkt_time[i], &rec->twin->pkt_time[j])) {
@@ -1401,8 +1401,8 @@ static void flow_record_print_json
                 }
             }
 
-            joy_timer_sub(&ts, &ts_last, &tmp);
-            print_bytes_dir_time(ctx, pkt_len, dir, tmp, "");
+            joy_timer_sub(&ts, &ts_last, &ts_tmp);
+            print_bytes_dir_time(ctx, pkt_len, dir, ts_tmp, "");
             ts_last = ts;
 
             if (!((i == imax) & (j == jmax))) {
@@ -1945,8 +1945,8 @@ int upload_can_run = 0;
 /** filename to be uploaded */
 char upload_filename[MAX_FILENAME_LENGTH];
 
-static int uploader_send_file (char *filename, char *servername,
-                               char *key, unsigned int retain) {
+static int uploader_send_file (char *filename, const char *servername,
+                               const char *key, unsigned int retain) {
     int rc = 0;
     char cmd[MAX_UPLOAD_CMD_LENGTH];
 
@@ -1981,7 +1981,11 @@ static int uploader_send_file (char *filename, char *servername,
  * \param ptr always a pointer to the config structure
  * \return never return and the thread terminates when joy exits
  */
-void *uploader_main(void *ptr)
+#ifdef WIN32
+__declspec(noreturn) void *uploader_main(void *ptr)
+#else
+__attribute__((__noreturn__)) void *uploader_main(void *ptr)
+#endif
 {
     struct configuration *config = ptr;
 
@@ -2010,7 +2014,6 @@ void *uploader_main(void *ptr)
         upload_can_run = 0;
         pthread_mutex_unlock(&upload_in_process);
     }
-    return NULL;
 }
 
 /*

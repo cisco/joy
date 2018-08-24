@@ -94,6 +94,6 @@ void salt_print_json(const struct salt *w1,
 void salt_delete(struct salt **salt_handle);
 
 /** salt unit test entry point */
-void salt_unit_test();
+void salt_unit_test(void);
 
 #endif /* SALT_H */

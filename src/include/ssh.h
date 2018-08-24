@@ -114,6 +114,6 @@ void ssh_print_json(const struct ssh *w1,
 
 void ssh_delete(struct ssh **ssh_handle);
 
-void ssh_unit_test();
+void ssh_unit_test(void);
 
 #endif /* SSH_H */

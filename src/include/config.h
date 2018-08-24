@@ -96,24 +96,24 @@ struct configuration {
   
     declare_all_features_config_uint(feature_list) 
   
-    char *compact_byte_distribution;
-    char *intface;
-    char *filename;              /*!< output file, if not NULL */
-    char *outputdir;             /*!< directory to write output files */
-    char *username;              /*!< username to become when dropping root */
-    char *logfile; 
-    char *anon_addrs_file;
-    char *anon_http_file;
-    char *upload_servername;
-    char *upload_key;
-    char *params_url;
-    char *params_file;
-    char *label_url;
-    char *bpf_filter_exp;
-    char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
-    char *ipfix_export_remote_host;
-    char *ipfix_export_template;
-    char *aux_resource_path;
+    const char *compact_byte_distribution;
+    const char *intface;
+    const char *filename;              /*!< output file, if not NULL */
+    const char *outputdir;             /*!< directory to write output files */
+    const char *username;              /*!< username to become when dropping root */
+    const char *logfile;
+    const char *anon_addrs_file;
+    const char *anon_http_file;
+    const char *upload_servername;
+    const char *upload_key;
+    const char *params_url;
+    const char *params_file;
+    const char *label_url;
+    const char *bpf_filter_exp;
+    const char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
+    const char *ipfix_export_remote_host;
+    const char *ipfix_export_template;
+    const char *aux_resource_path;
     unsigned int num_subnets;    /*!< counts entries in subnet array */
     unsigned short compact_bd_mapping[COMPACT_BD_MAP_MAX];
     radix_trie_t rt;

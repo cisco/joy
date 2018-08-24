@@ -301,8 +301,16 @@ void dhcp_update(dhcp_t *dhcp,
     dhcp_message_t *msg = NULL;
     const unsigned char magic_cookie[] = {0x63, 0x82, 0x53, 0x63};
 
+    joy_log_debug("dhcp[%p],header[%p],data[%p],len[%d],report[%d]",
+            dhcp,header,data,data_len,report_dhcp);
+
     /* Check run flag. Bail if 0 */
     if (!report_dhcp) {
+        return;
+    }
+
+    /* sanity check */
+    if (dhcp == NULL) {
         return;
     }
 
@@ -479,6 +487,11 @@ void dhcp_print_json(const dhcp_t *d1,
 {
     int i = 0;
 
+    /* sanity check */
+    if (d1 == NULL) {
+        return;
+    }
+
     if (d1->message_count) {
         char ipv4_addr[INET_ADDRSTRLEN];
         zprintf(f, ",\"dhcp\":[");
@@ -541,6 +554,11 @@ void dhcp_print_json(const dhcp_t *d1,
             }
         }
         zprintf(f, "]");
+    }
+
+    /* sanity check */
+    if (d2 == NULL) {
+        return;
     }
 }
 
@@ -753,14 +771,14 @@ static int dhcp_test_message_equality(dhcp_message_t *m1,
  *
  * \return 0 for success, otherwise number of fails
  */
-static int dhcp_test_vanilla_parsing() {
+static int dhcp_test_vanilla_parsing(void) {
     dhcp_t *d = NULL;
     pcap_t *pcap_handle = NULL;
     struct pcap_pkthdr header;
     const unsigned char *pkt_ptr = NULL;
     const unsigned char *payload_ptr = NULL;
     unsigned int payload_len = 0;
-    char *filename = "dhcp.pcap";
+    const char *filename = "dhcp.pcap";
     dhcp_t *known_dhcp = NULL;
     dhcp_message_t *msg = NULL;
     int num_fails = 0;

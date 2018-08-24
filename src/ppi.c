@@ -382,7 +382,7 @@ static void pkt_info_process(zfile f,
                              struct timeval ts) {
     long int rseq, rack;
     char flags_string[9];
-    char *dir = "?";
+    const char *dir = "?";
     struct timeval tmp;
 
     if (pkt_info->flags & TCP_SYN) {
@@ -454,8 +454,8 @@ static void pkt_info_print_interleaved(zfile f,
     
     unsigned int i, j, imax, jmax;
     struct timeval ts_last;
-    struct tcp_state tcp_state = { 0, };
-    struct tcp_state rev_tcp_state = { 0, };
+    struct tcp_state tcp_state = {0, 0};
+    struct tcp_state rev_tcp_state = {0,0};
 
     imax = np  > NUM_PKT_LEN ? NUM_PKT_LEN : np;
 

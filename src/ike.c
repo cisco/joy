@@ -801,9 +801,9 @@ typedef enum ike_secure_password_methods_ {
  * \brief Database of vendor IDs
  */
 static struct {
-    char *desc;
+    const char *desc;
     unsigned int len;
-    char *id;
+    const char *id;
 } ike_vendor_ids[] = {
     {"strongSwan", 16, 
       "\x88\x2f\xe5\x6d\x6f\xd2\x0d\xbc\x22\x51\x61\x3b\x2e\xbe\x5b\xeb"},
@@ -854,7 +854,7 @@ static struct {
  *
  * \return A string representation of the payload type enumeration.
  */
-static char *ike_payload_type_string(ike_payload_type_e s) {
+static const char *ike_payload_type_string(ike_payload_type_e s) {
 
     switch(s) {
     case IKE_NO_NEXT_PAYLOAD:
@@ -957,7 +957,7 @@ static char *ike_payload_type_string(ike_payload_type_e s) {
  *
  * \return A string representation of the exchange type enumeration.
  */
-static char *ike_exchange_type_string(ike_exchange_type_e s) {
+static const char *ike_exchange_type_string(ike_exchange_type_e s) {
 
     switch(s) {
     case IKE_EXCHANGE_TYPE_NONE_V1:
@@ -1006,12 +1006,11 @@ static char *ike_exchange_type_string(ike_exchange_type_e s) {
  *
  * \return A string representation of the attribute type enumeration.
  */
-static char *ike_attribute_type_string(ike_attribute_type_e s) {
+static const char *ike_attribute_type_string(ike_attribute_type_e s) {
 
-    switch (s) {
-    case IKE_KEY_LENGTH_V2:
+    if (s == IKE_KEY_LENGTH_V2) {
         return "key_length";
-    default:
+    } else {
         return NULL;
     }
 }
@@ -1025,7 +1024,7 @@ static char *ike_attribute_type_string(ike_attribute_type_e s) {
  *
  * \return A string representation of the attribute type enumeration.
  */
-static char *ike_attribute_type_v1_string(ike_attribute_type_e s) {
+static const char *ike_attribute_type_v1_string(ike_attribute_type_e s) {
 
     switch (s) {
     case IKE_ENCRYPTION_ALGORITHM_V1:
@@ -1074,7 +1073,7 @@ static char *ike_attribute_type_v1_string(ike_attribute_type_e s) {
  *
  * \return A string representation of the hash algorithm enumeration.
  */
-static char *ike_hash_algorithm_string(ike_hash_algorithm_e s) {
+static const char *ike_hash_algorithm_string(ike_hash_algorithm_e s) {
 
     switch (s) {
     case IKE_SHA1_V2:
@@ -1085,6 +1084,10 @@ static char *ike_hash_algorithm_string(ike_hash_algorithm_e s) {
         return "sha2_384";
     case IKE_SHA2_512_V2:
         return "sha2_512";
+
+    /* ikev1 values not represented in ikev2 */
+    case IKE_SHA2_384_V1:
+    case IKE_SHA2_512_V1:
     default:
         return NULL;
     }
@@ -1099,7 +1102,7 @@ static char *ike_hash_algorithm_string(ike_hash_algorithm_e s) {
  *
  * \return A string representation of the hash algorithm enumeration.
  */
-static char *ike_hash_algorithm_v1_string(ike_hash_algorithm_e s) {
+static const char *ike_hash_algorithm_v1_string(ike_hash_algorithm_e s) {
 
     switch (s) {
     case IKE_MD5_V1:
@@ -1128,7 +1131,7 @@ static char *ike_hash_algorithm_v1_string(ike_hash_algorithm_e s) {
  *
  * \return A string representation of the authentication method enumeration.
  */
-static char *ike_authentication_method_string(ike_authentication_method_e s) {
+static const char *ike_authentication_method_string(ike_authentication_method_e s) {
 
     switch (s) {
     case IKE_RSA_DIGITAL_SIGNATURE_V2:
@@ -1149,6 +1152,10 @@ static char *ike_authentication_method_string(ike_authentication_method_e s) {
         return "null_authentication";
     case IKE_DIGITAL_SIGNATURE_V2:
         return "digital_signature";
+
+    /* ikev1 values not represented in ikev2 */
+    case IKE_ENCRYPTION_WITH_RSA_V1:
+    case IKE_REVISED_ENCRYPTION_WITH_RSA_V1:
     default:
         return NULL;
     }
@@ -1163,7 +1170,7 @@ static char *ike_authentication_method_string(ike_authentication_method_e s) {
  *
  * \return A string representation of the authentication method enumeration.
  */
-static char *ike_authentication_method_v1_string(ike_authentication_method_e s) {
+static const char *ike_authentication_method_v1_string(ike_authentication_method_e s) {
 
     switch (s) {
     case IKE_PRE_SHARED_KEY_V1:
@@ -1182,6 +1189,11 @@ static char *ike_authentication_method_v1_string(ike_authentication_method_e s) 
         return "ecdsa_sha384_p384_curve";
     case IKE_ECDSA_SHA512_P521_CURVE_V1:
         return "ecdsa_sha512_p521_curve";
+
+    /* ikev2 values not represented in ikev1 */
+    case IKE_GENERIC_SECURE_PASSWORD_AUTHENTICATION_METHOD_V2:
+    case IKE_NULL_AUTHENTICATION_V2:
+    case IKE_DIGITAL_SIGNATURE_V2:
     default:
         return NULL;
     }
@@ -1196,7 +1208,7 @@ static char *ike_authentication_method_v1_string(ike_authentication_method_e s) 
  *
  * \return A string representation of the encryption algorithm enumeration.
  */
-static char *ike_encryption_algorithm_string(ike_encryption_algorithm_e s) {
+static const char *ike_encryption_algorithm_string(ike_encryption_algorithm_e s) {
 
     switch(s) {
     case IKE_ENCR_DES_IV64_V2:
@@ -1263,28 +1275,26 @@ static char *ike_encryption_algorithm_string(ike_encryption_algorithm_e s) {
  *
  * \return A string representation of the encryption algorithm enumeration.
  */
-static char *ike_encryption_algorithm_v1_string(ike_encryption_algorithm_e s) {
+static const char *ike_encryption_algorithm_v1_string(ike_encryption_algorithm_e s) {
 
-    switch (s) {
-    case IKE_ENCR_DES_CBC_V1:
+    if (s == IKE_ENCR_DES_CBC_V1)
         return "encr_des_cbc";
-    case IKE_ENCR_IDEA_CBC_V1:
+    else if (s== IKE_ENCR_IDEA_CBC_V1)
         return "encr_idea_cbc";
-    case IKE_ENCR_BLOWFISH_CBC_V1:
+    else if (s == IKE_ENCR_BLOWFISH_CBC_V1)
         return "encr_blowfish_cbc";
-    case IKE_ENCR_RC5_R16_B64_CBC_V1:
+    else if (s == IKE_ENCR_RC5_R16_B64_CBC_V1)
         return "encr_rc5_r16_b64_cbc";
-    case IKE_ENCR_3DES_CBC_V1:
+    else if(s == IKE_ENCR_3DES_CBC_V1)
         return "encr_3des_cbc";
-    case IKE_ENCR_CAST_CBC_V1:
+    else if (s == IKE_ENCR_CAST_CBC_V1)
         return "encr_cast_cbc";
-    case IKE_ENCR_AES_CBC_V1:
+    else if (s == IKE_ENCR_AES_CBC_V1)
         return "encr_aes_cbc";
-    case IKE_ENCR_CAMELLIA_CBC_V1:
+    else if (s == IKE_ENCR_CAMELLIA_CBC_V1)
         return "encr_camellia_cbc";
-    default:
+    else
         return NULL;
-    }
 }
 
 /**
@@ -1296,7 +1306,7 @@ static char *ike_encryption_algorithm_v1_string(ike_encryption_algorithm_e s) {
  *
  * \return A string representation of the pseudorandom function enumeration.
  */
-static char *ike_pseudorandom_function_string(ike_pseudorandom_function_e s) {
+static const char *ike_pseudorandom_function_string(ike_pseudorandom_function_e s) {
 
     switch(s) {
     case IKE_PRF_HMAC_MD5_V2:
@@ -1320,6 +1330,7 @@ static char *ike_pseudorandom_function_string(ike_pseudorandom_function_e s) {
     }
 }
 
+#if 0
 /**
  * \fn static char *ike_pseudorandom_function_v1_string(enum ike_pseudorandom_function s)
  *
@@ -1329,13 +1340,14 @@ static char *ike_pseudorandom_function_string(ike_pseudorandom_function_e s) {
  *
  * \return A string representation of the pseudorandom function enumeration.
  */
-static char *ike_pseudorandom_function_v1_string(ike_pseudorandom_function_e s) {
+static const char *ike_pseudorandom_function_v1_string(ike_pseudorandom_function_e s) {
 
     switch(s) {
     default:
         return NULL;
     }
 }
+#endif
 
 /**
  * \fn static char *ike_integrity_algorithm_string(enum ike_integrity_algorithm s)
@@ -1346,7 +1358,7 @@ static char *ike_pseudorandom_function_v1_string(ike_pseudorandom_function_e s) 
  *
  * \return A string representation of the integrity algorithm enumeration.
  */
-static char *ike_integrity_algorithm_string(ike_integrity_algorithm_e s) {
+static const char *ike_integrity_algorithm_string(ike_integrity_algorithm_e s) {
 
     switch(s) {
     case IKE_AUTH_NONE_V2:
@@ -1393,7 +1405,7 @@ static char *ike_integrity_algorithm_string(ike_integrity_algorithm_e s) {
  *
  * \return A string representation of the Diffie Hellman group enumeration.
  */
-static char *ike_diffie_hellman_group_string(ike_diffie_hellman_group_e s) {
+static const char *ike_diffie_hellman_group_string(ike_diffie_hellman_group_e s) {
 
     switch(s) {
     case IKE_DH_GROUP_NONE_V2:
@@ -1442,6 +1454,18 @@ static char *ike_diffie_hellman_group_string(ike_diffie_hellman_group_e s) {
         return "dh_curve25519";
     case IKE_DH_CURVE448_V2:
         return "dh_curve448";
+
+    /* ikev1 values not represented in ikev2 */
+    case IKE_DH_T155_V1:
+    case IKE_DH_T185_V1:
+    case IKE_DH_T163R1_V1:
+    case IKE_DH_T163K1_V1:
+    case IKE_DH_T283R1_V1:
+    case IKE_DH_T283K1_V1:
+    case IKE_DH_T409R1_V1:
+    case IKE_DH_T409K1_V1:
+    case IKE_DH_T571R1_V1:
+    case IKE_DH_T571K1_V1:
     default:
         return NULL;
     }
@@ -1456,7 +1480,7 @@ static char *ike_diffie_hellman_group_string(ike_diffie_hellman_group_e s) {
  *
  * \return A string representation of the Diffie Hellman group enumeration.
  */
-static char *ike_diffie_hellman_group_v1_string(ike_diffie_hellman_group_e s) {
+static const char *ike_diffie_hellman_group_v1_string(ike_diffie_hellman_group_e s) {
 
     switch(s) {
     case IKE_DH_GROUP_NONE_V1:
@@ -1521,6 +1545,10 @@ static char *ike_diffie_hellman_group_v1_string(ike_diffie_hellman_group_e s) {
         return "dh_brainpool_p384";
     case IKE_DH_BRAINPOOL_P512_V1:
         return "dh_brainpool_p512";
+    case IKE_DH_CURVE25519_V1:
+        return "dh_curve25519";
+    case IKE_DH_CURVE448_V1:
+        return "dh_curve448";
     default:
         return NULL;
     }
@@ -1535,7 +1563,7 @@ static char *ike_diffie_hellman_group_v1_string(ike_diffie_hellman_group_e s) {
  *
  * \return A string representation of the extended sequence numbers enumeration.
  */
-static char *ike_extended_sequence_numbers_string(ike_extended_sequence_numbers_e s) {
+static const char *ike_extended_sequence_numbers_string(ike_extended_sequence_numbers_e s) {
 
     switch(s) {
     case IKE_NO_EXTENDED_SEQUENCE_NUMBERS_V2:
@@ -1556,7 +1584,7 @@ static char *ike_extended_sequence_numbers_string(ike_extended_sequence_numbers_
  *
  * \return A string representation of the transform type enumeration.
  */
-static char *ike_transform_type_string(ike_transform_type_e s) {
+static const char *ike_transform_type_string(ike_transform_type_e s) {
 
     switch (s) {
     case IKE_ENCRYPTION_ALGORITHM_V2:
@@ -1583,7 +1611,7 @@ static char *ike_transform_type_string(ike_transform_type_e s) {
  *
  * \return A string representation of the transform id enumeration.
  */
-static char *ike_transform_id_string(ike_transform_type_e s, uint16_t id) {
+static const char *ike_transform_id_string(ike_transform_type_e s, uint16_t id) {
 
     switch (s) {
     case IKE_ENCRYPTION_ALGORITHM_V2:
@@ -1610,7 +1638,7 @@ static char *ike_transform_id_string(ike_transform_type_e s, uint16_t id) {
  *
  * \return A string representation of the transform id enumeration.
  */
-static char *ike_transform_id_v1_string(ike_transform_id_v1_e s) {
+static const char *ike_transform_id_v1_string(ike_transform_id_v1_e s) {
 
     switch (s) {
     case IKE_KEY_IKE_V1:
@@ -1629,7 +1657,7 @@ static char *ike_transform_id_v1_string(ike_transform_id_v1_e s) {
  *
  * \return A string representation of the identification type enumeration.
  */
-static char *ike_identification_type_string(ike_identification_type_e s) {
+static const char *ike_identification_type_string(ike_identification_type_e s) {
 
     switch (s) {
     case IKE_ID_IPV4_ADDR_V2:
@@ -1650,6 +1678,12 @@ static char *ike_identification_type_string(ike_identification_type_e s) {
         return "id_fc_name";
     case IKE_ID_NULL_V2:
         return "id_null";
+
+    /* ikev1 values not represented in ikev2 */
+    case IKE_ID_IPV4_ADDR_SUBNET_V1:
+    case IKE_ID_IPV6_ADDR_SUBNET_V1:
+    case IKE_ID_IPV4_ADDR_RANGE_V1:
+    case IKE_ID_IPV6_ADDR_RANGE_V1:
     default:
         return NULL;
     }
@@ -1664,7 +1698,7 @@ static char *ike_identification_type_string(ike_identification_type_e s) {
  *
  * \return A string representation of the identification type enumeration.
  */
-static char *ike_identification_type_v1_string(ike_identification_type_e s) {
+static const char *ike_identification_type_v1_string(ike_identification_type_e s) {
 
     switch (s) {
     case IKE_ID_IPV4_ADDR_V1:
@@ -1689,6 +1723,10 @@ static char *ike_identification_type_v1_string(ike_identification_type_e s) {
         return "id_der_asn1_gn";
     case IKE_ID_KEY_ID_V1:
         return "id_key_id";
+
+    /* ikev2 values not represented in ikev1 */
+    case IKE_ID_FC_NAME_V2:
+    case IKE_ID_NULL_V2:
     default:
         return NULL;
     }
@@ -1703,7 +1741,7 @@ static char *ike_identification_type_v1_string(ike_identification_type_e s) {
  *
  * \return A string representation of the certificate encoding enumeration.
  */
-static char *ike_certificate_encoding_string(ike_certificate_encoding_e s) {
+static const char *ike_certificate_encoding_string(ike_certificate_encoding_e s) {
 
     switch (s) {
     case IKE_PKCS7_WRAPPED_X509_CERTIFICATE_V2:
@@ -1748,7 +1786,7 @@ static char *ike_certificate_encoding_string(ike_certificate_encoding_e s) {
  *
  * \return A string representation of the protocol id enumeration.
  */
-static char *ike_protocol_id_string(ike_protocol_id_e s) {
+static const char *ike_protocol_id_string(ike_protocol_id_e s) {
 
     switch (s) {
     case IKE_PROTO_RESERVED_V2:
@@ -1777,7 +1815,7 @@ static char *ike_protocol_id_string(ike_protocol_id_e s) {
  *
  * \return A string representation of the protocol id enumeration.
  */
-static char *ike_protocol_id_v1_string(ike_protocol_id_e s) {
+static const char *ike_protocol_id_v1_string(ike_protocol_id_e s) {
 
     switch (s) {
     case IKE_PROTO_RESERVED_V1:
@@ -1806,7 +1844,7 @@ static char *ike_protocol_id_v1_string(ike_protocol_id_e s) {
  *
  * \return A string representation of the notify type enumeration.
  */
-static char *ike_notify_type_string(ike_notify_type_e s) {
+static const char *ike_notify_type_string(ike_notify_type_e s) {
 
     switch (s) {
     case IKE_UNSUPPORTED_CRITICAL_PAYLOAD_V2:
@@ -1953,6 +1991,18 @@ static char *ike_notify_type_string(ike_notify_type_e s) {
         return "clone_ike_sa_supported";
     case IKE_CLONE_IKE_SA_V2:
         return "clone_ike_sa";
+
+#ifndef WIN32
+    /* ikev1 values not represented in ikev2 */
+    case IKE_DOI_NOT_SUPPORTED_V1 ...  IKE_SITUATION_NOT_SUPPORTED_V1:
+    case IKE_INVALID_MINOR_VERSION_V1:
+    case IKE_INVALID_FLAGS_V1:
+    case IKE_INVALID_PROTOCOL_ID_V1:
+    case IKE_INVALID_TRANSFORM_ID_V1 ... IKE_ATTRIBUTES_NOT_SUPPORTED_V1:
+    case IKE_BAD_PROPOSAL_SYNTAX_V1 ... IKE_PAYLOAD_MALFORMED_V1:
+    case IKE_INVALID_ID_INFORMATION_V1 ... IKE_INVALID_HASH_INFORMATION_V1:
+    case IKE_INVALID_SIGNATURE_V1 ... IKE_UNEQUAL_PAYLOAD_LENGTHS_V1:
+#endif
     default:
         return NULL;
     }
@@ -1967,7 +2017,7 @@ static char *ike_notify_type_string(ike_notify_type_e s) {
  *
  * \return A string representation of the notify type enumeration.
  */
-static char *ike_notify_type_v1_string(ike_notify_type_e s) {
+static const char *ike_notify_type_v1_string(ike_notify_type_e s) {
 
     switch (s) {
     case IKE_INVALID_PAYLOAD_TYPE_V1:
@@ -2032,6 +2082,12 @@ static char *ike_notify_type_v1_string(ike_notify_type_e s) {
         return "unequal_payload_lengths";
     case IKE_CONNECTED_V1:
         return "connected";
+
+#ifndef WIN32
+    /* ikev2 values not represented in ikev1 */
+    case IKE_SINGLE_PAIR_REQUIRED_V2 ... IKE_AUTHORIZATION_FAILED_V2:
+    case IKE_SET_WINDOW_SIZE_V2 ... IKE_CLONE_IKE_SA_V2:
+#endif
     default:
         return NULL;
     }
@@ -2046,7 +2102,7 @@ static char *ike_notify_type_v1_string(ike_notify_type_e s) {
  *
  * \return A string representation of the DOI enumeration.
  */
-static char *ike_doi_v1_string(ike_doi_e s) {
+static const char *ike_doi_v1_string(ike_doi_e s) {
 
     switch (s) {
     case IKE_ISAKMP_V1:
@@ -2069,7 +2125,7 @@ static char *ike_doi_v1_string(ike_doi_e s) {
  *
  * \return A string representation of the life type enumeration.
  */
-static char *ike_life_type_v1_string(ike_life_type_e s) {
+static const char *ike_life_type_v1_string(ike_life_type_e s) {
 
     switch (s) {
     case IKE_SECONDS_V1:
@@ -2090,7 +2146,7 @@ static char *ike_life_type_v1_string(ike_life_type_e s) {
  *
  * \return A string representation of the group type enumeration.
  */
-static char *ike_group_type_v1_string(ike_group_type_e s) {
+static const char *ike_group_type_v1_string(ike_group_type_e s) {
 
     switch (s) {
     case IKE_MODP_V1:
@@ -2115,7 +2171,7 @@ static char *ike_group_type_v1_string(ike_group_type_e s) {
  * \return
  */
 static void ike_attribute_print_json(ike_attribute_t *s, zfile f) {
-    char *type_string = ike_attribute_type_string(s->type);
+    const char *type_string = ike_attribute_type_string(s->type);
     
     /* START attribute object */
     zprintf(f, "{");
@@ -2145,7 +2201,7 @@ static void ike_attribute_print_json(ike_attribute_t *s, zfile f) {
  * \return
  */
 static void ike_attribute_v1_print_json(ike_attribute_t *s, zfile f) {
-    char *type_string = ike_attribute_type_v1_string(s->type);
+    const char *type_string = ike_attribute_type_v1_string(s->type);
 
     /* START attribute object */
     zprintf(f, "{");
@@ -2162,7 +2218,7 @@ static void ike_attribute_v1_print_json(ike_attribute_t *s, zfile f) {
          * Fixed-length encoding.
          */
         uint16_t value = raw_to_uint16((char *)s->data->bytes);
-        char *string = NULL;
+        const char *string = NULL;
 
         switch (s->type) {
         case IKE_ENCRYPTION_ALGORITHM_V1:
@@ -2184,7 +2240,8 @@ static void ike_attribute_v1_print_json(ike_attribute_t *s, zfile f) {
             string = ike_life_type_v1_string(value);
             break;
         case IKE_PRF_V1:
-            string = ike_pseudorandom_function_v1_string(value);
+            //string = ike_pseudorandom_function_v1_string(value);
+            string = NULL;
             break;
         case IKE_KEY_LENGTH_V1:
             goto print_hex;
@@ -2314,9 +2371,9 @@ static unsigned int ike_attribute_unmarshal(ike_attribute_t *s, const char *data
  * \return
  */
 static void ike_transform_print_json(ike_transform_t *s, zfile f) {
-    char *type_string = ike_transform_type_string(s->type);
-    char *id_string = ike_transform_id_string(s->type, s->id);
-    int i = 0;
+    const char *type_string = ike_transform_type_string(s->type);
+    const char *id_string = ike_transform_id_string(s->type, s->id);
+    unsigned int i = 0;
 
     /* START transform object */
     zprintf(f, "{");
@@ -2364,8 +2421,8 @@ static void ike_transform_print_json(ike_transform_t *s, zfile f) {
  * \return
  */
 static void ike_transform_v1_print_json(ike_transform_t *s, zfile f) {
-    char *id_string = ike_transform_id_v1_string(s->id_v1);
-    int i = 0;
+    const char *id_string = ike_transform_id_v1_string(s->id_v1);
+    unsigned int i = 0;
 
     /* START transform object */
     zprintf(f, "{");
@@ -2404,7 +2461,7 @@ static void ike_transform_v1_print_json(ike_transform_t *s, zfile f) {
  */
 static void ike_transform_delete(ike_transform_t **s_handle) {
     ike_transform_t *s = *s_handle;
-    int i;
+    unsigned int i;
 
     if (s == NULL) {
         return;
@@ -2559,8 +2616,8 @@ static unsigned int ike_transform_v1_unmarshal(ike_transform_t *s, const char *d
  * \return
  */
 static void ike_proposal_print_json(ike_proposal_t *s, zfile f) {
-    char *prot_id_string = ike_protocol_id_string(s->protocol_id);
-    int i = 0;
+    const char *prot_id_string = ike_protocol_id_string(s->protocol_id);
+    unsigned int i = 0;
 
     /* START proposal object */
     zprintf(f, "{");
@@ -2584,7 +2641,7 @@ static void ike_proposal_print_json(ike_proposal_t *s, zfile f) {
             zprintf(f, ",");
         }
         ike_transform_print_json(s->transforms[i], f);
-        if (i == s->num_transforms-1) {
+        if (i == (unsigned int)(s->num_transforms-1)) {
             zprintf(f, "]");
         }
     }
@@ -2604,8 +2661,8 @@ static void ike_proposal_print_json(ike_proposal_t *s, zfile f) {
  * \return
  */
 static void ike_proposal_v1_print_json(ike_proposal_t *s, zfile f) {
-    char *prot_id_string = ike_protocol_id_string(s->protocol_id);
-    int i = 0;
+    const char *prot_id_string = ike_protocol_id_string(s->protocol_id);
+    unsigned int i = 0;
 
     /* START proposal object */
     zprintf(f, "{");
@@ -2629,7 +2686,7 @@ static void ike_proposal_v1_print_json(ike_proposal_t *s, zfile f) {
             zprintf(f, ",");
         }
         ike_transform_v1_print_json(s->transforms[i], f);
-        if (i == s->num_transforms-1) {
+        if (i == (unsigned int)(s->num_transforms-1)) {
             zprintf(f, "]");
         }
     }
@@ -2842,7 +2899,7 @@ static unsigned int ike_proposal_v1_unmarshal(ike_proposal_t *s, const char *dat
  * \return
  */
 static void ike_sa_print_json(ike_sa_t *s, zfile f) {
-    int i;
+    unsigned int i;
     
     /* START sa object */
     zprintf(f, "{");
@@ -2874,8 +2931,8 @@ static void ike_sa_print_json(ike_sa_t *s, zfile f) {
  * \return
  */
 static void ike_sa_v1_print_json(ike_sa_t *s, zfile f) {
-    char *doi_string = ike_doi_v1_string(s->doi_v1);
-    int i = 0;
+    const char *doi_string = ike_doi_v1_string(s->doi_v1);
+    unsigned int i = 0;
 
     /* START sa object */
     zprintf(f, "{");
@@ -2934,7 +2991,7 @@ static void ike_sa_v1_print_json(ike_sa_t *s, zfile f) {
  */
 static void ike_sa_delete(ike_sa_t **s_handle) {
     ike_sa_t *s = *s_handle;
-    int i;
+    unsigned int i;
 
     if (s == NULL) {
         return;
@@ -3105,7 +3162,7 @@ static unsigned int ike_sa_v1_unmarshal(ike_sa_t *s, const char *data, unsigned 
  * \return
  */
 static void ike_ke_print_json(ike_ke_t *s, zfile f) {
-    char *group_string = ike_diffie_hellman_group_string(s->group);
+    const char *group_string = ike_diffie_hellman_group_string(s->group);
 
     /* START ke object */
     zprintf(f, "{");
@@ -3241,7 +3298,7 @@ static unsigned int ike_ke_v1_unmarshal(ike_ke_t *s, const char *data, unsigned 
  * \return
  */
 static void ike_id_print_json(ike_id_t *s, zfile f) {
-    char *type_string = ike_identification_type_string(s->type);
+    const char *type_string = ike_identification_type_string(s->type);
 
     /* START identity object */
     zprintf(f, "{");
@@ -3270,7 +3327,7 @@ static void ike_id_print_json(ike_id_t *s, zfile f) {
  * \return
  */
 static void ike_id_v1_print_json(ike_id_t *s, zfile f) {
-    char *type_string = ike_identification_type_v1_string(s->type);
+    const char *type_string = ike_identification_type_v1_string(s->type);
 
     /* START identity object */
     zprintf(f, "{");
@@ -3370,7 +3427,7 @@ static unsigned int ike_id_unmarshal(ike_id_t *s, const char *data, unsigned int
  * \return
  */
 static void ike_cert_print_json(ike_cert_t *s, zfile f) {
-    char *encoding_string = ike_certificate_encoding_string(s->encoding);
+    const char *encoding_string = ike_certificate_encoding_string(s->encoding);
 
     /* START certificate object */
     zprintf(f, "{");
@@ -3469,7 +3526,7 @@ static unsigned int ike_cert_unmarshal(ike_cert_t *s, const char *data, unsigned
  * \return
  */
 static void ike_cr_print_json(ike_cr_t *s, zfile f) {
-    char *encoding_string = ike_certificate_encoding_string(s->encoding);
+    const char *encoding_string = ike_certificate_encoding_string(s->encoding);
 
     /* START certificate request object */
     zprintf(f, "{");
@@ -3568,7 +3625,7 @@ static unsigned int ike_cr_unmarshal(ike_cr_t *s, const char *data, unsigned int
  * \return
  */
 static void ike_auth_print_json(ike_auth_t *s, zfile f) {
-    char *method_string = ike_authentication_method_string(s->method);
+    const char *method_string = ike_authentication_method_string(s->method);
 
     /* START authentication object */
     zprintf(f, "{");
@@ -3747,9 +3804,9 @@ static unsigned int ike_hash_v1_unmarshal(ike_hash_t *s, const char *data, unsig
  * \return
  */
 static void ike_notify_print_json(ike_notify_t *s, zfile f) {
-    int i, k = 0;
-    char *prot_id_string = ike_protocol_id_string(s->protocol_id);
-    char *notify_type_string = ike_notify_type_string(s->type);
+    unsigned int i, k = 0;
+    const char *prot_id_string = ike_protocol_id_string(s->protocol_id);
+    const char *notify_type_string = ike_notify_type_string(s->type);
 
     /* START notify object */
     zprintf(f, "{");
@@ -3781,7 +3838,7 @@ static void ike_notify_print_json(ike_notify_t *s, zfile f) {
         k = s->data->len/2;
 
         for (i = 0; i < k; i++) {
-            char *hash_alg_string = NULL;
+            const char *hash_alg_string = NULL;
             uint16_t id = 0;
 
             if (i == 0) {
@@ -3824,9 +3881,9 @@ static void ike_notify_print_json(ike_notify_t *s, zfile f) {
  * \return
  */
 static void ike_notify_v1_print_json(ike_notify_t *s, zfile f) {
-    char *doi_string = ike_doi_v1_string(s->doi_v1);
-    char *prot_id_string = ike_protocol_id_v1_string(s->protocol_id);
-    char *notify_type_string = ike_notify_type_v1_string(s->type);
+    const char *doi_string = ike_doi_v1_string(s->doi_v1);
+    const char *prot_id_string = ike_protocol_id_v1_string(s->protocol_id);
+    const char *notify_type_string = ike_notify_type_v1_string(s->type);
 
     /* START notify object */
     zprintf(f, "{");
@@ -4083,8 +4140,8 @@ static unsigned int ike_nonce_unmarshal(ike_nonce_t *s, const char *data, unsign
  * \return
  */
 static void ike_vendor_id_print_json(ike_vendor_id_t *s, zfile f) {
-    char *id_string = NULL;
-    int i;
+    const char *id_string = NULL;
+    unsigned int i;
 
     if (s->data->len > 0) {
         /* Try to match entry in vendor id table */
@@ -4181,7 +4238,7 @@ static unsigned int ike_vendor_id_unmarshal(ike_vendor_id_t *s, const char *data
  * \return
  */
 static void ike_payload_print_json(ike_payload_t *s, zfile f) {
-    char *type_string = ike_payload_type_string(s->type);
+    const char *type_string = ike_payload_type_string(s->type);
 
     /* START payload object */
     zprintf(f, "{");
@@ -4454,7 +4511,7 @@ static unsigned int ike_payload_unmarshal(ike_payload_t *s, const char *data, un
  * \return
  */
 static void ike_header_print_json(ike_header_t *s, zfile f) {
-    char *exchange_string = ike_exchange_type_string(s->exchange_type);
+    const char *exchange_string = ike_exchange_type_string(s->exchange_type);
 
     /* START header object */
     zprintf(f, "{");
@@ -4577,7 +4634,7 @@ static unsigned int ike_header_unmarshal(ike_header_t *s, const char *data, unsi
  * \return
  */
 static void ike_message_print_json(const ike_message_t *s, zfile f) {
-    int i;
+    unsigned int i;
 
     zprintf(f, "{");
     zprintf(f, "\"header\":");
@@ -4607,7 +4664,7 @@ static void ike_message_print_json(const ike_message_t *s, zfile f) {
  */
 static void ike_message_delete(ike_message_t **s_handle) {
     ike_message_t *s = *s_handle;
-    int i;
+    unsigned int i;
 
     if (s == NULL) {
         return;
@@ -4741,7 +4798,7 @@ static int ike_attribute_match(ike_attribute_t *a, ike_attribute_t *b) {
  * \return 1 if match, otherwise 0.
  */
 static int ike_transform_match(ike_transform_t *init_transform, ike_transform_t *resp_transform) {
-    int init_i, resp_i, resp_j;
+    unsigned int init_i, resp_i, resp_j;
 
     if (init_transform->type != resp_transform->type) {
         return 0;
@@ -4840,7 +4897,7 @@ static int ike_proposal_match(ike_proposal_t *init_proposal, ike_proposal_t *res
  * \return 1 if match, otherwise 0.
  */
 static int ike_sa_match(ike_sa_t *init_sa, ike_sa_t *resp_sa) {
-    int init_i;
+    unsigned int init_i;
 
     if (init_sa->doi_v1 != resp_sa->doi_v1) {
         return 0;
@@ -4883,12 +4940,14 @@ static int ike_sa_match(ike_sa_t *init_sa, ike_sa_t *resp_sa) {
 static ike_sa_t *ike_sa_get(ike_t *ike) {
     int i, j;
 
-    for (i = ike->num_messages-1; i >= 0; i--) {
-        for (j = 0; j < ike->messages[i]->num_payloads; j++) {
+    for (i = (int)(ike->num_messages-1); i >= 0; i--) {
+        for (j = 0; j < (int)(ike->messages[i]->num_payloads); j++) {
             switch (ike->messages[i]->payloads[j]->type) {
             case IKE_SECURITY_ASSOCIATION_V1:
             case IKE_SECURITY_ASSOCIATION_V2:
                 return ike->messages[i]->payloads[j]->body->sa;
+            default:
+                ;
             }
         }
     }
@@ -4982,8 +5041,16 @@ void ike_update(ike_t *ike,
     const char *data_ptr = (const char *)data;
 
     if (len == 0) {
-    return;        /* skip zero-length messages */
+        return;    /* skip zero-length messages */
     }
+
+    /* sanity check */
+    if (ike == NULL) {
+        return;
+    }
+
+    joy_log_debug("ike[%p],header[%p],data[%p],len[%d],report[%d]",
+            ike,header,data,len,report_ike);
 
     /*
      * If a NAT is detected between the Initiator and the Responder, then
@@ -5046,7 +5113,7 @@ void ike_print_json(const ike_t *data,
                     const ike_t *data_twin,
                     zfile f) {
     ike_t *init = NULL, *resp = NULL;
-    int i;
+    unsigned int i;
 
     init = (ike_t*)data;
     resp = (ike_t*)data_twin;
@@ -5101,7 +5168,7 @@ void ike_print_json(const ike_t *data,
  */
 void ike_delete(ike_t **ike_handle) {
     ike_t *ike= *ike_handle;
-    int i;
+    unsigned int i;
 
     if (ike == NULL) {
         return;
@@ -5122,7 +5189,7 @@ void ike_delete(ike_t **ike_handle) {
  *
  * \return 0 for success, otherwise number of failures.
  */
-static int ike_test_v1_handshake() {
+static int ike_test_v1_handshake(void) {
     ike_t *init = NULL, *resp = NULL;
     int num_fails = 0;
 
@@ -5379,7 +5446,7 @@ static int ike_test_v1_handshake() {
  *
  * \return 0 for success, otherwise number of failures.
  */
-static int ike_test_v2_handshake() {
+static int ike_test_v2_handshake(void) {
     ike_t *init = NULL, *resp = NULL;
     int num_fails = 0;
 

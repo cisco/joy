@@ -81,8 +81,8 @@ struct keyword_list {
     struct keyword_container keyword[MAX_KEYWORDS];
 };
 
-static struct keyword_list tcp_keywords = {0};
-static struct keyword_list udp_keywords = {0};
+static struct keyword_list tcp_keywords;
+static struct keyword_list udp_keywords;
 
 /**
  * \brief Wildcard represents "any" value.
@@ -598,7 +598,7 @@ static int keyword_dict_add_keyword(struct keyword_dict_node *root,
                                     const struct keyword_container *kc) {
 
     struct keyword_dict_node *node = NULL;
-    int i = 0;
+    unsigned int i = 0;
 
     if (root == NULL || kc == NULL) {
         return 0;
@@ -667,7 +667,7 @@ static int keyword_dict_add_keyword(struct keyword_dict_node *root,
 static int construct_keyword_dict(struct keyword_dict_node **root,
                                   struct keyword_list *wordlist) {
 
-    int i = 0;
+    unsigned int i = 0;
 
     if (root == NULL || *root != NULL) {
         return 1;
@@ -761,6 +761,11 @@ static const struct pi_container *search_keyword_dict(const struct keyword_dict_
  * \return 0 for success, 1 for failure
  */
 int proto_identify_init(void) {
+
+    /* esnure the keyword dictionary is clean */
+    memset(&tcp_keywords, 0x00, sizeof(tcp_keywords));
+    memset(&udp_keywords, 0x00, sizeof(tcp_keywords));
+
     /* Initialize the list of keywords */
     if (init_keywords()) {
         joy_log_err("failed to initialize keyword list");

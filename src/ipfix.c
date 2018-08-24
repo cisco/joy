@@ -119,8 +119,8 @@ static unsigned int splt_pkt_index = 0;
 /* Exporter object to send messages, alive until process termination */
 #ifdef DARWIN
 static ipfix_exporter_t gateway_export = {
-    {0,0,0,{'0'}},
-    {0,0,0,{'0'}},
+    {0,0,0,{'0'},{0}},
+    {0,0,0,{'0'},{0}},
     0,0
 };
 #else
@@ -135,7 +135,7 @@ static ipfix_exporter_t gateway_export = {
 /* Collector object to receive messages, alive until process termination */
 #ifdef DARWIN
 static ipfix_collector_t gateway_collect = {
-    {0,0,0,{'0'}},
+    {0,0,0,{'0'},{0}},
     0,0
 };
 #else
@@ -452,9 +452,18 @@ static int ipfix_cts_scan_expired(void) {
  *
  * @return Never return and the thread terminates when joy exits.
  */
-void *ipfix_cts_monitor(void *ptr) {
-
+#ifdef WIN32
+__declspec(noreturn) void *ipfix_cts_monitor(void *ptr) {
+#else
+__attribute__((__noreturn__)) void *ipfix_cts_monitor(void *ptr) {
+#endif
+    const char *tmp;
     uint16_t num_expired = 0;
+
+    /* satisfy compiler warning */
+    tmp = ptr;
+    ptr = (void*)tmp;
+
     while (1) {
         /* let's only wake up and do work at specific intervals */
         num_expired = ipfix_cts_scan_expired();
@@ -2120,7 +2129,8 @@ static inline void ipfix_delete_exp_data_record(ipfix_exporter_data_t *data_reco
             free(data_record->record.idp_record.idp_field.info);
         }
         break;
-        
+    case IPFIX_RESERVED_TEMPLATE:
+    case IPFIX_SIMPLE_TEMPLATE:
     default:
         break;
     }
@@ -3335,7 +3345,8 @@ static ipfix_exporter_data_t *ipfix_exp_create_data_record
     case IPFIX_IDP_TEMPLATE:
         data_record = ipfix_exp_create_idp_data_record(fr_record);
         break;
-        
+
+    case IPFIX_RESERVED_TEMPLATE:
     default:
         loginfo("api-error: template type is not supported");
         break;
@@ -3502,6 +3513,7 @@ static ipfix_exporter_template_t *ipfix_exp_create_template
         template = ipfix_exp_create_idp_template();
         break;
         
+    case IPFIX_RESERVED_TEMPLATE:
     default:
         loginfo("api-error: template type is not supported");
         break;
@@ -3856,6 +3868,7 @@ static int ipfix_exp_encode_data_set(ipfix_exporter_data_set_t *set,
             }
             break;
             
+        case IPFIX_RESERVED_TEMPLATE:
         default:
             loginfo("error: invalid data record type, cannot encode into message");
             return 1;
@@ -4113,6 +4126,8 @@ static int ipfix_export_message_attach_data_set(const flow_record_t *fr_record,
             data_record = ipfix_exp_create_data_record(IPFIX_IDP_TEMPLATE,
                                                        fr_record);
             break;
+
+        case IPFIX_RESERVED_TEMPLATE:
         default:
             loginfo("error: template type not supported for exporting");
             goto end;

@@ -258,7 +258,6 @@ float parameters_bd[NUM_PARAMETERS_BD_LOGREG] = {
  * \param r_idx r index in the merge
  * \param merged_lens length of the merge
  * \param merged_times time of the merge
- * \param max_num_pkt_len length of maximum packets
  * \param max_merged_num_pkts number of packets merged
  * \return none
  */
@@ -266,8 +265,7 @@ void merge_splt_arrays (const uint16_t *pkt_len, const struct timeval *pkt_time,
 		       const uint16_t *pkt_len_twin, const struct timeval *pkt_time_twin,
 		       struct timeval start_time, struct timeval start_time_twin,
 		       uint16_t s_idx, uint16_t r_idx,
-		       uint16_t *merged_lens, uint16_t *merged_times,
-		       uint32_t max_num_pkt_len, uint32_t max_merged_num_pkts) {
+		       uint16_t *merged_lens, uint16_t *merged_times) {
     int s,r;
     struct timeval ts_start = { 0, 0 }; /* initialize to avoid spurious warnings */
     struct timeval tmp, tmp_r;
@@ -472,7 +470,7 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
 
     // find the raw features
     merge_splt_arrays(pkt_len, pkt_time, pkt_len_twin, pkt_time_twin, start_time, start_time_twin, op_n, ip_n,
-		                    merged_lens, merged_times, max_num_pkt_len, op_n+ip_n);
+		                    merged_lens, merged_times);
 
     // find new duration
     for (i = 0; i < op_n+ip_n; i++) {
@@ -530,7 +528,7 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
  * \param params file name with new parameters
  * \reutrn none
  */
-void update_params (classifier_type_codes_t param_type, char *param_file) {
+void update_params (classifier_type_codes_t param_type, const char *param_file) {
     float param;
     FILE *fp;
     int count = 0;
