@@ -481,7 +481,7 @@ extern void joy_salt_external_processing (unsigned int index,
  * Parameters:
  *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
- *      min_pkts - minimum number of packets processed before ready
+ *      min_octets - minimum number of octets processed before ready
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -499,7 +499,7 @@ extern void joy_salt_external_processing (unsigned int index,
  */
 extern void joy_bd_external_processing (unsigned int index,
                                         JOY_FLOW_TYPE type,
-                                        unsigned int min_pkts,
+                                        unsigned int min_octets,
                                         joy_flow_rec_callback callback_fn);
 
 /*

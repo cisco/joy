@@ -1309,7 +1309,7 @@ void joy_salt_external_processing(unsigned int index,
  * Parameters:
  *      index - index of the context to use
  *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
- *      min_pkts - minimum number of packets processed before export occurs
+ *      min_octets - minimum number of octets processed before export occurs
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -1327,7 +1327,7 @@ void joy_salt_external_processing(unsigned int index,
  */
 void joy_bd_external_processing(unsigned int index,
                                 JOY_FLOW_TYPE type,
-                                unsigned int min_pkts,
+                                unsigned int min_octets,
                                 joy_flow_rec_callback callback_fn)
 {
     unsigned data_len = 0;
@@ -1367,7 +1367,7 @@ void joy_bd_external_processing(unsigned int index,
         memset(data, 0x00, (MAX_BYTE_COUNT_ARRAY_LENGTH*2));
 
         /* see if this record has BD information */
-        if ((rec->bd_ext_processed == 0) && (rec->op >= min_pkts)) {
+        if ((rec->bd_ext_processed == 0) && (rec->ob >= min_octets)) {
             /* format the BD data for external processing */
             data_len = joy_bd_format_data(rec, data);
 
