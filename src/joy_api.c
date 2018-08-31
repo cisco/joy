@@ -91,6 +91,7 @@ static struct joy_ctx_data *ctx_data = NULL;
  *
  * Parameters:
  *      rec - the flow record
+ *      export_frmt - format of the exported data
  *      data - pointer to the formatted data memory buffer
  *
  * Returns:
@@ -98,9 +99,11 @@ static struct joy_ctx_data *ctx_data = NULL;
  *
  */
 static unsigned int joy_splt_format_data(flow_record_t *rec,
+                                         JOY_EXPORT_TYPE export_frmt,
                                          unsigned char *data)
 {
     unsigned int i = 0;
+    unsigned int entries_used = 0;
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
     struct timeval ts;
@@ -110,42 +113,71 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
     if (data == NULL) {
         joy_log_err("NULL data buffer passed in!");
         return data_len;
-    } else {
-        data_len = MAX_NFV9_SPLT_SALT_ARRAY_LENGTH;
     }
 
     /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
     num_of_pkts = (rec->op < MAX_NFV9_SPLT_SALT_PKTS) ? rec->op : MAX_NFV9_SPLT_SALT_PKTS;
 
-    /* loop through the SPLT lengths and store appropriately */
-    for (i=0; i < num_of_pkts; ++i) {
-        *(formatted_data+i) = (short)rec->pkt_len[i];
+    /* figure out the length of the data we are formatting */
+    if (export_frmt == JOY_NFV9_EXPORT) {
+        /* NFv9 is always 40 bytes */
+        data_len = MAX_NFV9_SPLT_SALT_ARRAY_LENGTH;
+    } else {
+        /* IPFix is variable length - each entry is represented by 2 16-bit values */
+        data_len = num_of_pkts * 4;
     }
 
-    /* see if we need to pad the length array */
-    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
-        /* padding needs to occur */
-        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
-           *(formatted_data+i) = (short)-32768;
+    /* format for Netflow v9 export */
+    if (export_frmt == JOY_NFV9_EXPORT) {
+        /* loop through the SPLT lengths and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            *(formatted_data+i) = (short)rec->pkt_len[i];
         }
-    }
 
-    /* loop through the SPLT times and store appropriately */
-    for (i=0; i < num_of_pkts; ++i) {
-        if (i > 0) {
-            joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
-        } else {
-            joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
+        if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+            /* padding needs to occur */
+            for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
+               *(formatted_data+i) = (short)-32768;
+            }
         }
-        *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
-             (short)joy_timeval_to_milliseconds(ts);
-    }
 
-    /* see if we need to pad the time array */
-    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
-        /* padding needs to occur */
-        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
-           *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (short)0x00;
+        /* loop through the SPLT times and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            if (i > 0) {
+                joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
+            } else {
+                joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
+            }
+            *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
+                 (short)joy_timeval_to_milliseconds(ts);
+        }
+
+        if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+            /* padding needs to occur */
+            for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
+               *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (short)0x00;
+            }
+        }
+
+    /* else format for IPFix export */
+    } else {
+        /* loop through the SPLT lengths and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            *(formatted_data+i) = (short)rec->pkt_len[i];
+        }
+
+        /* store how many entries we used since IPFix doesn't pad */
+        entries_used = i;
+
+        /* loop through the SPLT times and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            if (i > 0) {
+                joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
+            } else {
+                joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
+            }
+            *(formatted_data+entries_used+i) =
+                 (short)joy_timeval_to_milliseconds(ts);
         }
     }
 
@@ -163,6 +195,7 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
  *
  * Parameters:
  *      rec - the flow record
+ *      export_frmt - format of the exported data
  *      data - pointer to the formatted data memory buffer
  *
  * Returns:
@@ -170,9 +203,11 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
  *
  */
 static unsigned int joy_salt_format_data(flow_record_t *rec,
+                                         JOY_EXPORT_TYPE export_frmt,
                                          unsigned char *data)
 {
     unsigned int i = 0;
+    unsigned int entries_used = 0;
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
     struct timeval ts;
@@ -189,35 +224,68 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
     /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
     num_of_pkts = (rec->salt->op < MAX_NFV9_SPLT_SALT_PKTS) ? rec->salt->op : MAX_NFV9_SPLT_SALT_PKTS;
 
-    /* loop through the SALT lengths and store appropriately */
-    for (i=0; i < num_of_pkts; ++i) {
-        *(formatted_data+i) = (unsigned short)rec->salt->pkt_len[i];
+    /* figure out the length of the data we are formatting */
+    if (export_frmt == JOY_NFV9_EXPORT) {
+        /* NFv9 is always 40 bytes */
+        data_len = MAX_NFV9_SPLT_SALT_ARRAY_LENGTH;
+    } else {
+        /* IPFix is variable length */
+        data_len = num_of_pkts * 4;
     }
 
-    /* see if we need to pad the length array */
-    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
-        /* padding needs to occur */
-        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
-           *(formatted_data+i) = (unsigned short)0x00;
+    /* format for Netflow v9 export */
+    if (export_frmt == JOY_NFV9_EXPORT) {
+        /* loop through the SALT lengths and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            *(formatted_data+i) = (unsigned short)rec->salt->pkt_len[i];
         }
-    }
 
-    /* loop through the SALT times and store appropriately */
-    for (i=0; i < num_of_pkts; ++i) {
-        if (i > 0) {
-            joy_timer_sub(&rec->salt->pkt_time[i], &rec->salt->pkt_time[i-1], &ts);
-        } else {
-            joy_timer_sub(&rec->salt->pkt_time[i], &rec->start, &ts);
+        /* see if we need to pad the length array */
+        if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+            /* padding needs to occur */
+            for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
+               *(formatted_data+i) = (unsigned short)0x00;
+            }
         }
-        *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
-             (unsigned short)joy_timeval_to_milliseconds(ts);
-    }
 
-    /* see if we need to pad the time array */
-    if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
-        /* padding needs to occur */
-        for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
-           *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (unsigned short)0x00;
+        /* loop through the SALT times and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            if (i > 0) {
+                joy_timer_sub(&rec->salt->pkt_time[i], &rec->salt->pkt_time[i-1], &ts);
+            } else {
+                joy_timer_sub(&rec->salt->pkt_time[i], &rec->start, &ts);
+            }
+            *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
+                 (unsigned short)joy_timeval_to_milliseconds(ts);
+        }
+
+        /* see if we need to pad the time array */
+        if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+            /* padding needs to occur */
+            for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
+               *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (unsigned short)0x00;
+            }
+        }
+
+    /* format for IPFIX export */
+    } else {
+        /* loop through the SALT lengths and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            *(formatted_data+i) = (unsigned short)rec->salt->pkt_len[i];
+        }
+
+        /* store how many entries we used since IPFix doesn't pad */
+        entries_used = i;
+
+        /* loop through the SALT times and store appropriately */
+        for (i=0; i < num_of_pkts; ++i) {
+            if (i > 0) {
+                joy_timer_sub(&rec->salt->pkt_time[i], &rec->salt->pkt_time[i-1], &ts);
+            } else {
+                joy_timer_sub(&rec->salt->pkt_time[i], &rec->start, &ts);
+            }
+            *(formatted_data+entries_used+i) =
+                 (unsigned short)joy_timeval_to_milliseconds(ts);
         }
     }
 
@@ -978,7 +1046,6 @@ void joy_export_flows_ipfix(unsigned int index, JOY_FLOW_TYPE type)
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -990,7 +1057,6 @@ void joy_export_flows_ipfix(unsigned int index, JOY_FLOW_TYPE type)
  *      is because the IDP data can be retrieved directly from the flow record.
  */
 void joy_idp_external_processing(unsigned int index,
-                                 JOY_FLOW_TYPE type, 
                                  joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
@@ -1014,14 +1080,6 @@ void joy_idp_external_processing(unsigned int index,
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
-
-        /* see if we are processing all flows or just expired flows */
-        if (type == JOY_EXPIRED_FLOWS) {
-            /* don't process active flow in this mode */
-            if (!flow_record_is_expired(ctx,rec)) {
-                break;
-            }
-        }
 
         /* see if this record has IDP information */
         if ((rec->idp_ext_processed == 0) && (rec->idp_len > 0)) {
@@ -1052,7 +1110,6 @@ void joy_idp_external_processing(unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -1064,7 +1121,6 @@ void joy_idp_external_processing(unsigned int index,
  *      is because the TLS data can be retrieved directly from the flow record.
  */
 void joy_tls_external_processing(unsigned int index,
-                                 JOY_FLOW_TYPE type,
                                  joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
@@ -1088,14 +1144,6 @@ void joy_tls_external_processing(unsigned int index,
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
-
-        /* see if we are processing all flows or just expired flows */
-        if (type == JOY_EXPIRED_FLOWS) {
-            /* don't process active flow in this mode */
-            if (!flow_record_is_expired(ctx,rec)) {
-                break;
-            }
-        }
 
         /* see if this record has TLS information */
         if ((rec->tls_ext_processed == 0) && (rec->tls != NULL)) {
@@ -1128,7 +1176,7 @@ void joy_tls_external_processing(unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      export_frmt - formatting of the exported data
  *      min_pkts - minimum number of packets processed before export occurs
  *      callback - function that actually does the flow record processing
  *
@@ -1144,9 +1192,21 @@ void joy_tls_external_processing(unsigned int index,
  *      Once control returns from the callback function, the library will handle that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
+ *
+ *      For NetFlow V9:
+ *           Data Length returned is always 40 bytes (10 records times 4 bytes per record)
+ *           If actual number of records is less than 10, padding occurs
+ *      For IPFix:
+ *           Data Length returned will be N * 4 (N records times 4 bytes per record)
+ *              Maximum value for N is 10
+ *           If actual number of records is less than 10, NO padding occurs
+ *      Format of the Data (NetFlow V9 & IPFix):
+ *           All length values (16-bits) followed by all times (16-bits)
+ *           ie: for data length of 20 bytes
+ *             format: len,len,len,len,len,time,time,time,time,time
  */
 void joy_splt_external_processing(unsigned int index,
-                                 JOY_FLOW_TYPE type,
+                                 JOY_EXPORT_TYPE export_frmt,
                                  unsigned int min_pkts,
                                  joy_flow_rec_callback callback_fn)
 {
@@ -1174,14 +1234,6 @@ void joy_splt_external_processing(unsigned int index,
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
 
-        /* see if we are processing all flows or just expired flows */
-        if (type == JOY_EXPIRED_FLOWS) {
-            /* don't process active flow in this mode */
-            if (!flow_record_is_expired(ctx,rec)) {
-                break;
-            }
-        }
-
         /* clean up the formatted data structures */
         data_len = 0;
         memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
@@ -1189,7 +1241,7 @@ void joy_splt_external_processing(unsigned int index,
         /* see if this record has SPLT information */
         if ((rec->splt_ext_processed == 0) && (rec->op >= min_pkts)) {
             /* format the SPLT data for external processing */
-            data_len = joy_splt_format_data(rec, data);
+            data_len = joy_splt_format_data(rec, export_frmt, data);
 
             /* let the callback function process the flow record */
             callback_fn(rec, data_len, data);
@@ -1217,7 +1269,7 @@ void joy_splt_external_processing(unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
+ *      export_frmt - formatting of the exported data
  *      min_pkts - minimum number of packets processed before export occurs
  *      callback - function that actually does the flow record processing
  *
@@ -1233,9 +1285,21 @@ void joy_splt_external_processing(unsigned int index,
  *      Once control returns from the callback function, the library will free that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
+ *
+ *      For NetFlow V9:
+ *           Data Length returned is always 40 bytes (10 records times 4 bytes per record)
+ *           If actual number of records is less than 10, padding occurs
+ *      For IPFix:
+ *           Data Length returned will be N * 4 (N records times 4 bytes per record)
+ *              Maximum value for N is 10
+ *           If actual number of records is less than 10, NO padding occurs
+ *      Format of the Data (NetFlow V9 & IPFix):
+ *           All length values (16-bits) followed by all times (16-bits)
+ *           ie: for data length of 20 bytes
+ *             format: len,len,len,len,len,time,time,time,time,time
  */
 void joy_salt_external_processing(unsigned int index,
-                                 JOY_FLOW_TYPE type,
+                                 JOY_EXPORT_TYPE export_frmt,
                                  unsigned int min_pkts,
                                  joy_flow_rec_callback callback_fn)
 {
@@ -1263,14 +1327,6 @@ void joy_salt_external_processing(unsigned int index,
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
 
-        /* see if we are processing all flows or just expired flows */
-        if (type == JOY_EXPIRED_FLOWS) {
-            /* don't process active flow in this mode */
-            if (!flow_record_is_expired(ctx,rec)) {
-                break;
-            }
-        }
-
         /* clean up the formatted data structures */
         data_len = 0;
         memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
@@ -1279,7 +1335,7 @@ void joy_salt_external_processing(unsigned int index,
         if ((rec->salt_ext_processed == 0) && (rec->salt != NULL)) {
             if (rec->salt->np >= min_pkts) {
                 /* format the SALT data for external processing */
-                data_len = joy_salt_format_data(rec, data);
+                data_len = joy_salt_format_data(rec, export_frmt, data);
 
                 /* let the callback function process the flow record */
                 callback_fn(rec, data_len, data);
@@ -1308,7 +1364,6 @@ void joy_salt_external_processing(unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      min_octets - minimum number of octets processed before export occurs
  *      callback - function that actually does the flow record processing
  *
@@ -1324,9 +1379,17 @@ void joy_salt_external_processing(unsigned int index,
  *      Once control returns from the callback function, the library will handle that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
+ *
+ *      For NetFlow V9 and IPFix:
+ *          The data length is always 512 bytes. Currently only BD format uncompressed
+ *              is defined in the spec.
+ *          The data format is a series of 16-bit values repesenting the count of a
+ *              given ascii value. The first 16-bit value representes the number of
+ *              times ascii value 0 was seen in the flow. The second 16-bit value
+ *              represents the number times the ascii value 1 was seen in the flow.
+ *              This continues for all ascii values up to value 255.
  */
 void joy_bd_external_processing(unsigned int index,
-                                JOY_FLOW_TYPE type,
                                 unsigned int min_octets,
                                 joy_flow_rec_callback callback_fn)
 {
@@ -1353,14 +1416,6 @@ void joy_bd_external_processing(unsigned int index,
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
-
-        /* see if we are processing all flows or just expired flows */
-        if (type == JOY_EXPIRED_FLOWS) {
-            /* don't process active flow in this mode */
-            if (!flow_record_is_expired(ctx,rec)) {
-                break;
-            }
-        }
 
         /* clean up the formatted data structures */
         data_len = 0;
@@ -1392,8 +1447,7 @@ void joy_bd_external_processing(unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
- *      cond - condition on which records to delete
+ *      cond_bitmask - bitmask of conditions on which records to delete
  *             (JOY_IDP_PROCESSED, JOY_TLS_PROCESSED, JOY_SALT_PROCESSED,
  *              JOY_SPLT_PROCESSED, JOY_BD_PROCESSED, JOY_ANY_PROCESSED)
  *
@@ -1402,10 +1456,9 @@ void joy_bd_external_processing(unsigned int index,
  *
  */
 unsigned int joy_delete_flow_records(unsigned int index,
-                                     JOY_FLOW_TYPE type,
-                                     JOY_COND_TYPE cond)
+                                     unsigned int cond_bitmask)
 {
-    unsigned char ok_to_delete = 0;
+    unsigned int ok_to_delete = 0;
     unsigned int records_deleted = 0;
     flow_record_t *rec = NULL;
     flow_record_t *next_rec = NULL;
@@ -1429,53 +1482,28 @@ unsigned int joy_delete_flow_records(unsigned int index,
     /* go through the records */
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
+        /* figure out what has been procssed in this record */
         ok_to_delete = 0;
-        if (type == JOY_EXPIRED_FLOWS) {
-            /* don't process active flow in this mode */
-            if (!flow_record_is_expired(ctx,rec)) {
-                break;
-            }
+        if (rec->idp_ext_processed == 1) {
+            ok_to_delete |= JOY_IDP_PROCESSED;
         }
-
-        /* check if ok to delete this record */
-        switch (cond) {
-            case (JOY_IDP_PROCESSED):
-                if (rec->idp_ext_processed == 1) {
-                    ok_to_delete = 1;
-                }
-                break;
-            case (JOY_TLS_PROCESSED):
-                if (rec->tls_ext_processed == 1) {
-                    ok_to_delete = 1;
-                }
-                break;
-            case (JOY_SALT_PROCESSED):
-                if (rec->salt_ext_processed == 1) {
-                    ok_to_delete = 1;
-                }
-                break;
-            case (JOY_SPLT_PROCESSED):
-                if (rec->splt_ext_processed == 1) {
-                    ok_to_delete = 1;
-                }
-                break;
-            case (JOY_BD_PROCESSED):
-                if (rec->bd_ext_processed == 1) {
-                    ok_to_delete = 1;
-                }
-                break;
-            case (JOY_ANY_PROCESSED):
-                /* doesn't matter, we are forcing this record to be deleted */
-                ok_to_delete = 1;
-                break;
-            default:
-                /* invlaid option */
-                return records_deleted;
+        if (rec->tls_ext_processed == 1) {
+            ok_to_delete |= JOY_TLS_PROCESSED;
+        }
+        if (rec->salt_ext_processed == 1) {
+            ok_to_delete |= JOY_SALT_PROCESSED;
+        }
+        if (rec->splt_ext_processed == 1) {
+            ok_to_delete |= JOY_SPLT_PROCESSED;
+        }
+        if (rec->bd_ext_processed == 1) {
+            ok_to_delete |= JOY_BD_PROCESSED;
         }
 
         /* remove the record and advance to next record */
         next_rec = rec->time_next;
-        if (ok_to_delete) {
+        /* see if cond flags are set */
+        if ((ok_to_delete & cond_bitmask) == cond_bitmask) {
             remove_record_and_update_list(ctx,rec);
 
             /* increment the delete count */

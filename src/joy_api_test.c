@@ -116,59 +116,63 @@ void my_tls_callback(void *curr_rec, unsigned int data_len, unsigned char *data)
 }
 
 void my_splt_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
-    int i = 0;
+    unsigned int i = 0;
+    unsigned int splt_recs = 0;
     short *formatted_data = (short*)data;
 
     if ((curr_rec == NULL) || (formatted_data == NULL)) return;
 
-    if (data_len != 40) return;
+    splt_recs = data_len / 4;
+    if (splt_recs > 10) {
+        printf("Incorrect SPLT Data Length (%d)\n",data_len);
+        return;
+    }
 
-    /* 10 lengths (20 bytes) */
-    printf("SPLT LENGTHS: ");
-    for (i=0; i<10; ++i) {
-        if (i == 9)
-            printf("%d", *(formatted_data+i));
+    printf("SPLT REC(%d) LENGTHS: ",splt_recs);
+    for (i=0; i<splt_recs; ++i) {
+        if (i == (splt_recs-1))
+            printf("{%d}", *(formatted_data+i));
         else
-            printf("%d, ", *(formatted_data+i));
+            printf("{%d}, ", *(formatted_data+i));
     }
     printf("\n");
-
-    /* 10 times (20 bytes) */
-    printf("SPLT TIMES: ");
-    for (i=0; i<10; ++i) {
-        if (i == 9)
-            printf("%d", *(formatted_data+10+i));
+    printf("SPLT REC(%d) TIMES: ",splt_recs);
+    for (i=0; i<splt_recs; ++i) {
+        if (i == (splt_recs-1))
+            printf("{%d}", *(formatted_data+splt_recs+i));
         else
-            printf("%d, ", *(formatted_data+10+i));
+            printf("{%d}, ", *(formatted_data+splt_recs+i));
     }
     printf("\n");
 }
 
 void my_salt_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
-    int i = 0;
-    unsigned short *formatted_data = (unsigned short*)data;
+    unsigned int i = 0;
+    unsigned int salt_recs = 0;
+    short *formatted_data = (short*)data;
 
     if ((curr_rec == NULL) || (formatted_data == NULL)) return;
 
-    if (data_len != 40) return;
+    salt_recs = data_len / 4;
+    if (salt_recs > 10) {
+        printf("Incorrect SALT Data Length (%d)\n",data_len);
+        return;
+    }
 
-    /* 10 lengths (20 bytes) */
-    printf("SALT LENGTHS: ");
-    for (i=0; i<10; ++i) {
-        if (i == 9)
-            printf("%d", *(formatted_data+i));
+    printf("SALT REC(%d) LENGTHS: ",salt_recs);
+    for (i=0; i<salt_recs; ++i) {
+        if (i == (salt_recs-1))
+            printf("{%d}", *(formatted_data+i));
         else
-            printf("%d, ", *(formatted_data+i));
+            printf("{%d}, ", *(formatted_data+i));
     }
     printf("\n");
-
-    /* 10 times (20 bytes) */
-    printf("SALT TIMES: ");
-    for (i=0; i<10; ++i) {
-        if (i == 9)
-            printf("%d", *(formatted_data+10+i));
+    printf("SALT REC(%d) TIMES: ",salt_recs);
+    for (i=0; i<salt_recs; ++i) {
+        if (i == (salt_recs-1))
+            printf("{%d}", *(formatted_data+salt_recs+i));
         else
-            printf("%d, ", *(formatted_data+10+i));
+            printf("{%d}, ", *(formatted_data+salt_recs+i));
     }
     printf("\n");
 }
@@ -185,9 +189,9 @@ void my_bd_callback(void *curr_rec, unsigned int data_len, unsigned char *data) 
     printf("BYTE COUNTS: ");
     for (i=0; i<256; ++i) {
         if (i == 255)
-            printf("[%d]", *(formatted_data+i));
+            printf("{%d}", *(formatted_data+i));
         else
-            printf("[%d], ", *(formatted_data+i));
+            printf("{%d}, ", *(formatted_data+i));
     }
     printf("\n");
 }
@@ -201,14 +205,16 @@ void *thread_main1 (void *file)
     joy_print_config(0, JOY_JSON_FORMAT);
     if (file != NULL) {
         proc_pcap_file(0, file);
-        joy_idp_external_processing(0, JOY_ALL_FLOWS, my_idp_callback);
-        joy_tls_external_processing(0, JOY_ALL_FLOWS, my_tls_callback);
-        joy_splt_external_processing(0, JOY_ALL_FLOWS, 1, my_splt_callback);
-        joy_salt_external_processing(0, JOY_ALL_FLOWS, 1, my_salt_callback);
-        joy_bd_external_processing(0, JOY_ALL_FLOWS, 1, my_bd_callback);
+        joy_idp_external_processing(0, my_idp_callback);
+        joy_tls_external_processing(0, my_tls_callback);
+        //joy_splt_external_processing(0, JOY_NFV9_EXPORT, 1, my_splt_callback);
+        joy_splt_external_processing(0, JOY_IPFIX_EXPORT, 1, my_splt_callback);
+        //joy_salt_external_processing(0, JOY_NFV9_EXPORT, 1, my_salt_callback);
+        joy_salt_external_processing(0, JOY_IPFIX_EXPORT, 1, my_salt_callback);
+        joy_bd_external_processing(0, 1, my_bd_callback);
         //joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
         //joy_print_flow_data(0, JOY_ALL_FLOWS);
-        recs = joy_delete_flow_records(0, JOY_ALL_FLOWS, JOY_ANY_PROCESSED);
+        recs = joy_delete_flow_records(0, JOY_DELETE_ALL);
         printf("Thread 1 deleted %d records\n",recs);
     } else {
         printf("Thread 1 No File to Process\n");

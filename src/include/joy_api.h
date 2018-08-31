@@ -66,13 +66,26 @@ typedef enum {
 } JOY_FLOW_TYPE;
 
 typedef enum {
-    JOY_IDP_PROCESSED          = 0,
-    JOY_TLS_PROCESSED          = 1,
-    JOY_SALT_PROCESSED         = 2,
-    JOY_SPLT_PROCESSED         = 3,
-    JOY_BD_PROCESSED           = 4,
-    JOY_ANY_PROCESSED          = 5
-} JOY_COND_TYPE;
+    JOY_NFV9_EXPORT            = 0,
+    JOY_IPFIX_EXPORT           = 1
+} JOY_EXPORT_TYPE;
+
+/*
+ * Joy Library Flow Record Delete Bitmask Values
+ * Each value represents a data feature that has been
+ * processed by an external application. When calling
+ * joy_delete_flow_records, the caller will represent
+ * which flow records are ok to delete by supplying the
+ * bitmask of the data features that they have already
+ * processed.
+ *
+ */
+#define JOY_DELETE_ALL          (0)
+#define JOY_IDP_PROCESSED       (1 << 0)
+#define JOY_TLS_PROCESSED       (1 << 1)
+#define JOY_SALT_PROCESSED      (1 << 2)
+#define JOY_SPLT_PROCESSED      (1 << 3)
+#define JOY_BD_PROCESSED        (1 << 4)
 
 /*
  * Joy Library Bitmask Values
@@ -350,7 +363,6 @@ extern void joy_export_flows_ipfix (unsigned int index, JOY_FLOW_TYPE type);
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -362,7 +374,6 @@ extern void joy_export_flows_ipfix (unsigned int index, JOY_FLOW_TYPE type);
  *      is because the IDP data can be retrieved directly from the flow record.
  */
 extern void joy_idp_external_processing (unsigned int index,
-                                         JOY_FLOW_TYPE type,
                                          joy_flow_rec_callback callback_fn);
 
 /*
@@ -379,7 +390,6 @@ extern void joy_idp_external_processing (unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -391,7 +401,6 @@ extern void joy_idp_external_processing (unsigned int index,
  *      is because the TLS data can be retrieved directly from the flow record.
  */
 extern void joy_tls_external_processing (unsigned int index,
-                                         JOY_FLOW_TYPE type,
                                          joy_flow_rec_callback callback_fn);
 
 /*
@@ -408,8 +417,8 @@ extern void joy_tls_external_processing (unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
- *      min_pkts - minimum number of packets processed before ready
+ *      export_frmt - formatting of the exported data
+ *      min_pkts - minimum number of packets processed before export occurs
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -421,12 +430,24 @@ extern void joy_tls_external_processing (unsigned int index,
  *      data_len field will be the length of the preprocessed data and the
  *      data field will be a pointer to the actual preprocessed data. The callback
  *      does not need to worry about freeing the memory associated with the data.
- *      Once control returns from the callback function, the library will free that
+ *      Once control returns from the callback function, the library will handle that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
+ *
+ *      For NetFlow V9:
+ *           Data Length returned is always 40 bytes (10 records times 4 bytes per record)
+ *           If actual number of records is less than 10, padding occurs
+ *      For IPFix:
+ *           Data Length returned will be N * 4 (N records times 4 bytes per record)
+ *              Maximum value for N is 10
+ *           If actual number of records is less than 10, NO padding occurs
+ *      Format of the Data (NetFlow V9 & IPFix):
+ *           All length values (16-bits) followed by all times (16-bits)
+ *           ie: for data length of 20 bytes
+ *             format: len,len,len,len,len,time,time,time,time,time
  */
 extern void joy_splt_external_processing (unsigned int index,
-                                          JOY_FLOW_TYPE type,
+                                          JOY_EXPORT_TYPE export_frmt,
                                           unsigned int min_pkts,
                                           joy_flow_rec_callback callback_fn);
 
@@ -444,8 +465,8 @@ extern void joy_splt_external_processing (unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
- *      min_pkts - minimum number of packets processed before ready
+ *      export_frmt - formatting of the exported data
+ *      min_pkts - minimum number of packets processed before export occurs
  *      callback - function that actually does the flow record processing
  *
  * Returns:
@@ -460,9 +481,21 @@ extern void joy_splt_external_processing (unsigned int index,
  *      Once control returns from the callback function, the library will free that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
+ *
+ *      For NetFlow V9:
+ *           Data Length returned is always 40 bytes (10 records times 4 bytes per record)
+ *           If actual number of records is less than 10, padding occurs
+ *      For IPFix:
+ *           Data Length returned will be N * 4 (N records times 4 bytes per record)
+ *              Maximum value for N is 10
+ *           If actual number of records is less than 10, NO padding occurs
+ *      Format of the Data (NetFlow V9 & IPFix):
+ *           All length values (16-bits) followed by all times (16-bits)
+ *           ie: for data length of 20 bytes
+ *             format: len,len,len,len,len,time,time,time,time,time
  */
 extern void joy_salt_external_processing (unsigned int index,
-                                          JOY_FLOW_TYPE type,
+                                          JOY_EXPORT_TYPE export_frmt,
                                           unsigned int min_pkts,
                                           joy_flow_rec_callback callback_fn);
 
@@ -480,7 +513,6 @@ extern void joy_salt_external_processing (unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
  *      min_octets - minimum number of octets processed before ready
  *      callback - function that actually does the flow record processing
  *
@@ -496,9 +528,17 @@ extern void joy_salt_external_processing (unsigned int index,
  *      Once control returns from the callback function, the library will free that
  *      memory. IF the callback function needs access to this data after it returns
  *      control to the library, then it should copy that data for later use.
+ *
+ *      For NetFlow V9 and IPFix:
+ *          The data length is always 512 bytes. Currently only BD format uncompressed
+ *              is defined in the spec.
+ *          The data format is a series of 16-bit values repesenting the count of a
+ *              given ascii value. The first 16-bit value representes the number of
+ *              times ascii value 0 was seen in the flow. The second 16-bit value
+ *              represents the number times the ascii value 1 was seen in the flow.
+ *              This continues for all ascii values up to value 255.
  */
 extern void joy_bd_external_processing (unsigned int index,
-                                        JOY_FLOW_TYPE type,
                                         unsigned int min_octets,
                                         joy_flow_rec_callback callback_fn);
 
@@ -511,8 +551,7 @@ extern void joy_bd_external_processing (unsigned int index,
  *
  * Parameters:
  *      index - index of the context to use
- *      type - JOY_EXPIRED_FLOWS or JOY_ALL_FLOWS
- *      cond - condition on which records to delete
+ *      cond_bitmask - bitmask of conditions on which records to delete
  *             (JOY_IDP_PROCESSED, JOY_TLS_PROCESSED, JOY_SALT_PROCESSED,
  *              JOY_SPLT_PROCESSED, JOY_BD_PROCESSED, JOY_ANY_PROCESSED)
  *
@@ -521,8 +560,7 @@ extern void joy_bd_external_processing (unsigned int index,
  *
  */
 extern unsigned int joy_delete_flow_records (unsigned int index,
-                                             JOY_FLOW_TYPE type,
-                                             JOY_COND_TYPE cond);
+                                             unsigned int cond_bitmask);
 
 /*
  * Function: joy_context_cleanup
