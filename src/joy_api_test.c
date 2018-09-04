@@ -212,6 +212,8 @@ void *thread_main1 (void *file)
         //joy_salt_external_processing(0, JOY_NFV9_EXPORT, 1, my_salt_callback);
         joy_salt_external_processing(0, JOY_IPFIX_EXPORT, 1, my_salt_callback);
         joy_bd_external_processing(0, 1, my_bd_callback);
+        recs = joy_purge_old_flow_records(0, 300);
+        printf("Thread 1 deleted %d records\n",recs);
         //joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
         //joy_print_flow_data(0, JOY_ALL_FLOWS);
         recs = joy_delete_flow_records(0, JOY_DELETE_ALL);

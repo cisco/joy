@@ -563,6 +563,24 @@ extern unsigned int joy_delete_flow_records (unsigned int index,
                                              unsigned int cond_bitmask);
 
 /*
+ * Function: joy_purge_old_flow_records
+ *
+ * Description: This function allows the calling application of
+ *      the Joy library to handle the forced removal of flow records
+ *      that are older than the time value passed in by the caller.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      rec_age - age of the records in seconds
+ *
+ * Returns:
+ *      unsigned int - number of records deleted
+ *
+ */
+extern unsigned int joy_purge_old_flow_records (unsigned int index,
+                                                unsigned int rec_age);
+
+/*
  * Function: joy_context_cleanup
  *
  * Description: This function cleans up any lefotover data that maybe

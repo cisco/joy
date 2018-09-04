@@ -1516,6 +1516,74 @@ unsigned int joy_delete_flow_records(unsigned int index,
 
     return records_deleted;
 }
+/*
+ * Function: joy_purge_old_flow_records
+ *
+ * Description: This function allows the calling application of
+ *      the Joy library to handle the forced removal of flow records
+ *      that are older than the time value passed in by the caller.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      rec_age - age of the records in seconds
+ *
+ * Returns:
+ *      unsigned int - number of records deleted
+ *
+ */
+extern unsigned int joy_purge_old_flow_records(unsigned int index,
+                                               unsigned int rec_age)
+{
+    unsigned int ok_to_delete = 0;
+    unsigned int records_deleted = 0;
+    flow_record_t *rec = NULL;
+    flow_record_t *next_rec = NULL;
+    joy_ctx_data *ctx = NULL;
+
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return records_deleted;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return records_deleted;
+    }
+
+    /* get the correct context */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* go through the records */
+    rec = ctx->flow_record_chrono_first;
+    while (rec != NULL) {
+
+        /* Check the record only to see if it's expired (no new packet) */
+        ok_to_delete = 0;
+        if (rec->end.tv_sec > (rec->start.tv_sec + rec_age)) {
+            if ((rec->twin == NULL) || (rec->end.tv_sec > (rec->twin->start.tv_sec + rec_age))) {
+                ok_to_delete = 1;
+            }
+        }
+
+        /* remove the record and advance to next record */
+        next_rec = rec->time_next;
+        /* see if cond flags are set */
+        if (ok_to_delete) {
+            remove_record_and_update_list(ctx,rec);
+
+            /* increment the delete count */
+            ++records_deleted;
+        }
+
+        /* go to the next record */
+        rec = next_rec;
+    }
+
+    return records_deleted;
+}
 
 /*
  * Function: joy_context_cleanup
