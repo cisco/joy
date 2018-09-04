@@ -185,6 +185,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
             if (transform != NULL) {
                       err = transform(line, (unsigned int)acsm_strlen(line), hexout, sizeof(hexout));
                       if (err != ok) {
+                          fclose(fp);
                           return err;
                       }
                       string = hexout;
@@ -193,6 +194,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
             // printf("adding pattern \"%s\"\n", string);
             if (acsm_add_pattern(ctx, (unsigned char *)string, acsm_strlen(string)) != 0) {
                       fprintf(stderr, "acsm_add_pattern() with pattern \"%s\" error.\n", line);
+                      fclose(fp);
                       return -1;
             }  
         }
@@ -201,8 +203,10 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
   
     if (acsm_compile(ctx) != 0) {
         fprintf(stderr, "acsm_compile() error.\n");
+        fclose(fp);
         return -1;
     }
 
+    fclose(fp);
     return 0;
 }

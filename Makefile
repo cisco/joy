@@ -76,6 +76,11 @@ joy_api_test:
 	@if [ ! -d "lib" ]; then mkdir lib; fi;
 	@cd src; $(MAKE) $(MAKEFLAGS) joy_api_test
 
+joy_memory_profile:
+	@if [ ! -d "bin" ]; then mkdir bin; fi;
+	@if [ ! -d "lib" ]; then mkdir lib; fi;
+	@cd src; $(MAKE) $(MAKEFLAGS) joy_memory_profile
+
 joy_api_test2:
 	@if [ ! -d "bin" ]; then mkdir bin; fi;
 	@if [ ! -d "lib" ]; then mkdir lib; fi;

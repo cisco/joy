@@ -554,6 +554,22 @@ joy_status_e anon_http_init (const char *pathname, FILE *logfile, enum anon_mode
 }
 
 /**
+ * \fn void anon_http_ctx_cleanup (void)
+ * \param none
+ * \return none
+ */
+void anon_http_ctx_cleanup (void)
+{
+    /* nothing to do */
+    if (usernames_ctx == NULL) {
+        return;
+    }
+
+    str_match_ctx_free(usernames_ctx);
+    usernames_ctx = NULL;
+}
+
+/**
  * \fn void zprintf_nbytes (zfile f, char *s, size_t len)
  * \param f file to output to
  * \param s pointer to the bytes to print

@@ -446,11 +446,11 @@ int joy_initialize(joy_init_t *init_data,
     if (output_file)
         glb_config->filename = strdup(output_file);
     else
-        glb_config->filename = "joy-output";
+        glb_config->filename = strdup("joy-output");
     if (logfile)
         glb_config->logfile = strdup(logfile);
     else
-        glb_config->logfile = "stderr";
+        glb_config->logfile = strdup("stderr");
 
     /* setup the max records in a given output file */
     if (init_data->max_records > MAX_RECORDS) {
@@ -1650,6 +1650,8 @@ void joy_context_cleanup(unsigned int index)
  */
 void joy_shutdown(void)
 {
+    unsigned int i = 0;
+
     /* check library initialization */
     if (!joy_library_initialized) {
         joy_log_crit("Joy Library has not been initialized!");
@@ -1661,6 +1663,38 @@ void joy_shutdown(void)
 
     /* free up the memory for the contexts */
     JOY_API_FREE_CONTEXT(ctx_data)
+
+    /* free up the strings in the global config */
+    if (glb_config->compact_byte_distribution) free((void*)glb_config->compact_byte_distribution);
+    if (glb_config->intface) free((void*)glb_config->intface);
+    if (glb_config->filename) free((void*)glb_config->filename);
+    if (glb_config->outputdir) free((void*)glb_config->outputdir);
+    if (glb_config->username) free((void*)glb_config->username);
+    if (glb_config->logfile) free((void*)glb_config->logfile);
+    if (glb_config->anon_addrs_file) free((void*)glb_config->anon_addrs_file);
+    if (glb_config->anon_http_file) free((void*)glb_config->anon_http_file);
+    if (glb_config->upload_servername) free((void*)glb_config->upload_servername);
+    if (glb_config->upload_key) free((void*)glb_config->upload_key);
+    if (glb_config->params_url) free((void*)glb_config->params_url);
+    if (glb_config->params_file) free((void*)glb_config->params_file);
+    if (glb_config->label_url) free((void*)glb_config->label_url);
+    if (glb_config->bpf_filter_exp) free((void*)glb_config->bpf_filter_exp);
+    if (glb_config->ipfix_export_remote_host) free((void*)glb_config->ipfix_export_remote_host);
+    if (glb_config->ipfix_export_template) free((void*)glb_config->ipfix_export_template);
+    if (glb_config->aux_resource_path) free((void*)glb_config->aux_resource_path);
+
+    /* free up the subnet labels if we have any */
+    for (i=0; i < glb_config->num_subnets; ++i)
+    {
+        if (glb_config->subnet[i])
+            free((void*)glb_config->subnet[i]);
+    }
+
+    /* clean up the radix trie if present */
+    if (glb_config->rt) radix_trie_free(glb_config->rt);
+
+    /* clean up the anonymous username context if present */
+    anon_http_ctx_cleanup();
 
     /* clear out the configuration structure */
     memset(&active_config, 0x00, sizeof(struct configuration));

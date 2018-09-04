@@ -106,6 +106,9 @@ unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 /** \brief initialize the http anonymization */
 joy_status_e anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, const char *anon_keyfile);
 
+/** \brief cleanup the http anonymization structure */
+void anon_http_ctx_cleanup(void);
+
 /** \brief prints out '*' for length */
 void zprintf_anon_nbytes(zfile f, size_t len);
 

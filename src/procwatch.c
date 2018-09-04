@@ -618,7 +618,7 @@ static void get_pid_path_hash (host_flow_t *hf) {
 }
 
 static void process_pid_string (struct ss_flow *fr, char *string) {
-    char *s = string;
+    char *s = NULL;
 
     /* search to beginning of the app name */
     s = strstr(string,"\"");
@@ -645,7 +645,7 @@ static void process_pid_string (struct ss_flow *fr, char *string) {
 }
 
 static void process_addr_string (int which, struct ss_flow *fr, char *string) {
-    char *s = string;
+    char *s = NULL;
 
     /* find the end of the ip address */
     s = strstr(string,":");
@@ -693,6 +693,10 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
     while (1) {
         /* clean out the ss flow record */
         memset(&fr,0x00,sizeof(struct ss_flow));
+        memset(src_string,0x00,ADDR_MAX_LEN);
+        memset(dst_string,0x00,ADDR_MAX_LEN);
+        memset(pid_string,0x00,PID_MAX_LEN);
+        memset(dummy_string,0x00,PID_MAX_LEN);
 
         /* process ss output 1 line at a time */
         rc = fscanf(ss_file,"%s %d %d %s %s %s\n", dummy_string,&dummy_int,&dummy_int,src_string,dst_string,pid_string);

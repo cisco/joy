@@ -144,6 +144,11 @@ joy_api_test: joy_api_test.c $(LIBDIR)/libjoy.a
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -pthread $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test" joy_api_test.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) $(LIBS)
 	@echo
 
+joy_memory_profile: joy_memory_profile.c $(LIBDIR)/libjoy.a
+	@echo "Building joy_memory_profile ..."
+	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 -pthread $(INCLUDEDIR) -o "$(BINDIR)/joy_memory_profile" joy_memory_profile.c -L $(LIBDIR) -ljoy  $(LIBRARYPATH) $(LIBS)
+	@echo
+
 joy_api_test2: joy_api_test2.c $(LIBDIR)/libjoy.a
 	@echo "Building joy_api_test2 ..."
 	gcc $(CFLAGS) $(CDEFS) $(COMPDEF) -DCOMPRESSED_OUTPUT=0 $(INCLUDEDIR) -o "$(BINDIR)/joy_api_test2" joy_api_test2.c -L $(LIBDIR) -ljoy $(LIBRARYPATH) $(LIBS)
