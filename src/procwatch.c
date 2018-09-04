@@ -39,7 +39,9 @@
   *
   * \brief process watcher implementation
   */
-
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

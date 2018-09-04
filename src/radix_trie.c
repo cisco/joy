@@ -76,6 +76,9 @@
  **    level 4: leaf.value = 1 & 2
  *    
  */
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -786,7 +789,11 @@ static void radix_trie_print (const struct radix_trie *rt) {
 static int radix_trie_high_level_unit_test () {
     struct radix_trie *rt = NULL;
     attr_flags flag_internal, flag_malware, flag;
+#ifdef HAVE_CONFIG_H
+    char *configfile = "../internal.net";
+#else
     char *configfile = "internal.net";
+#endif
     struct in_addr addr;
     joy_status_e err;
     unsigned test_failed = 0;
