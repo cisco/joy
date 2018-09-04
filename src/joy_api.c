@@ -480,14 +480,14 @@ int joy_initialize(joy_init_t *init_data,
 
     /* check if IDP option is set */
     if (init_data->bitmask & JOY_IDP_ON) {
-        glb_config->ipfix_export_template = "idp";
+        glb_config->ipfix_export_template = strdup("idp");
         if (init_data->idp > 0) {
             glb_config->idp = init_data->idp;
         } else {
             glb_config->idp = DEFAULT_IDP_SIZE;
         }
     } else {
-        glb_config->ipfix_export_template = "simple";
+        glb_config->ipfix_export_template = strdup("simple");
         glb_config->idp = 0;
     }
 
@@ -497,7 +497,7 @@ int joy_initialize(joy_init_t *init_data,
             glb_config->ipfix_export_remote_host =  strdup(init_data->ipfix_host);
         } else {
             /* default to the loopback address */
-            glb_config->ipfix_export_remote_host = "127.0.0.1";
+            glb_config->ipfix_export_remote_host = strdup("127.0.0.1");
         }
         if (init_data->ipfix_port > 0) {
             glb_config->ipfix_export_port = init_data->ipfix_port;
@@ -645,7 +645,7 @@ int joy_anon_subnets(const char *anon_file)
     }
 
     if (anon_file != NULL) {
-        glb_config->anon_addrs_file = anon_file;
+        glb_config->anon_addrs_file = strdup(anon_file);
         if (anon_init(glb_config->anon_addrs_file, info) == 1) {
             joy_log_err("could not initialize anonymization subnets from file %s",
                             glb_config->anon_addrs_file);
@@ -691,7 +691,7 @@ int joy_anon_http_usernames(const char *anon_http_file)
     }
 
     if (anon_http_file != NULL) {
-        glb_config->anon_http_file = anon_http_file;
+        glb_config->anon_http_file = strdup(anon_http_file);
         if (anon_http_init(glb_config->anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == 1) {
             joy_log_err("could not initialize anonymization for http usernames from file %s",
                             glb_config->anon_http_file);
