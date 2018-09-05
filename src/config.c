@@ -297,6 +297,7 @@ void config_set_defaults (struct configuration *config) {
     config->verbosity = 4;
     config->show_config = 0;
     config->show_interfaces = 0;
+    config->num_pkts = DEFAULT_NUM_PKT_LEN;
 }
 
 #define MAX_FILEPATH 128

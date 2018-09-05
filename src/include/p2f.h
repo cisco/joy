@@ -117,7 +117,7 @@ extern FILE *info;
  * default and maximum number of packets on which to report
  * lengths/times (actual value configurable on command line)
  */
-#define NUM_PKT_LEN 50
+#define DEFAULT_NUM_PKT_LEN 50
 #define MAX_NUM_PKT_LEN 200
 #define MAX_IDP 1500
 #define MAX_TCP_RETRANS_BUFFER 10

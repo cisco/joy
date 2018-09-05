@@ -1347,7 +1347,7 @@ static void flow_record_print_json
 
     if (rec->twin == NULL) {
 
-        imax = rec->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->op;
+        imax = rec->op > glb_config->num_pkts ? glb_config->num_pkts : rec->op;
         if (imax == 0) {
             ; /* no packets had data, so we print out nothing */
         } else {
@@ -1368,8 +1368,8 @@ static void flow_record_print_json
         }
         zprintf(ctx->output, "]");
     } else {
-        imax = rec->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->op;
-        jmax = rec->twin->op > NUM_PKT_LEN ? NUM_PKT_LEN : rec->twin->op;
+        imax = rec->op > glb_config->num_pkts ? glb_config->num_pkts : rec->op;
+        jmax = rec->twin->op > glb_config->num_pkts ? glb_config->num_pkts : rec->twin->op;
         i = j = 0;
         ts_last = ts_start;
 
@@ -1520,12 +1520,12 @@ static void flow_record_print_json
         if (rec->twin) {
             score = classify(rec->pkt_len, rec->pkt_time, rec->twin->pkt_len, rec->twin->pkt_time,
                                      rec->start, rec->twin->start,
-                                     NUM_PKT_LEN, rec->key.sp, rec->key.dp, rec->np, rec->twin->np, rec->op, rec->twin->op,
+                                     glb_config->num_pkts, rec->key.sp, rec->key.dp, rec->np, rec->twin->np, rec->op, rec->twin->op,
                                      rec->ob, rec->twin->ob, glb_config->byte_distribution,
                                      rec->byte_count, rec->twin->byte_count);
         } else {
             score = classify(rec->pkt_len, rec->pkt_time, NULL, NULL,   rec->start, rec->start,
-                                     NUM_PKT_LEN, rec->key.sp, rec->key.dp, rec->np, 0, rec->op, 0,
+                                     glb_config->num_pkts, rec->key.sp, rec->key.dp, rec->np, 0, rec->op, 0,
                                      rec->ob, 0, glb_config->byte_distribution,
                                      rec->byte_count, NULL);
         }

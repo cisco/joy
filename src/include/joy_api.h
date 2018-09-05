@@ -121,6 +121,7 @@ typedef enum {
 typedef struct joy_init {
     int verbosity;               /* verbosity 0 (off) - 5 (critical) */
     uint32_t max_records;        /* max record in output file */
+    uint32_t num_pkts;           /* num_pkts to report on per flow */
     int contexts;                /* number of contexts the app wants to use */
     int idp;                     /* idp size to report, recommend 1300 */
     const char *ipfix_host;      /* ip string of the host to send IPFix data to */

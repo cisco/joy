@@ -457,7 +457,7 @@ static void pkt_info_print_interleaved(zfile f,
     struct tcp_state tcp_state = {0, 0};
     struct tcp_state rev_tcp_state = {0,0};
 
-    imax = np  > NUM_PKT_LEN ? NUM_PKT_LEN : np;
+    imax = np  > glb_config->num_pkts ? glb_config->num_pkts : np;
 
     if (pkt_info2 == NULL) {  /* unidirectional tcp flow, no interleaving needed */
 
@@ -483,7 +483,7 @@ static void pkt_info_print_interleaved(zfile f,
             ts_last = pkt_info2[0].time;
         }
 
-        jmax = np2 > NUM_PKT_LEN ? NUM_PKT_LEN : np2;
+        jmax = np2 > glb_config->num_pkts ? glb_config->num_pkts : np2;
         if (!imax || !jmax) {
           return;   /* nothing to output */
         }

@@ -183,7 +183,7 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
                                                             const struct tcp_hdr *tcp) {
 
     /* make sure we have room in the array */
-    if (record->op >= NUM_PKT_LEN) {
+    if (record->op >= MAX_NUM_PKT_LEN) {
         return;  /* no more room */
     }
 
@@ -217,7 +217,8 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
                                                             const struct timeval *time,
                                                             const struct tcp_hdr *tcp) {
 
-    if (record->op >= NUM_PKT_LEN) {
+    /* make sure we have room in the array */
+    if (record->op >= MAX_NUM_PKT_LEN) {
         return;  /* no more room */
     }
 
@@ -817,7 +818,7 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
         joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
-    if (record->op < NUM_PKT_LEN) {
+    if (record->op < MAX_NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
@@ -908,7 +909,7 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
         joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
-    if (record->op < NUM_PKT_LEN) {
+    if (record->op < MAX_NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
@@ -954,7 +955,7 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
         joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
-    if (record->op < NUM_PKT_LEN) {
+    if (record->op < MAX_NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;

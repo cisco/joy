@@ -560,7 +560,7 @@ static joy_status_e process_dns (const struct pcap_pkthdr *h, const void *start,
     // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
     // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
 
-    if (r->op >= NUM_PKT_LEN) {
+    if (r->op >= MAX_NUM_DNS_PKT_LEN) {
         return failure;  /* no more room */
     }  
 
@@ -829,7 +829,7 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
     joy_log_debug("dns[%p],header[%p],data[%p],len[%d],report[%d]",
             dns,header,start,len,report_dns);
 
-    if (dns->pkt_count >= NUM_PKT_LEN) {
+    if (dns->pkt_count >= MAX_NUM_DNS_PKT) {
         return;  /* no more room */
     }  
 
@@ -867,7 +867,7 @@ void dns_print_json (const dns_t *dns1, const dns_t *dns2, zfile f) {
   
     count = dns1->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns1->pkt_count;
     if (dns2) {
-        count = dns2->pkt_count > count ? dns2->pkt_count : count;
+        count = dns2->pkt_count > count ? count : dns2->pkt_count;
         twin_dns_name = dns2->dns_name;
         twin_pkt_len = dns2->pkt_len;
     }

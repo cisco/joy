@@ -293,6 +293,7 @@ int main (int argc, char **argv)
    /* this setup is for general processing */
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */
     init_data.max_records = 0;    /* max records in output file, 0 means single output file */
+    init_data.num_pkts = 20;      /* report on at most 20 packets */
     init_data.contexts = 3;       /* use 3 worker contexts for processing */
     init_data.idp = 2048;
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */

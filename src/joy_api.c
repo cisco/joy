@@ -440,6 +440,10 @@ int joy_initialize(joy_init_t *init_data,
 
     glb_config->verbosity = init_data->verbosity;
     glb_config->flow_key_match_method = EXACT_MATCH;
+    glb_config->num_pkts = DEFAULT_NUM_PKT_LEN;
+    if ((init_data->num_pkts > 0) && (init_data->num_pkts < MAX_NUM_PKT_LEN)) {
+        glb_config->num_pkts = init_data->num_pkts;
+    }
 
     /* setup joy with the output options */
     glb_config->outputdir = strdup(output_dirname);
