@@ -1,5 +1,8 @@
 /* joy_config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define to 1 if you have the <bzlib.h> header file. */
+#undef HAVE_BZLIB_H
+
 /* Define to 1 if you have the `calloc' function. */
 #undef HAVE_CALLOC
 
@@ -23,6 +26,9 @@
 
 /* Define to 1 if you have the `crypto' library (-lcrypto). */
 #undef HAVE_LIBCRYPTO
+
+/* Define to 1 if you have the `curl' library (-lcurl). */
+#undef HAVE_LIBCURL
 
 /* Define to 1 if you have the `dl' library (-ldl). */
 #undef HAVE_LIBDL
@@ -99,6 +105,9 @@
 /* Define to 1 if `vfork' works. */
 #undef HAVE_WORKING_VFORK
 
+/* Define to 1 if you have the <zlib.h> header file. */
+#undef HAVE_ZLIB_H
+
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL
 
@@ -141,6 +150,12 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* BZIP2 is enabled */
+#undef USE_BZIP2
+
+/* GZIP is enabled */
+#undef USE_GZIP
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE

@@ -19,7 +19,7 @@ m4_define([joy_micro_version], [0])
 m4_define([joy_version],[joy_major_version.joy_minor_version.joy_micro_version])
 AC_PREREQ(2.63)
 
-AC_INIT([joy],[joy_version],[dev/null@cisco.com])
+AC_INIT([joy],[joy_version],[TBD@cisco.com])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS([joy_config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -133,21 +133,86 @@ AC_FUNC_FORK
 #AC_FUNC_STRNLEN
 AC_CHECK_FUNCS([gettimeofday memsetstrcasecmp strdup strerror strndup strstr strtol strtoul calloc chmod rename remove])
 
-#AC_ARG_WITH([ssl-dir],
-#            [AS_HELP_STRING([--with-ssl-dir=],
-#                [location of CiscoSSL install folder, This is a required option#])],
-#            [ssldir="$withval"],
-#            [ssldir="/usr"])
+
 #
+# A user may have installed openssl in a location other than standard
+# if so let them tell us where
 #
-#if test "x$ssldir" != "/usr"; then
-#   LDFLAGS="$LDFLAGS -lrt -L$ssldir/lib" 
-#   AC_SUBST([SSL_CFLAGS], "$ssldir/include")
-#   AC_SUBST([SSL_LDFLAGS], "$ssldir/lib")
-#fi
+AC_ARG_WITH([ssl-dir],
+            [AS_HELP_STRING([--with-ssl-dir=],
+                [location of openSSL install folder, This is optional#])],
+            [ssldir="$withval"],
+            [ssldir="/usr"])
+
+
+if test "x$ssldir" != "/usr"; then
+   LDFLAGS="$LDFLAGS -L$ssldir/lib" 
+   AC_SUBST([SSL_CFLAGS], "$ssldir/include")
+   AC_SUBST([SSL_LDFLAGS], "$ssldir/lib")
+fi
 
 AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
-             [AC_MSG_FAILURE([can't find CiscoSSL crypto lib])])
+             [AC_MSG_FAILURE([can't find openSSL libcrypto file])])
+
+##
+# Libcurl installation directory path
+# to override defaults
+##
+AC_ARG_WITH([libcurl-dir],
+    [AS_HELP_STRING([--with-libcurl-dir],
+    [enable support for joy using libcurl])],
+    [libcurldir="$withval"],
+    [libcurldir="no"])
+
+if test "x$libcurldir" != "xno"; then
+   LDFLAGS="$LDFLAGS -L$libcurldir/lib" 
+   AC_SUBST([CURL_CFLAGS], "$libcurldir/include")
+   AC_SUBST([CURL_LDFLAGS], "$libcurldir/lib")
+
+   AC_CHECK_LIB([curl], [curl_easy_install], [],
+             [AC_MSG_FAILURE([--with-libcurl-dir was given, but test for libcurl failed])])
+fi
+
+
+AC_MSG_CHECKING([enable bzip2])
+AC_ARG_ENABLE(bzip2,
+        [AS_HELP_STRING([--enable-bzip2],[enable the use of bzip2])],
+        [enable_bzip2="yes"],
+        [enable_bzip2="no"])  
+
+#
+# User want bzip2
+#
+if test "x$enable_bzip2" = "xyes"; then
+    LDFLAGS="$LDFLAGS -lbz2"
+    AC_MSG_RESULT(yes)
+    AC_DEFINE([USE_BZIP2], [], [BZIP2 is enabled])
+    AC_CHECK_HEADERS([bzlib.h],[ ],[AC_MSG_FAILURE([can't find bzlib.h])])
+else
+    AC_MSG_RESULT(no);
+fi
+
+#
+# User wants gzip
+#
+AC_MSG_CHECKING([enable gzip])
+AC_ARG_ENABLE(gzip,
+        [AS_HELP_STRING([--enable-gzip],[enable the use of gzip])],
+        [enable_gzip="yes"],
+        [enable_gzip="no"])  
+
+if test "x$enable_gzip" = "xyes"; then
+    LDFLAGS="$LDFLAGS -lz"
+    AC_MSG_RESULT(yes)
+    AC_DEFINE([USE_GZIP], [], [GZIP is enabled])
+    AC_CHECK_HEADERS([zlib.h])
+    AC_CHECK_HEADERS([zlib.h],[ ],[AC_MSG_FAILURE([can't find zlib.h])])
+else
+    AC_MSG_RESULT(no);
+fi
+
+
+
 
 SAFEC_STUB_DIR='$(abs_top_builddir)/safe_c_stub'
 AC_SUBST(SAFEC_STUB_DIR)

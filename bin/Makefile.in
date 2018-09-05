@@ -149,6 +149,8 @@ CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_CFLAGS = @CURL_CFLAGS@
+CURL_LDFLAGS = @CURL_LDFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
@@ -198,6 +200,8 @@ SAFEC_STUB_DIR = @SAFEC_STUB_DIR@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SSL_CFLAGS = @SSL_CFLAGS@
+SSL_LDFLAGS = @SSL_LDFLAGS@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -292,14 +296,14 @@ joy_api_test2_SOURCES = ../src/joy_api_test2.c
 jfd_anon_SOURCES = ../src/jfd-anon.c
 joy_anon_SOURCES = ../src/joy-anon.c
 str_match_test_SOURCES = ../src/str_match_test.c
-joy_CFLAGS = -I ../src/include -DJOY_LIB_API $(AM_CFLAGS)
-unit_test_CFLAGS = -I../src/include $(AM_CFLAGS)
-jfd_anon_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0 $(AM_CFLAGS)
-joy_anon_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0 $(AM_CFLAGS)
-joy_api_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0 $(AM_CFLAGS)
-joy_api_test2_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0 $(AM_CFLAGS)
-str_match_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0 $(AM_CFLAGS)
-joy_LDFLAGS = -lcrypto -lm -lpcap -lcurl -pie
+joy_CFLAGS = -I ../src/include -DJOY_LIB_API -I $(SSL_CFLAGS) $(LIBCURL_CFLAGS) $(AM_CFLAGS)
+unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+jfd_anon_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_anon_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_api_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_api_test2_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+str_match_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_LDFLAGS = $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -pie
 unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
 joy_api_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
 str_match_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie

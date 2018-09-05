@@ -40,6 +40,9 @@
  * \brief contains helper functionality for the Joy software
  *
  */
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
