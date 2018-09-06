@@ -1,5 +1,8 @@
 /* joy_config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Compression is enabled */
+#undef COMPRESSED_OUTPUT
+
 /* Define to 1 if you have the <bzlib.h> header file. */
 #undef HAVE_BZLIB_H
 

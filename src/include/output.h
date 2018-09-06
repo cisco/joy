@@ -46,6 +46,9 @@
 #ifndef OUTPUT_H
 #define OUTPUT_H
 
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 
 /**
  * \brief Set the variable COMPRESSED_OUTPUT to 1 to use zlib to

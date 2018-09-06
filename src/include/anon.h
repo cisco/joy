@@ -60,7 +60,6 @@
 
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <openssl/aes.h>
 #include "err.h"
 #include "output.h"
 #include "str_match.h"

@@ -45,14 +45,14 @@ str_match_test_SOURCES = ../src/str_match_test.c
 
 joy_CFLAGS = -I ../src/include -DJOY_LIB_API -I $(SSL_CFLAGS) $(LIBCURL_CFLAGS) $(AM_CFLAGS)
 unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS)
-jfd_anon_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
-joy_anon_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
-joy_api_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
-joy_api_test2_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
-str_match_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+jfd_anon_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_anon_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_api_test_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_api_test2_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
+str_match_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0 -I $(SSL_CFLAGS) $(AM_CFLAGS)
 
 
-joy_LDFLAGS = $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -pie
+joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -pie
 unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
 joy_api_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
 str_match_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie

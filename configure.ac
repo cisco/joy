@@ -148,7 +148,7 @@ AC_ARG_WITH([ssl-dir],
 if test "x$ssldir" != "x/usr"; then
    LDFLAGS="$LDFLAGS -L$ssldir/lib" 
    AC_SUBST([SSL_CFLAGS], "$ssldir/include")
-   AC_SUBST([SSL_LDFLAGS], "$ssldir/lib")
+   AC_SUBST([SSL_LDFLAGS], "-L$ssldir/lib")
 fi
 
 AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
@@ -167,13 +167,13 @@ AC_ARG_WITH([libcurl-dir],
 if test "x$libcurldir" != "xno"; then
    LDFLAGS="$LDFLAGS -L$libcurldir/lib" 
    AC_SUBST([CURL_CFLAGS], "$libcurldir/include")
-   AC_SUBST([CURL_LDFLAGS], "$libcurldir/lib")
+   AC_SUBST([CURL_LDFLAGS], "-L$libcurldir/lib")
 
    AC_CHECK_LIB([curl], [curl_easy_install], [],
              [AC_MSG_FAILURE([--with-libcurl-dir was given, but test for libcurl failed])])
 fi
 
-
+AC_DEFINE([COMPRESSED_OUTPUT], [0], [Compression is disabled])
 AC_MSG_CHECKING([enable bzip2])
 AC_ARG_ENABLE(bzip2,
         [AS_HELP_STRING([--enable-bzip2],[enable the use of bzip2])],
@@ -187,6 +187,7 @@ if test "x$enable_bzip2" = "xyes"; then
     LDFLAGS="$LDFLAGS -lbz2"
     AC_MSG_RESULT(yes)
     AC_DEFINE([USE_BZIP2], [], [BZIP2 is enabled])
+    AC_DEFINE([COMPRESSED_OUTPUT], [1], [Compression is enabled])
     AC_CHECK_HEADERS([bzlib.h],[ ],[AC_MSG_FAILURE([can't find bzlib.h])])
 else
     AC_MSG_RESULT(no);
@@ -205,6 +206,7 @@ if test "x$enable_gzip" = "xyes"; then
     LDFLAGS="$LDFLAGS -lz"
     AC_MSG_RESULT(yes)
     AC_DEFINE([USE_GZIP], [], [GZIP is enabled])
+    AC_DEFINE([COMPRESSED_OUTPUT], [1], [Compression is enabled])
     AC_CHECK_HEADERS([zlib.h])
     AC_CHECK_HEADERS([zlib.h],[ ],[AC_MSG_FAILURE([can't find zlib.h])])
 else

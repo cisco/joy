@@ -14331,7 +14331,7 @@ if test "x$ssldir" != "x/usr"; then
    LDFLAGS="$LDFLAGS -L$ssldir/lib"
    SSL_CFLAGS="$ssldir/include"
 
-   SSL_LDFLAGS="$ssldir/lib"
+   SSL_LDFLAGS="-L$ssldir/lib"
 
 fi
 
@@ -14436,7 +14436,7 @@ if test "x$libcurldir" != "xno"; then
    LDFLAGS="$LDFLAGS -L$libcurldir/lib"
    CURL_CFLAGS="$libcurldir/include"
 
-   CURL_LDFLAGS="$libcurldir/lib"
+   CURL_LDFLAGS="-L$libcurldir/lib"
 
 
 
@@ -14525,6 +14525,10 @@ fi
 fi
 
 
+cat >>confdefs.h <<\_ACEOF
+#define COMPRESSED_OUTPUT 0
+_ACEOF
+
 { $as_echo "$as_me:$LINENO: checking enable bzip2" >&5
 $as_echo_n "checking enable bzip2... " >&6; }
 # Check whether --enable-bzip2 was given.
@@ -14545,6 +14549,11 @@ $as_echo "yes" >&6; }
 
 cat >>confdefs.h <<\_ACEOF
 #define USE_BZIP2 /**/
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define COMPRESSED_OUTPUT 1
 _ACEOF
 
 
@@ -14731,6 +14740,11 @@ $as_echo "yes" >&6; }
 
 cat >>confdefs.h <<\_ACEOF
 #define USE_GZIP /**/
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define COMPRESSED_OUTPUT 1
 _ACEOF
 
 
