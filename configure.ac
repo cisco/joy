@@ -145,7 +145,7 @@ AC_ARG_WITH([ssl-dir],
             [ssldir="/usr"])
 
 
-if test "x$ssldir" != "/usr"; then
+if test "x$ssldir" != "x/usr"; then
    LDFLAGS="$LDFLAGS -L$ssldir/lib" 
    AC_SUBST([SSL_CFLAGS], "$ssldir/include")
    AC_SUBST([SSL_LDFLAGS], "$ssldir/lib")

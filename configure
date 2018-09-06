@@ -14327,7 +14327,7 @@ fi
 
 
 
-if test "x$ssldir" != "/usr"; then
+if test "x$ssldir" != "x/usr"; then
    LDFLAGS="$LDFLAGS -L$ssldir/lib"
    SSL_CFLAGS="$ssldir/include"
 
