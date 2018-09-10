@@ -44,6 +44,9 @@
 #ifndef JOY_API_H
 #define JOY_API_H
 
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -367,5 +370,10 @@ extern void joy_context_cleanup (unsigned int index);
  *
  */
 extern void joy_shutdown (void);
+
+#ifdef HAVE_CONFIG_H
+extern const char * joy_get_version(void);
+#endif
+
 
 #endif /* JOY_API_H */

@@ -32,8 +32,8 @@ libjoy_la_SOURCES = \
 	../src/dhcp.c \
 	../src/payload.c \
 	../src/config.c \
-	../src/proto_identify.c \
-	../src/joy_version.c
+	../src/proto_identify.c 
+
 
 libjoy_la_CFLAGS = -I ../src/include $(AM_CFLAGS)
 

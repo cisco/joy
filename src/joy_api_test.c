@@ -150,6 +150,10 @@ int main (int argc, char **argv)
     init_data.contexts = 3;       /* use 3 worker contexts for processing */
     init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON | JOY_EXE_ON);
 
+#ifdef HAVE_CONFIG_H
+    printf("Joy Version = %s\n", joy_get_version());
+#endif
+
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
     if (rc != 0) {
