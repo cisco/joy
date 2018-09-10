@@ -7,7 +7,7 @@ doc:
 	doxygen Doxyfile
 
 cscope:
-	rm cscope.files
+	rm -f cscope.out cscope.files
 	find . -type f -follow -name "*.[ch]" -print > cscope.files
 	cscope -b
 
