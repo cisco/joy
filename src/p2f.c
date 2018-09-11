@@ -91,11 +91,11 @@
 /* The ETTA Spec says that 4000 octets is suffient for byte distribution */
 #define MAX_JOY_BD_OCTETS 4000
 
-static const struct timeval time_window = { T_WINDOW, 0 };
+static struct timeval time_window = { T_WINDOW, 0 };
 
-static const struct timeval active_timeout = { T_ACTIVE, 0 };
+static struct timeval active_timeout = { T_ACTIVE, 0 };
 
-static const unsigned int active_max = (T_WINDOW + T_ACTIVE);
+static unsigned int active_max = (T_WINDOW + T_ACTIVE);
 
 static const int include_os = 1;
 
@@ -794,6 +794,21 @@ int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const ho
                 return ok;
         }
         return failure;
+}
+
+/**
+ * \brief Update the timeout values for flow record expiration
+ * \param inact number of seconds for inactivity timeout
+ * \param act number of seconds for activity timeout
+ * \return none
+ */
+void flow_record_update_timeouts (unsigned int inact, unsigned int act) {
+
+    time_window.tv_sec  = (inact > 0) ? inact : T_WINDOW;
+    time_window.tv_usec = 0;
+    active_timeout.tv_sec  = (act > 0) ? act : T_ACTIVE;
+    active_timeout.tv_usec = 0;
+    active_max = (time_window.tv_sec + active_timeout.tv_sec);
 }
 
 /**

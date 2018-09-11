@@ -217,8 +217,12 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
     if (data == NULL) {
         joy_log_err("NULL data buffer passed in!");
         return data_len;
-    } else {
-        data_len = MAX_NFV9_SPLT_SALT_ARRAY_LENGTH;
+    }
+
+    /* sanity check SALT structure */
+    if (rec->salt == NULL) {
+        joy_log_debug("No SALT data in the flow record!");
+        return data_len;
     }
 
     /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
@@ -444,6 +448,9 @@ int joy_initialize(joy_init_t *init_data,
     if ((init_data->num_pkts > 0) && (init_data->num_pkts < MAX_NUM_PKT_LEN)) {
         glb_config->num_pkts = init_data->num_pkts;
     }
+
+    /* setup the inactive and active timeouts for a flow record */
+    flow_record_update_timeouts(init_data->inact_timeout, init_data->act_timeout);
 
     /* setup joy with the output options */
     glb_config->outputdir = strdup(output_dirname);
@@ -880,6 +887,54 @@ int joy_label_subnets(const char *label, int type, const char *subnet_str)
 }
 
 /*
+ * Function: joy_update_ctx_global_time
+ *
+ * Description: This function updates the global time of a given
+ *      JOY library context. This is useful is adjusting the exipration
+ *      of flow records when packets are not submitted for processing.
+ *
+ * Parameters:
+ *      ctx_index - the index number of the JOY context
+ *      new_time - pointer to the timeval structure containin the new time
+ *
+ * Returns:
+ *      none.
+ */
+void joy_update_ctx_global_time(unsigned char *ctx_index,
+                                struct timeval *new_time) {
+    unsigned long int index = 0;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the new_time */
+    if (new_time == NULL) {
+        joy_log_err("New Time passed in is NULL, nothing to do!");
+        return;
+    }
+
+    /* ctx_index has the int value of the data context
+     * This number is between 0 and max configured contexts
+     */
+    index = (unsigned long int)ctx_index;
+
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
+        return;
+    }
+
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* update the context global time */
+    ctx->global_time.tv_sec = new_time->tv_sec;
+    ctx->global_time.tv_usec = new_time->tv_usec;
+}
+
+/*
  * Function: joy_process_packet
  *
  * Description: This function is formatted to match the libpcap
@@ -1087,8 +1142,22 @@ void joy_idp_external_processing(unsigned int index,
 
         /* see if this record has IDP information */
         if ((rec->idp_ext_processed == 0) && (rec->idp_len > 0)) {
+
             /* let the callback function process the flow record */
             /* IDP data is pulled directly from flow_record */
+            callback_fn(rec, 0, NULL);
+
+            /* mark the IDP data as being processed */
+            rec->idp_ext_processed = 1;
+        }
+
+        /* see if the record is expired */
+        if ((rec->idp_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
+
+            /* no IDP info, but the record is expired
+             * let the callback function process the flow record
+             * even though there isn't IDP data.
+             */
             callback_fn(rec, 0, NULL);
 
             /* mark the IDP data as being processed */
@@ -1152,6 +1221,7 @@ void joy_tls_external_processing(unsigned int index,
         /* see if this record has TLS information */
         if ((rec->tls_ext_processed == 0) && (rec->tls != NULL)) {
             if (rec->tls->done_handshake) {
+
                 /* let the callback function process the flow record */
                 /* TLS data is pulled directly from flow_record */
                 callback_fn(rec, 0, NULL);
@@ -1159,6 +1229,19 @@ void joy_tls_external_processing(unsigned int index,
                 /* mark the TLS data as being processed */
                 rec->tls_ext_processed = 1;
             }
+        }
+
+        /* see if the record is expired */
+        if ((rec->tls_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
+
+            /* TLS info isn't complete or present, but the record is expired
+             * let the callback function process the flow record
+             * even though there isn't complete or present TLS data.
+             */
+            callback_fn(rec, 0, NULL);
+
+            /* mark the TLS data as being processed */
+            rec->tls_ext_processed = 1;
         }
 
         /* go to next record */
@@ -1244,10 +1327,27 @@ void joy_splt_external_processing(unsigned int index,
 
         /* see if this record has SPLT information */
         if ((rec->splt_ext_processed == 0) && (rec->op >= min_pkts)) {
+
             /* format the SPLT data for external processing */
             data_len = joy_splt_format_data(rec, export_frmt, data);
 
             /* let the callback function process the flow record */
+            callback_fn(rec, data_len, data);
+
+            /* mark the SPLT data as being processed */
+            rec->splt_ext_processed = 1;
+        }
+
+        /* see if the record is expired */
+        if ((rec->splt_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
+
+            /* format the SPLT data for external processing */
+            data_len = joy_splt_format_data(rec, export_frmt, data);
+
+            /* SPLT info isn't complete, but the record is expired
+             * let the callback function process the flow record
+             * even though there isn't complete SPLT data.
+             */
             callback_fn(rec, data_len, data);
 
             /* mark the SPLT data as being processed */
@@ -1338,6 +1438,7 @@ void joy_salt_external_processing(unsigned int index,
         /* see if this record has SALT information */
         if ((rec->salt_ext_processed == 0) && (rec->salt != NULL)) {
             if (rec->salt->np >= min_pkts) {
+
                 /* format the SALT data for external processing */
                 data_len = joy_salt_format_data(rec, export_frmt, data);
 
@@ -1347,6 +1448,22 @@ void joy_salt_external_processing(unsigned int index,
                 /* mark the SALT data as being processed */
                 rec->salt_ext_processed = 1;
             }
+        }
+
+        /* see if the record is expired */
+        if ((rec->salt_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
+
+            /* format the SALT data for external processing */
+            data_len = joy_salt_format_data(rec, export_frmt, data);
+
+            /* SALT info isn't complete, but the record is expired
+             * let the callback function process the flow record
+             * even though there isn't complete SALT data.
+             */
+            callback_fn(rec, data_len, data);
+
+            /* mark the SALT data as being processed */
+            rec->salt_ext_processed = 1;
         }
 
         /* go to next record */
@@ -1431,6 +1548,22 @@ void joy_bd_external_processing(unsigned int index,
             data_len = joy_bd_format_data(rec, data);
 
             /* let the callback function process the flow record */
+            callback_fn(rec, data_len, data);
+
+            /* mark the BD data as being processed */
+            rec->bd_ext_processed = 1;
+        }
+
+        /* see if the record is expired */
+        if ((rec->bd_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
+
+            /* format the BD data for external processing */
+            data_len = joy_bd_format_data(rec, data);
+
+            /* BD info isn't complete, but the record is expired
+             * let the callback function process the flow record
+             * even though there isn't complete BD data.
+             */
             callback_fn(rec, data_len, data);
 
             /* mark the BD data as being processed */

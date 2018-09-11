@@ -260,6 +260,8 @@ void flow_record_update_compact_byte_count(flow_record_t *f, const void *x, unsi
 
 void flow_record_update_byte_dist_mean_var(flow_record_t *f, const void *x, unsigned int len);
 
+void flow_record_update_timeouts(unsigned int inact, unsigned int act);
+
 void flow_record_list_init(joy_ctx_data *ctx);
 
 void flow_record_list_free(joy_ctx_data *ctx); 

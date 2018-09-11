@@ -1069,7 +1069,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
          */
         if (allocated_packet_header)
             free(header);
-        return ;
+        return;
     }
     transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
 

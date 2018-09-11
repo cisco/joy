@@ -123,6 +123,8 @@ typedef struct joy_init {
     uint32_t max_records;        /* max record in output file */
     uint32_t num_pkts;           /* num_pkts to report on per flow */
     int contexts;                /* number of contexts the app wants to use */
+    int inact_timeout;           /* seconds for inactive timeout - if 0, then default used */
+    int act_timeout;             /* seconds for active timeout - if 0, then default used */
     int idp;                     /* idp size to report, recommend 1300 */
     const char *ipfix_host;      /* ip string of the host to send IPFix data to */
     uint32_t ipfix_port;         /* port to send IPFix to remote on */
@@ -283,6 +285,23 @@ extern int joy_update_compact_bd (const char *filename);
  *
  */
 extern int joy_label_subnets (const char *label, int type, const char* subnet_str);
+
+/*
+ * Function: joy_update_ctx_global_time
+ *
+ * Description: This function updates the global time of a given
+ *      JOY library context. This is useful is adjusting the exipration
+ *      of flow records when packets are not submitted for processing.
+ *
+ * Parameters:
+ *      ctx_index - the index number of the JOY context
+ *      new_time - pointer to the timeval structure containin the new time
+ *
+ * Returns:
+ *      none.
+ */
+extern void joy_update_ctx_global_time (unsigned char *ctx_index,
+                                        struct timeval *new_time);
 
 /*
  * Function: joy_process_packet
