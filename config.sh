@@ -1,5 +1,11 @@
 #!/bin/bash
 
+#
+# Support old builds
+#
+cp Makefile.joy Makefile
+cp src/Makefile.joy src/Makefile
+
 ##
 # Usage Function - prints out how to use the command
 #    Valid options are:
