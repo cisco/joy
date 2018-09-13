@@ -49,7 +49,7 @@ jfd_anon_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS)
 joy_anon_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS)
 joy_api_test_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
 joy_api_test2_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
-str_match_test_CFLAGS = -I../src/include -DCOMPRESSED_OUTPUT=0 -I $(SSL_CFLAGS) $(AM_CFLAGS)
+str_match_test_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
 
 
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -pie

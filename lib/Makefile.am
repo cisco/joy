@@ -35,7 +35,7 @@ libjoy_la_SOURCES = \
 	../src/proto_identify.c 
 
 
-libjoy_la_CFLAGS = -I ../src/include $(AM_CFLAGS)
+libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) 
 
 libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION)
 
