@@ -79,6 +79,8 @@ AC_CANONICAL_HOST
 case "$host_os" in
   linux*)
         AC_DEFINE([LINUX], [1], [Linux OS]);;
+  darwin*)
+        AC_DEFINE([DARWIN], [1], [MAC OS]);;
   *)
 esac
 

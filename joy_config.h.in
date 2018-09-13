@@ -3,6 +3,9 @@
 /* Compression is enabled */
 #undef COMPRESSED_OUTPUT
 
+/* MAC OS */
+#undef DARWIN
+
 /* Define to 1 if you have the <bzlib.h> header file. */
 #undef HAVE_BZLIB_H
 

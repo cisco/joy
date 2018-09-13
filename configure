@@ -12488,6 +12488,12 @@ cat >>confdefs.h <<\_ACEOF
 #define LINUX 1
 _ACEOF
 ;;
+  darwin*)
+
+cat >>confdefs.h <<\_ACEOF
+#define DARWIN 1
+_ACEOF
+;;
   *)
 esac
 
