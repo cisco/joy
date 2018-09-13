@@ -11,6 +11,11 @@ cscope:
 	find . -type f -follow -name "*.[ch]" -print > cscope.files
 	cscope -b
 
+test: 
+	test/run_tests.py
+	bin/unit_test
+	test/run_tests.py
+
 clean_make:
 	rm lib/Makefile
 	rm bin/Makefile
