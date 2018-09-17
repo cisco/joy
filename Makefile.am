@@ -22,8 +22,6 @@ clean_make:
 	echo "You must rerun configure"
 
 
-#EXTRA_DIST=internal.net build_pkg install
+EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg windows rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth win-joy
 
 
-#/install.sh install/jpy-accounting.conf install/joy.logrotate install/joy.plist install/joy-rc install/joy.service install/options.cfg
-	   

@@ -229,6 +229,7 @@ top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I m4
 AUTOMAKE_OPTIONS = foreign
 SUBDIRS = safe_c_stub lib bin
+EXTRA_DIST = internal.net build_pkg install_joy test sleuth_pkg windows rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth win-joy
 all: joy_config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -741,10 +742,6 @@ clean_make:
 	rm lib/Makefile
 	rm bin/Makefile
 	echo "You must rerun configure"
-
-#EXTRA_DIST=internal.net build_pkg install
-
-#/install.sh install/jpy-accounting.conf install/joy.logrotate install/joy.plist install/joy-rc install/joy.service install/options.cfg
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
