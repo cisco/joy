@@ -123,7 +123,7 @@ $(LIBDIR)/libjoy.a libjoy.a: $(LIBJOY_SRC)
 
 $(LIBDIR)/libjoy.so libjoy.so: $(LIBJOY_SRC)
 	@echo "Building libjoy.so ..."
-	@rm -f $(LIBDIR)/libjoy.so.*
+	@rm -rf $(LIBDIR)/libjoy.so.*
 	gcc $(CFLAGS) -fPIC -shared $(SO_OPTS) -o $(LIBDIR)/libjoy.so.$(JOY_VERSION) $(CDEFS) -pthread $(COMPDEF) -DJOY_LIB_API $(COMPRESSED) $(INCLUDEDIR) $(LIBJOY_SRC)
 	@rm -f $(LIBJOY_OBJ)
 	@echo

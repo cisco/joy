@@ -49,7 +49,6 @@
 #include "config.h"
 #include "err.h"
 
-extern struct configuration *glb_config;
 extern FILE *info;
 
 /* --------------------------------------------------

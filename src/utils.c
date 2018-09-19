@@ -51,7 +51,6 @@
 #define JOY_UTILS_MAX_FILEPATH 128
 
 /* external definitions from joy.c */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 #ifdef USE_BZIP2
