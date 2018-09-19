@@ -323,6 +323,38 @@ extern void joy_update_ctx_global_time (unsigned char *ctx_index,
 extern void joy_process_packet (unsigned char *ctx_idx,
 				const struct pcap_pkthdr *header, 
 				const unsigned char *packet);
+/*
+ * Function: joy_process_packet_with_app_data
+ *
+ * Description: This function invoked the packet processing function
+ *      however, the application is permitted store some small amount
+ *      of data in the flow record once it is created. This can be
+ *      useful on the back end when an application wants to asscoiate
+ *      some data with a flow record during processing of the flow record.
+ *
+ * Parameters:
+ *      ctx_index - index of the thread context to use
+ *      header - libpcap header which contains timestamp, cap length
+ *               and length
+ *      packet - the actual data packet
+ *      app_data_len - length of the application specific data
+ *      app_data - pointer to the application data
+ *
+ * Notes:
+ *      The application specific data length and data will be stored
+ *      in the flow record. The application data is copied, so the calling
+ *      application is responsible for freeing the data buffer, if necessary,
+ *      when this function returns.
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_process_packet_with_app_data(unsigned char *ctx_index,
+                              const struct pcap_pkthdr *header,
+                              const unsigned char *packet,
+                              unsigned int app_data_len,
+                              const unsigned char *app_data);
 
 /*
  * Function: joy_print_flow_data

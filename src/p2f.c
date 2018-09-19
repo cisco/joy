@@ -736,17 +736,21 @@ static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
         free(r->exe_name);
     }
 
-        if (r->full_path) {
-                free(r->full_path);
-        }
+    if (r->full_path) {
+        free(r->full_path);
+    }
 
-        if (r->file_version) {
-                free(r->file_version);
-        }
+    if (r->file_version) {
+        free(r->file_version);
+    }
 
-        if (r->file_hash) {
-                free(r->file_hash);
-        }
+    if (r->file_hash) {
+        free(r->file_hash);
+    }
+
+    if (r->joy_app_data) {
+        free(r->joy_app_data);
+    }
 
     delete_all_features(feature_list);
 

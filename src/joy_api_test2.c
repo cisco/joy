@@ -79,7 +79,7 @@ void process_hardcoded_packets (unsigned long index)
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet1);
     header.len = sizeof(packet1);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet1);
+    joy_process_packet_with_app_data((unsigned char*)index, &header, (const unsigned char*)packet1,2,"\x21\x32");
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
@@ -146,6 +146,50 @@ void process_hardcoded_packets (unsigned long index)
 
 }
 
+void my_splt_callback(void *curr_rec, unsigned int data_len, unsigned char *data) {
+    unsigned int i = 0;
+    unsigned int splt_recs = 0;
+    short *formatted_data = (short*)data;
+    flow_record_t *rec = curr_rec;
+
+    if ((curr_rec == NULL) || (formatted_data == NULL)) return;
+
+    splt_recs = data_len / 4;
+    if (splt_recs > 10) {
+        printf("Incorrect SPLT Data Length (%d)\n",data_len);
+        return;
+    }
+
+    printf("SPLT REC(%d) LENGTHS: ",splt_recs);
+    for (i=0; i<splt_recs; ++i) {
+        if (i == (splt_recs-1))
+            printf("{%d}", *(formatted_data+i));
+        else
+            printf("{%d}, ", *(formatted_data+i));
+    }
+    printf("\n");
+    printf("SPLT REC(%d) TIMES: ",splt_recs);
+    for (i=0; i<splt_recs; ++i) {
+        if (i == (splt_recs-1))
+            printf("{%d}", *(formatted_data+splt_recs+i));
+        else
+            printf("{%d}, ", *(formatted_data+splt_recs+i));
+    }
+
+    printf("\n");
+
+    if (rec->joy_app_data_len > 0) {
+        printf("App Data (%d): ",rec->joy_app_data_len);
+        for (i=0; i < rec->joy_app_data_len; ++i) {
+            printf("0x%.2x ",*(rec->joy_app_data+i));
+        }
+        printf("\n");
+    } else {
+        printf("App Data (0): None");
+    }
+    printf("\n");
+}
+
 int main (void)
 {
     int rc = 0;
@@ -159,7 +203,9 @@ int main (void)
     init_data.idp = 1300;                     /* number of bytes of idp to report */
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
     init_data.ipfix_port = 0;                 /* use default IPFix port */
-    init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_IDP_ON | JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
+    //init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_IDP_ON | JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
+    init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
+
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
@@ -178,7 +224,9 @@ int main (void)
     process_hardcoded_packets(0); /* just using 1 context -> 0 */
     
     /* export the flows */
-    joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
+    //joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
+    joy_splt_external_processing(0,JOY_NFV9_EXPORT,1,my_splt_callback);
+    joy_delete_flow_records(0, JOY_DELETE_ALL);
 
     /* cleanup */
     joy_context_cleanup(0);

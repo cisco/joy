@@ -52,6 +52,8 @@
 /** main packet processing entry point */
 void process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
 
+int get_packet_5tuple_key(const unsigned char *packet, flow_key_t *key);
+
 joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start, int len, flow_record_t *r);
 
 /** sanity check the header structure sizes */

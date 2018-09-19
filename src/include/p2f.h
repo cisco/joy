@@ -155,6 +155,8 @@ typedef struct flow_record_ {
     char *full_path;                      /*!< executable path associated with flow    */
     char *file_version;                   /*!< executable version associated with flow    */
     char *file_hash;                      /*!< executable file hash associated with flow    */
+    unsigned int joy_app_data_len;        /*!< application specific data length */
+    char *joy_app_data;                   /*!< application specific data */
     unsigned long uptime_seconds;         /*!< executable uptime associated with flow    */
     unsigned char exp_type;
     unsigned char first_switched_found;   /*!< hack to make sure we only correct once */

@@ -973,6 +973,106 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 }
 
 /**
+ * \fn int get_packet_5tuple_key (const unsigned char *packet,
+                               flow_key_t *key)
+ * \param packet pointer to the packet
+ * \param key pointer to the key structure to be filled in
+ * \return 0 - failed, 1 - success
+ */
+int get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
+    unsigned int rc = 0;
+    uint16_t ether_type = 0;
+    uint16_t vlan_ether_type = 0;
+    const struct ip_hdr *ip = NULL;
+    unsigned int ip_hdr_len = 0;
+    const void *transport_start = NULL;
+
+    /* clear the key structure */
+    memset(key, 0x00, sizeof(flow_key_t));
+
+    /* make sure we have a packet */
+    if (packet == NULL) {
+        joy_log_err(" NULL packet passed in");
+        return rc;
+    }
+
+    ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
+
+    /* Support for both normal ethernet and 802.1q . Distinguish between
+     * the two accepted types
+    */
+    switch(ether_type) {
+       case ETH_TYPE_IP:
+           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
+           ip_hdr_len = ip_hdr_length(ip);
+           break;
+       case ETH_TYPE_DOT1Q:
+           //Offset to get VLAN_TYPE
+           vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
+           switch(vlan_ether_type) {
+               case ETH_TYPE_IP:
+                   ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
+                   ip_hdr_len = ip_hdr_length(ip);
+                   break;
+               default :
+                   return rc;
+           }
+           break;
+       default:
+           return rc;
+    }
+
+    if (ip_hdr_len < 20) {
+        joy_log_err("Invalid IP header length: %u bytes", ip_hdr_len);
+        return rc;
+    }
+
+    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+        /*
+         * IP packet is malformed (shorter than a complete IP header, or
+         * claims to be longer than it is), or not entirely captured by
+         * libpcap (which will depend on MTU and SNAPLEN; you can change
+         * the latter if need be).
+         */
+        joy_log_err("Malformed IP packet");
+        return rc;
+    }
+
+    /* we are able to fill out the key structure */
+    rc = 1;
+    if (ip_fragment_offset(ip) == 0) {
+        /* fill out IP-specific fields of flow key, plus proto selector */
+        key->sa = ip->ip_src;
+        key->da = ip->ip_dst;
+        key->prot = ip->ip_prot;
+
+    }  else {
+        /*
+         * select IP processing, since we don't have a TCP or UDP header
+         */
+        key->sa = ip->ip_src;
+        key->da = ip->ip_dst;
+        key->prot = IPPROTO_IP;
+    }
+
+    transport_start = (char *)ip + ip_hdr_len;
+    if (key->prot == IPPROTO_TCP) {
+        const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
+        key->sp = ntohs(tcp->src_port);
+        key->dp = ntohs(tcp->dst_port);
+    } else if (key->prot == IPPROTO_UDP) {
+        const struct udp_hdr *udp = (const struct udp_hdr *)transport_start;
+        key->sp = ntohs(udp->src_port);
+        key->dp = ntohs(udp->dst_port);
+    } else {
+        key->sp = 0;
+        key->dp = 0;
+    }
+
+    return rc;
+}
+
+/**
  * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
                      const unsigned char *packet)
  * \param ctx_ptr currently used to store the context data pointer
@@ -982,13 +1082,19 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
  */
 void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
                      const unsigned char *packet) {
-    //  static int packet_count = 1;
-    flow_record_t *record;
+    flow_record_t *record = NULL;
     unsigned char proto = 0;
     unsigned int allocated_packet_header = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
     struct pcap_pkthdr *header = (struct pcap_pkthdr*)pkt_header;
+
+    /* declare pointers to packet headers */
+    const struct ip_hdr *ip = NULL;
+    unsigned int transport_len = 0;
+    unsigned int ip_hdr_len = 0;
+    const void *transport_start = NULL;
+    flow_key_t key;
 
     /* grab the context for this packet */
     joy_ctx_data *ctx = (joy_ctx_data*)ctx_ptr;
@@ -997,13 +1103,6 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
         return;
     }
 
-    /* declare pointers to packet headers */
-    const struct ip_hdr *ip;
-    unsigned int transport_len;
-    unsigned int ip_hdr_len;
-    const void *transport_start;
-    flow_key_t key;
-    
     memset(&key, 0x00, sizeof(flow_key_t));
 
     flocap_stats_incr_num_packets(ctx);

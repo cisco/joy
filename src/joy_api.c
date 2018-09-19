@@ -953,8 +953,8 @@ void joy_update_ctx_global_time(unsigned char *ctx_index,
  *
  */
 void joy_process_packet(unsigned char *ctx_index,
-			const struct pcap_pkthdr *header,
-			const unsigned char *packet)
+                        const struct pcap_pkthdr *header,
+                        const unsigned char *packet)
 {
     unsigned long int index = 0;
     joy_ctx_data *ctx = NULL;
@@ -977,6 +977,97 @@ void joy_process_packet(unsigned char *ctx_index,
 
     ctx = JOY_CTX_AT_INDEX(ctx_data,index)
     process_packet((unsigned char*)ctx, header, packet);
+}
+
+/*
+ * Function: joy_process_packet_with_app_data
+ *
+ * Description: This function invoked the packet processing function
+ *      however, the application is permitted store some small amount
+ *      of data in the flow record once it is created. This can be
+ *      useful on the back end when an application wants to asscoiate
+ *      some data with a flow record during processing of the flow record.
+ *
+ * Parameters:
+ *      ctx_index - index of the thread context to use
+ *      header - libpcap header which contains timestamp, cap length
+ *               and length
+ *      packet - the actual data packet
+ *      app_data_len - length of the application specific data
+ *      app_data - pointer to the application data
+ *
+ * Notes:
+ *      The application specific data length and data will be stored
+ *      in the flow record. The application data is copied, so the calling
+ *      application is responsible for freeing the data buffer, if necessary,
+ *      when this function returns.
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_process_packet_with_app_data(unsigned char *ctx_index,
+                        const struct pcap_pkthdr *header,
+                        const unsigned char *packet,
+                        unsigned int app_data_len,
+                        const unsigned char *app_data)
+{
+    unsigned long int index = 0;
+    unsigned int rc = 0;
+    flow_key_t key;
+    joy_ctx_data *ctx = NULL;
+    flow_record_t *rec = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* ctx_index has the int value of the data context
+     * This number is between 0 and max configured contexts
+     */
+    index = (unsigned long int)ctx_index;
+
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
+        return;
+    }
+
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+
+    /* process the packet */
+    joy_process_packet(ctx_index, header, packet);
+
+    /* see if there is any app data to store */
+    if ((app_data_len == 0) || (app_data == NULL)) {
+        /* no data, we are done */
+        return;
+    }
+
+    /* get the 5-tuple key for this packet */
+    rc = get_packet_5tuple_key(packet, &key);
+    if (rc == 0) {
+        joy_log_err("Failed to retrieve the 5-tuple key");
+        return;
+    }
+
+    /* find the flow record */
+    rec = flow_key_get_record(ctx, &key, DONT_CREATE_RECORDS, NULL);
+    if (rec == NULL) {
+        joy_log_err("Couldn't find flow record, can't store app data");
+        return;
+    }
+
+    /* now store the app data in the flow record */
+    rec->joy_app_data = calloc(1,app_data_len);
+    if (rec->joy_app_data != NULL) {
+        rec->joy_app_data_len = app_data_len;
+        memcpy(rec->joy_app_data, app_data, app_data_len);
+    } else {
+        rec->joy_app_data_len = 0;
+        joy_log_err("Couldn't allocate memory, can't store app data");
+    }
 }
 
 /*
