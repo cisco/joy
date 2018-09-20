@@ -78,8 +78,10 @@ AM_CFLAGS="$tmp_am_cflags"
 AC_CANONICAL_HOST
 case "$host_os" in
   linux*)
+        AM_CONDITIONAL(BUILD_MAC, FALSE)
         AC_DEFINE([LINUX], [1], [Linux OS]);;
   darwin*)
+        AM_CONDITIONAL(BUILD_MAC, TRUE)
         AC_DEFINE([DARWIN], [1], [MAC OS]);;
   *)
 esac

@@ -51,11 +51,17 @@ joy_api_test_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
 joy_api_test2_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
 str_match_test_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS)
 
-
+if BUILD_MAC
+joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -Wl,-pie
+unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
+joy_api_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
+str_match_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
+else
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -pie
 unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
 joy_api_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
 str_match_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
+endif
 jfd_anon_LDADD= -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
 joy_anon_LDADD= -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
 #joy_api_test_LDADD= -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
