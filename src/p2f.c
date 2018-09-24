@@ -1226,22 +1226,13 @@ static void flow_record_print_json
         /*
          * The flow is bidirectional.
          * Need to figure client/server order.
+         * try to determine directionality
          */
-        int compare_start_times = 1;
-
-        if (joy_timer_eq(&record->start, &record->twin->start)) {
-            /*
-             * The start times are equal.
-             * Try to resolve direction.
-             */
-            rec = get_client_flow(record, record->twin);
-            if (rec != NULL) {
-                compare_start_times = 0;
-                ts_start = rec->start;
-            }
-        }
-
-        if (compare_start_times) {
+        rec = get_client_flow(record, record->twin);
+        if (rec != NULL) {
+            ts_start = rec->start;
+            ts_end = record->end;
+        } else {
             /*
              * Get start time.
              * Use the smaller of the 2 time values.
@@ -1253,16 +1244,16 @@ static void flow_record_print_json
                 ts_start = record->twin->start;
                 rec = record->twin;
             }
-        }
 
-        /*
-         * Get end time.
-         * Use the larger of the 2 time values.
-         */
-        if (joy_timer_lt(&record->end, &record->twin->end)) {
-            ts_end = record->twin->end;
-        } else {
-            ts_end = record->end;
+            /*
+             * Get end time.
+             * Use the larger of the 2 time values.
+             */
+            if (joy_timer_lt(&record->end, &record->twin->end)) {
+                ts_end = record->twin->end;
+            } else {
+                ts_end = record->end;
+            }
         }
     } else {
         /*
