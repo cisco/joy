@@ -936,6 +936,59 @@ void joy_update_ctx_global_time(unsigned char *ctx_index,
 }
 
 /*
+ * Function: joy_packet_to_context
+ *
+ * Description: This function takes in an IP packet and using the
+ *      5-tuple determines which context it should be sent to for
+ *      data feature processing. This APi is useful for applications
+ *      that use the JOY library and want to use the libraries default
+ *      scheme for dividing up traffic among various worker contexts.
+ *
+ * Parameters:
+ *      packet - pointer to the IP packet data
+ *
+ * Returns:
+ *      context - the context number the packet belongs to for JOY processing.
+ *          This algortihms keeps bidirectional flows in the same context.
+ *
+ */
+unsigned int joy_packet_to_context(const char *packet) {
+    unsigned int rc = 0;
+    unsigned int context = 0;
+    unsigned int sum = 0;
+    flow_key_t key;
+
+    /* clear the key buffer */
+    memset(&key, 0x00, sizeof(flow_key_t));
+
+    /* get the 5-tuple key for this packet */
+    rc = get_packet_5tuple_key(packet, &key);
+    if (rc == 0) {
+        joy_log_err("Failed to retrieve the 5-tuple key, using default context 0");
+        return 0;
+    }
+
+    /* generate a nice hash to use for the 5-tuple. This calcualtion is essentially
+     * a mod 257 on the sum of the 5-tuple. This algortihm also keeps client->server and
+     * server->client flows in the same context.
+     */
+    sum += sum + (unsigned int)key.sa.s_addr;
+    sum += sum + (unsigned int)key.da.s_addr;
+    sum += sum + (unsigned int)key.sp;
+    sum += sum + (unsigned int)key.dp;
+    sum += sum + (unsigned int)key.prot;
+    sum *= 0x6B;
+    sum -= (sum >> 8);
+    sum &= 0xff;
+
+    /* fit the mod 257 hash into the number of contexts configured */
+    context = sum % joy_num_contexts;
+
+    joy_log_debug("Packet goes into context (%d)", context);
+    return context;
+}
+
+/*
  * Function: joy_process_packet
  *
  * Description: This function is formatted to match the libpcap
@@ -970,6 +1023,7 @@ void joy_process_packet(unsigned char *ctx_index,
      */
     index = (unsigned long int)ctx_index;
 
+    /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
         joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
         return;
@@ -1029,6 +1083,7 @@ void joy_process_packet_with_app_data(unsigned char *ctx_index,
      */
     index = (unsigned long int)ctx_index;
 
+    /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
         joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
         return;
@@ -1048,7 +1103,7 @@ void joy_process_packet_with_app_data(unsigned char *ctx_index,
     /* get the 5-tuple key for this packet */
     rc = get_packet_5tuple_key(packet, &key);
     if (rc == 0) {
-        joy_log_err("Failed to retrieve the 5-tuple key");
+        joy_log_err("Failed to retrieve the 5-tuple key, can't store app data");
         return;
     }
 
@@ -1056,6 +1111,13 @@ void joy_process_packet_with_app_data(unsigned char *ctx_index,
     rec = flow_key_get_record(ctx, &key, DONT_CREATE_RECORDS, NULL);
     if (rec == NULL) {
         joy_log_err("Couldn't find flow record, can't store app data");
+        return;
+    }
+
+    /* only allow the app to store at most 100 bytes of app data in the flow record */
+    if (app_data_len > 100) {
+        rec->joy_app_data_len = 0;
+        joy_log_err("App Specific data is too large(%d bytes), not storing the information",app_data_len);
         return;
     }
 

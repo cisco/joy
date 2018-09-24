@@ -304,6 +304,25 @@ extern void joy_update_ctx_global_time (unsigned char *ctx_index,
                                         struct timeval *new_time);
 
 /*
+ * Function: joy_packet_to_context
+ *
+ * Description: This function takes in an IP packet and using the
+ *      5-tuple determines which context it should be sent to for
+ *      data feature processing. This APi is useful for applications
+ *      that use the JOY library and want to use the libraries default
+ *      scheme for dividing up traffic among various worker contexts.
+ *
+ * Parameters:
+ *      packet - pointer to the IP packet data
+ *
+ * Returns:
+ *      context - the context number the packet belongs to for JOY processing.
+ *          This algortihms keeps bidirectional flows in the same context.
+ *
+ */
+extern unsigned int joy_packet_to_context (const char *packet);
+
+/*
  * Function: joy_process_packet
  *
  * Description: This function is formatted to match the libpcap

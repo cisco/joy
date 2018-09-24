@@ -86,7 +86,7 @@ void process_hardcoded_packets (unsigned long index)
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet2);
     header.len = sizeof(packet2);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet2);
+    joy_process_packet_with_app_data((unsigned char*)index, &header, (const unsigned char*)packet2,2,"\x44\x55");
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
