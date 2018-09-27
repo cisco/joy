@@ -391,7 +391,7 @@ if [ "$sysname" == "Darwin" ]; then
     # Install the sleuth python module
     if [ -z "$PKGBUILD" ]; then
         echo "Running pip install ${APP_ROOT}/sleuth_pkg/"
-        pip install ${APP_ROOT}/sleuth_pkg/
+        pip install --upgrade ${APP_ROOT}/sleuth_pkg/
     else
         cd ${APP_ROOT}/sleuth_pkg
         SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
