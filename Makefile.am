@@ -22,6 +22,6 @@ clean_make:
 	echo "You must rerun configure"
 
 
-EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg windows rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth win-joy
+EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth Makefile.joy src/Makefile.joy VERSION
 
 
