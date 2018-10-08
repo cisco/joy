@@ -176,13 +176,21 @@ void flocap_stats_timer_init (joy_ctx_data *ctx) {
  * \return Hash of \p f
  */
 static unsigned int flow_key_hash (const flow_key_t *f) {
+    unsigned int hash = 0;
+
+    if (f == NULL) return 0;
 
     if (glb_config->flow_key_match_method == EXACT_MATCH) {
-          return (((unsigned int)f->sa.s_addr * 0xef6e15aa)
-            ^ ((unsigned int)f->da.s_addr * 0x65cd52a0)
-            ^ ((unsigned int)f->sp * 0x8216)
-            ^ ((unsigned int)f->dp * 0xdda37)
-            ^ ((unsigned int)f->prot * 0xbc06)) & flow_key_hash_mask;
+
+        hash += (unsigned int)f->sa.s_addr;
+        hash += (unsigned int)f->da.s_addr;
+        hash += (unsigned int)f->sp;
+        hash += (unsigned int)f->dp;
+        hash += (unsigned int)f->prot;
+
+        hash *= 0xFFD9;
+        hash -= (hash >> 16);
+        hash &= flow_key_hash_mask;
 
     } else {  /* flow_key_match_method == NEAR_MATCH */
         /*
@@ -191,19 +199,16 @@ static unsigned int flow_key_hash (const flow_key_t *f) {
          * This is done by omitting addresses and sorting the ports into
          * order before hashing.
          */
-        unsigned int hi, lo;
+        hash += (unsigned int)f->sp;
+        hash += (unsigned int)f->dp;
+        hash += (unsigned int)f->prot;
 
-        if (f->sp > f->dp) {
-            hi = f->sp;
-            lo = f->dp;
-        } else {
-            hi = f->dp;
-            lo = f->sp;
-        }
-
-        return ((hi * 0x8216) ^ (lo * 0xdda37)
-            ^ ((unsigned int)f->prot * 0xbc06)) & flow_key_hash_mask;
+        hash *= 0xFFD9;
+        hash -= (hash >> 16);
+        hash &= flow_key_hash_mask;
     }
+
+    return hash;
 }
 
 /**
@@ -333,7 +338,9 @@ static void flow_key_copy (flow_key_t *dst, const flow_key_t *src) {
 
 #define MAX_TTL 255
 
-flow_record_t *flow_key_get_twin(joy_ctx_data *ctx, const flow_key_t *key);
+static flow_record_t *flow_key_get_twin(joy_ctx_data *ctx,
+                                        const flow_key_t *key,
+                                        unsigned int key_hash);
 
 /**
  * \brief Initialize a flow_record.
@@ -385,12 +392,12 @@ static flow_record_t *flow_record_list_find_record_by_key (const flow_record_lis
     /* Find a record matching the flow key, if it exists */
     while (record != NULL) {
         if (flow_key_is_eq(key, &record->key) == 0) {
-            debug_printf("LIST (head location: %p) record %p found\n", list, record);
+            joy_log_debug("LIST (head location: %p) record %p found\n", list, record);
             return record;
         }
         record = record->next;
     }
-    debug_printf("LIST (head location: %p) did not find record\n", list);
+    joy_log_debug("LIST (head location: %p) did not find record\n", list);
 
     return NULL;
 }
@@ -408,12 +415,12 @@ static flow_record_t *flow_record_list_find_twin_by_key (const flow_record_list 
     /* find a record matching the flow key, if it exists */
     while (record != NULL) {
         if (flow_key_is_twin(key, &record->key) == 0) {
-            debug_printf("LIST (head location: %p) record %p found\n", list, record);
+            joy_log_debug("LIST (head location: %p) record %p found\n", list, record);
             return record;
         }
         record = record->next;
     }
-    debug_printf("LIST (head location: %p) did not find record\n", list);
+    joy_log_debug("LIST (head location: %p) did not find record\n", list);
 
     return NULL;
 }
@@ -437,7 +444,7 @@ static void flow_record_list_prepend (flow_record_list *head,
         record->next = tmp;
     }
     *head = record;
-    debug_printf("LIST (head location %p) head set to %p (prev: %p, next: %p)\n",
+    joy_log_debug("LIST (head location %p) head set to %p (prev: %p, next: %p)\n",
                      head, *head, record->prev, record->next);
 }
 
@@ -454,7 +461,7 @@ static unsigned int flow_record_list_remove (flow_record_list *head,
         return 1;    /* don't process NULL pointers; probably an error to get here */
     }
 
-    debug_printf("LIST (head location %p) removing record at %p (prev: %p, next: %p)\n",
+    joy_log_debug("LIST (head location %p) removing record at %p (prev: %p, next: %p)\n",
                    head, r, r->prev, r->next);
 
     if (r->prev == NULL) {
@@ -480,14 +487,14 @@ static unsigned int flow_record_list_remove (flow_record_list *head,
          * its previous entry to point to its next entry
          */
         r->prev->next = r->next;
-        debug_printf("LIST (head location %p) now prev->next: %p\n", head, r->prev->next);
+        joy_log_debug("LIST (head location %p) now prev->next: %p\n", head, r->prev->next);
         if (r->next != NULL) {
             /*
              * the next entry's previous pointer must be made to point to
              * the previous entry
              */
             r->next->prev = r->prev;
-            debug_printf("LIST (head location %p) now next->prev: %p\n", head, r->next->prev);
+            joy_log_debug("LIST (head location %p) now next->prev: %p\n", head, r->next->prev);
         }
     }
 
@@ -665,7 +672,7 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
 
         /* allocate and initialize a new flow record */
         record = calloc(1, sizeof(flow_record_t));
-        debug_printf("LIST record %p allocated\n", record);
+        joy_log_debug("LIST record %p allocated\n", record);
 
         if (record == NULL) {
             joy_log_warn("could not allocate memory for flow_record");
@@ -674,6 +681,7 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
         }
 
         flow_record_init(ctx, record, key);
+        record->key_hash = hash_key;
 
         /* enter record into flow_record_list */
         flow_record_list_prepend(&ctx->flow_record_list_array[hash_key], record);
@@ -684,15 +692,12 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
          * record into the chronological list
          */
         if (glb_config->bidir) {
-            record->twin = flow_key_get_twin(ctx, key);
-            debug_printf("LIST record %p is twin of %p\n", record, record->twin);
+            record->twin = flow_key_get_twin(ctx, key, hash_key);
+            joy_log_debug("LIST record %p is twin of %p\n", record, record->twin);
         }
         if (record->twin != NULL) {
             if (record->twin->twin != NULL) {
-                fprintf(info, "warning: found twin that already has a twin; not setting twin pointer\n");
-                debug_printf("\trecord:    (hash key %x)(addr: %p)\n", flow_key_hash(&record->key), record);
-                debug_printf("\ttwin:      (hash key %x)(addr: %p)\n", flow_key_hash(&record->twin->key), &record->twin);
-                debug_printf("\ttwin twin: (hash key %x)(addr: %p)\n", flow_key_hash(&record->twin->twin->key), &record->twin->key);
+                joy_log_info("warning: found twin that already has a twin; not setting twin pointer\n");
                 /*
                  * experimental - consider this record an orphan, add it to chrono list, but without its twin pointer set
                  */
@@ -718,7 +723,7 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
  */
 static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
 
-    if (flow_record_list_remove(&ctx->flow_record_list_array[flow_key_hash(&r->key)], r) != 0) {
+    if (flow_record_list_remove(&ctx->flow_record_list_array[r->key_hash], r) != 0) {
         joy_log_err("problem removing flow record %p from list", r);
         return;
     }
@@ -1669,7 +1674,7 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
      * Delete twin, if there is one
      */
     if (record->twin != NULL) {
-        debug_printf("LIST deleting twin\n");
+        joy_log_debug("LIST deleting twin\n");
         flow_record_delete(ctx, record->twin);
     }
 
@@ -1713,7 +1718,7 @@ void flow_record_export_as_ipfix (joy_ctx_data *ctx, unsigned int export_type) {
          * Delete twin, if there is one
          */
         if (record->twin != NULL) {
-            debug_printf("LIST deleting twin\n");
+            joy_log_debug("LIST deleting twin\n");
             flow_record_delete(ctx, record->twin);
         }
 
@@ -1790,20 +1795,22 @@ void remove_record_and_update_list(joy_ctx_data *ctx, flow_record_t *rec)
 /**
  * \brief Get the twin of a flow_key.
  *
- * \param key A flow_key that we will try to find it's twin
+ * \param ctx Joy context to use for the lookup
+ * \param key flow_key that we will try to find it's twin
+ * \param key_hash hash array to look in for the twin
  *
  * \return The twin flow_key, or NULL
  */
-flow_record_t *flow_key_get_twin (joy_ctx_data *ctx, const flow_key_t *key) {
+flow_record_t *flow_key_get_twin (joy_ctx_data *ctx,
+                                  const flow_key_t *key,
+                                  unsigned int key_hash) {
     if (glb_config->flow_key_match_method == EXACT_MATCH) {
         flow_key_t twin;
 
         /*
-         * we use find_record_by_key() instead of find_twin_by_key(),
-         * because we are using a flow_key_hash() that depends on the
-         * entire flow key, and that hash won't work with
-         * find_twin_by_key() function because it does not map near twins
-         * to the same flow_record_list
+         * we use the passed in key_hash to determine the list because
+         * the twin will has the same hash value. we use find_record_by_key
+         * because we are searching based on the entire key.
          */
         twin.sa.s_addr = key->da.s_addr;
         twin.da.s_addr = key->sa.s_addr;
@@ -1811,10 +1818,16 @@ flow_record_t *flow_key_get_twin (joy_ctx_data *ctx, const flow_key_t *key) {
         twin.dp = key->sp;
         twin.prot = key->prot;
 
-        return flow_record_list_find_record_by_key(&ctx->flow_record_list_array[flow_key_hash(&twin)], &twin);
+        return flow_record_list_find_record_by_key(&ctx->flow_record_list_array[key_hash], &twin);
 
     } else {
-        return flow_record_list_find_twin_by_key(&ctx->flow_record_list_array[flow_key_hash(key)], key);
+        /*
+         * we use the passed in key_hash because in NEAR_MATCH cases, the addresses are omitted
+         * from the hash calculation. Therefore, the record and twin will have the same hash.
+         * we use find_twin_by_key because we need to at least match one address in the records
+         * to have a good chance at determining this is the NAT'd twin.
+         */
+        return flow_record_list_find_twin_by_key(&ctx->flow_record_list_array[key_hash], key);
     }
 }
 

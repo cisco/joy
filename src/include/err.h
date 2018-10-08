@@ -124,14 +124,7 @@ typedef enum joy_log_level {
 /** printf debug macro */
 #define zprintf_debug(output, ...) zprintf(output, ",\"DEBUG\": \""  __VA_ARGS__);
 
-/** debug flag */
-#define P2F_DEBUG 0
-
-#if P2F_DEBUG
-#define debug_printf(...) (fprintf(info, "debug: " __VA_ARGS__)) 
-#else
 #define debug_printf(...) 
-#endif
 
 #endif /* ERR_H */
 

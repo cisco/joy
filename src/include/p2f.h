@@ -62,7 +62,7 @@
 #include "joy_api.h"
 
 /* flow value definitions */
-#define flow_key_hash_mask 0x000fffff
+#define flow_key_hash_mask 0xFFFF
 #define FLOW_RECORD_LIST_LEN (flow_key_hash_mask + 1)
 
 enum twins_match {
@@ -124,6 +124,7 @@ extern FILE *info;
 
 typedef struct flow_record_ {
     flow_key_t key;                       /*!< identifies flow by 5-tuple          */
+    unsigned int key_hash;                /*!< hash of the 5-tuple key             */
     uint16_t app;                         /*!< application protocol prediction     */
     uint8_t dir;                          /*!< direction of the flow               */
     unsigned int np;                      /*!< number of packets                   */
