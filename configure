@@ -12766,8 +12766,9 @@ _ACEOF
   LIBS="-lcurl $LIBS"
 
 else
-  { $as_echo "$as_me:$LINENO: WARNING: libcurl not found. Please install it." >&5
-$as_echo "$as_me: WARNING: libcurl not found. Please install it." >&2;}
+  { { $as_echo "$as_me:$LINENO: error: libcurl not found. Please install it." >&5
+$as_echo "$as_me: error: libcurl not found. Please install it." >&2;}
+   { (exit 1); exit 1; }; }
 fi
 
 

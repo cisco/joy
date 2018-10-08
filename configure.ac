@@ -116,7 +116,7 @@ AC_SUBST(AM_CFLAGS_LITE)
 AC_CHECK_LIB([dl], [dlopen])
 AC_CHECK_LIB([pthread], [pthread_equal])
 AC_CHECK_LIB([curl], [curl_easy_init], [], 
-                     AC_MSG_WARN([libcurl not found. Please install it.]))
+                     AC_MSG_ERROR([libcurl not found. Please install it.]))
 
 
 # Checks for header files.
