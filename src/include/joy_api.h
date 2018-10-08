@@ -71,6 +71,17 @@ typedef enum {
 } JOY_EXPORT_TYPE;
 
 /*
+ * These flags define if a flow record has sufficient data
+ * collected in order to successfully process that
+ * particular data feature.
+ */
+#define JOY_IDP_READY           (1 << 0)
+#define JOY_TLS_READY           (1 << 1)
+#define JOY_SPLT_READY          (1 << 2)
+#define JOY_SALT_READY          (1 << 3)
+#define JOY_BD_READY            (1 << 4)
+
+/*
  * Joy Library Flow Record Delete Bitmask Values
  * Each value represents a data feature that has been
  * processed by an external application. When calling
@@ -325,26 +336,6 @@ extern unsigned int joy_packet_to_context (const char *packet);
 /*
  * Function: joy_process_packet
  *
- * Description: This function is formatted to match the libpcap
- *      prototype for processing packets. This is essentially
- *      wrapper function for the code used within the Joy library.
- *
- * Parameters:
- *      ctx_index - index of the thread context to use
- *      header - libpcap header which contains timestamp, cap length
- *               and length
- *      packet - the actual data packet
- *
- * Returns:
- *      none
- *
- */
-extern void joy_process_packet (unsigned char *ctx_idx,
-				const struct pcap_pkthdr *header, 
-				const unsigned char *packet);
-/*
- * Function: joy_process_packet_with_app_data
- *
  * Description: This function invoked the packet processing function
  *      however, the application is permitted store some small amount
  *      of data in the flow record once it is created. This can be
@@ -366,14 +357,35 @@ extern void joy_process_packet (unsigned char *ctx_idx,
  *      when this function returns.
  *
  * Returns:
- *      none
+ *      Pointer to the flow record
  *
  */
-extern void joy_process_packet_with_app_data(unsigned char *ctx_index,
+extern void* joy_process_packet (unsigned char *ctx_index,
                               const struct pcap_pkthdr *header,
                               const unsigned char *packet,
                               unsigned int app_data_len,
                               const unsigned char *app_data);
+
+/*
+ * Function: joy_libpcap_process_packet
+ *
+ * Description: This function is formatted to match the libpcap
+ *      prototype for processing packets. This is essentially
+ *      wrapper function for the code used within the Joy library.
+ *
+ * Parameters:
+ *      ctx_index - index of the thread context to use
+ *      header - libpcap header which contains timestamp, cap length
+ *               and length
+ *      packet - the actual data packet
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_libpcap_process_packet (unsigned char *ctx_index,
+                               const struct pcap_pkthdr *header,
+                               const unsigned char *packet);
 
 /*
  * Function: joy_print_flow_data

@@ -85,7 +85,7 @@ int proc_pcap_file (unsigned long index, char *file_name) {
 
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_process_packet, (unsigned char*)index);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_libpcap_process_packet, (unsigned char*)index);
         /* Print out expired flows */
         //joy_print_flow_data(index,JOY_EXPIRED_FLOWS);
     }
@@ -215,9 +215,9 @@ void *thread_main1 (void *file)
         recs = joy_purge_old_flow_records(0, 300);
         printf("Thread 1 deleted %d records\n",recs);
         //joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
-        //joy_print_flow_data(0, JOY_ALL_FLOWS);
-        recs = joy_delete_flow_records(0, JOY_DELETE_ALL);
-        printf("Thread 1 deleted %d records\n",recs);
+        joy_print_flow_data(0, JOY_ALL_FLOWS);
+        //recs = joy_delete_flow_records(0, JOY_DELETE_ALL);
+        //printf("Thread 1 deleted %d records\n",recs);
     } else {
         printf("Thread 1 No File to Process\n");
     }

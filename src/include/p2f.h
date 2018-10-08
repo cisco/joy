@@ -166,6 +166,7 @@ typedef struct flow_record_ {
     unsigned char salt_ext_processed;
     unsigned char splt_ext_processed;
     unsigned char bd_ext_processed;
+    unsigned int feature_flags;           /*!< flags to signal when a data feature is ready */
   
     define_all_features(feature_list)     /*!< define all features listed in feature.h */
   

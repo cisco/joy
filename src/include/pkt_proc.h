@@ -50,7 +50,8 @@
 #define MAX_TEMPLATES 100
 
 /** main packet processing entry point */
-void process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
+void* process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
+void libpcap_process_packet(unsigned char *ctx_ptr, const struct pcap_pkthdr *header, const unsigned char *packet);
 
 int get_packet_5tuple_key(const unsigned char *packet, flow_key_t *key);
 

@@ -295,6 +295,43 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
 #endif
 
 /*
+ * This function checks the various data features to see if enough
+ * data has been collected in the flow record to satisfy the requirments
+ * for reporting on that data feature.
+ */
+static void flow_record_set_feature_ready_flags (flow_record_t *rec)
+{
+    /* check IDP feature */
+    if (rec->idp_len > 0) {
+        rec->feature_flags |= JOY_IDP_READY;
+    }
+
+    /* check TLS feature */
+    if (rec->tls != NULL) {
+        if (rec->tls->done_handshake) {
+            rec->feature_flags |= JOY_TLS_READY;
+        }
+    }
+
+    /* check SPLT feature */
+    if (rec->op >= 10) { /* 10 packets specified in ETTA spec */
+        rec->feature_flags |= JOY_SPLT_READY;
+    }
+
+    /* check SALT feature */
+    if (rec->salt != NULL) {
+        if (rec->salt->np >= 10) { /* 10 packets specified in ETTA spec */
+            rec->feature_flags |= JOY_SALT_READY;
+        }
+    }
+
+    /* check BD feature */
+    if (rec->ob >= 4000) { /* 4000 octets specified in ETTA spec */
+        rec->feature_flags |= JOY_BD_READY;
+    }
+}
+
+/*
  * @brief Process IPFIX message contents.
  *
  * @param start Beginning of IPFIX message data.
@@ -580,7 +617,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
 /*
  * Function: retrans_detected
  *
- * Description: This function loks over the last 10 stored TCP sequence numbers
+ * Description: This function looks over the last 10 stored TCP sequence numbers
  *         to see if we have a retransmitted TCP packet.
  *
  * Parameters:
@@ -1073,14 +1110,16 @@ int get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
 }
 
 /**
- * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
-                     const unsigned char *packet)
+ * \fn void* process_packet (unsigned char *ctx_ptr,
+                            const struct pcap_pkthdr *pkt_header,
+                            const unsigned char *packet)
  * \param ctx_ptr currently used to store the context data pointer
  * \param pkt_header pointer to the packer header structure
  * \param packet pointer to the packet
- * \return none
+ * \return pointer to the flow record
  */
-void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
+void* process_packet (unsigned char *ctx_ptr,
+                     const struct pcap_pkthdr *pkt_header,
                      const unsigned char *packet) {
     flow_record_t *record = NULL;
     unsigned char proto = 0;
@@ -1100,7 +1139,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
     joy_ctx_data *ctx = (joy_ctx_data*)ctx_ptr;
     if (ctx == NULL) {
         joy_log_err("NULL Data Context Pointer");
-        return;
+        return NULL;
     }
 
     memset(&key, 0x00, sizeof(flow_key_t));
@@ -1130,16 +1169,16 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
                    ip_hdr_len = ip_hdr_length(ip);
                    break;
                default :
-                   return;
+                   return NULL;
            }
            break;
        default:
-           return;
+           return NULL;
     }  
     
     if (ip_hdr_len < 20) {
         joy_log_err(" Invalid IP header length: %u bytes", ip_hdr_len);
-        return;
+        return NULL;
     }
 
     /* make sure we have a valid packet header */
@@ -1149,7 +1188,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
         header = calloc(1,sizeof(struct pcap_pkthdr));
         if (header == NULL) {
             joy_log_err(" Couldn't allocate memory for packet header.");
-            return;
+            return NULL;
         }
         allocated_packet_header = 1;
         gettimeofday(&now,NULL);
@@ -1168,7 +1207,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
          */
         if (allocated_packet_header)
             free(header);
-        return;
+        return NULL;
     }
     transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
 
@@ -1241,7 +1280,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
 	            if (allocated_packet_header) {
 		        free(header);
 	            }
-                    return;
+                    return NULL;
                 } else {
                     /* found record, check for retransmission flag */
                     if (record->is_tcp_retrans == 1) {
@@ -1249,14 +1288,14 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
 	                if (allocated_packet_header) {
 		            free(header);
 	                }
-                        return;
+                        return NULL;
                     } else if (record->is_tcp_retrans == 2) {
                         /* same packet retransmitted but with additional data */
                         /* TODO: process the additional data */
 	                if (allocated_packet_header) {
 		            free(header);
 	                }
-                        return;
+                        return NULL;
                     }
                     /* if we found the record but retransmission flag not set, then
                      * its a malformed packet and let the process_ip function below
@@ -1290,7 +1329,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
 	    if (allocated_packet_header) {
 		free(header);
 	    }
-            return;
+            return NULL;
         }
         record->invalid++;
 #else
@@ -1300,7 +1339,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
          */
         if (allocated_packet_header)
             free(header);
-        return;
+        return NULL;
 #endif
     }
 
@@ -1343,7 +1382,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
             joy_log_err("Out of memory");
             if (allocated_packet_header)
                 free(header);
-            return;
+            return record;
         }
 
         /* for TCP we guard against out of order packets */
@@ -1368,10 +1407,29 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
     /* increment overall byte count */
     flocap_stats_incr_num_bytes(ctx,transport_len);
 
+    /* set the feature ready flags for this flow record */
+    flow_record_set_feature_ready_flags(record);
+
     /* if we allocated the packet header, then free it now */
     if (allocated_packet_header)
         free(header);
-    return;
+    return record;
+}
+
+/**
+ * \fn void libpcap_process_packet (unsigned char *ctx_ptr,
+                                    const struct pcap_pkthdr *pkt_header,
+                                    const unsigned char *packet)
+ * \brief This function is a wrapper that matches what libpcap defines
+        for a handler to use when invoking packet dispatch routines.
+ * \param ctx_ptr currently used to store the context data pointer
+ * \param pkt_header pointer to the packer header structure
+ * \param packet pointer to the packet
+ * \return none
+ */
+void libpcap_process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
+                     const unsigned char *packet) {
+    process_packet(ctx_ptr, pkt_header, packet);
 }
 
 /* END packet processing */

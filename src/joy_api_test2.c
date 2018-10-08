@@ -79,70 +79,70 @@ void process_hardcoded_packets (unsigned long index)
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet1);
     header.len = sizeof(packet1);
-    joy_process_packet_with_app_data((unsigned char*)index, &header, (const unsigned char*)packet1,2,"\x21\x32");
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet1,2,"\x21\x32");
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet2);
     header.len = sizeof(packet2);
-    joy_process_packet_with_app_data((unsigned char*)index, &header, (const unsigned char*)packet2,2,"\x44\x55");
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet2,2,"\x44\x55");
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet3);
     header.len = sizeof(packet3);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet3);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet3, 0, NULL);
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet4);
     header.len = sizeof(packet4);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet4);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet4, 0, NULL);
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet5);
     header.len = sizeof(packet5);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet5);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet5, 0, NULL);
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet6);
     header.len = sizeof(packet6);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet6);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet6, 0, NULL);
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet7);
     header.len = sizeof(packet7);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet7);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet7, 0, NULL);
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet8);
     header.len = sizeof(packet8);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet8);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet8, 0, NULL);
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet9);
     header.len = sizeof(packet9);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet9);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet9, 0, NULL);
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet10);
     header.len = sizeof(packet10);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet10);
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet10, 0, NULL);
 
 }
 
