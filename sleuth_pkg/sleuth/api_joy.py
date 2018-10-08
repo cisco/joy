@@ -261,7 +261,7 @@ class PcapLoader:
         Use the function cleanup() within this class to delete the file before program exit.
         :return:
         """
-        cur_dir = os.path.dirname(__file__)
+        cur_dir = os.getcwd()
         temp_json_dir = os.path.expanduser('~')
         temp_json_filename = 'temp-sleuth.json.gz'
         self.temp_json['file'] = os.path.join(temp_json_dir, temp_json_filename)
