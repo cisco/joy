@@ -114,12 +114,19 @@ AC_SUBST(AM_CFLAGS_LITE)
 
 
 AC_CHECK_LIB([dl], [dlopen])
-
 AC_CHECK_LIB([pthread], [pthread_equal])
+AC_CHECK_LIB([curl], [curl_easy_init], [], 
+                     AC_MSG_WARN([libcurl not found. Please install it.]))
 
 
 # Checks for header files.
-AC_CHECK_HEADERS([fcntl.h inttypes.h pcap.h])
+AC_CHECK_HEADERS([fcntl.h inttypes.h])
+
+AC_CHECK_HEADER([pcap.h],[found_pcap_header=yes; break;])
+AS_IF([test "x$found_pcap_header" != "xyes"], [AC_MSG_ERROR([Unable to find pcap.h])])
+
+AC_CHECK_HEADER([curl/curl.h],[found_curl_header=yes; break;])
+AS_IF([test "x$found_curl_header" != "xyes"], [AC_MSG_ERROR([Unable to find curl.h])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
