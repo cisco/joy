@@ -58,8 +58,12 @@
  * files.  
  *
  */
-#ifndef COMPRESSED_OUTPUT
-#define COMPRESSED_OUTPUT 1
+//#ifndef COMPRESSED_OUTPUT
+//#define COMPRESSED_OUTPUT 1
+//#endif
+#ifdef FORCED_COMPRESSED_OUTPUT_OFF
+#undef COMPRESSED_OUTPUT
+#define COMPRESSED_OUTPUT 0
 #endif
 
 #if (COMPRESSED_OUTPUT == 0)
