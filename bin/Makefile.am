@@ -45,11 +45,11 @@ str_match_test_SOURCES = ../src/str_match_test.c
 
 joy_CFLAGS = -I ../src/include -DJOY_LIB_API -I $(SSL_CFLAGS) $(LIBCURL_CFLAGS) $(AM_CFLAGS)
 unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS)
-jfd_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
-joy_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
-joy_api_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
-joy_api_test2_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
-str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
+jfd_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_api_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
+joy_api_test2_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
+str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS)
 
 if BUILD_MAC
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -Wl,-pie
