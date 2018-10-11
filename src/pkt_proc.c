@@ -934,11 +934,9 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
                            ip_hdr_len = ip_hdr_length(ip);
                            break;
                        default :
-                           joy_log_info("Ethernet type - NOT IP with 802.1Q VLAN #2");
                            return;
                    }
                default :
-                   joy_log_info("Ethernet type - NOT IP or DOT1Q with 802.1Q VLAN #1");
                    return;
            }
            break;
