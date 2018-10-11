@@ -914,9 +914,8 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
            ip_hdr_len = ip_hdr_length(ip);
            break;
        case ETH_TYPE_DOT1Q:
-           joy_log_info("Ethernet type - 802.1q VLAN #1");
        case ETH_TYPE_QNQ:
-           joy_log_info("Ethernet type - 802.1ad VLAN #1");
+           joy_log_info("Ethernet type - 802.1q VLAN #1");
            //Offset to get VLAN_TYPE
            vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
@@ -926,9 +925,8 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
                    ip_hdr_len = ip_hdr_length(ip);
                    break;
                case ETH_TYPE_DOT1Q:
-                   joy_log_info("Ethernet type - 802.1q VLAN #2");
                case ETH_TYPE_QNQ:
-                   joy_log_info("Ethernet type - 802.1ad VLAN #2");
+                   joy_log_info("Ethernet type - 802.1q VLAN #2");
                     //Offset to get VLAN_TYPE
                    vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
                    switch(vlan2_ether_type) {
