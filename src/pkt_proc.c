@@ -1020,6 +1020,7 @@ int get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
     unsigned int rc = 0;
     uint16_t ether_type = 0;
     uint16_t vlan_ether_type = 0;
+    uint16_t vlan2_ether_type = 0;
     const struct ip_hdr *ip = NULL;
     unsigned int ip_hdr_len = 0;
     const void *transport_start = NULL;
@@ -1035,23 +1036,44 @@ int get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
 
     ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
 
-    /* Support for both normal ethernet and 802.1q . Distinguish between
-     * the two accepted types
-    */
+    /* Support for both normal ethernet, 802.1q and 802.1ad. Distinguish between
+     * the three accepted types
+     */
     switch(ether_type) {
        case ETH_TYPE_IP:
+           joy_log_info("Ethernet type - IP");
            ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = ip_hdr_length(ip);
            break;
        case ETH_TYPE_DOT1Q:
+       case ETH_TYPE_QNQ:
+           joy_log_info("Ethernet type - 802.1q VLAN #1");
            //Offset to get VLAN_TYPE
            vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
                case ETH_TYPE_IP:
+                   joy_log_info("Ethernet type - IP with VLAN #1");
                    ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = ip_hdr_length(ip);
                    break;
+               case ETH_TYPE_DOT1Q:
+               case ETH_TYPE_QNQ:
+                   joy_log_info("Ethernet type - 802.1q VLAN #2");
+                    //Offset to get VLAN_TYPE
+                   vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
+                   switch(vlan2_ether_type) {
+                       case ETH_TYPE_IP:
+                           joy_log_info("Ethernet type - IP with 802.1q VLAN #2");
+                           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
+                           ip_hdr_len = ip_hdr_length(ip);
+                           break;
+                       default :
+                           joy_log_info("Ethernet type - Unknown with 802.1q VLAN #2");
+                           return rc;
+                   }
+                   break;
                default :
+                   joy_log_info("Ethernet type - Unknown with 802.1q VLAN #1");
                    return rc;
            }
            break;
@@ -1124,7 +1146,7 @@ void* process_packet (unsigned char *ctx_ptr,
     flow_record_t *record = NULL;
     unsigned char proto = 0;
     unsigned int allocated_packet_header = 0;
-    uint16_t ether_type = 0,vlan_ether_type = 0;
+    uint16_t ether_type = 0,vlan_ether_type = 0, vlan2_ether_type = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
     struct pcap_pkthdr *header = (struct pcap_pkthdr*)pkt_header;
 
@@ -1150,25 +1172,44 @@ void* process_packet (unsigned char *ctx_ptr,
 
     // ethernet = (struct ethernet_hdr*)(packet);
     ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
-    /* Support for both normal ethernet and 802.1q . Distinguish between 
-     * the two accepted types
+    /* Support for both normal ethernet, 802.1q and 802.1ad. Distinguish between 
+     * the three accepted types
     */
     switch(ether_type) {
        case ETH_TYPE_IP:
-           joy_log_info("Ethernet type - normal");
+           joy_log_info("Ethernet type - IP");
            ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = ip_hdr_length(ip);
            break;
        case ETH_TYPE_DOT1Q:
-           joy_log_info("Ethernet type - 802.1Q VLAN");
+       case ETH_TYPE_QNQ:
+           joy_log_info("Ethernet type - 802.1q VLAN #1");
            //Offset to get VLAN_TYPE
            vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
                case ETH_TYPE_IP:
+                   joy_log_info("Ethernet type - IP with VLAN #1");
                    ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = ip_hdr_length(ip);
                    break;
+               case ETH_TYPE_DOT1Q:
+               case ETH_TYPE_QNQ:
+                   joy_log_info("Ethernet type - 802.1q VLAN #2");
+                    //Offset to get VLAN_TYPE
+                   vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
+                   switch(vlan2_ether_type) {
+                       case ETH_TYPE_IP:
+                           joy_log_info("Ethernet type - IP with 802.1q VLAN #2");
+                           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
+                           ip_hdr_len = ip_hdr_length(ip);
+                           break;
+                       default :
+                           joy_log_info("Ethernet type - Unknown with 802.1q VLAN #2");
+                           return NULL;
+                   }
+                   break;
                default :
+                   joy_log_info("Ethernet type - Unknown with 802.1q VLAN #1");
                    return NULL;
            }
            break;

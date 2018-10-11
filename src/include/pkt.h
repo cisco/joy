@@ -64,6 +64,7 @@
 
 #define ETH_TYPE_IP    0X0800
 #define ETH_TYPE_DOT1Q 0X08100
+#define ETH_TYPE_QNQ   0X088A8
 
 /** ethernet header structure */
 struct ethernet_hdr {
