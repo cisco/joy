@@ -926,11 +926,11 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
                case ETH_TYPE_DOT1Q:
                    joy_log_info("Ethernet type - 802.1Q VLAN #2");
                     //Offset to get VLAN_TYPE
-                   vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
+                   vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
                    switch(vlan2_ether_type) {
                        case ETH_TYPE_IP:
                            joy_log_info("Ethernet type - normal with VLAN #2");
-                           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
+                           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
                            ip_hdr_len = ip_hdr_length(ip);
                            break;
                        default :
