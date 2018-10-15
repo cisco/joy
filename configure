@@ -12542,7 +12542,6 @@ AM_CFLAGS_LITE="-Werror -Wall -fPIC"
 
 
 
-
 { $as_echo "$as_me:$LINENO: checking for dlopen in -ldl" >&5
 $as_echo_n "checking for dlopen in -ldl... " >&6; }
 if test "${ac_cv_lib_dl_dlopen+set}" = set; then
@@ -12609,14 +12608,13 @@ fi
 { $as_echo "$as_me:$LINENO: result: $ac_cv_lib_dl_dlopen" >&5
 $as_echo "$ac_cv_lib_dl_dlopen" >&6; }
 if test "x$ac_cv_lib_dl_dlopen" = x""yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBDL 1
-_ACEOF
-
-  LIBS="-ldl $LIBS"
-
+  { $as_echo "$as_me:$LINENO: \"dl is installed\"" >&5
+$as_echo "$as_me: \"dl is installed\"" >&6;}
+else
+  { { $as_echo "$as_me:$LINENO: error: dl not found. Please install it." >&5
+$as_echo "$as_me: error: dl not found. Please install it." >&2;}
+   { (exit 1); exit 1; }; }
 fi
-
 
 { $as_echo "$as_me:$LINENO: checking for pthread_equal in -lpthread" >&5
 $as_echo_n "checking for pthread_equal in -lpthread... " >&6; }
@@ -12684,14 +12682,13 @@ fi
 { $as_echo "$as_me:$LINENO: result: $ac_cv_lib_pthread_pthread_equal" >&5
 $as_echo "$ac_cv_lib_pthread_pthread_equal" >&6; }
 if test "x$ac_cv_lib_pthread_pthread_equal" = x""yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBPTHREAD 1
-_ACEOF
-
-  LIBS="-lpthread $LIBS"
-
+  { $as_echo "$as_me:$LINENO: \"pthread is installed\"" >&5
+$as_echo "$as_me: \"pthread is installed\"" >&6;}
+else
+  { { $as_echo "$as_me:$LINENO: error: libpthread not found. Please install it." >&5
+$as_echo "$as_me: error: libpthread not found. Please install it." >&2;}
+   { (exit 1); exit 1; }; }
 fi
-
 
 { $as_echo "$as_me:$LINENO: checking for curl_easy_init in -lcurl" >&5
 $as_echo_n "checking for curl_easy_init in -lcurl... " >&6; }
@@ -12759,12 +12756,8 @@ fi
 { $as_echo "$as_me:$LINENO: result: $ac_cv_lib_curl_curl_easy_init" >&5
 $as_echo "$ac_cv_lib_curl_curl_easy_init" >&6; }
 if test "x$ac_cv_lib_curl_curl_easy_init" = x""yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBCURL 1
-_ACEOF
-
-  LIBS="-lcurl $LIBS"
-
+  { $as_echo "$as_me:$LINENO: \"curl is installed\"" >&5
+$as_echo "$as_me: \"curl is installed\"" >&6;}
 else
   { { $as_echo "$as_me:$LINENO: error: libcurl not found. Please install it." >&5
 $as_echo "$as_me: error: libcurl not found. Please install it." >&2;}
@@ -14724,7 +14717,6 @@ if test "x$ssldir" != "x/usr"; then
 
 fi
 
-
 { $as_echo "$as_me:$LINENO: checking for EVP_EncryptInit in -lcrypto" >&5
 $as_echo_n "checking for EVP_EncryptInit in -lcrypto... " >&6; }
 if test "${ac_cv_lib_crypto_EVP_EncryptInit+set}" = set; then
@@ -14791,12 +14783,8 @@ fi
 { $as_echo "$as_me:$LINENO: result: $ac_cv_lib_crypto_EVP_EncryptInit" >&5
 $as_echo "$ac_cv_lib_crypto_EVP_EncryptInit" >&6; }
 if test "x$ac_cv_lib_crypto_EVP_EncryptInit" = x""yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBCRYPTO 1
-_ACEOF
-
-  LIBS="-lcrypto $LIBS"
-
+  { $as_echo "$as_me:$LINENO: \"openSSL is installed\"" >&5
+$as_echo "$as_me: \"openSSL is installed\"" >&6;}
 else
   { { $as_echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}

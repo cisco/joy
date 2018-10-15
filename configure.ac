@@ -113,9 +113,11 @@ AC_SUBST(AM_CFLAGS_LITE)
 
 
 
-AC_CHECK_LIB([dl], [dlopen])
-AC_CHECK_LIB([pthread], [pthread_equal])
-AC_CHECK_LIB([curl], [curl_easy_init], [], 
+AC_CHECK_LIB([dl], [dlopen], [AC_MSG_NOTICE("dl is installed")], 
+                     AC_MSG_ERROR([dl not found. Please install it.]))
+AC_CHECK_LIB([pthread], [pthread_equal], [AC_MSG_NOTICE("pthread is installed")], 
+                     AC_MSG_ERROR([libpthread not found. Please install it.]))
+AC_CHECK_LIB([curl], [curl_easy_init], [AC_MSG_NOTICE("curl is installed")], 
                      AC_MSG_ERROR([libcurl not found. Please install it.]))
 
 
@@ -162,7 +164,7 @@ if test "x$ssldir" != "x/usr"; then
    AC_SUBST([SSL_LDFLAGS], "-L$ssldir/lib")
 fi
 
-AC_CHECK_LIB([crypto], [EVP_EncryptInit], [],
+AC_CHECK_LIB([crypto], [EVP_EncryptInit], [AC_MSG_NOTICE("openSSL is installed")],
              [AC_MSG_FAILURE([can't find openSSL libcrypto file])])
 
 ##

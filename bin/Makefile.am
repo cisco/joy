@@ -37,8 +37,20 @@ joy_SOURCES = \
 unit_test_SOURCES = ../src/unit_test.c
 joy_api_test_SOURCES = ../src/joy_api_test.c
 joy_api_test2_SOURCES = ../src/joy_api_test2.c
-jfd_anon_SOURCES = ../src/jfd-anon.c
-joy_anon_SOURCES = ../src/joy-anon.c
+jfd_anon_SOURCES = \
+	../src/jfd-anon.c \
+	../src/anon.c \
+	../src/addr.c \
+	../src/str_match.c \
+	../src/acsm.c
+
+joy_anon_SOURCES = \
+	../src/anon.c \
+	../src/addr.c \
+	../src/str_match.c \
+	../src/acsm.c \
+	../src/joy-anon.c
+
 str_match_test_SOURCES = ../src/str_match_test.c
 
 
@@ -54,16 +66,15 @@ str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(S
 if BUILD_MAC
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -Wl,-pie
 unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
-joy_api_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
-str_match_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
+joy_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
+jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
+
 else
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -pie
 unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
-joy_api_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
-str_match_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -pie
+joy_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto -pie
+jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto -pie
+str_match_test_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -pie
 endif
-jfd_anon_LDADD= -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
-joy_anon_LDADD= -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
-#joy_api_test_LDADD= -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
-joy_api_test2_LDADD= -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
-str_match_test_LDADD= ../lib/.libs/libjoy.a $(LIBOBJS)
+joy_api_test_LDADD= $(SSL_LDFLAGS) -lcrypto -lpthread -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
+joy_api_test2_LDADD= $(SSL_LDFLAGS) -lcrypto -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)

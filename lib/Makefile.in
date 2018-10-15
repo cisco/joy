@@ -72,7 +72,7 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libjoy_la_DEPENDENCIES = $(LIBOBJS)
+libjoy_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
 am_libjoy_la_OBJECTS = ../src/libjoy_la-joy_api.lo \
 	../src/libjoy_la-p2f.lo ../src/libjoy_la-osdetect.lo \
@@ -269,7 +269,7 @@ libjoy_la_SOURCES = \
 	../src/proto_identify.c 
 
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) 
-libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION)
+libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION) $(SSL_LDFLAGS) -lcrypto
 include_HEADERS = ../src/include/acsm.h \
 		../src/include/addr_attr.h \
 		../src/include/addr.h \
@@ -310,7 +310,6 @@ include_HEADERS = ../src/include/acsm.h \
 		../src/include/utils.h \
 		../src/include/wht.h 
 
-libjoy_la_LIBADD = $(LIBOBJS)
 all: all-am
 
 .SUFFIXES:
@@ -1019,6 +1018,8 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES
 	tags uninstall uninstall-am uninstall-includeHEADERS \
 	uninstall-libLTLIBRARIES
 
+
+#libjoy_la_LIBADD = $(LIBOBJS)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
