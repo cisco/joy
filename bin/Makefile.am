@@ -68,6 +68,7 @@ joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthr
 unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
 joy_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
 jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
+str_match_test_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -Wl,-pie
 
 else
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -pie

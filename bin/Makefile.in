@@ -334,6 +334,7 @@ str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(S
 @BUILD_MAC_FALSE@jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto -pie
 @BUILD_MAC_TRUE@jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
 @BUILD_MAC_FALSE@str_match_test_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -pie
+@BUILD_MAC_TRUE@str_match_test_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -Wl,-pie
 joy_api_test_LDADD = $(SSL_LDFLAGS) -lcrypto -lpthread -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
 joy_api_test2_LDADD = $(SSL_LDFLAGS) -lcrypto -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
 all: all-am
@@ -1508,7 +1509,6 @@ uninstall-am: uninstall-binPROGRAMS
 	pdf pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-binPROGRAMS
 
-#str_match_test_LDADD= $(SSL_LDFLAGS) -lcrypto ../lib/.libs/libjoy.a $(LIBOBJS)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
