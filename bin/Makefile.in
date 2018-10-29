@@ -97,16 +97,20 @@ joy_anon_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 am_joy_api_test_OBJECTS = ../src/joy_api_test-joy_api_test.$(OBJEXT)
 joy_api_test_OBJECTS = $(am_joy_api_test_OBJECTS)
 am__DEPENDENCIES_1 =
-joy_api_test_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) ../lib/.libs/libjoy.a $(LIBOBJS)
+@BUILD_MAC_FALSE@joy_api_test_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+@BUILD_MAC_FALSE@	$(am__DEPENDENCIES_1)
+@BUILD_MAC_TRUE@joy_api_test_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+@BUILD_MAC_TRUE@	$(am__DEPENDENCIES_1)
 joy_api_test_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(joy_api_test_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_joy_api_test2_OBJECTS =  \
 	../src/joy_api_test2-joy_api_test2.$(OBJEXT)
 joy_api_test2_OBJECTS = $(am_joy_api_test2_OBJECTS)
-joy_api_test2_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) ../lib/.libs/libjoy.a $(LIBOBJS)
+@BUILD_MAC_FALSE@joy_api_test2_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+@BUILD_MAC_FALSE@	$(am__DEPENDENCIES_1)
+@BUILD_MAC_TRUE@joy_api_test2_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+@BUILD_MAC_TRUE@	$(am__DEPENDENCIES_1)
 joy_api_test2_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(joy_api_test2_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
@@ -335,8 +339,10 @@ str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(S
 @BUILD_MAC_TRUE@jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
 @BUILD_MAC_FALSE@str_match_test_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -pie
 @BUILD_MAC_TRUE@str_match_test_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -Wl,-pie
-joy_api_test_LDADD = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
-joy_api_test2_LDADD = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lm -lpcap ../lib/.libs/libjoy.a $(LIBOBJS)
+@BUILD_MAC_FALSE@joy_api_test_LDADD = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap
+@BUILD_MAC_TRUE@joy_api_test_LDADD = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap 
+@BUILD_MAC_FALSE@joy_api_test2_LDADD = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap
+@BUILD_MAC_TRUE@joy_api_test2_LDADD = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap
 all: all-am
 
 .SUFFIXES:
