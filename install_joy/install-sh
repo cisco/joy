@@ -124,7 +124,7 @@ if [ ! -x ${APP_ROOT}/bin/joy ]; then
     exit 1
 fi
 
-if [ ! -e ${APP_ROOT}/lib/libjoy.a ]; then
+if [ ! -e ${APP_ROOT}/lib/.libs/libjoy.a ]; then
     echo "error: could not find joy library file (libjoy.a) (please run \"make\")"
     exit 1
 fi
@@ -348,7 +348,7 @@ if [ "$sysname" == "Darwin" ]; then
     fi
 
     # Install the library file
-    cp ${APP_ROOT}/lib/libjoy.a ${PREFIX}/lib
+    cp ${APP_ROOT}/lib/.libs/libjoy.a ${PREFIX}/lib
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy libjoy.a to ${PREFIX}/lib"
@@ -391,7 +391,7 @@ if [ "$sysname" == "Darwin" ]; then
     # Install the sleuth python module
     if [ -z "$PKGBUILD" ]; then
         echo "Running pip install ${APP_ROOT}/sleuth_pkg/"
-        pip install ${APP_ROOT}/sleuth_pkg/
+        pip install --upgrade ${APP_ROOT}/sleuth_pkg/
     else
         cd ${APP_ROOT}/sleuth_pkg
         SLEUTHVER=`grep version setup.py | awk -F\' '{print $2}'`
@@ -604,7 +604,7 @@ elif [ "$sysname" == "Linux" ]; then
     fi
 
     # Install the Joy Library File
-    cp ${APP_ROOT}/lib/libjoy.a ${PREFIX}/lib/
+    cp ${APP_ROOT}/lib/.libs/libjoy.a ${PREFIX}/lib/
     retval=$?
     if [ $retval -ne "0" ]; then
         echo "error: could not copy libjoy.a to ${PREFIX}/lib/"
@@ -835,7 +835,7 @@ elif [ "$sysname" == "Linux" ]; then
     # List all the installed files
     if [ -z "$PKGBUILD" ]; then
         ls -l ${PREFIX}/bin/joy
-        ls -l ${PREFIX}/lib/libjoy.a
+        ls -l ${PREFIX}/lib/./libs/libjoy.a
         ls -l ${PREFIX}/include/joy/joy_api.h
         ls -l ${PREFIX}/bin/sleuth
         ls -l ${PREFIX}/etc/joy/*
