@@ -183,18 +183,6 @@ void wht_print_json (const wht_t *w1, const wht_t *w2, zfile f) {
 	      (float) s[1] / n,
 	      (float) s[2] / n,
 	      (float) s[3] / n);
-#if 0
-    zprintf(f, ",\"RAW1\":[%d,%d,%d,%d]",
-	      w1->spectrum[0], 
-	      w1->spectrum[1],
-	      w1->spectrum[2],
-	      w1->spectrum[3]);
-    zprintf(f, ",\"RAW2\":[%d,%d,%d,%d]",
-	      w1->spectrum[0], 
-	      w1->spectrum[1],
-	      w1->spectrum[2],
-	      w1->spectrum[3]);
-#endif 
 }
 
 /**

@@ -969,18 +969,5 @@ static void http_print_message(zfile f,
  */
 void http_unit_test()
 {
-#if 0
-    int num_fails = 0;
-
-    fprintf(info, "\n******************************\n");
-    fprintf(info, "HTTP Unit Test starting...\n");
-
-    if (num_fails) {
-        fprintf(info, "Finished - # of failures: %d\n", num_fails);
-    } else {
-        fprintf(info, "Finished - success\n");
-    }
-    fprintf(info, "******************************\n\n");
-#endif
 }
 

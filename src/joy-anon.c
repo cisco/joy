@@ -119,14 +119,6 @@ enum type {
     strings   = 2
 };
 
-#if 0
-/*
- * getopt() external variables
- */
-extern char *optarg;
-extern int optind, opterr, optopt;
-#endif
-
 /**
  \fn int main (int argc, char *argv[])
  \brief main entry point for joy-anon

@@ -725,15 +725,6 @@ static void radix_trie_node_print (const struct radix_trie *r,
     }
 
 
-#if 0
-    // Wow this code is totally unsafe
-    strcpy(tmp, string);
-    ptr = index(tmp, 0);
-    *ptr++ = ' ';
-    *ptr++ = ' ';
-    *ptr++ = ' ';
-    *ptr = 0;
-#endif
     //safe copy of string into tmp buffer
     strncpy(tmp, string, TMP_BUFF_256_LEN-1);
     tmp[TMP_BUFF_256_LEN-1] = '\0'; // make sure string is terminated

@@ -147,45 +147,6 @@ void salt_update (struct salt *salt,
 void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
     unsigned int i;
 
-#if 0
-
-    if (x1->np) {
-        zprintf(f, ",\"oseq\":[");
-    for (i=0; i < x1->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x1->seq[i] - x1->seq[0]);
-    }
-        zprintf(f, "],oack\":[");
-    for (i=0; i < x1->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x1->ack[i] - x1->ack[0]);
-    }
-        zprintf(f, "]");
-    }
-    if (x2 && x2->np) {
-        zprintf(f, ",\"iseq\":[");
-    for (i=0; i < x2->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x2->seq[i] - x2->seq[0]);
-    }
-        zprintf(f, "],iack\":[");
-    for (i=0; i < x2->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x2->ack[i] - x2->ack[0]);
-    }
-        zprintf(f, "]");
-    }
-
-#else
-
     if (x1->np) {
         zprintf(f, ",\"oseq\":[");
         for (i=0; i < x1->np; i++) {
@@ -224,8 +185,6 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
         }
         zprintf(f, "]");
     }
-
-#endif
 
 }
 

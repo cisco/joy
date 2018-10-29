@@ -130,15 +130,15 @@ typedef enum {
 
 /* structure used to initialize joy through the API Library */
 typedef struct joy_init {
-    int verbosity;               /* verbosity 0 (off) - 5 (critical) */
+    uint8_t verbosity;           /* verbosity 0 (off) - 5 (critical) */
     uint32_t max_records;        /* max record in output file */
-    uint32_t num_pkts;           /* num_pkts to report on per flow */
-    int contexts;                /* number of contexts the app wants to use */
-    int inact_timeout;           /* seconds for inactive timeout - if 0, then default used */
-    int act_timeout;             /* seconds for active timeout - if 0, then default used */
-    int idp;                     /* idp size to report, recommend 1300 */
+    uint16_t num_pkts;           /* num_pkts to report on per flow */
+    uint8_t contexts;            /* number of contexts the app wants to use */
+    uint16_t inact_timeout;      /* seconds for inactive timeout - if 0, then default used */
+    uint16_t act_timeout;        /* seconds for active timeout - if 0, then default used */
+    uint16_t idp;                /* idp size to report, recommend 1300 */
     const char *ipfix_host;      /* ip string of the host to send IPFix data to */
-    uint32_t ipfix_port;         /* port to send IPFix to remote on */
+    uint16_t ipfix_port;         /* port to send IPFix to remote on */
     uint32_t bitmask;            /* bitmask representing which features are on */
 } joy_init_t;
 
@@ -677,7 +677,7 @@ extern unsigned int joy_purge_old_flow_records (unsigned int index,
  *      none
  *
  */
-extern void joy_context_cleanup (unsigned int index);
+extern void joy_context_cleanup (uint8_t index);
 
 /*
  * Function: joy_shutdown

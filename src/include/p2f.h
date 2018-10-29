@@ -96,9 +96,9 @@ typedef struct tcp_info_ {
 typedef struct flow_key_ {
     struct in_addr sa;
     struct in_addr da;
-    unsigned short int sp;
-    unsigned short int dp;
-    unsigned short int prot;
+    uint16_t sp;
+    uint16_t dp;
+    uint8_t prot;
 } flow_key_t;
 
 typedef struct tcp_retrans_ {
@@ -124,49 +124,49 @@ extern FILE *info;
 
 typedef struct flow_record_ {
     flow_key_t key;                       /*!< identifies flow by 5-tuple          */
-    unsigned int key_hash;                /*!< hash of the 5-tuple key             */
+    uint32_t key_hash;                    /*!< hash of the 5-tuple key             */
     uint16_t app;                         /*!< application protocol prediction     */
     uint8_t dir;                          /*!< direction of the flow               */
-    unsigned int np;                      /*!< number of packets                   */
-    unsigned int op;                      /*!< number of packets (w/nonzero data)  */
-    unsigned int ob;                      /*!< number of bytes of application data */
+    uint8_t np;                           /*!< number of packets                   */
+    uint8_t op;                           /*!< number of packets (w/nonzero data)  */
+    uint16_t ob;                          /*!< number of bytes of application data */
     struct timeval start;                 /*!< start time                          */ 
     struct timeval end;                   /*!< end time                            */
-    unsigned int last_pkt_len;            /*!< last observed appdata length        */
-    unsigned short pkt_len[MAX_NUM_PKT_LEN];  /*!< array of packet appdata lengths */  
+    uint16_t last_pkt_len;                /*!< last observed appdata length        */
+    uint16_t pkt_len[MAX_NUM_PKT_LEN];    /*!< array of packet appdata lengths */  
     struct timeval pkt_time[MAX_NUM_PKT_LEN]; /*!< array of arrival times          */
-    unsigned char pkt_flags[MAX_NUM_PKT_LEN]; /*!< array of packet flags           */
-    unsigned int byte_count[256];         /*!< number of occurences of each byte   */
-    unsigned int compact_byte_count[16];         /*!< number of occurences of each byte, mapping to compact form   */
-    unsigned long int num_bytes;
+    uint8_t pkt_flags[MAX_NUM_PKT_LEN];   /*!< array of packet flags           */
+    uint32_t byte_count[256];             /*!< number of occurences of each byte   */
+    uint32_t compact_byte_count[16];      /*!< number of occurences of each byte, mapping to compact form   */
+    uint32_t num_bytes;
     double bd_mean;
     double bd_variance;
     header_description_t hd;              /*!< header description (proto ident)    */
-    uint8_t idp_packet;                   /*!< determines if packet is used for IDP */
+    bool idp_packet;                   /*!< determines if packet is used for IDP */
     int32_t idp_seq_num;                  /*!< marks the SYN packet for IDP determination */
     void *idp;
-    unsigned int idp_len;
+    uint16_t idp_len;
     ip_info_t ip;
     tcp_info_t tcp;
-    unsigned char is_tcp_retrans;
-    unsigned char tcp_retrans_tail;
+    uint8_t is_tcp_retrans;
+    uint8_t tcp_retrans_tail;
     tcp_retrans_t tcp_retrans[MAX_TCP_RETRANS_BUFFER];
-    unsigned int invalid;
+    bool invalid;
     char *exe_name;                       /*!< executable associated with flow    */
     char *full_path;                      /*!< executable path associated with flow    */
     char *file_version;                   /*!< executable version associated with flow    */
     char *file_hash;                      /*!< executable file hash associated with flow    */
-    unsigned int joy_app_data_len;        /*!< application specific data length */
+    uint8_t joy_app_data_len;             /*!< application specific data length */
     char *joy_app_data;                   /*!< application specific data */
-    unsigned long uptime_seconds;         /*!< executable uptime associated with flow    */
-    unsigned char exp_type;
-    unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
-    unsigned char idp_ext_processed;
-    unsigned char tls_ext_processed;
-    unsigned char salt_ext_processed;
-    unsigned char splt_ext_processed;
-    unsigned char bd_ext_processed;
-    unsigned int feature_flags;           /*!< flags to signal when a data feature is ready */
+    uint64_t uptime_seconds;              /*!< executable uptime associated with flow    */
+    uint8_t exp_type;
+    bool first_switched_found;    /*!< hack to make sure we only correct once */
+    bool idp_ext_processed;
+    bool tls_ext_processed;
+    bool salt_ext_processed;
+    bool splt_ext_processed;
+    bool bd_ext_processed;
+    uint8_t feature_flags;                /*!< flags to signal when a data feature is ready */
   
     define_all_features(feature_list)     /*!< define all features listed in feature.h */
   

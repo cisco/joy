@@ -44,6 +44,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdbool.h>
+
 #ifdef WIN32
 #include "win_types.h"
 #endif
@@ -59,41 +61,44 @@
 #define NULL_KEYWORD "none"
 
 enum SALT_algorithm {
-  reserved = 0,
-  raw = 1,
-  aggregated = 2,
-  defragmented = 3,
-  rle = 4
+  raw = 0,
+  aggregated = 1,
+  defragmented = 2,
+  rle = 3
 };
 
 /** structure for the configuration parameters */
 struct configuration {
-    unsigned int bidir;
-    unsigned int include_zeroes;
-    unsigned int include_retrans;
-    unsigned int byte_distribution;
-    unsigned int report_entropy;
-    unsigned int report_hd;
-    unsigned int report_exe;
-    unsigned int include_classifier;
-    unsigned int idp;
-    unsigned int promisc;
-    unsigned int num_pkts;
-    unsigned int retain_local;
-    uint32_t max_records;
-    unsigned int nfv9_capture_port;
-    unsigned int ipfix_collect_port;
-    unsigned int ipfix_collect_online;
-    unsigned int ipfix_export_port;
-    unsigned int ipfix_export_remote_port;
-    unsigned int flow_key_match_method;
-    unsigned int preemptive_timeout;
-    unsigned int verbosity;
-    unsigned int show_config;
-    unsigned int show_interfaces;
+    bool bidir;
+    bool include_zeroes;
+    bool include_retrans;
+    bool byte_distribution;
+    bool report_entropy;
+    bool report_exe;
+    bool include_classifier;
+    bool promisc;
+
+    bool retain_local;
+    bool ipfix_collect_online;
+    bool flow_key_match_method;
+    bool show_config;
+    bool show_interfaces;
+    bool preemptive_timeout;
     enum SALT_algorithm salt_algo;
 
-  
+    uint8_t report_hd;
+    uint8_t num_pkts;
+
+    uint8_t verbosity;
+    uint8_t num_subnets;               /*!< counts entries in subnet array */
+    uint16_t ipfix_export_remote_port;
+
+
+    uint16_t idp;
+    uint16_t nfv9_capture_port;
+    uint16_t ipfix_collect_port;
+    uint16_t ipfix_export_port;
+
     declare_all_features_config_uint(feature_list) 
   
     const char *compact_byte_distribution;
@@ -114,8 +119,10 @@ struct configuration {
     const char *ipfix_export_remote_host;
     const char *ipfix_export_template;
     const char *aux_resource_path;
-    unsigned int num_subnets;    /*!< counts entries in subnet array */
-    unsigned short compact_bd_mapping[COMPACT_BD_MAP_MAX];
+
+    uint32_t max_records;
+    uint16_t compact_bd_mapping[COMPACT_BD_MAP_MAX];
+
     radix_trie_t rt;
 };
 

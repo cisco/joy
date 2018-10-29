@@ -656,15 +656,6 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         config_print(info, glb_config);
     }
 
-#if 0
-    if (glb_config->report_tls) {
-        /* Load the TLS fingerprints into memory */
-        if (tls_load_fingerprints()) {
-            joy_log_warn("could not load tls_fingerprint.json file");
-        }
-    }
-#endif
-
     if (joy_mode == MODE_ONLINE) {
         /* Get interface list */
         num_interfaces = interface_list_get();
@@ -1267,11 +1258,6 @@ int main (int argc, char **argv) {
     memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
     memset(&active_config, 0x00, sizeof(struct configuration));
     glb_config = &active_config;
-
-    /* Sanity check sizeof() expectations */
-    if (data_sanity_check() != ok) {
-        joy_log_crit("failed data size sanity check");
-    }
 
     /* Sanity check argument syntax */
     for (i=1; i<argc; i++) {

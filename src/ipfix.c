@@ -286,16 +286,6 @@ static void ipfix_collect_socket_loop(joy_ctx_data *ctx, ipfix_collector_t *c) {
             return;
         }
 
-#if 0
-        if (recvlen > 0) {
-            buf[recvlen] = '\0';
-            printf("received message: ");
-            for (i=0; i < recvlen; i++) {
-                printf("0x%08x", buf[i]);
-            }
-            printf("\n");
-        }
-#endif
     }
 }
 
@@ -1468,23 +1458,6 @@ static void ipfix_process_spt(flow_record_t *ix_record,
             break;
         }
 //    } else {
-#if 0
-        /*
-         * Packet_time value represents the number of packets that were
-         * observed that had an arrival time equal to the last observed
-         * arrival time
-         */
-        int k;
-        repeated_times = packet_time * -1;
-        for (k = 0; k < repeated_times; k++) {
-            if (pkt_time_index < MAX_NUM_PKT_LEN) {
-                ix_record->pkt_time[pkt_time_index] = previous_time;
-                pkt_time_index++;
-            } else {
-                break;
-            }
-        }
-#endif
 //    }
         
         data += element_length;
@@ -1947,13 +1920,8 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
                 flow_ptr += field_length;
                 break;
             }
-#if 0
-        case IPFIX_BYTE_DISTRIBUTION_FORMAT:
-            bd_format = (uint16_t)*((const uint16_t *)flow_data);
-            flow_ptr += field_length;
             break;
-#endif
-            
+
         case IPFIX_BASIC_LIST:
             ipfix_parse_basic_list(ix_record, flow_data, field_length);
             flow_ptr += field_length;

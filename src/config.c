@@ -92,12 +92,12 @@ static int parse_int (unsigned int *x, const char *arg, int num_arg, unsigned in
 }
 
 /* parses a boolean value */
-static int parse_bool (unsigned int *x, const char *arg, int num_arg) {
+static int parse_bool (bool *x, const char *arg, int num_arg) {
     if (num_arg == 1) {
         arg = "1";
         num_arg = 2;
     }
-    return parse_int(x, arg, num_arg, 0, 1);
+    return parse_int((unsigned int*)x, arg, num_arg, 0, 1);
 }
 
 /*parses a string values */
@@ -212,7 +212,7 @@ static int config_parse_command (struct configuration *config,
         parse_check(parse_bool(&config->report_entropy, arg, num));
 
     } else if (match(command, "hd")) {
-        parse_check(parse_int(&config->report_hd, arg, num, 0, HDR_DSC_LEN));
+        parse_check(parse_int((unsigned int*)&config->report_hd, arg, num, 0, HDR_DSC_LEN));
 
     } else if (match(command, "classify")) {
         parse_check(parse_bool(&config->include_classifier, arg, num));
@@ -221,31 +221,31 @@ static int config_parse_command (struct configuration *config,
         parse_check(parse_string(&config->bpf_filter_exp, arg, num));
 
     } else if (match(command, "verbosity")) {
-        parse_check(parse_int(&config->verbosity, arg, num, 0, 5));
+        parse_check(parse_int((unsigned int*)&config->verbosity, arg, num, 0, 5));
 
     } else if (match(command, "num_pkts")) {
-        parse_check(parse_int(&config->num_pkts, arg, num, 0, MAX_NUM_PKT_LEN));
+        parse_check(parse_int((unsigned int*)&config->num_pkts, arg, num, 0, MAX_NUM_PKT_LEN));
 
     } else if (match(command, "count")) {
         parse_check(parse_int(&config->max_records, arg, num, 1, INT_MAX));
 
     } else if (match(command, "idp")) {
-        parse_check(parse_int(&config->idp, arg, num, 0, MAX_IDP));
+        parse_check(parse_int((unsigned int*)&config->idp, arg, num, 0, MAX_IDP));
 
     } else if (match(command, "nfv9_port")) {
-        parse_check(parse_int(&config->nfv9_capture_port, arg, num, 0, 0xffff));
+        parse_check(parse_int((unsigned int*)&config->nfv9_capture_port, arg, num, 0, 0xffff));
 
     } else if (match(command, "ipfix_collect_port")) {
-        parse_check(parse_int(&config->ipfix_collect_port, arg, num, 0, 0xffff));
+        parse_check(parse_int((unsigned int*)&config->ipfix_collect_port, arg, num, 0, 0xffff));
 
     } else if (match(command, "ipfix_collect_online")) {
         parse_check(parse_bool(&config->ipfix_collect_online, arg, num));
 
     } else if (match(command, "ipfix_export_port")) {
-        parse_check(parse_int(&config->ipfix_export_port, arg, num, 0, 0xffff));
+        parse_check(parse_int((unsigned int*)&config->ipfix_export_port, arg, num, 0, 0xffff));
 
     } else if (match(command, "ipfix_export_remote_port")) {
-        parse_check(parse_int(&config->ipfix_export_remote_port, arg, num, 0, 0xffff));
+        parse_check(parse_int((unsigned int*)&config->ipfix_export_remote_port, arg, num, 0, 0xffff));
 
     } else if (match(command, "ipfix_export_remote_host")) {
         parse_check(parse_string(&config->ipfix_export_remote_host, arg, num));

@@ -245,20 +245,6 @@ typedef struct {
 
 #endif
 
-#if 0
-static void *dns_rr_get_rdata(dns_rr *rr) {
-    void *location = rr;
-    return location + sizeof(dns_rr);
-}
-#endif
-
-#if 0
-static void *dns_question_get_rr(dns_question *q) {
-    void *location = q;
-    return location + sizeof(dns_question);
-}
-#endif
-
 /** DNS Type */
 enum dns_type {
     type_A     = 1, /*!< a host address */
@@ -286,26 +272,6 @@ enum dns_class {
     class_CH = 3, /*!< the CHAOS class */
     class_HS = 4  /*!< Hesiod [Dyer 87] */
 };
-
-#if 0
-static void dns_query_to_string(char *q, unsigned int len) {
-    unsigned int i;
-
-    /* 
-     * question: what should this function do if a null character
-     *  appears before the end of the string?
-     */ 
-
-    for (i=1; i<len; i++) {
-        if (q[i] == 0) {
-            break;
-        }
-        if (q[i] < 32) {
-            q[i] = '.';
-        }
-    }
-}
-#endif
 
 /** determine if its a label */
 #define char_is_label(c)  (((c) & 0xC0) == 0)
@@ -388,19 +354,6 @@ static enum dns_err uint16_parse (uint16_t **x, char **data, int *len) {
     *len -= sizeof(uint16_t);  
     return dns_ok;
 }
-
-#if 0
-static int string_is_not_printable (char *s, unsigned int len) {
-    int i;
-
-    for (i=0; i<len; i++) {
-        if (!isprint(s[i])) {
-            return 1;
-        } 
-    }
-    return 0;
-}
-#endif
 
 static inline char printable(char c) {
     if (isprint(c)) {
@@ -553,35 +506,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
     }
     return dns_ok;
 }
-
-#if 0
-static joy_status_e process_dns (const struct pcap_pkthdr *h, const void *start, int len, flow_record_t *r) {
-    // const char *name = start + 13;
-    // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
-    // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
-
-    if (r->op >= MAX_NUM_DNS_PKT_LEN) {
-        return failure;  /* no more room */
-    }  
-
-    if (len < 13) {
-        return failure;  /* not long enough to be a proper DNS packet */
-    }
-
-    // printf("dns len: %u name: %s qr: %u rcode: %u\n", len-14, name, qr, rcode);
-    if (!r->dns.dns_name[r->op]) {
-        r->dns.dns_name[r->op] = malloc(len);
-        if (r->dns.dns_name[r->op] == NULL) {
-            return failure;
-        }
-        // strncpy(r->dns_name[r->op], name, len-13);
-        memcpy(r->dns.dns_name[r->op], start, len);
-        // dns_query_to_string(r->dns_name[r->op] + 13, len-13);
-    }
-    return ok;
-}
-#endif
-
 
 static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output) {
     char name[256];

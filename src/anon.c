@@ -173,28 +173,6 @@ joy_status_e key_init (const char *ANON_KEYFILE) {
     return ok; 
 }
 
-#if 0
-/* prints out the bytes in binary format */
-static void print_binary (FILE *f, const void *x, unsigned int bytes) {
-    const unsigned char *buf = x;
-
-    while (bytes-- > 0) {
-        unsigned char bit = 128;
-    
-        while (bit > 0) {
-            if (bit & *buf) {
-                fprintf(f, "1");
-            } else {
-                fprintf(f, "0");
-            }
-            bit >>= 1;
-        }
-        fprintf(f, "|");
-        buf++;
-    }
-}
-#endif
-
 /** anonymized subnets */
 anon_subnet_t anon_subnet[MAX_ANON_SUBNETS];
 
@@ -495,22 +473,6 @@ joy_status_e deanon_string (const char *hexinput, unsigned int len, char *s, uns
     strncpy(s, ipv4_addr, outlen);
     return ok; 
 }
-
-#if 0
-/* prints out the anonymized string */
-static joy_status_e zprint_anon_string (zfile f, char *input, unsigned int len) {
-    joy_status_e err;
-    char hex[33];
-  
-    err = anon_string(input, len, hex, sizeof(hex));
-    if (err != ok) {
-        return err;
-    }
-    zprintf(f, "%s", hex);
-
-    return ok;
-}
-#endif
 
 /* context used for unsername anonymization */
 str_match_ctx usernames_ctx = NULL;

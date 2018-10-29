@@ -1330,25 +1330,6 @@ static const char *ike_pseudorandom_function_string(ike_pseudorandom_function_e 
     }
 }
 
-#if 0
-/**
- * \fn static char *ike_pseudorandom_function_v1_string(enum ike_pseudorandom_function s)
- *
- * \brief Return a string representation of the pseudorandom function enumeration (IKEv1 only).
- *
- * \param s A pseudorandom function enumeration.
- *
- * \return A string representation of the pseudorandom function enumeration.
- */
-static const char *ike_pseudorandom_function_v1_string(ike_pseudorandom_function_e s) {
-
-    switch(s) {
-    default:
-        return NULL;
-    }
-}
-#endif
-
 /**
  * \fn static char *ike_integrity_algorithm_string(enum ike_integrity_algorithm s)
  *

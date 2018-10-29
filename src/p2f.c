@@ -176,17 +176,15 @@ void flocap_stats_timer_init (joy_ctx_data *ctx) {
  * \return Hash of \p f
  */
 static unsigned int flow_key_hash (const flow_key_t *f) {
-    unsigned int hash = 0;
-
-    if (f == NULL) return 0;
+    uint32_t hash = 0;
 
     if (glb_config->flow_key_match_method == EXACT_MATCH) {
 
-        hash += (unsigned int)f->sa.s_addr;
-        hash += (unsigned int)f->da.s_addr;
-        hash += (unsigned int)f->sp;
-        hash += (unsigned int)f->dp;
-        hash += (unsigned int)f->prot;
+        hash += (uint32_t)f->sa.s_addr;
+        hash += (uint32_t)f->da.s_addr;
+        hash += (uint32_t)f->sp;
+        hash += (uint32_t)f->dp;
+        hash += (uint32_t)f->prot;
 
         hash *= 0xFFD9;
         hash -= (hash >> 16);
@@ -199,9 +197,9 @@ static unsigned int flow_key_hash (const flow_key_t *f) {
          * This is done by omitting addresses and sorting the ports into
          * order before hashing.
          */
-        hash += (unsigned int)f->sp;
-        hash += (unsigned int)f->dp;
-        hash += (unsigned int)f->prot;
+        hash += (uint32_t)f->sp;
+        hash += (uint32_t)f->dp;
+        hash += (uint32_t)f->prot;
 
         hash *= 0xFFD9;
         hash -= (hash >> 16);
@@ -217,12 +215,8 @@ static unsigned int flow_key_hash (const flow_key_t *f) {
  * \param return
  */
 void flow_record_list_init (joy_ctx_data *ctx) {
-    unsigned int i;
-
     ctx->flow_record_chrono_first = ctx->flow_record_chrono_last = NULL;
-    for (i=0; i<FLOW_RECORD_LIST_LEN; i++) {
-        ctx->flow_record_list_array[i] = NULL;
-    }
+    memset(ctx->flow_record_list_array, 0x00, sizeof(ctx->flow_record_list_array));
 }
 
 /**
@@ -256,10 +250,7 @@ void flow_record_list_free (joy_ctx_data *ctx) {
  */
 static int flow_key_is_eq (const flow_key_t *a,
                            const flow_key_t *b) {
-    if (a->sa.s_addr != b->sa.s_addr) {
-        return 1;
-    }
-    if (a->da.s_addr != b->da.s_addr) {
+    if (a->prot != b->prot) {
         return 1;
     }
     if (a->sp != b->sp) {
@@ -268,7 +259,10 @@ static int flow_key_is_eq (const flow_key_t *a,
     if (a->dp != b->dp) {
         return 1;
     }
-    if (a->prot != b->prot) {
+    if (a->sa.s_addr != b->sa.s_addr) {
+        return 1;
+    }
+    if (a->da.s_addr != b->da.s_addr) {
         return 1;
     }
 
@@ -523,9 +517,6 @@ static void flow_record_chrono_list_append (joy_ctx_data *ctx, flow_record_t *re
  * \return none
  */
 static void flow_record_chrono_list_remove (joy_ctx_data *ctx, flow_record_t *record) {
-    if (record == NULL) {
-        return;
-    }
 
     if (record == ctx->flow_record_chrono_first) {
         ctx->flow_record_chrono_first = record->time_next;
@@ -659,6 +650,8 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
              *  it, then set record = NULL to cause the creation of a new
              *  flow_record to be used in further packet processing
              */
+           /* WMH NEED TO ADJUST THIS */
+           /* FOR NON PRINTING APPLICATIONS, JUST DROP PACKET */
            flow_record_print_and_delete(ctx, record);
            record = NULL;
        } else {
@@ -733,29 +726,12 @@ static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
     /*
      * free the memory allocated inside of flow record
      */
-    if (r->idp) {
-        free(r->idp);
-    }
-
-    if (r->exe_name) {
-        free(r->exe_name);
-    }
-
-    if (r->full_path) {
-        free(r->full_path);
-    }
-
-    if (r->file_version) {
-        free(r->file_version);
-    }
-
-    if (r->file_hash) {
-        free(r->file_hash);
-    }
-
-    if (r->joy_app_data) {
-        free(r->joy_app_data);
-    }
+    free(r->idp);
+    free(r->exe_name);
+    free(r->full_path);
+    free(r->file_version);
+    free(r->file_hash);
+    free(r->joy_app_data);
 
     delete_all_features(feature_list);
 
@@ -887,7 +863,7 @@ void flow_record_update_byte_dist_mean_var (flow_record_t *f, const void *x, uns
     }
 }
 
-static float flow_record_get_byte_count_entropy (const unsigned int byte_count[256],
+static float flow_record_get_byte_count_entropy (const uint32_t byte_count[256],
     unsigned int num_bytes) {
     int i;
     float tmp, sum = 0.0;
@@ -936,7 +912,7 @@ void zprintf_raw_as_hex (zfile f,
     zprintf(f, "\"");
 }
 
-static void reduce_bd_bits (unsigned int *bd,
+static void reduce_bd_bits (uint32_t *bd,
                             unsigned int len) {
     int mask = 0;
     int shift = 0;
@@ -1429,10 +1405,10 @@ static void flow_record_print_json
     }
 
     if (glb_config->byte_distribution || glb_config->report_entropy || glb_config->compact_byte_distribution) {
-        const unsigned int *array = NULL;
-        const unsigned int *compact_array = NULL;
-        unsigned int tmp[256];
-        unsigned int compact_tmp[16];
+        const uint32_t *array = NULL;
+        const uint32_t *compact_array = NULL;
+        uint32_t tmp[256];
+        uint32_t compact_tmp[16];
         unsigned int num_bytes;
         double mean = 0.0, variance = 0.0;
 
@@ -1776,11 +1752,6 @@ void flow_record_list_print_json (joy_ctx_data *ctx, unsigned int print_type) {
  */
 void remove_record_and_update_list(joy_ctx_data *ctx, flow_record_t *rec)
 {
-    /* sanity check */
-    if ((ctx == NULL) || (rec == NULL)) {
-        return;
-    }
-
     /* Delete twin, if there is one */
     if (rec->twin != NULL) {
         flow_record_delete(ctx, rec->twin);

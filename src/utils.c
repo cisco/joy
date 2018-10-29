@@ -278,6 +278,7 @@ void joy_utils_convert_to_json_string (char *s, unsigned int len) {
             case '/':
             case '"':
                 s[i] = '.';
+                break;
             default:
                 continue;
         }

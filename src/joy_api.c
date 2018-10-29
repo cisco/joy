@@ -76,10 +76,10 @@ struct configuration active_config;
 struct configuration *glb_config = NULL;
 
 /* global library intialization flag */
-static int joy_library_initialized = 0;
+static bool joy_library_initialized = 0;
 
 /* global data for the context configuration */
-static unsigned int joy_num_contexts = 0;
+static uint8_t joy_num_contexts = 0;
 static struct joy_ctx_data *ctx_data = NULL;
 
 /*
@@ -109,12 +109,6 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
     unsigned int data_len = 0;
     struct timeval ts;
     short *formatted_data = (short*)data;
-
-    /* sanity check */
-    if (data == NULL) {
-        joy_log_err("NULL data buffer passed in!");
-        return data_len;
-    }
 
     /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
     num_of_pkts = (rec->op < MAX_NFV9_SPLT_SALT_PKTS) ? rec->op : MAX_NFV9_SPLT_SALT_PKTS;
@@ -213,12 +207,6 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
     unsigned int data_len = 0;
     struct timeval ts;
     unsigned short *formatted_data = (unsigned short*)data;
-
-    /* sanity check */
-    if (data == NULL) {
-        joy_log_err("NULL data buffer passed in!");
-        return data_len;
-    }
 
     /* sanity check SALT structure */
     if (rec->salt == NULL) {
@@ -320,14 +308,8 @@ static unsigned int joy_bd_format_data(flow_record_t *rec, unsigned char *data)
     unsigned int data_len = 0;
     uint16_t *formatted_data = (uint16_t*)data;
 
-    /* sanity check */
-    if (data == NULL) {
-        joy_log_err("NULL data buffer passed in!");
-        return data_len;
-    } else {
-        /* 256 values at 16 bits each = 512 bytes */
-        data_len = (MAX_BYTE_COUNT_ARRAY_LENGTH * 2);
-    }
+    /* 256 values at 16 bits each = 512 bytes */
+    data_len = (MAX_BYTE_COUNT_ARRAY_LENGTH * 2);
 
     /* store the byte counts into the data buffer */
     for (i=0; i < MAX_BYTE_COUNT_ARRAY_LENGTH; ++i) {
@@ -394,37 +376,33 @@ int joy_initialize(joy_init_t *init_data,
     char output_dirname[MAX_DIRNAME_LEN];
     char output_filename[MAX_FILENAME_LEN];
 
-    /* sanity check the context information */
-    if (init_data->contexts < 1) {
-        init_data->contexts = 1; /* default to 1 context thread */
-    }
-
     /* clear out the configuration structure */
     memset(&active_config, 0x00, sizeof(struct configuration));
     glb_config = &active_config;
 
-    /* allocate the context memory */
-    JOY_API_ALLOC_CONTEXT(ctx_data, init_data->contexts)
-    joy_num_contexts = init_data->contexts;
-
     /* set 'info' to stderr as a precaution */
     info = stderr;
-
-    /* sanity check the expected values for the packet headers */
-    if (data_sanity_check() != ok) {
-        JOY_API_FREE_CONTEXT(ctx_data)
-        return failure;
-    }
 
     /* setup the logfile */
     if (logfile != NULL) {
         info = fopen(logfile, "a");
         if (info == NULL) {
             joy_log_err("could not open log file %s (%s)", logfile, strerror(errno));
-            JOY_API_FREE_CONTEXT(ctx_data)
             return failure;
         }
+        glb_config->logfile = strdup(logfile);
+    } else {
+        glb_config->logfile = strdup("stderr");
     }
+
+    /* sanity check the context information */
+    if (init_data->contexts < 1) {
+        init_data->contexts = 1; /* default to 1 context thread */
+    }
+
+    /* allocate the context memory */
+    JOY_API_ALLOC_CONTEXT(ctx_data, init_data->contexts)
+    joy_num_contexts = init_data->contexts;
 
     /* set the output directory */
     memset(output_dirname, 0x00, MAX_DIRNAME_LEN);
@@ -459,10 +437,6 @@ int joy_initialize(joy_init_t *init_data,
         glb_config->filename = strdup(output_file);
     else
         glb_config->filename = strdup("joy-output");
-    if (logfile)
-        glb_config->logfile = strdup(logfile);
-    else
-        glb_config->logfile = strdup("stderr");
 
     /* setup the max records in a given output file */
     if (init_data->max_records > MAX_RECORDS) {
@@ -567,6 +541,7 @@ int joy_initialize(joy_init_t *init_data,
             snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
         }
         printf("Context :%d Output:%s\n",this->ctx_id,output_filename);
+
         this->output = zopen(output_filename, "w");
         if (this->output == NULL) {
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
@@ -903,7 +878,7 @@ int joy_label_subnets(const char *label, int type, const char *subnet_str)
  */
 void joy_update_ctx_global_time(unsigned char *ctx_index,
                                 struct timeval *new_time) {
-    unsigned long int index = 0;
+    uint8_t index = 0;
     joy_ctx_data *ctx = NULL;
 
     /* check library initialization */
@@ -921,10 +896,10 @@ void joy_update_ctx_global_time(unsigned char *ctx_index,
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
-    index = (unsigned long int)ctx_index;
+    index = (uint8_t)ctx_index;
 
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
 
@@ -1021,7 +996,7 @@ void* joy_process_packet(unsigned char *ctx_index,
                         unsigned int app_data_len,
                         const unsigned char *app_data)
 {
-    unsigned long int index = 0;
+    uint8_t index = 0;
     joy_ctx_data *ctx = NULL;
     flow_record_t *record = NULL;
 
@@ -1034,11 +1009,11 @@ void* joy_process_packet(unsigned char *ctx_index,
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
-    index = (unsigned long int)ctx_index;
+    index = (uint8_t)ctx_index;
 
     /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return NULL;
     }
 
@@ -1093,7 +1068,7 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
                         const struct pcap_pkthdr *header,
                         const unsigned char *packet)
 {
-    unsigned long int index = 0;
+    uint8_t index = 0;
     joy_ctx_data *ctx = NULL;
 
     /* check library initialization */
@@ -1105,11 +1080,11 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
-    index = (unsigned long int)ctx_index;
+    index = (uint8_t)ctx_index;
 
     /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%lu) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
         return;
     }
 
@@ -1735,7 +1710,7 @@ void joy_bd_external_processing(unsigned int index,
 unsigned int joy_delete_flow_records(unsigned int index,
                                      unsigned int cond_bitmask)
 {
-    unsigned int ok_to_delete = 0;
+    uint8_t ok_to_delete = 0;
     unsigned int records_deleted = 0;
     flow_record_t *rec = NULL;
     flow_record_t *next_rec = NULL;
@@ -1876,7 +1851,7 @@ extern unsigned int joy_purge_old_flow_records(unsigned int index,
  *      none
  *
  */
-void joy_context_cleanup(unsigned int index)
+void joy_context_cleanup(uint8_t index)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -1908,8 +1883,10 @@ void joy_context_cleanup(unsigned int index)
     flow_record_list_free(ctx);
  
     /* close the output file */
-    zclose(ctx->output);
-    free(ctx->output_file_basename);
+    if (ctx->output) zclose(ctx->output);
+    ctx->output = NULL;
+    if (ctx->output_file_basename) free(ctx->output_file_basename);
+    ctx->output_file_basename = NULL;
 }
 
 /*
@@ -1937,6 +1914,11 @@ void joy_shutdown(void)
 
     /* clean up the protocol idenitfication dictionary */
     proto_identify_cleanup();
+
+    /* cleanup all the data context structures */
+    for (i=0; i < joy_num_contexts; ++i) {
+        joy_context_cleanup(i);
+    }
 
     /* free up the memory for the contexts */
     JOY_API_FREE_CONTEXT(ctx_data)
