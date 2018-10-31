@@ -647,13 +647,13 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
      */
     update_all_features(payload_feature_list);
 
-    if (key->dp == glb_config->nfv9_capture_port) {
+    if ((glb_config->nfv9_capture_port > 0) && (key->dp == glb_config->nfv9_capture_port)) {
         pthread_mutex_lock(&nfv9_lock);
         process_nfv9(ctx, payload, size_payload, record);
         pthread_mutex_unlock(&nfv9_lock);
     }
 
-    if (key->dp == glb_config->ipfix_collect_port) {
+    if ((glb_config->ipfix_collect_port > 0) && (key->dp == glb_config->ipfix_collect_port)) {
       process_ipfix(ctx, payload, size_payload, record);
     }
 
