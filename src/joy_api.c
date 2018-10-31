@@ -43,6 +43,10 @@
  * 
  */
 
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
+
 #include <sys/types.h>
 #include <stdlib.h>  
 #include <stdio.h>
@@ -69,6 +73,7 @@ FILE *info = NULL;
 
 /* config is the global library configuration */
 struct configuration active_config;
+struct configuration *glb_config = NULL;
 
 /* global library intialization flag */
 static int joy_library_initialized = 0;
@@ -918,3 +923,12 @@ void joy_shutdown(void)
     /* reset the library initialized flag */
     joy_library_initialized = 0;
 }
+
+#ifdef HAVE_CONFIG_H
+/*! @brief joy_get_version version for joy.
+ *  @return joy version string.
+ */
+const char * joy_get_version(void) {
+    return(PACKAGE_STRING);
+}
+#endif

@@ -167,7 +167,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
   
     fp = fopen(filename, "r");
     if (fp == NULL) {
-        fprintf(stderr, "error: count not open file %s\n", filename);
+        fprintf(stderr, "error: could not open file %s\n", filename);
         return -1;
     }
 

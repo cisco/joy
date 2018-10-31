@@ -40,7 +40,9 @@
  * \brief Program to test the Joy API and joylib.a functionality
  * 
  */
-
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 #include <stdlib.h>  
 #include <stdio.h>
 #include <string.h>
@@ -148,6 +150,10 @@ int main (int argc, char **argv)
     init_data.contexts = 3;       /* use 3 worker contexts for processing */
     init_data.bitmask = (JOY_BIDIR_ON | JOY_HTTP_ON | JOY_TLS_ON | JOY_EXE_ON);
 
+#ifdef HAVE_CONFIG_H
+    printf("Joy Version = %s\n", joy_get_version());
+#endif
+
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);
     if (rc != 0) {
@@ -156,10 +162,17 @@ int main (int argc, char **argv)
     }
 
     /* setup anonymization of subnets */
+#ifdef HAVE_CONFIG_H
+    joy_anon_subnets("../internal.net");
+
+    /* setup anonymization of http usernames */
+    joy_anon_http_usernames("anon_http.txt");
+#else
     joy_anon_subnets("internal.net");
 
     /* setup anonymization of http usernames */
     joy_anon_http_usernames("anon_http.txt");
+#endif
 
     /* setup subnet labels */
     joy_label_subnets("JoyLabTest",JOY_FILE_SUBNET,"internal.net");

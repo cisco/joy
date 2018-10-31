@@ -136,9 +136,9 @@ clobber: clean
 # installation via shell script
 ##
 install: $(BINDIR)/joy $(BINDIR)/unit_test test libjoy.a
-	./install/install-sh
+	./install_joy/install-sh
  
 pkg: $(BINDIR)/joy $(BINDIR)/unit_test test libjoy.a
-	./install/install-sh -r $(BUILDROOT) -p $(DESTDIR)
+	./install_joy/install-sh -r $(BUILDROOT) -p $(DESTDIR)
 
 # EOF

@@ -113,6 +113,10 @@ We are pleased to announce the 3.0.0 release of the package, which has these fea
 * Cleaned up coverity errors and warnings.
 * Various bug fixes.
 
+### Release 4.0.0
+We are pleased to announce the 4.0.0 release of the package, which has these features:
+* Add support for building with autotools. ./configure;make clean;make
+
 ## Quick Start
 
 Joy has been successfully run and tested on Linux (Debian, Ubuntu,

@@ -368,4 +368,9 @@ extern void joy_context_cleanup (unsigned int index);
  */
 extern void joy_shutdown (void);
 
+#ifdef HAVE_CONFIG_H
+extern const char * joy_get_version(void);
+#endif
+
+
 #endif /* JOY_API_H */

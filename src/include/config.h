@@ -136,5 +136,5 @@ void config_print(FILE *f, const struct configuration *c);
 /** print out the configuration in JSON format */
 void config_print_json(zfile f, const struct configuration *c);
 
-struct configuration *glb_config;
+extern struct configuration *glb_config;
 #endif /* CONFIG_H */
