@@ -878,7 +878,7 @@ int joy_label_subnets(const char *label, int type, const char *subnet_str)
  */
 void joy_update_ctx_global_time(unsigned char *ctx_index,
                                 struct timeval *new_time) {
-    uint8_t index = 0;
+    uint64_t index = 0;
     joy_ctx_data *ctx = NULL;
 
     /* check library initialization */
@@ -896,10 +896,10 @@ void joy_update_ctx_global_time(unsigned char *ctx_index,
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
-    index = (uint8_t)ctx_index;
+    index = (uint64_t)ctx_index;
 
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%llu) for packet processing!", index);
         return;
     }
 
@@ -996,7 +996,7 @@ void* joy_process_packet(unsigned char *ctx_index,
                         unsigned int app_data_len,
                         const unsigned char *app_data)
 {
-    uint8_t index = 0;
+    uint64_t index = 0;
     joy_ctx_data *ctx = NULL;
     flow_record_t *record = NULL;
 
@@ -1009,11 +1009,11 @@ void* joy_process_packet(unsigned char *ctx_index,
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
-    index = (uint8_t)ctx_index;
+    index = (uint64_t)ctx_index;
 
     /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%llu) for packet processing!", index);
         return NULL;
     }
 
@@ -1068,7 +1068,7 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
                         const struct pcap_pkthdr *header,
                         const unsigned char *packet)
 {
-    uint8_t index = 0;
+    uint64_t index = 0;
     joy_ctx_data *ctx = NULL;
 
     /* check library initialization */
@@ -1080,11 +1080,11 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
-    index = (uint8_t)ctx_index;
+    index = (uint64_t)ctx_index;
 
     /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%llu) for packet processing!", index);
         return;
     }
 
