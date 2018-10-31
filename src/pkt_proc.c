@@ -370,27 +370,28 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
                           // init key
                           nfv9_flow_key_init(&key, cur_template, flow_data);
 
-                      /*
-                       * Either get an existing record for the netflow data or make a new one.
-                       * Don't include the header because it is the packet that was sent
-                       * by exporter -> collector (not the netflow data).
-                       */
+                          /*
+                           * Either get an existing record for the netflow data or make a new one.
+                           * Don't include the header because it is the packet that was sent
+                           * by exporter -> collector (not the netflow data).
+                           */
                           flow_record_t *nf_record = NULL;
                           nf_record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
-                          // fill out record
-                          if (memcmp(&key,&prev_key,sizeof(flow_key_t)) != 0) {
-                              nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
-                          } else {
-                              nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
+                          if (nfv9_record != NULL) {
+                              // fill out record
+                              if (memcmp(&key,&prev_key,sizeof(flow_key_t)) != 0) {
+                                  nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
+                              } else {
+                                  nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
+                              }
+                              memcpy(&prev_key,&key,sizeof(flow_key_t));
+
+                              flowset_num += 1;
+
+                              /* print the record immediately to output */
+                              //flow_record_print_json(nf_record);
                           }
-                          memcpy(&prev_key,&key,sizeof(flow_key_t));
-
-                          flowset_num += 1;
-
-                          /* print the record immediately to output */
-                          //flow_record_print_json(nf_record);
-
                       }
             } else {
                 joy_log_warn("Current template is null");

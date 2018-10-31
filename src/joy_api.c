@@ -947,11 +947,11 @@ unsigned int joy_packet_to_context(const char *packet) {
      * a mod 257 on the sum of the 5-tuple. This algortihm also keeps client->server and
      * server->client flows in the same context.
      */
-    sum += sum + (unsigned int)key.sa.s_addr;
-    sum += sum + (unsigned int)key.da.s_addr;
-    sum += sum + (unsigned int)key.sp;
-    sum += sum + (unsigned int)key.dp;
-    sum += sum + (unsigned int)key.prot;
+    sum += (unsigned int)key.sa.s_addr;
+    sum += (unsigned int)key.da.s_addr;
+    sum += (unsigned int)key.sp;
+    sum += (unsigned int)key.dp;
+    sum += (unsigned int)key.prot;
     sum *= 0x6B;
     sum -= (sum >> 8);
     sum &= 0xff;
@@ -1255,24 +1255,12 @@ void joy_idp_external_processing(unsigned int index,
     rec = ctx->flow_record_chrono_first;
     while (rec != NULL) {
 
-        /* see if this record has IDP information */
-        if ((rec->idp_ext_processed == 0) && (rec->idp_len > 0)) {
+        /* see if this record has IDP information or is expired */
+        if ((rec->idp_ext_processed == 0) &&
+            ((rec->idp_len > 0) || (flow_record_is_expired(ctx,rec)))) {
 
             /* let the callback function process the flow record */
             /* IDP data is pulled directly from flow_record */
-            callback_fn(rec, 0, NULL);
-
-            /* mark the IDP data as being processed */
-            rec->idp_ext_processed = 1;
-        }
-
-        /* see if the record is expired */
-        if ((rec->idp_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
-
-            /* no IDP info, but the record is expired
-             * let the callback function process the flow record
-             * even though there isn't IDP data.
-             */
             callback_fn(rec, 0, NULL);
 
             /* mark the IDP data as being processed */
@@ -1440,29 +1428,14 @@ void joy_splt_external_processing(unsigned int index,
         data_len = 0;
         memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
 
-        /* see if this record has SPLT information */
-        if ((rec->splt_ext_processed == 0) && (rec->op >= min_pkts)) {
+        /* see if this record has SPLT information or is expired */
+        if ((rec->splt_ext_processed == 0) &&
+            ((rec->op >= min_pkts) || (flow_record_is_expired(ctx,rec)))) {
 
             /* format the SPLT data for external processing */
             data_len = joy_splt_format_data(rec, export_frmt, data);
 
             /* let the callback function process the flow record */
-            callback_fn(rec, data_len, data);
-
-            /* mark the SPLT data as being processed */
-            rec->splt_ext_processed = 1;
-        }
-
-        /* see if the record is expired */
-        if ((rec->splt_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
-
-            /* format the SPLT data for external processing */
-            data_len = joy_splt_format_data(rec, export_frmt, data);
-
-            /* SPLT info isn't complete, but the record is expired
-             * let the callback function process the flow record
-             * even though there isn't complete SPLT data.
-             */
             callback_fn(rec, data_len, data);
 
             /* mark the SPLT data as being processed */
@@ -1657,28 +1630,13 @@ void joy_bd_external_processing(unsigned int index,
         data_len = 0;
         memset(data, 0x00, (MAX_BYTE_COUNT_ARRAY_LENGTH*2));
 
-        /* see if this record has BD information */
-        if ((rec->bd_ext_processed == 0) && (rec->ob >= min_octets)) {
+        /* see if this record has BD information or is expired */
+        if ((rec->bd_ext_processed == 0) &&
+            ((rec->ob >= min_octets) || (flow_record_is_expired(ctx,rec)))) {
             /* format the BD data for external processing */
             data_len = joy_bd_format_data(rec, data);
 
             /* let the callback function process the flow record */
-            callback_fn(rec, data_len, data);
-
-            /* mark the BD data as being processed */
-            rec->bd_ext_processed = 1;
-        }
-
-        /* see if the record is expired */
-        if ((rec->bd_ext_processed == 0) && (flow_record_is_expired(ctx,rec))) {
-
-            /* format the BD data for external processing */
-            data_len = joy_bd_format_data(rec, data);
-
-            /* BD info isn't complete, but the record is expired
-             * let the callback function process the flow record
-             * even though there isn't complete BD data.
-             */
             callback_fn(rec, data_len, data);
 
             /* mark the BD data as being processed */

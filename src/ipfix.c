@@ -250,7 +250,9 @@ static int ipfix_collect_process_socket(joy_ctx_data *ctx,
 
   record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
-  process_ipfix(ctx, (char*)data, data_len, record);
+  if (record != NULL) {
+      process_ipfix(ctx, (char*)data, data_len, record);
+  }
 
   return 0;
 }
@@ -1059,21 +1061,22 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
             
             /* Init flow key */
             ipfix_flow_key_init(&key, cur_template, (const char*)data_ptr);
-            
+
             /* Get a flow record related to ipfix data */
             ix_record = flow_key_get_record(ctx, &key, CREATE_RECORDS,NULL);
-            
-            
-            /* Fill out record */
-            if (memcmp(&key, prev_data_key, sizeof(flow_key_t)) != 0) {
-                ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
-            } else {
-                ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
+
+            if (ix_record != NULL) {
+                /* Fill out record */
+                if (memcmp(&key, prev_data_key, sizeof(flow_key_t)) != 0) {
+                    ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
+                } else {
+                    ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
+                }
+                memcpy(prev_data_key, &key, sizeof(flow_key_t));
+
+                data_ptr += data_record_size;
+                data_set_len -= data_record_size;
             }
-            memcpy(prev_data_key, &key, sizeof(flow_key_t));
-            
-            data_ptr += data_record_size;
-            data_set_len -= data_record_size;
         }
     } else {
         /* FIXME hold onto the data set for a certain amount of time since
