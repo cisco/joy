@@ -378,7 +378,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
                           flow_record_t *nf_record = NULL;
                           nf_record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
-                          if (nfv9_record != NULL) {
+                          if (nf_record != NULL) {
                               // fill out record
                               if (memcmp(&key,&prev_key,sizeof(flow_key_t)) != 0) {
                                   nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
