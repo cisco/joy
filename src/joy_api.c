@@ -43,6 +43,10 @@
  * 
  */
 
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
+
 #include <sys/types.h>
 #include <stdlib.h>  
 #include <stdio.h>
@@ -927,7 +931,7 @@ void joy_update_ctx_global_time(unsigned char *ctx_index,
  *          This algortihms keeps bidirectional flows in the same context.
  *
  */
-unsigned int joy_packet_to_context(const char *packet) {
+unsigned int joy_packet_to_context(const unsigned char *packet) {
     unsigned int rc = 0;
     unsigned int context = 0;
     unsigned int sum = 0;
@@ -1920,3 +1924,12 @@ void joy_shutdown(void)
     /* reset the library initialized flag */
     joy_library_initialized = 0;
 }
+
+#ifdef HAVE_CONFIG_H
+/*! @brief joy_get_version version for joy.
+ *  @return joy version string.
+ */
+const char * joy_get_version(void) {
+    return(PACKAGE_STRING);
+}
+#endif

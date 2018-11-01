@@ -40,6 +40,9 @@
  * \brief implementation for the configuration system
  *
  */
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 #include <stdlib.h>       
 #include <limits.h>
 #include <ctype.h> 
@@ -495,8 +498,11 @@ int config_set_from_argv (struct configuration *config, char *argv[], int argc) 
  */
 void config_print (FILE *f, const struct configuration *c) {
     unsigned int i;
-
+#ifdef PACKAGE_VERSION
+    fprintf(f, "joy version = %s\n", PACKAGE_VERSION);
+#else
     fprintf(f, "joy version = %s\n", VERSION);
+#endif
     fprintf(f, "interface = %s\n", val(c->intface));
     fprintf(f, "promisc = %u\n", c->promisc);
     fprintf(f, "output = %s\n", val(c->filename));

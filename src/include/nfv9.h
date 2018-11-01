@@ -401,7 +401,7 @@ struct template_handler {
     struct nfv9_template template;
     template_handler_func func;
     struct template_handler *next; 
-}x;
+};
 
 #define nfv9_template_field(a) ((struct nfv9_template_field) {a, 0})
 #define nfv9_template_field_len(a,b) ((struct nfv9_template_field) {a, b})

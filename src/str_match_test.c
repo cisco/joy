@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,10 @@
  *
  * \brief unit test for multiple string matching functions
  */
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
+
 #include <stdarg.h>
 #include <string.h>
 
@@ -161,7 +165,11 @@ int main (void) {
         fprintf(stderr, "error: could not allocate string matching context\n");
         return -1;
     }
+#ifdef HAVE_CONFIG_H
+    if (str_match_ctx_init_from_file(ctx, "../test/misc/userid-example.txt", NULL) != 0) {
+#else
     if (str_match_ctx_init_from_file(ctx, "test/misc/userid-example.txt", NULL) != 0) {
+#endif
         fprintf(stderr, "error: could not init string matching context from file\n");
         exit(EXIT_FAILURE);
     }

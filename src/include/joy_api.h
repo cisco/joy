@@ -331,7 +331,7 @@ extern void joy_update_ctx_global_time (unsigned char *ctx_index,
  *          This algortihms keeps bidirectional flows in the same context.
  *
  */
-extern unsigned int joy_packet_to_context (const char *packet);
+extern unsigned int joy_packet_to_context (const unsigned char *packet);
 
 /*
  * Function: joy_process_packet
@@ -693,5 +693,10 @@ extern void joy_context_cleanup (uint8_t index);
  *
  */
 extern void joy_shutdown (void);
+
+#ifdef HAVE_CONFIG_H
+extern const char * joy_get_version(void);
+#endif
+
 
 #endif /* JOY_API_H */

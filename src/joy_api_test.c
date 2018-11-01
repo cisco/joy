@@ -40,7 +40,9 @@
  * \brief Program to test the Joy API and joylib.a functionality
  * 
  */
-
+#ifdef HAVE_CONFIG_H
+#include "joy_config.h"
+#endif
 #include <stdlib.h>  
 #include <stdio.h>
 #include <string.h>
@@ -299,6 +301,10 @@ int main (int argc, char **argv)
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
     init_data.ipfix_port = 0;                 /* use default IPFix port */
     init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
+
+#ifdef HAVE_CONFIG_H
+    printf("Joy Version = %s\n", joy_get_version());
+#endif
 
     /* intialize joy */
     rc = joy_initialize(&init_data, NULL, NULL, NULL);

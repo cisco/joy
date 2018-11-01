@@ -79,14 +79,14 @@ void process_hardcoded_packets (unsigned long index)
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet1);
     header.len = sizeof(packet1);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet1,2,"\x21\x32");
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet1,2,(const unsigned char*)"\x21\32");
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;
     header.ts.tv_usec = now.tv_usec;
     header.caplen = sizeof(packet2);
     header.len = sizeof(packet2);
-    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet2,2,"\x44\x55");
+    joy_process_packet((unsigned char*)index, &header, (const unsigned char*)packet2,2,(const unsigned char*)"\x44\x55");
 
     gettimeofday(&now,NULL);
     header.ts.tv_sec = now.tv_sec;

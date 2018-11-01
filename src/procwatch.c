@@ -39,7 +39,6 @@
   *
   * \brief process watcher implementation
   */
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
