@@ -209,7 +209,6 @@ void wht_delete (wht_t **wht_handle) {
 
     /* Free the memory and set to NULL */
     free(wht);
-    wht = NULL;
     *wht_handle = NULL;
 }
 

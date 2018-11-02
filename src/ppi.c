@@ -168,7 +168,6 @@ void ppi_delete (struct ppi **ppi_handle) {
 
     /* Free the memory and set to NULL */
     free(ppi);
-    ppi = NULL;
     *ppi_handle = NULL;
 }
 

@@ -79,7 +79,6 @@ static void vector_delete(vector_t **s_handle) {
     }
 
     free(vector);
-    vector = NULL;
     *s_handle = NULL;
 }
 

@@ -184,7 +184,6 @@ void dhcp_delete(dhcp_t **dhcp_handle)
 
     /* Free the memory and set to NULL */
     free(dhcp);
-    dhcp = NULL;
     *dhcp_handle = NULL;
 }
 

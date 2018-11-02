@@ -345,7 +345,6 @@ void http_delete (struct http **http_handle) {
 
     /* Free the memory and set to NULL */
     free(http);
-    http = NULL;
     *http_handle = NULL;
 }
 

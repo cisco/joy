@@ -214,7 +214,6 @@ void tls_delete (tls_t **tls_handle) {
 
     /* Free the memory and set to NULL */
     free(r);
-    r = NULL;
     *tls_handle = NULL;
 }
 

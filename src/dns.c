@@ -797,7 +797,6 @@ void dns_delete (dns_t **dns_handle) {
 
     /* Free the memory and set to NULL */
     free(dns);
-    dns = NULL;
     *dns_handle = NULL;
 }
 

@@ -1021,7 +1021,6 @@ void ssh_delete(struct ssh **ssh_handle) {
 
     /* Free the memory and set to NULL */
     free(ssh);
-    ssh = NULL;
     *ssh_handle = NULL;
 }
 
