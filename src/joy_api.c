@@ -104,7 +104,7 @@ static struct joy_ctx_data *ctx_data = NULL;
  *
  */
 static unsigned int joy_splt_format_data(flow_record_t *rec,
-                                         JOY_EXPORT_TYPE export_frmt,
+                                         joy_export_type_e export_frmt,
                                          unsigned char *data)
 {
     unsigned int i = 0;
@@ -112,7 +112,7 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
     struct timeval ts;
-    short *formatted_data = (short*)data;
+    uint16_t *formatted_data = (uint16_t*)data;
 
     /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
     num_of_pkts = (rec->op < MAX_NFV9_SPLT_SALT_PKTS) ? rec->op : MAX_NFV9_SPLT_SALT_PKTS;
@@ -130,13 +130,13 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
     if (export_frmt == JOY_NFV9_EXPORT) {
         /* loop through the SPLT lengths and store appropriately */
         for (i=0; i < num_of_pkts; ++i) {
-            *(formatted_data+i) = (short)rec->pkt_len[i];
+            *(formatted_data+i) = (uint16_t)rec->pkt_len[i];
         }
 
         if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
             /* padding needs to occur */
             for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
-               *(formatted_data+i) = (short)-32768;
+               *(formatted_data+i) = (uint16_t)-32768;
             }
         }
 
@@ -148,13 +148,13 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
                 joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
             }
             *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
-                 (short)joy_timeval_to_milliseconds(ts);
+                 (uint16_t)joy_timeval_to_milliseconds(ts);
         }
 
         if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
             /* padding needs to occur */
             for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
-               *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (short)0x00;
+               *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (uint16_t)0x00;
             }
         }
 
@@ -162,7 +162,7 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
     } else {
         /* loop through the SPLT lengths and store appropriately */
         for (i=0; i < num_of_pkts; ++i) {
-            *(formatted_data+i) = (short)rec->pkt_len[i];
+            *(formatted_data+i) = (uint16_t)rec->pkt_len[i];
         }
 
         /* store how many entries we used since IPFix doesn't pad */
@@ -176,7 +176,7 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
                 joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
             }
             *(formatted_data+entries_used+i) =
-                 (short)joy_timeval_to_milliseconds(ts);
+                 (uint16_t)joy_timeval_to_milliseconds(ts);
         }
     }
 
@@ -202,7 +202,7 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
  *
  */
 static unsigned int joy_salt_format_data(flow_record_t *rec,
-                                         JOY_EXPORT_TYPE export_frmt,
+                                         joy_export_type_e export_frmt,
                                          unsigned char *data)
 {
     unsigned int i = 0;
@@ -210,7 +210,7 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
     struct timeval ts;
-    unsigned short *formatted_data = (unsigned short*)data;
+    uint16_t *formatted_data = (uint16_t*)data;
 
     /* sanity check SALT structure */
     if (rec->salt == NULL) {
@@ -234,14 +234,14 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
     if (export_frmt == JOY_NFV9_EXPORT) {
         /* loop through the SALT lengths and store appropriately */
         for (i=0; i < num_of_pkts; ++i) {
-            *(formatted_data+i) = (unsigned short)rec->salt->pkt_len[i];
+            *(formatted_data+i) = (uint16_t)rec->salt->pkt_len[i];
         }
 
         /* see if we need to pad the length array */
         if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
             /* padding needs to occur */
             for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
-               *(formatted_data+i) = (unsigned short)0x00;
+               *(formatted_data+i) = (uint16_t)0x00;
             }
         }
 
@@ -253,14 +253,14 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
                 joy_timer_sub(&rec->salt->pkt_time[i], &rec->start, &ts);
             }
             *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
-                 (unsigned short)joy_timeval_to_milliseconds(ts);
+                 (uint16_t)joy_timeval_to_milliseconds(ts);
         }
 
         /* see if we need to pad the time array */
         if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
             /* padding needs to occur */
             for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
-               *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (unsigned short)0x00;
+               *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (uint16_t)0x00;
             }
         }
 
@@ -268,7 +268,7 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
     } else {
         /* loop through the SALT lengths and store appropriately */
         for (i=0; i < num_of_pkts; ++i) {
-            *(formatted_data+i) = (unsigned short)rec->salt->pkt_len[i];
+            *(formatted_data+i) = (uint16_t)rec->salt->pkt_len[i];
         }
 
         /* store how many entries we used since IPFix doesn't pad */
@@ -282,7 +282,7 @@ static unsigned int joy_salt_format_data(flow_record_t *rec,
                 joy_timer_sub(&rec->salt->pkt_time[i], &rec->start, &ts);
             }
             *(formatted_data+entries_used+i) =
-                 (unsigned short)joy_timeval_to_milliseconds(ts);
+                 (uint16_t)joy_timeval_to_milliseconds(ts);
         }
     }
 
@@ -754,7 +754,7 @@ int joy_update_compact_bd(const char *filename)
 {
     FILE *fp;
     int count = 0;
-    unsigned short b_value, map_b_value;
+    uint16_t b_value, map_b_value;
 
     /* check library initialization */
     if (!joy_library_initialized) {
@@ -1113,7 +1113,7 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
  *      none
  *
  */
-void joy_print_flow_data(uint8_t index, JOY_FLOW_TYPE type)
+void joy_print_flow_data(uint8_t index, joy_flow_type_e type)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -1183,7 +1183,7 @@ void joy_print_flow_data(uint8_t index, JOY_FLOW_TYPE type)
  *      none
  *
  */
-void joy_export_flows_ipfix(uint8_t index, JOY_FLOW_TYPE type)
+void joy_export_flows_ipfix(uint8_t index, joy_flow_type_e type)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -1394,7 +1394,7 @@ void joy_tls_external_processing(uint8_t index,
  *             format: len,len,len,len,len,time,time,time,time,time
  */
 void joy_splt_external_processing(uint8_t index,
-                                 JOY_EXPORT_TYPE export_frmt,
+                                 joy_export_type_e export_frmt,
                                  unsigned int min_pkts,
                                  joy_flow_rec_callback callback_fn)
 {
@@ -1489,7 +1489,7 @@ void joy_splt_external_processing(uint8_t index,
  *             format: len,len,len,len,len,time,time,time,time,time
  */
 void joy_salt_external_processing(uint8_t index,
-                                 JOY_EXPORT_TYPE export_frmt,
+                                 joy_export_type_e export_frmt,
                                  unsigned int min_pkts,
                                  joy_flow_rec_callback callback_fn)
 {

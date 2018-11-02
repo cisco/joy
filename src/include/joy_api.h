@@ -63,12 +63,12 @@
 typedef enum {
     JOY_EXPIRED_FLOWS          = 0,
     JOY_ALL_FLOWS              = 1
-} JOY_FLOW_TYPE;
+} joy_flow_type_e;
 
 typedef enum {
     JOY_NFV9_EXPORT            = 0,
     JOY_IPFIX_EXPORT           = 1
-} JOY_EXPORT_TYPE;
+} joy_export_type_e;
 
 /*
  * These flags define if a flow record has sufficient data
@@ -361,10 +361,10 @@ extern uint8_t joy_packet_to_context (const unsigned char *packet);
  *
  */
 extern void* joy_process_packet (unsigned char *ctx_index,
-                              const struct pcap_pkthdr *header,
-                              const unsigned char *packet,
-                              unsigned int app_data_len,
-                              const unsigned char *app_data);
+                                 const struct pcap_pkthdr *header,
+                                 const unsigned char *packet,
+                                 unsigned int app_data_len,
+                                 const unsigned char *app_data);
 
 /*
  * Function: joy_libpcap_process_packet
@@ -384,8 +384,8 @@ extern void* joy_process_packet (unsigned char *ctx_index,
  *
  */
 extern void joy_libpcap_process_packet (unsigned char *ctx_index,
-                               const struct pcap_pkthdr *header,
-                               const unsigned char *packet);
+                                        const struct pcap_pkthdr *header,
+                                        const unsigned char *packet);
 
 /*
  * Function: joy_print_flow_data
@@ -409,7 +409,7 @@ extern void joy_libpcap_process_packet (unsigned char *ctx_index,
  *      none
  *
  */
-extern void joy_print_flow_data (uint8_t index, JOY_FLOW_TYPE type);
+extern void joy_print_flow_data (uint8_t index, joy_flow_type_e type);
 
 /*
  * Function: joy_export_flows_ipfix
@@ -430,7 +430,7 @@ extern void joy_print_flow_data (uint8_t index, JOY_FLOW_TYPE type);
  *      none
  *
  */
-extern void joy_export_flows_ipfix (uint8_t index, JOY_FLOW_TYPE type);
+extern void joy_export_flows_ipfix (uint8_t index, joy_flow_type_e type);
 
 /*
  * Function: joy_idp_external_processing
@@ -530,7 +530,7 @@ extern void joy_tls_external_processing (uint8_t index,
  *             format: len,len,len,len,len,time,time,time,time,time
  */
 extern void joy_splt_external_processing (uint8_t index,
-                                          JOY_EXPORT_TYPE export_frmt,
+                                          joy_export_type_e export_frmt,
                                           unsigned int min_pkts,
                                           joy_flow_rec_callback callback_fn);
 
@@ -578,7 +578,7 @@ extern void joy_splt_external_processing (uint8_t index,
  *             format: len,len,len,len,len,time,time,time,time,time
  */
 extern void joy_salt_external_processing (uint8_t index,
-                                          JOY_EXPORT_TYPE export_frmt,
+                                          joy_export_type_e export_frmt,
                                           unsigned int min_pkts,
                                           joy_flow_rec_callback callback_fn);
 
