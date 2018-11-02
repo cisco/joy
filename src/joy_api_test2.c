@@ -203,8 +203,8 @@ int main (void)
     init_data.idp = 1300;                     /* number of bytes of idp to report */
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
     init_data.ipfix_port = 0;                 /* use default IPFix port */
-    //init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_IDP_ON | JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
-    init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
+    init_data.bitmask = (JOY_IPFIX_EXPORT_ON | JOY_IDP_ON | JOY_BIDIR_ON | JOY_TLS_ON | JOY_HTTP_ON);
+    //init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
 
 
     /* intialize joy */
@@ -224,9 +224,9 @@ int main (void)
     process_hardcoded_packets(0); /* just using 1 context -> 0 */
     
     /* export the flows */
-    //joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
-    joy_splt_external_processing(0,JOY_NFV9_EXPORT,1,my_splt_callback);
-    joy_delete_flow_records(0, JOY_DELETE_ALL);
+    joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
+    //joy_splt_external_processing(0,JOY_NFV9_EXPORT,1,my_splt_callback);
+    //joy_delete_flow_records(0, JOY_DELETE_ALL);
 
     /* cleanup */
     joy_context_cleanup(0);

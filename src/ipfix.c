@@ -537,6 +537,9 @@ void ipfix_cts_cleanup(void) {
         
         ipfix_cts_delete(this_template);
     }
+
+    /* list is now empty set head pointer */
+    collect_template_store_head = NULL;
     pthread_mutex_unlock(&cts_lock);
 }
 
@@ -2261,11 +2264,12 @@ void ipfix_xts_cleanup(void) {
     ipfix_exporter_template_t *this_template;
     ipfix_exporter_template_t *next_template;
     
+    pthread_mutex_lock(&export_lock);
     if (export_template_store_head == NULL) {
+        pthread_mutex_unlock(&export_lock);
         return;
     }
 
-    pthread_mutex_lock(&export_lock);
     this_template = export_template_store_head;
     next_template = this_template->next;
     
@@ -2279,6 +2283,9 @@ void ipfix_xts_cleanup(void) {
         
         ipfix_delete_exp_template(this_template);
     }
+
+    /* list is now empty set head pointer */
+    export_template_store_head = NULL;
     pthread_mutex_unlock(&export_lock);
 }
 

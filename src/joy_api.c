@@ -1845,10 +1845,14 @@ void joy_context_cleanup(uint8_t index)
     flow_record_list_free(ctx);
  
     /* close the output file */
-    if (ctx->output) zclose(ctx->output);
-    ctx->output = NULL;
-    if (ctx->output_file_basename) free(ctx->output_file_basename);
-    ctx->output_file_basename = NULL;
+    if (ctx->output) {
+        zclose(ctx->output);
+        ctx->output = NULL;
+    }
+    if (ctx->output_file_basename) {
+        free(ctx->output_file_basename);
+        ctx->output_file_basename = NULL;
+    }
 }
 
 /*
