@@ -584,6 +584,7 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
             case IDP: 
                 if (nf_record->idp != NULL) {
                     free(nf_record->idp);
+                    nf_record->idp = NULL;
                 }
                 nf_record->idp_len = htons(cur_template->fields[i].FieldLength);
                 nf_record->idp = calloc(1, nf_record->idp_len);
@@ -1131,7 +1132,7 @@ static void template () {
 static unsigned int
 nfv9_register_template_handler (const struct nfv9_template *template,
                                     template_handler_func f) {
-    struct template_handler *h = malloc(sizeof(struct template_handler));
+    struct template_handler *h = calloc(1, sizeof(struct template_handler));
 
     if (h == NULL) {
         printf("error: could not allocate handler\n");

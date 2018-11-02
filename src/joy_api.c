@@ -289,7 +289,7 @@ int joy_initialize(joy_init_t *init_data,
         }
 
         /* store off the output file base name */
-        this->output_file_basename = malloc(strlen(output_filename)+1);
+        this->output_file_basename = calloc(1, strlen(output_filename)+1);
         if (this->output_file_basename == NULL) {
             joy_log_err("could not store off base output filename");
             JOY_API_FREE_CONTEXT(ctx_data)
@@ -312,6 +312,7 @@ int joy_initialize(joy_init_t *init_data,
             joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
             joy_log_err("choose a new output name or move/remove the old data set");
             free(this->output_file_basename);
+            this->output_file_basename = NULL;
             JOY_API_FREE_CONTEXT(ctx_data)
             return failure;
         }
@@ -887,6 +888,7 @@ void joy_context_cleanup(unsigned int index)
     /* close the output file */
     zclose(ctx->output);
     free(ctx->output_file_basename);
+    ctx->output_file_basename = NULL;
 }
 
 /*

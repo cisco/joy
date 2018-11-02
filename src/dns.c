@@ -570,7 +570,7 @@ static joy_status_e process_dns (const struct pcap_pkthdr *h, const void *start,
 
     // printf("dns len: %u name: %s qr: %u rcode: %u\n", len-14, name, qr, rcode);
     if (!r->dns.dns_name[r->op]) {
-        r->dns.dns_name[r->op] = malloc(len);
+        r->dns.dns_name[r->op] = calloc(1, len);
         if (r->dns.dns_name[r->op] == NULL) {
             return failure;
         }
@@ -791,11 +791,13 @@ void dns_delete (dns_t **dns_handle) {
     for (i=0; i<dns->pkt_count; i++) {
         if (dns->dns_name[i]) {
             free(dns->dns_name[i]);
+            dns->dns_name[i] = NULL;
         }
     }
 
     /* Free the memory and set to NULL */
     free(dns);
+    dns = NULL;
     *dns_handle = NULL;
 }
 
@@ -831,7 +833,7 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
 
     // printf("dns len: %u name: %s qr: %u rcode: %u\n", len-14, name, qr, rcode);
     if (!dns->dns_name[dns->pkt_count]) {
-        dns->dns_name[dns->pkt_count] = malloc(len);
+        dns->dns_name[dns->pkt_count] = calloc(1, len);
         if (dns->dns_name[dns->pkt_count] == NULL) {
             return; /* failure */
         }

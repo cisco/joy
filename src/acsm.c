@@ -205,6 +205,7 @@ static void acsm_free_state(acsm_context_t *ctx)
         sq = acsm_queue_data(q, acsm_state_queue_t, queue);
 
         free(sq);
+        sq = NULL;
     }
 }
 
@@ -282,6 +283,7 @@ void acsm_free(acsm_context_t *ctx)
                 p = p->next;
 
                 free(op);
+                op = NULL;
             }
         }
     }
@@ -293,14 +295,18 @@ void acsm_free(acsm_context_t *ctx)
 
         if (op->string) {
             free(op->string);
+            op->string = NULL;
         }
 
         free(op);
+        op = NULL;
     }
 
     free(ctx->state_table);
+    ctx->state_table = NULL;
     
     free(ctx);
+    ctx = NULL;
 }
 
 

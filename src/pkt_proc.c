@@ -978,8 +978,11 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
          * libpcap (which will depend on MTU and SNAPLEN; you can change
          * the latter if need be).
          */
-        if (allocated_packet_header)
+        if (allocated_packet_header) {
             free(header);
+            header = NULL;
+        }
+        
         return ;
     }
     transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
@@ -1063,8 +1066,10 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
          * if the processing of malformed packets causes trouble, choose
          * this code path instead
          */
-        if (allocated_packet_header)
+        if (allocated_packet_header) {
             free(header);
+            header = NULL;
+        }
         return;
 #endif
     }
@@ -1101,13 +1106,16 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
     if ((glb_config->idp) && record->op && (record->idp_len == 0)) {
         if (record->idp != NULL) {
             free(record->idp);
+            record->idp = NULL;
         }
         record->idp_len = (ntohs(ip->ip_len) < glb_config->idp ? ntohs(ip->ip_len) : glb_config->idp);
         record->idp = calloc(1, record->idp_len);
         if (!record->idp) {
             joy_log_err("Out of memory");
-            if (allocated_packet_header)
+            if (allocated_packet_header) {
                 free(header);
+                header = NULL;
+            }
             return;
         }
 
@@ -1119,8 +1127,10 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
     flocap_stats_incr_num_bytes(ctx,transport_len);
 
     /* if we allocated the packet header, then free it now */
-    if (allocated_packet_header)
+    if (allocated_packet_header) {
         free(header);
+        header = NULL;
+    }
     return;
 }
 

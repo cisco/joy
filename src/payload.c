@@ -62,7 +62,7 @@ __inline void payload_init (struct payload **payload_handle) {
         payload_delete(payload_handle);
     }
 
-    *payload_handle = malloc(sizeof(struct payload));
+   *payload_handle = calloc(1, sizeof(struct payload));
     if (*payload_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");

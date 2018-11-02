@@ -198,6 +198,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
         }
     }
     free(line);
+    line = NULL;
   
     if (acsm_compile(ctx) != 0) {
         fprintf(stderr, "acsm_compile() error.\n");

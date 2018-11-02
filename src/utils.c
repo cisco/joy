@@ -83,13 +83,14 @@ int BZ2_bzprintf(BZFILE *b, const char * format, ...)
 
     /* check resulting size and perform output accordingly */
     if (BZ_sz >= BZ_MAX_SIZE) {
-        char *BZ_dyn_buff = malloc(BZ_sz + 1);
+        char *BZ_dyn_buff = calloc(1, BZ_sz + 1);
         if (BZ_dyn_buff != NULL) {
             va_start(arg, format);
             BZ_sz = vsnprintf(BZ_dyn_buff, (BZ_sz + 1), format, arg);
             va_end(arg);
             BZ2_bzwrite(b, BZ_dyn_buff, BZ_sz);
             free(BZ_dyn_buff);
+            BZ_dyn_buff = NULL;
         } else {
             /* error scenario, can't print out all the data,
              * let's just print what we can
@@ -153,7 +154,7 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
 
     /* Cleanup */
     free(filepath);
-
+    filepath = NULL;
 
     return value;
 }
@@ -193,7 +194,7 @@ FILE* joy_utils_open_test_file(const char *filename) {
 
     /* Cleanup */
     free(filepath);
-
+    filepath = NULL;
 
     return fp;
 }
@@ -235,7 +236,7 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
 
     /* Cleanup */
     free(filepath);
-
+    filepath = NULL;
 
     return handle;
 }

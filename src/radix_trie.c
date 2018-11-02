@@ -557,6 +557,7 @@ joy_status_e radix_trie_free (struct radix_trie *r) {
         /* Free any flags attached to the radix_trie */
         for (i = 0; i < r->num_flags; i++) {
             free(r->flag[i]);
+            r->flag[i] = NULL;
         }
     }
 
@@ -692,6 +693,7 @@ joy_status_e radix_trie_add_subnets_from_file (struct radix_trie *rt,
         }
       
         free(line);
+        line = NULL;
     
         fclose(fp);
     } 

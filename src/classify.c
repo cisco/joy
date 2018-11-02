@@ -457,7 +457,9 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
     merged_times = calloc(1, sizeof(uint16_t)*(op_n + ip_n));
     if (!merged_lens || !merged_times) {
 	free(merged_lens);
+        merged_lens = NULL;
 	free(merged_times);
+        merged_times = NULL;
 	return(score);
     }
 
@@ -518,7 +520,9 @@ float classify (const unsigned short *pkt_len, const struct timeval *pkt_time,
     score = min(-score,500.0); // check b/c overflow
   
     free(merged_lens);
+    merged_lens = NULL;
     free(merged_times);
+    merged_times = NULL;
 
     return 1.0/(1.0+exp(score));
 }

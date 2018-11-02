@@ -367,6 +367,7 @@ joy_status_e anon_init (const char *pathname, FILE *logfile) {
         anon_print_subnets(anon_info);
         fprintf(anon_info, "configured %d subnets for anonymization\n", num_subnets);
         free(line);
+        line = NULL;
         fclose(fp);
     } 
     s = key_init(ANON_KEYFILE_DEFAULT);

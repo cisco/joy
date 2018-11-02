@@ -26,7 +26,7 @@ size_t getline(char **lineptr, size_t *n, FILE *stream) {
         return -1;
     }
     if (bufptr == NULL) {
-        bufptr = malloc(128);
+        bufptr = calloc(1, 128);
         if (bufptr == NULL) {
             return -1;
         }

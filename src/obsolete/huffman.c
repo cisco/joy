@@ -88,17 +88,17 @@ struct huffman_node *make_code(unsigned int counts[COUNT_SIZE]) {
   struct huffman_node *node_array[COUNT_SIZE];
 
   for (i=0; i<COUNT_SIZE; i++) {
-    /*
-     * allocate and initialize huffman_node
-     */
-    struct huffman_node *node = malloc(sizeof(struct huffman_node));
-    if (node == NULL) {
-      return NULL;   
-    }
-    node->left = NULL;
-    node->right = NULL;
-    node->count = counts[i];
-    node_array[i] = node;
+      /*
+       * allocate and initialize huffman_node
+       */
+      struct huffman_node *node = calloc(1, sizeof(struct huffman_node));
+      if (node == NULL) {
+          return NULL;   
+      }
+      node->left = NULL;
+      node->right = NULL;
+      node->count = counts[i];
+      node_array[i] = node;
   }
 
   /* heapify */
@@ -174,6 +174,7 @@ int file_read_weights_and_values(const char *fname) {
   }
   
   free(line);
+  line = NULL;
 
   num_values = i;
 

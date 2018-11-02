@@ -337,6 +337,7 @@ static FILE* open_config_file(const char *filename) {
 
         if (filepath) {
             free(filepath);
+            filepath = NULL;
         }
     }
 #endif
@@ -419,6 +420,7 @@ int config_set_from_file (struct configuration *config, const char *fname) {
         }
     }
     free(line);
+    line = NULL;
     return ok;
 }
 

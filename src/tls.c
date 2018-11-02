@@ -134,18 +134,22 @@ void tls_delete (tls_t **tls_handle) {
 
     if (r->sni) {
         free(r->sni);
+        r->sni = NULL;
     }
     if (r->handshake_buffer) {
         free(r->handshake_buffer);
+        r->handshake_buffer = NULL;
     }
     for (i=0; i<r->num_extensions; i++) {
         if (r->extensions[i].data) {
             free(r->extensions[i].data);
+            r->extensions[i].data = NULL;;
         }
     }
     for (i=0; i<r->num_server_extensions; i++) {
         if (r->server_extensions[i].data) {
             free(r->server_extensions[i].data);
+            r->server_extensions[i].data = NULL;
         }
     }
 
@@ -155,10 +159,12 @@ void tls_delete (tls_t **tls_handle) {
         if (cert->signature) {
             /* Free the signature */
             free(cert->signature);
+            cert->signature = NULL;
         }
         if (cert->serial_number) {
             /* Free the serial number */
             free(cert->serial_number);
+            cert->serial_number = NULL;
         }
         for (j = 0; j < cert->num_issuer_items; j++) {
             /*
@@ -168,7 +174,8 @@ void tls_delete (tls_t **tls_handle) {
 
             if (entry->data) {
                 /* Free the entry data */
-                    free(entry->data);
+                free(entry->data);
+                entry->data = NULL;
             }
         }
         for (j = 0; j < cert->num_subject_items; j++) {
@@ -180,6 +187,7 @@ void tls_delete (tls_t **tls_handle) {
             if (entry->data) {
                 /* Free the entry data */
                     free(entry->data);
+                    entry->data = NULL;
             }
         }
         for (j = 0; j < cert->num_extension_items; j++) {
@@ -190,19 +198,23 @@ void tls_delete (tls_t **tls_handle) {
 
             if (entry->data) {
                 /* Free the entry data */
-                    free(entry->data);
+                free(entry->data);
+                entry->data = NULL;
             }
         }
         if (cert->validity_not_before) {
             free(cert->validity_not_before);
+            cert->validity_not_before = NULL;
         }
         if (cert->validity_not_after) {
             free(cert->validity_not_after);
+            cert->validity_not_after = NULL;
         }
     }
 
     /* Free the memory and set to NULL */
     free(r);
+    r = NULL;
     *tls_handle = NULL;
 }
 
@@ -391,15 +403,16 @@ static void tls_client_hello_get_extensions (const unsigned char *y,
         if (raw_to_uint16(y) == 0) {
             if (r->sni != NULL) {
                 free(r->sni);
+                r->sni = NULL;
             }
             r->sni_length = raw_to_uint16(y+7)+1;
-            r->sni = malloc(r->sni_length);
+            r->sni = calloc(1, r->sni_length);
             memset(r->sni, '\0', r->sni_length);
             memcpy(r->sni, y+9, r->sni_length-1);
 
             r->extensions[i].type = raw_to_uint16(y);
             r->extensions[i].length = raw_to_uint16(y+2);
-            r->extensions[i].data = malloc(r->extensions[i].length);
+            r->extensions[i].data = calloc(1, r->extensions[i].length);
             memcpy(r->extensions[i].data, y+4, r->extensions[i].length);  
             r->num_extensions += 1;
             i += 1;
@@ -413,11 +426,12 @@ static void tls_client_hello_get_extensions (const unsigned char *y,
 
         if (r->extensions[i].data != NULL) {
             free(r->extensions[i].data);
+            r->extensions[i].data = NULL;
         }
         r->extensions[i].type = raw_to_uint16(y);
         r->extensions[i].length = raw_to_uint16(y+2);
         // should check if length is reasonable?
-        r->extensions[i].data = malloc(r->extensions[i].length);
+        r->extensions[i].data = calloc(1, r->extensions[i].length);
         memcpy(r->extensions[i].data, y+4, r->extensions[i].length);
   
         r->num_extensions += 1;
@@ -817,7 +831,7 @@ static int tls_x509_get_serial(X509 *cert,
     }
 
     if (serial_data) {
-        record->serial_number = malloc(serial_data_length);
+        record->serial_number = calloc(1, serial_data_length);
         memcpy(record->serial_number, serial_data, serial_data_length);
         record->serial_number_length = (uint8_t)serial_data_length;
     }
@@ -949,7 +963,7 @@ static int tls_x509_get_signature(X509 *cert,
         record->signature_key_size = sig_length << 3;
     }
 
-    record->signature = malloc(sig_length);
+    record->signature = calloc(1, sig_length);
     memcpy(record->signature, sig_str, sig_length);
     record->signature_length = sig_length;
 
@@ -1355,7 +1369,7 @@ static void tls_server_hello_get_extensions (const unsigned char *y,
         r->server_extensions[i].type = raw_to_uint16(y);
         r->server_extensions[i].length = raw_to_uint16(y+2);
         // should check if length is reasonable?
-        r->server_extensions[i].data = malloc(r->server_extensions[i].length);
+        r->server_extensions[i].data = calloc(1, r->server_extensions[i].length);
         memcpy(r->server_extensions[i].data, y+4, r->server_extensions[i].length);
 
         r->num_server_extensions += 1;
@@ -2768,6 +2782,7 @@ static int tls_test_certificate_parsing() {
                     for (j = 0; j < known_items_count; j++) {
                         if (kat_subject[j].data) {
                             free(kat_subject[j].data);
+                            kat_subject[j].data = NULL;
                         }
                     }
                 } else {
@@ -2860,6 +2875,7 @@ static int tls_test_certificate_parsing() {
                     for (j = 0; j < known_items_count; j++) {
                         if (kat_issuer[j].data) {
                             free(kat_issuer[j].data);
+                            kat_issuer[j].data = NULL;
                         }
                     }
                 } else {
@@ -3021,6 +3037,7 @@ static int tls_test_certificate_parsing() {
                     for (j = 0; j < known_items_count; j++) {
                         if (kat_extensions[j].data) {
                             free(kat_extensions[j].data);
+                            kat_extensions[j].data = NULL;
                         }
                     }
                 } else {
@@ -3340,6 +3357,7 @@ static int tls_test_extract_client_hello(const unsigned char *data,
 
                     /* Free the temporary allocated data */
                     free(known_extensions[i].data);
+                    known_extensions[i].data = NULL;
                 }
             }
         }
@@ -3449,6 +3467,7 @@ static int tls_test_extract_server_hello(const unsigned char *data,
 
                     /* Free the temporary allocated data */
                     free(known_extensions[i].data);
+                    known_extensions[i].data = NULL;
                 }
             }
         }

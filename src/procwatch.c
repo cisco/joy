@@ -135,14 +135,22 @@ static void host_flow_table_init() {
     int i;
 
     for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
-	if (host_proc_flow_table_array[i].exe_name != NULL)
+	if (host_proc_flow_table_array[i].exe_name != NULL) {
 	    free(host_proc_flow_table_array[i].exe_name);
-	if (host_proc_flow_table_array[i].full_path != NULL)
+	    host_proc_flow_table_array[i].exe_name = NULL;
+        }
+	if (host_proc_flow_table_array[i].full_path != NULL) {
 	    free(host_proc_flow_table_array[i].full_path);
-	if (host_proc_flow_table_array[i].file_version != NULL)
+	    host_proc_flow_table_array[i].full_path = NULL;
+        }
+	if (host_proc_flow_table_array[i].file_version != NULL) {
 	    free(host_proc_flow_table_array[i].file_version);
-	if (host_proc_flow_table_array[i].hash != NULL)
+	    host_proc_flow_table_array[i].file_version = NULL;
+        }
+	if (host_proc_flow_table_array[i].hash != NULL) {
 	    free(host_proc_flow_table_array[i].hash);
+	    host_proc_flow_table_array[i].hash = NULL;
+        }
 	memset(&host_proc_flow_table_array[i], 0, sizeof(host_flow_t));
     }
 }
@@ -311,6 +319,7 @@ void process_get_file_version(host_flow_t *record) {
 	    }
 	}
 	free(verData);
+        verData = NULL;
     }
 }
 
@@ -431,6 +440,7 @@ int host_flow_table_add_tcp(int all_sockets) {
     if ((dwRetVal = GetTcpTable2(pTcpTable, &ulSize, TRUE)) ==
 	ERROR_INSUFFICIENT_BUFFER) {
 	free(pTcpTable);
+        pTcpTable = NULL;
 	pTcpTable = (MIB_TCPTABLE2 *)calloc(1, ulSize);
 	if (pTcpTable == NULL) {
 	    joy_log_err("Error allocating memory\n");
@@ -463,6 +473,7 @@ int host_flow_table_add_tcp(int all_sockets) {
     else {
 	joy_log_err("\tGetTcpTable2 failed with %d\n", dwRetVal);
 	free(pTcpTable);
+        pTcpTable = NULL;
 	CloseHandle(hProcessSnap);
 	return 1;
     }
@@ -886,6 +897,7 @@ char* get_application_version (char* full_path) {
         /* close the pipe and free up the cmd memory */
         pclose(ver_file);
         free(ver_cmd);
+        ver_cmd = NULL;
  
         /* return version string of the application */
         return ver_string;

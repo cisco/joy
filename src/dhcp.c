@@ -165,22 +165,26 @@ void dhcp_delete(dhcp_t **dhcp_handle)
 
         if (dhcp->messages[i].sname) {
             free(dhcp->messages[i].sname);
+            dhcp->messages[i].sname = NULL;
         }
 
         if (dhcp->messages[i].file) {
             free(dhcp->messages[i].file);
+            dhcp->messages[i].file = NULL;
         }
 
         for (k = 0; k < dhcp->messages[i].options_count; k++) {
             /* Free up memory in the options */
             if (dhcp->messages[i].options[k].value) {
                 free(dhcp->messages[i].options[k].value);
+                dhcp->messages[i].options[k].value = NULL;
             }
         }
     }
 
     /* Free the memory and set to NULL */
     free(dhcp);
+    dhcp = NULL;
     *dhcp_handle = NULL;
 }
 

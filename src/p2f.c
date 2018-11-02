@@ -661,7 +661,7 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
     if (create_new_records) {
 
         /* allocate and initialize a new flow record */
-        record = malloc(sizeof(flow_record_t));
+        record = calloc(1, sizeof(flow_record_t));
         debug_printf("LIST record %p allocated\n", record);
 
         if (record == NULL) {
@@ -727,24 +727,29 @@ static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
      */
     if (r->idp) {
         free(r->idp);
+        r->idp = NULL;
     }
 
     if (r->exe_name) {
         free(r->exe_name);
+        r->exe_name = NULL;
     }
 
-        if (r->full_path) {
-                free(r->full_path);
-        }
-
-        if (r->file_version) {
-                free(r->file_version);
-        }
-
-        if (r->file_hash) {
-                free(r->file_hash);
-        }
-
+    if (r->full_path) {
+        free(r->full_path);
+        r->full_path = NULL;
+    }
+    
+    if (r->file_version) {
+        free(r->file_version);
+        r->file_version = NULL;
+    }
+    
+    if (r->file_hash) {
+        free(r->file_hash);
+        r->file_hash = NULL;
+    }
+    
     delete_all_features(feature_list);
 
     /*

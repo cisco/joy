@@ -75,9 +75,11 @@ static void vector_delete(vector_t **s_handle) {
     }
     if (vector->bytes != NULL) {
         free(vector->bytes);
+        vector->bytes = NULL;
     }
 
     free(vector);
+    vector = NULL;
     *s_handle = NULL;
 }
 
@@ -123,7 +125,7 @@ static void vector_set(vector_t *vector,
                        unsigned int len) {
     unsigned char *tmpptr = NULL;
 
-    tmpptr = malloc(len);
+    tmpptr = calloc(1, len);
     if (tmpptr == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -131,6 +133,7 @@ static void vector_set(vector_t *vector,
     memcpy(tmpptr, data, len);
     if (vector->bytes != NULL) {
         free(vector->bytes);
+        vector->bytes = NULL;
     }
     vector->bytes = tmpptr;
     vector->len = len;
@@ -154,7 +157,7 @@ static void vector_append(vector_t *vector,
                           unsigned int len) {
     unsigned char *tmpptr = NULL;
 
-    tmpptr = malloc(vector->len + len);
+    tmpptr = calloc(1, vector->len + len);
     if (tmpptr == NULL) {
         joy_log_err("malloc failed");
         return;
@@ -163,6 +166,7 @@ static void vector_append(vector_t *vector,
     memcpy(tmpptr + vector->len, data, len);
     if (vector->bytes != NULL) {
         free(vector->bytes);
+        vector->bytes = NULL;
     }
     vector->bytes = tmpptr;
     vector->len += len;
@@ -2234,6 +2238,7 @@ static void ike_attribute_delete(ike_attribute_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
     *s_handle = NULL;
 }
 
@@ -2414,6 +2419,7 @@ static void ike_transform_delete(ike_transform_t **s_handle) {
     }
 
     free(s);
+    s = NULL;
     *s_handle = NULL;
 }
 
@@ -2660,6 +2666,8 @@ static void ike_proposal_delete(ike_proposal_t **s_handle) {
     }
     
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -2948,6 +2956,8 @@ static void ike_sa_delete(ike_sa_t **s_handle) {
     }
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -3156,6 +3166,8 @@ static void ike_ke_delete(ike_ke_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -3306,6 +3318,8 @@ static void ike_id_delete(ike_id_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -3406,6 +3420,8 @@ static void ike_cert_delete(ike_cert_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -3505,6 +3521,8 @@ static void ike_cr_delete(ike_cr_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -3690,6 +3708,8 @@ static void ike_hash_delete(ike_hash_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -3881,6 +3901,8 @@ static void ike_notify_delete(ike_notify_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -4018,6 +4040,8 @@ static void ike_nonce_delete(ike_nonce_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -4124,6 +4148,8 @@ static void ike_vendor_id_delete(ike_vendor_id_t **s_handle) {
     vector_delete(&s->data);
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -4311,7 +4337,10 @@ static void ike_payload_delete(ike_payload_t **s_handle) {
     }
 
     free(s->body);
+    s->body = NULL;
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -4507,6 +4536,8 @@ static void ike_header_delete(ike_header_t **s_handle) {
     }
 
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -4618,6 +4649,8 @@ static void ike_message_delete(ike_message_t **s_handle) {
     }
     
     free(s);
+    s = NULL;
+
     *s_handle = NULL;
 }
 
@@ -5112,6 +5145,7 @@ void ike_delete(ike_t **ike_handle) {
 
     vector_delete(&ike->buffer);
     free(ike);
+    ike = NULL;
     *ike_handle = NULL;
 }
 

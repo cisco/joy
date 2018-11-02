@@ -128,6 +128,7 @@ void example_delete (struct example **example_handle) {
 
     /* Free the memory and set to NULL */
     free(example);
+    example = NULL;
     *example_handle = NULL;
 }
 
