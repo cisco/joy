@@ -1011,7 +1011,7 @@ void* joy_process_packet(unsigned char *ctx_index,
 
     /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%llu) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", (uint8_t)index);
         return NULL;
     }
 
@@ -1082,7 +1082,7 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
 
     /* sanity check the index being used */
     if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%llu) for packet processing!", index);
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", (uint8_t)index);
         return;
     }
 
