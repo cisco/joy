@@ -86,7 +86,7 @@ int proc_pcap_file (unsigned long index, char *file_name) {
 
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_process_packet, (unsigned char*)index);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_libpcap_process_packet, (unsigned char*)index);
         /* Print out expired flows */
         //joy_print_flow_data(index,JOY_EXPIRED_FLOWS);
     }
