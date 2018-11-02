@@ -752,8 +752,8 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
  * \param key pointer to the key structure to be filled in
  * \return 0 - failed, 1 - success
  */
-int get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
-    unsigned int rc = 0;
+uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
+    uint8_t rc = 0;
     uint16_t ether_type = 0;
     uint16_t vlan_ether_type = 0;
     uint16_t vlan2_ether_type = 0;

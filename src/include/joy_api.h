@@ -193,7 +193,7 @@ extern int joy_initialize (joy_init_t *data, const char *output_dir,
  *      none
  *
  */
-extern void joy_print_config (unsigned int index, int format);
+extern void joy_print_config (uint8_t index, uint8_t format);
 
 /*
  * Function: joy_anon_subnets
@@ -295,13 +295,13 @@ extern int joy_update_compact_bd (const char *filename);
  *      1 - failure
  *
  */
-extern int joy_label_subnets (const char *label, int type, const char* subnet_str);
+extern int joy_label_subnets (const char *label, uint8_t type, const char* subnet_str);
 
 /*
  * Function: joy_update_ctx_global_time
  *
  * Description: This function updates the global time of a given
- *      JOY library context. This is useful is adjusting the exipration
+ *      JOY library context. This is useful is adjusting the expiration
  *      of flow records when packets are not submitted for processing.
  *
  * Parameters:
@@ -311,7 +311,7 @@ extern int joy_label_subnets (const char *label, int type, const char* subnet_st
  * Returns:
  *      none.
  */
-extern void joy_update_ctx_global_time (unsigned char *ctx_index,
+extern void joy_update_ctx_global_time (uint8_t ctx_index,
                                         struct timeval *new_time);
 
 /*
@@ -328,10 +328,10 @@ extern void joy_update_ctx_global_time (unsigned char *ctx_index,
  *
  * Returns:
  *      context - the context number the packet belongs to for JOY processing.
- *          This algortihms keeps bidirectional flows in the same context.
+ *          This algorithm keeps bidirectional flows in the same context.
  *
  */
-extern unsigned int joy_packet_to_context (const unsigned char *packet);
+extern uint8_t joy_packet_to_context (const unsigned char *packet);
 
 /*
  * Function: joy_process_packet
@@ -339,7 +339,7 @@ extern unsigned int joy_packet_to_context (const unsigned char *packet);
  * Description: This function invoked the packet processing function
  *      however, the application is permitted store some small amount
  *      of data in the flow record once it is created. This can be
- *      useful on the back end when an application wants to asscoiate
+ *      useful on the back end when an application wants to associate
  *      some data with a flow record during processing of the flow record.
  *
  * Parameters:
@@ -409,7 +409,7 @@ extern void joy_libpcap_process_packet (unsigned char *ctx_index,
  *      none
  *
  */
-extern void joy_print_flow_data (unsigned int index, JOY_FLOW_TYPE type);
+extern void joy_print_flow_data (uint8_t index, JOY_FLOW_TYPE type);
 
 /*
  * Function: joy_export_flows_ipfix
@@ -430,7 +430,7 @@ extern void joy_print_flow_data (unsigned int index, JOY_FLOW_TYPE type);
  *      none
  *
  */
-extern void joy_export_flows_ipfix (unsigned int index, JOY_FLOW_TYPE type);
+extern void joy_export_flows_ipfix (uint8_t index, JOY_FLOW_TYPE type);
 
 /*
  * Function: joy_idp_external_processing
@@ -456,7 +456,7 @@ extern void joy_export_flows_ipfix (unsigned int index, JOY_FLOW_TYPE type);
  *      The data_len and data fields will be ZERO and NULL respectively. This
  *      is because the IDP data can be retrieved directly from the flow record.
  */
-extern void joy_idp_external_processing (unsigned int index,
+extern void joy_idp_external_processing (uint8_t index,
                                          joy_flow_rec_callback callback_fn);
 
 /*
@@ -483,7 +483,7 @@ extern void joy_idp_external_processing (unsigned int index,
  *      The data_len and data fields will be ZERO and NULL respectively. This
  *      is because the TLS data can be retrieved directly from the flow record.
  */
-extern void joy_tls_external_processing (unsigned int index,
+extern void joy_tls_external_processing (uint8_t index,
                                          joy_flow_rec_callback callback_fn);
 
 /*
@@ -529,7 +529,7 @@ extern void joy_tls_external_processing (unsigned int index,
  *           ie: for data length of 20 bytes
  *             format: len,len,len,len,len,time,time,time,time,time
  */
-extern void joy_splt_external_processing (unsigned int index,
+extern void joy_splt_external_processing (uint8_t index,
                                           JOY_EXPORT_TYPE export_frmt,
                                           unsigned int min_pkts,
                                           joy_flow_rec_callback callback_fn);
@@ -577,7 +577,7 @@ extern void joy_splt_external_processing (unsigned int index,
  *           ie: for data length of 20 bytes
  *             format: len,len,len,len,len,time,time,time,time,time
  */
-extern void joy_salt_external_processing (unsigned int index,
+extern void joy_salt_external_processing (uint8_t index,
                                           JOY_EXPORT_TYPE export_frmt,
                                           unsigned int min_pkts,
                                           joy_flow_rec_callback callback_fn);
@@ -615,13 +615,13 @@ extern void joy_salt_external_processing (unsigned int index,
  *      For NetFlow V9 and IPFix:
  *          The data length is always 512 bytes. Currently only BD format uncompressed
  *              is defined in the spec.
- *          The data format is a series of 16-bit values repesenting the count of a
- *              given ascii value. The first 16-bit value representes the number of
+ *          The data format is a series of 16-bit values representing the count of a
+ *              given ascii value. The first 16-bit value represents the number of
  *              times ascii value 0 was seen in the flow. The second 16-bit value
  *              represents the number times the ascii value 1 was seen in the flow.
  *              This continues for all ascii values up to value 255.
  */
-extern void joy_bd_external_processing (unsigned int index,
+extern void joy_bd_external_processing (uint8_t index,
                                         unsigned int min_octets,
                                         joy_flow_rec_callback callback_fn);
 
@@ -642,7 +642,7 @@ extern void joy_bd_external_processing (unsigned int index,
  *      unsigned int - number of records deleted
  *
  */
-extern unsigned int joy_delete_flow_records (unsigned int index,
+extern unsigned int joy_delete_flow_records (uint8_t index,
                                              unsigned int cond_bitmask);
 
 /*
@@ -660,7 +660,7 @@ extern unsigned int joy_delete_flow_records (unsigned int index,
  *      unsigned int - number of records deleted
  *
  */
-extern unsigned int joy_purge_old_flow_records (unsigned int index,
+extern unsigned int joy_purge_old_flow_records (uint8_t index,
                                                 unsigned int rec_age);
 
 /*

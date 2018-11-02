@@ -578,7 +578,7 @@ int joy_initialize(joy_init_t *init_data,
  *      none
  *
  */
-void joy_print_config(unsigned int index, int format)
+void joy_print_config(uint8_t index, uint8_t format)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -806,7 +806,7 @@ int joy_update_compact_bd(const char *filename)
  *      1 - failure
  *
  */
-int joy_label_subnets(const char *label, int type, const char *subnet_str)
+int joy_label_subnets(const char *label, uint8_t type, const char *subnet_str)
 {
     attr_flags subnet_flag;
     joy_status_e err;
@@ -870,7 +870,7 @@ int joy_label_subnets(const char *label, int type, const char *subnet_str)
  * Function: joy_update_ctx_global_time
  *
  * Description: This function updates the global time of a given
- *      JOY library context. This is useful is adjusting the exipration
+ *      JOY library context. This is useful is adjusting the expiration
  *      of flow records when packets are not submitted for processing.
  *
  * Parameters:
@@ -880,9 +880,8 @@ int joy_label_subnets(const char *label, int type, const char *subnet_str)
  * Returns:
  *      none.
  */
-void joy_update_ctx_global_time(unsigned char *ctx_index,
+void joy_update_ctx_global_time(uint8_t ctx_index,
                                 struct timeval *new_time) {
-    uint64_t index = 0;
     joy_ctx_data *ctx = NULL;
 
     /* check library initialization */
@@ -897,17 +896,12 @@ void joy_update_ctx_global_time(unsigned char *ctx_index,
         return;
     }
 
-    /* ctx_index has the int value of the data context
-     * This number is between 0 and max configured contexts
-     */
-    index = (uint64_t)ctx_index;
-
-    if (index >= joy_num_contexts ) {
-        joy_log_crit("Joy Library invalid context (%llu) for packet processing!", index);
+    if (ctx_index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", ctx_index);
         return;
     }
 
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,ctx_index)
 
     /* update the context global time */
     ctx->global_time.tv_sec = new_time->tv_sec;
@@ -928,12 +922,12 @@ void joy_update_ctx_global_time(unsigned char *ctx_index,
  *
  * Returns:
  *      context - the context number the packet belongs to for JOY processing.
- *          This algortihms keeps bidirectional flows in the same context.
+ *          This algorithms keeps bidirectional flows in the same context.
  *
  */
-unsigned int joy_packet_to_context(const unsigned char *packet) {
-    unsigned int rc = 0;
-    unsigned int context = 0;
+uint8_t joy_packet_to_context(const unsigned char *packet) {
+    uint8_t rc = 0;
+    uint8_t context = 0;
     unsigned int sum = 0;
     flow_key_t key;
 
@@ -973,7 +967,7 @@ unsigned int joy_packet_to_context(const unsigned char *packet) {
  * Description: This function invoked the packet processing function
  *      however, the application is permitted store some small amount
  *      of data in the flow record once it is created. This can be
- *      useful on the back end when an application wants to asscoiate
+ *      useful on the back end when an application wants to associate
  *      some data with a flow record during processing of the flow record.
  *
  * Parameters:
@@ -1119,7 +1113,7 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
  *      none
  *
  */
-void joy_print_flow_data(unsigned int index, JOY_FLOW_TYPE type)
+void joy_print_flow_data(uint8_t index, JOY_FLOW_TYPE type)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -1189,7 +1183,7 @@ void joy_print_flow_data(unsigned int index, JOY_FLOW_TYPE type)
  *      none
  *
  */
-void joy_export_flows_ipfix(unsigned int index, JOY_FLOW_TYPE type)
+void joy_export_flows_ipfix(uint8_t index, JOY_FLOW_TYPE type)
 {
     joy_ctx_data *ctx = NULL;
 
@@ -1234,7 +1228,7 @@ void joy_export_flows_ipfix(unsigned int index, JOY_FLOW_TYPE type)
  *      The data_len and data fields will be ZERO and NULL respectively. This
  *      is because the IDP data can be retrieved directly from the flow record.
  */
-void joy_idp_external_processing(unsigned int index,
+void joy_idp_external_processing(uint8_t index,
                                  joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
@@ -1300,7 +1294,7 @@ void joy_idp_external_processing(unsigned int index,
  *      The data_len and data fields will be ZERO and NULL respectively. This
  *      is because the TLS data can be retrieved directly from the flow record.
  */
-void joy_tls_external_processing(unsigned int index,
+void joy_tls_external_processing(uint8_t index,
                                  joy_flow_rec_callback callback_fn)
 {
     flow_record_t *rec = NULL;
@@ -1399,7 +1393,7 @@ void joy_tls_external_processing(unsigned int index,
  *           ie: for data length of 20 bytes
  *             format: len,len,len,len,len,time,time,time,time,time
  */
-void joy_splt_external_processing(unsigned int index,
+void joy_splt_external_processing(uint8_t index,
                                  JOY_EXPORT_TYPE export_frmt,
                                  unsigned int min_pkts,
                                  joy_flow_rec_callback callback_fn)
@@ -1494,7 +1488,7 @@ void joy_splt_external_processing(unsigned int index,
  *           ie: for data length of 20 bytes
  *             format: len,len,len,len,len,time,time,time,time,time
  */
-void joy_salt_external_processing(unsigned int index,
+void joy_salt_external_processing(uint8_t index,
                                  JOY_EXPORT_TYPE export_frmt,
                                  unsigned int min_pkts,
                                  joy_flow_rec_callback callback_fn)
@@ -1596,13 +1590,13 @@ void joy_salt_external_processing(unsigned int index,
  *      For NetFlow V9 and IPFix:
  *          The data length is always 512 bytes. Currently only BD format uncompressed
  *              is defined in the spec.
- *          The data format is a series of 16-bit values repesenting the count of a
- *              given ascii value. The first 16-bit value representes the number of
+ *          The data format is a series of 16-bit values representing the count of a
+ *              given ascii value. The first 16-bit value represents the number of
  *              times ascii value 0 was seen in the flow. The second 16-bit value
  *              represents the number times the ascii value 1 was seen in the flow.
  *              This continues for all ascii values up to value 255.
  */
-void joy_bd_external_processing(unsigned int index,
+void joy_bd_external_processing(uint8_t index,
                                 unsigned int min_octets,
                                 joy_flow_rec_callback callback_fn)
 {
@@ -1669,7 +1663,7 @@ void joy_bd_external_processing(unsigned int index,
  *      unsigned int - number of records deleted
  *
  */
-unsigned int joy_delete_flow_records(unsigned int index,
+unsigned int joy_delete_flow_records(uint8_t index,
                                      unsigned int cond_bitmask)
 {
     uint8_t ok_to_delete = 0;
@@ -1745,7 +1739,7 @@ unsigned int joy_delete_flow_records(unsigned int index,
  *      unsigned int - number of records deleted
  *
  */
-extern unsigned int joy_purge_old_flow_records(unsigned int index,
+extern unsigned int joy_purge_old_flow_records(uint8_t index,
                                                unsigned int rec_age)
 {
     unsigned int ok_to_delete = 0;
