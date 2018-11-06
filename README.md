@@ -81,8 +81,8 @@ training your own classifier, see saltUI/README or reach out to joy-users@cisco.
 
 #### Credits
 
-This package was written by David McGrew, Blake Anderson, Philip Perricone
-and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
+This package was written by David McGrew, Blake Anderson, Philip Perricone,
+Bill Hudson and Todd Johnson {mcgrew,blaander,phperric,bhudson,todddjoh}@cisco.com of Cisco Systems
 Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
 ### Release 2.0
