@@ -1205,6 +1205,45 @@ void joy_export_flows_ipfix(uint8_t index, joy_flow_type_e type)
 }
 
 /*
+ * Function: joy_get_feature_counts
+ *
+ * Description: This function is pulls the record count for each
+ *      data feature that is ready for a given context.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      feat_counts - structure containing the record counts of each feature ready
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_get_feature_counts(uint8_t index, joy_ctx_feat_count_t *feat_counts)
+{
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* report back the record counts for various features */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    feat_counts->idp_recs_ready = ctx->idp_recs_ready;
+    feat_counts->tls_recs_ready = ctx->tls_recs_ready;
+    feat_counts->splt_recs_ready = ctx->splt_recs_ready;
+    feat_counts->salt_recs_ready = ctx->salt_recs_ready;
+    feat_counts->bd_recs_ready = ctx->bd_recs_ready;
+}
+
+/*
  * Function: joy_idp_external_processing
  *
  * Description: This function is allows the calling application of

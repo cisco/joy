@@ -110,35 +110,43 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
  * data has been collected in the flow record to satisfy the requirments
  * for reporting on that data feature.
  */
-static void flow_record_set_feature_ready_flags (flow_record_t *rec)
+static void flow_record_set_feature_ready_flags (joy_ctx_data *ctx, flow_record_t *rec)
 {
     /* check IDP feature */
-    if (rec->idp_len > 0) {
+    if ((!(rec->feature_flags & JOY_IDP_READY)) && (rec->idp_len > 0)) {
         rec->feature_flags |= JOY_IDP_READY;
+        ++ctx->idp_recs_ready;
     }
 
     /* check TLS feature */
-    if (rec->tls != NULL) {
+    if ((!(rec->feature_flags & JOY_TLS_READY)) && (rec->tls != NULL)) {
         if (rec->tls->done_handshake) {
             rec->feature_flags |= JOY_TLS_READY;
+            ++ctx->tls_recs_ready;
         }
     }
 
     /* check SPLT feature */
-    if (rec->op >= 10) { /* 10 packets specified in ETTA spec */
+    if ((!(rec->feature_flags & JOY_SPLT_READY)) && (rec->op >= ETTA_MIN_PACKETS)) {
+        /* ETTA spec specifies 10 packets for SPLT */
         rec->feature_flags |= JOY_SPLT_READY;
+        ++ctx->splt_recs_ready;
     }
 
     /* check SALT feature */
-    if (rec->salt != NULL) {
-        if (rec->salt->np >= 10) { /* 10 packets specified in ETTA spec */
+    if ((!(rec->feature_flags & JOY_SALT_READY)) && (rec->salt != NULL)) {
+        if (rec->salt->np >= ETTA_MIN_PACKETS) {
+            /* ETTA spec specifies 10 packets for SALT */
             rec->feature_flags |= JOY_SALT_READY;
+            ++ctx->salt_recs_ready;
         }
     }
 
     /* check BD feature */
-    if (rec->ob >= 4000) { /* 4000 octets specified in ETTA spec */
+    if ((!(rec->feature_flags & JOY_BD_READY)) && (rec->ob >= ETTA_MIN_OCTETS)) {
+        /* ETTA spec specifies 4000 octets for BD */
         rec->feature_flags |= JOY_BD_READY;
+        ++ctx->bd_recs_ready;
     }
 }
 
@@ -1176,7 +1184,7 @@ void* process_packet (unsigned char *ctx_ptr,
     flocap_stats_incr_num_bytes(ctx,transport_len);
 
     /* set the feature ready flags for this flow record */
-    flow_record_set_feature_ready_flags(record);
+    flow_record_set_feature_ready_flags(ctx,record);
 
     /* if we allocated the packet header, then free it now */
     if (allocated_packet_header)

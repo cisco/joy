@@ -201,12 +201,22 @@ void my_bd_callback(void *curr_rec, unsigned int data_len, unsigned char *data) 
 void *thread_main1 (void *file)
 {
     unsigned int recs = 0;
+    joy_ctx_feat_count_t feat_counts;
 
     sleep(1);
     printf("Thread 1 Starting\n");
     joy_print_config(0, JOY_JSON_FORMAT);
+    memset(&feat_counts, 0x00, sizeof(joy_ctx_feat_count_t));
     if (file != NULL) {
+        joy_get_feature_counts(0,&feat_counts);
+        printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
+            feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
+            feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
         proc_pcap_file(0, file);
+        joy_get_feature_counts(0,&feat_counts);
+        printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
+            feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
+            feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
         joy_idp_external_processing(0, my_idp_callback);
         joy_tls_external_processing(0, my_tls_callback);
         //joy_splt_external_processing(0, JOY_NFV9_EXPORT, 1, my_splt_callback);
@@ -220,6 +230,10 @@ void *thread_main1 (void *file)
         joy_print_flow_data(0, JOY_ALL_FLOWS);
         //recs = joy_delete_flow_records(0, JOY_DELETE_ALL);
         //printf("Thread 1 deleted %d records\n",recs);
+        joy_get_feature_counts(0,&feat_counts);
+        printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
+            feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
+            feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
     } else {
         printf("Thread 1 No File to Process\n");
     }

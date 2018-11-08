@@ -61,6 +61,10 @@
 #include "feature.h"
 #include "joy_api.h"
 
+/* ETTA Spec defiintions for feature readiness */
+#define ETTA_MIN_PACKETS 10
+#define ETTA_MIN_OCTETS 4000
+
 /* flow value definitions */
 #define flow_key_hash_mask 0xFFFF
 #define FLOW_RECORD_LIST_LEN (flow_key_hash_mask + 1)

@@ -88,9 +88,6 @@
 #define T_WINDOW 10
 #define T_ACTIVE 20
 
-/* The ETTA Spec says that 4000 octets is suffient for byte distribution */
-#define MAX_JOY_BD_OCTETS 4000
-
 static struct timeval time_window = { T_WINDOW, 0 };
 
 static struct timeval active_timeout = { T_ACTIVE, 0 };
@@ -725,6 +722,31 @@ static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
 
     flocap_stats_decr_records_in_table(ctx);
 
+    /* update context counts */
+    if (r->idp_len > 0) {
+        --ctx->idp_recs_ready;
+    }
+
+    if (r->op >= ETTA_MIN_PACKETS) {
+        --ctx->splt_recs_ready;
+    }
+
+    if (r->ob >= ETTA_MIN_OCTETS) {
+        --ctx->bd_recs_ready;
+    }
+
+    if (r->tls != NULL) {
+        if (r->tls->done_handshake) {
+            --ctx->tls_recs_ready;
+        }
+    }
+
+    if (r->salt != NULL) {
+        if (r->salt->np >= ETTA_MIN_PACKETS) {
+            --ctx->salt_recs_ready;
+        }
+    }
+
     /*
      * free the memory allocated inside of flow record
      */
@@ -817,7 +839,7 @@ void flow_record_update_byte_count (flow_record_t *f, const void *x, unsigned in
      */
 
     if (glb_config->byte_distribution || glb_config->report_entropy) {
-        if (f->ob < MAX_JOY_BD_OCTETS) {
+        if (f->ob < ETTA_MIN_OCTETS) {
             for (i=0; i<len; i++) {
                 f->byte_count[data[i]]++;
             }

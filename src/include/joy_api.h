@@ -128,6 +128,15 @@ typedef enum {
 #define JOY_SALT_ON                (1 << 19)
 
 
+/* structure to hold feature ready counts for reporting */
+typedef struct joy_ctx_feat_count {
+    uint16_t idp_recs_ready;
+    uint16_t tls_recs_ready;
+    uint16_t splt_recs_ready;
+    uint16_t salt_recs_ready;
+    uint16_t bd_recs_ready;
+} joy_ctx_feat_count_t;
+
 /* structure used to initialize joy through the API Library */
 typedef struct joy_init {
     uint8_t verbosity;           /* verbosity 0 (off) - 5 (critical) */
@@ -431,6 +440,22 @@ extern void joy_print_flow_data (uint8_t index, joy_flow_type_e type);
  *
  */
 extern void joy_export_flows_ipfix (uint8_t index, joy_flow_type_e type);
+
+/*
+ * Function: joy_get_feature_counts
+ *
+ * Description: This function is pulls the record count for each
+ *      data feature that is ready for a given context.
+ *
+ * Parameters:
+ *      index - index of the context to use
+ *      feat_counts - structure containing the record counts of each feature ready
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_get_feature_counts (uint8_t index, joy_ctx_feat_count_t *feat_counts);
 
 /*
  * Function: joy_idp_external_processing

@@ -111,7 +111,7 @@ void salt_update (struct salt *salt,
     }
 
     if (salt->idx < MAX_NUM_PKT) {
-        /* get payloa dlen and ack number */
+        /* get payload len and ack number */
         payload_len = len - tcp_hdr_length(tcp);
         curr_tcp_ack = ntohl(tcp->tcp_ack);
 
