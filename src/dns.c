@@ -245,20 +245,6 @@ typedef struct {
 
 #endif
 
-#if 0
-static void *dns_rr_get_rdata(dns_rr *rr) {
-    void *location = rr;
-    return location + sizeof(dns_rr);
-}
-#endif
-
-#if 0
-static void *dns_question_get_rr(dns_question *q) {
-    void *location = q;
-    return location + sizeof(dns_question);
-}
-#endif
-
 /** DNS Type */
 enum dns_type {
     type_A     = 1, /*!< a host address */
@@ -287,26 +273,6 @@ enum dns_class {
     class_HS = 4  /*!< Hesiod [Dyer 87] */
 };
 
-#if 0
-static void dns_query_to_string(char *q, unsigned int len) {
-    unsigned int i;
-
-    /* 
-     * question: what should this function do if a null character
-     *  appears before the end of the string?
-     */ 
-
-    for (i=1; i<len; i++) {
-        if (q[i] == 0) {
-            break;
-        }
-        if (q[i] < 32) {
-            q[i] = '.';
-        }
-    }
-}
-#endif
-
 /** determine if its a label */
 #define char_is_label(c)  (((c) & 0xC0) == 0)
 
@@ -330,7 +296,7 @@ enum dns_err {
 
 /* advance the data position */
 static enum dns_err data_advance (char **data, int *len, unsigned int size) {
-    if (*len < size) {
+    if (*len < (int)size) {
         return dns_err_malformed;
     } 
     *data += size;
@@ -340,7 +306,7 @@ static enum dns_err data_advance (char **data, int *len, unsigned int size) {
 
 /* parse DNS question */
 static enum dns_err dns_question_parse (const dns_question **q, char **data, int *len) {
-    if (*len < sizeof(dns_question)) {
+    if (*len < (int)sizeof(dns_question)) {
         return dns_err_malformed;
     } 
         *q = (const dns_question*)*data;
@@ -351,7 +317,7 @@ static enum dns_err dns_question_parse (const dns_question **q, char **data, int
 
 /* parse DNS rr */
 static enum dns_err dns_rr_parse (const dns_rr **r, char **data, int *len, int *rdlength) {
-    if (*len < sizeof(dns_rr)) {
+    if (*len < (int)sizeof(dns_rr)) {
         return dns_err_malformed;
     } 
     *r = (const dns_rr*)*data;
@@ -366,7 +332,7 @@ static enum dns_err dns_rr_parse (const dns_rr **r, char **data, int *len, int *
 
 /* parse DNS address */
 static enum dns_err dns_addr_parse (const struct in_addr **a, char **data, int *len, unsigned short int rdlength) {
-    if (*len < sizeof(struct in_addr)) {
+    if (*len < (int)sizeof(struct in_addr)) {
         return dns_err_malformed;
     } 
     if (rdlength != sizeof(struct in_addr)) {
@@ -380,7 +346,7 @@ static enum dns_err dns_addr_parse (const struct in_addr **a, char **data, int *
 
 /* parse 16 bit value */
 static enum dns_err uint16_parse (uint16_t **x, char **data, int *len) {
-    if (*len < sizeof(uint16_t)) {
+    if (*len < (int)sizeof(uint16_t)) {
         return dns_err_malformed;
     } 
     *x = (uint16_t*)*data;
@@ -388,19 +354,6 @@ static enum dns_err uint16_parse (uint16_t **x, char **data, int *len) {
     *len -= sizeof(uint16_t);  
     return dns_ok;
 }
-
-#if 0
-static int string_is_not_printable (char *s, unsigned int len) {
-    int i;
-
-    for (i=0; i<len; i++) {
-        if (!isprint(s[i])) {
-            return 1;
-        } 
-    }
-    return 0;
-}
-#endif
 
 static inline char printable(char c) {
     if (isprint(c)) {
@@ -512,7 +465,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
                 zprintf(output, "\"a\":\"%s\"", ipv4_addr);
             }
         } else if (type == type_SOA  || type == type_PTR || type == type_CNAME) {
-            char *typename;
+            const char *typename;
 
             err = dns_header_parse_name(rh, r, len, name, sizeof(name)); /* note: does not check rdlength */
             if (err != dns_ok) { 
@@ -553,35 +506,6 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
     }
     return dns_ok;
 }
-
-#if 0
-static joy_status_e process_dns (const struct pcap_pkthdr *h, const void *start, int len, flow_record_t *r) {
-    // const char *name = start + 13;
-    // unsigned char rcode = *((unsigned char *)(start + 3)) & 0x0f;
-    // unsigned char qr = *((unsigned char *)(start + 2)) >> 7;
-
-    if (r->op >= NUM_PKT_LEN) {
-        return failure;  /* no more room */
-    }  
-
-    if (len < 13) {
-        return failure;  /* not long enough to be a proper DNS packet */
-    }
-
-    // printf("dns len: %u name: %s qr: %u rcode: %u\n", len-14, name, qr, rcode);
-    if (!r->dns.dns_name[r->op]) {
-        r->dns.dns_name[r->op] = malloc(len);
-        if (r->dns.dns_name[r->op] == NULL) {
-            return failure;
-        }
-        // strncpy(r->dns_name[r->op], name, len-13);
-        memcpy(r->dns.dns_name[r->op], start, len);
-        // dns_query_to_string(r->dns_name[r->op] + 13, len-13);
-    }
-    return ok;
-}
-#endif
-
 
 static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output) {
     char name[256];
@@ -821,7 +745,15 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
         return;  /* we are not configured to report DNS information */
     }
 
-    if (dns->pkt_count >= NUM_PKT_LEN) {
+    /* sanity check */
+    if (dns == NULL) {
+        return;
+    }
+
+    joy_log_debug("dns[%p],header[%p],data[%p],len[%d],report[%d]",
+            dns,header,start,len,report_dns);
+
+    if (dns->pkt_count >= MAX_NUM_DNS_PKT) {
         return;  /* no more room */
     }  
 
@@ -859,7 +791,7 @@ void dns_print_json (const dns_t *dns1, const dns_t *dns2, zfile f) {
   
     count = dns1->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns1->pkt_count;
     if (dns2) {
-        count = dns2->pkt_count > count ? dns2->pkt_count : count;
+        count = dns2->pkt_count > count ? count : dns2->pkt_count;
         twin_dns_name = dns2->dns_name;
         twin_pkt_len = dns2->pkt_len;
     }

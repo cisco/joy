@@ -122,7 +122,7 @@ typedef enum joy_operating_mode_ {
  */
 static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
-static char *filter_exp = "ip or vlan";
+static const char *filter_exp = "ip or vlan";
 static char dir_output[MAX_FILENAME_LEN];
 
 struct joy_ctx_data main_ctx;
@@ -298,22 +298,22 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
  * \param num_ifs number of interfaces available
  * \return none
  */
-void print_interfaces(FILE *info, int num_ifs) {
+void print_interfaces(FILE *f_info, int num_ifs) {
 {
     int i;
 
-    fprintf(info, "\nInterfaces\n");
-    fprintf(info, "==========\n");
+    fprintf(f_info, "\nInterfaces\n");
+    fprintf(f_info, "==========\n");
     for (i = 0; i < num_ifs; ++i) {
-        fprintf(info, "Interface: %s\n", ifl[i].name);
+        fprintf(f_info, "Interface: %s\n", ifl[i].name);
         if (ifl[i].ip_addr4[0] != 0) {
-            fprintf(info, "  IPv4 Address: %s\n", ifl[i].ip_addr4);
+            fprintf(f_info, "  IPv4 Address: %s\n", ifl[i].ip_addr4);
         }
         if (ifl[i].ip_addr6[0] != 0) {
-            fprintf(info, "  IPv6 Address: %s\n", ifl[i].ip_addr6);
+            fprintf(f_info, "  IPv6 Address: %s\n", ifl[i].ip_addr6);
         }
         if (ifl[i].mac_addr[0] != 0) {
-            fprintf(info, "  MAC Address: %c%c:%c%c:%c%c:%c%c:%c%c:%c%c\n",
+            fprintf(f_info, "  MAC Address: %c%c:%c%c:%c%c:%c%c:%c%c:%c%c\n",
                     ifl[i].mac_addr[0], ifl[i].mac_addr[1],
                     ifl[i].mac_addr[2], ifl[i].mac_addr[3],
                     ifl[i].mac_addr[4], ifl[i].mac_addr[5],
@@ -325,7 +325,7 @@ void print_interfaces(FILE *info, int num_ifs) {
     }
 }
 
-static unsigned int interface_list_get() {
+static unsigned int interface_list_get(void) {
     pcap_if_t *alldevs;
     pcap_if_t *d;
     int i;
@@ -409,7 +409,11 @@ static unsigned int interface_list_get() {
  * sig_close() causes a graceful shutdown of the program after recieving 
  * an appropriate signal
  */
-static void sig_close (int signal_arg) {
+#ifdef WIN32
+__declspec(noreturn) static void sig_close (int signal_arg) {
+#else
+__attribute__((__noreturn__)) static void sig_close (int signal_arg) {
+#endif
 
     if (handle) {
       pcap_breakloop(handle);
@@ -506,7 +510,6 @@ static int usage (char *s) {
            "  exe=1                      include information about host process associated with flow\n" 
            "  classify=1                 include results of post-collection classification\n" 
            "  num_pkts=N                 report on at most N packets per flow (0 <= N < %d)\n" 
-           "  type=T                     select message type: 1=SPLT, 2=SALT\n" 
            "  idp=N                      report N bytes of the initial data packet of each flow\n"
            "  label=L:F                  add label L to addresses that match the subnets in file F\n"
            "  URLmodel=URL               URL to be used to retrieve classisifer updates\n" 
@@ -524,7 +527,7 @@ static int usage (char *s) {
  *
  * \return 0 success, 1 failure
  */
-static int config_sanity_check() {
+static int config_sanity_check(void) {
     if (glb_config->ipfix_collect_port && glb_config->ipfix_export_port) {
         /*
          * Simultaneous IPFIX collection and exporting is not allowed
@@ -549,7 +552,7 @@ static int config_sanity_check() {
  *
  * \return 0 success, 1 failure
  */
-static int set_operating_mode() {
+static int set_operating_mode(void) {
     if (glb_config->intface != NULL && strcmp(glb_config->intface, NULL_KEYWORD)) {
         /*
          * Network interface sniffing using Pcap
@@ -581,7 +584,7 @@ static int set_operating_mode() {
  *
  * \return 0 success, 1 failure
  */
-static int set_logfile() {
+static int set_logfile(void) {
     char logfile[MAX_FILENAME_LEN];
 #ifdef WIN32
     PWSTR windir = NULL;
@@ -624,6 +627,9 @@ static int set_logfile() {
  * \return 0 success, 1 failure
  */
 static int initial_setup(char *config_file, unsigned int num_cmds) {
+
+    joy_log_debug("number of commands processed from cmd_line (%d)",num_cmds);
+
     if (config_file) {
         /*
          * Read in configuration from file; note that if we don't read in
@@ -650,15 +656,6 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         config_print(info, glb_config);
     }
 
-#if 0
-    if (glb_config->report_tls) {
-        /* Load the TLS fingerprints into memory */
-        if (tls_load_fingerprints()) {
-            joy_log_warn("could not load tls_fingerprint.json file");
-        }
-    }
-#endif
-
     if (joy_mode == MODE_ONLINE) {
         /* Get interface list */
         num_interfaces = interface_list_get();
@@ -682,7 +679,7 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
  *
  * \return 0 success, 1 failure
  */
-static int get_splt_bd_params() {
+static int get_splt_bd_params(void) {
     char params_splt[LINEMAX];
     char params_bd[LINEMAX];
     int num;
@@ -716,7 +713,7 @@ static int get_splt_bd_params() {
  *
  * \return 0 success, 1 failure
  */
-static int get_compact_bd() {
+static int get_compact_bd(void) {
     FILE *fp;
     int count = 0;
     unsigned short b_value, map_b_value;
@@ -754,10 +751,10 @@ static int get_compact_bd() {
  *
  * \return 0 success, 1 failure
  */
-static int get_labeled_subnets() {
+static int get_labeled_subnets(void) {
     attr_flags subnet_flag;
     joy_status_e err;
-    int i = 0;
+    unsigned int i = 0;
 
     if (!glb_config->num_subnets) {
         return 0;
@@ -803,7 +800,7 @@ static int get_labeled_subnets() {
     return 0;
 }
 
-static int configure_anonymization() {
+static int configure_anonymization(void) {
     if (glb_config->anon_addrs_file != NULL) {
         if (anon_init(glb_config->anon_addrs_file, info) == failure) {
             joy_log_err("could not initialize anonymization subnets from file %s",
@@ -842,7 +839,7 @@ static int open_interface (char **capture_if, char **capture_mac) {
         *capture_mac = (char*)ifl[0].mac_addr;
         fprintf(info, "starting capture on interface %s\n", ifl[0].name);
     } else {
-         int i;
+         unsigned int i;
          for (i = 0; i < num_interfaces; ++i) {
              if (STRNCASECMP((char*)ifl[i].name, glb_config->intface, strlen((char*)ifl[i].name)) == 0) {
                  *capture_if = (char*)ifl[i].name;
@@ -887,7 +884,7 @@ static int open_interface (char **capture_if, char **capture_mac) {
  * \return 0 success, 1 failure
  */
 static int set_data_output_file(char *output_filename, char *interface_name, char *mac_address) {
-    char *outputdir = NULL;
+    const char *outputdir = NULL;
     int rc = 1;
 #ifdef WIN32
     PWSTR windir = NULL;
@@ -992,6 +989,7 @@ end:
     }
 #endif
 
+    joy_log_debug("Set output_filename to [%s] for interface [%s]",output_filename,interface_name);
     return rc;
 }
 
@@ -1022,7 +1020,8 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 
     /* create a directory to place all of the output files into */
     if (glb_config->filename) {
-        struct stat st = {0};
+        struct stat st;
+        memset(&st, 0x00, sizeof(struct stat));
         if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
             mkdir(output_filename);
@@ -1080,7 +1079,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 flow_record_list_init(&main_ctx);
                 flocap_stats_timer_init(&main_ctx);
 
-                tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
+                tmp_ret = process_pcap_file(pcap_filename, (char*)filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
 		    closedir(dir);
                     return tmp_ret;
@@ -1128,7 +1127,8 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
 
     /* create a directory to place all of the output files into */
     if (glb_config->filename) {
-        struct stat st = {0};
+        struct stat st;
+        memset(&st, 0x00, sizeof(struct stat));
         if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
             mkdir(output_filename);
@@ -1183,7 +1183,7 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     }
 
     /* process the file */
-    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
+    tmp_ret = process_pcap_file(input_filename, (char*)filter_exp, &net, &fp);
     if (tmp_ret < 0) {
         return tmp_ret;
     }
@@ -1220,7 +1220,7 @@ int process_single_input_file (char *input_filename, char *output_filename) {
     /* print configuration */
     config_print_json(main_ctx.output, glb_config);
 
-    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
+    tmp_ret = process_pcap_file(input_filename, (char*)filter_exp, &net, &fp);
     return tmp_ret;
 }
 
@@ -1251,18 +1251,13 @@ int main (int argc, char **argv) {
     int c, i = 0;
 #ifndef _WIN32
     struct passwd *pw = NULL;
-    char *user = NULL;
+    const char *user = NULL;
 #endif
 
     /* initialize the config */
     memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
     memset(&active_config, 0x00, sizeof(struct configuration));
     glb_config = &active_config;
-
-    /* Sanity check sizeof() expectations */
-    if (data_sanity_check() != ok) {
-        joy_log_crit("failed data size sanity check");
-    }
 
     /* Sanity check argument syntax */
     for (i=1; i<argc; i++) {
@@ -1496,7 +1491,7 @@ int main (int argc, char **argv) {
             /* 
              * Loop over packets captured from interface.
              */
-            pcap_loop(handle, NUM_PACKETS_IN_LOOP, process_packet, (unsigned char*)&main_ctx);
+            pcap_loop(handle, NUM_PACKETS_IN_LOOP, libpcap_process_packet, (unsigned char*)&main_ctx);
       
             joy_log_info("PCAP processing loop done");
 
@@ -1692,7 +1687,7 @@ int main (int argc, char **argv) {
  * \return -3 could not install filter
  * \return 0 success
  */
-int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp) {
+int process_pcap_file (char *file_name, char *filtr_exp, bpf_u_int32 *net, struct bpf_program *fp) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
     int more = 1;
 
@@ -1704,26 +1699,26 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
         return -1;
     }   
     
-    if (filter_exp) {
+    if (filtr_exp) {
       
         /* compile the filter expression */
-        if (pcap_compile(handle, fp, filter_exp, 0, *net) == -1) {
+        if (pcap_compile(handle, fp, filtr_exp, 0, *net) == -1) {
             fprintf(stderr, "error: could not parse filter %s: %s\n",
-                    filter_exp, pcap_geterr(handle));
+                    filtr_exp, pcap_geterr(handle));
             return -2;
         }
     
         /* apply the compiled filter */
         if (pcap_setfilter(handle, fp) == -1) {
             fprintf(stderr, "error: could not install filter %s: %s\n",
-                    filter_exp, pcap_geterr(handle));
+                    filtr_exp, pcap_geterr(handle));
             return -3;
         }
     }
   
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, process_packet, (unsigned char *)&main_ctx);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, libpcap_process_packet, (unsigned char *)&main_ctx);
         /* Print out expired flows */
         flow_record_list_print_json(&main_ctx, JOY_EXPIRED_FLOWS);
     }
@@ -1731,7 +1726,7 @@ int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, stru
     joy_log_info("all flows processed");
   
     /* Cleanup */
-    if (filter_exp) {
+    if (filtr_exp) {
         pcap_freecode(fp);
     }
   

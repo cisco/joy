@@ -122,7 +122,7 @@
 //#define define_feature_config_extern_uint(f) extern unsigned int report_##f;
 //#define define_all_features_config_extern_uint(flist) MAP(define_feature_config_extern_uint, flist)
 
-#define declare_feature_config_uint(f) unsigned int report_##f;
+#define declare_feature_config_uint(f) bool report_##f;
 #define declare_all_features_config_uint(flist)  MAP(declare_feature_config_uint, flist)
 
 //#define set_config_feature(F) report_##F = glb_config->report_##F;
@@ -197,7 +197,7 @@ void F##_print_json(const F##_t *F,      \
  * (src/unit_test.c).
  * \endverbatim
  */
-#define declare_unit_test(F) void F##_unit_test();
+#define declare_unit_test(F) void F##_unit_test(void);
 
 /** The macro declare_feature(F) declares all of the functions
  * associated with the feature F_t

@@ -119,14 +119,6 @@ enum type {
     strings   = 2
 };
 
-#if 0
-/*
- * getopt() external variables
- */
-extern char *optarg;
-extern int optind, opterr, optopt;
-#endif
-
 /**
  \fn int main (int argc, char *argv[])
  \brief main entry point for joy-anon
@@ -137,7 +129,7 @@ extern int optind, opterr, optopt;
  \return 0 success
  */
 int main (int argc, char *argv[]) {
-    char *keyfile = ANON_KEYFILE_DEFAULT;
+    const char *keyfile = ANON_KEYFILE_DEFAULT;
     enum anon_mode mode = mode_anonymize;
     enum type type = addresses;    /* we don't handle userids for now */
     int i, opt;

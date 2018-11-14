@@ -47,31 +47,6 @@
 /** maximum number of description headers */
 #define MAX_NUM_HDRS 10
 
-#if 0 /* this code not yet used */
-
-/*
- * packet format description
- */
-#define FD_NONE  0
-#define FD_CONST 1
-#define FD_INCR  2
-
-struct format_element {
-    unsigned char type;
-    unsigned char length;
-};
-
-#define FD_MAX      16
-#define FD_DATA_MAX 32 
-
-struct format_description {
-    struct format_element element[FD_MAX];
-    unsigned char data[FD_DATA_MAX];
-};
-
-#endif
-
-
 /**
  * \fn void header_description_init (header_description_t *hd)
  * \param hd pointer to the header description structure
@@ -121,7 +96,7 @@ void header_description_set (header_description_t *hd, const void *packet, unsig
      * find constant part of header, and set the constant mask and value
      * in the header description
      */
-    for (i=0; i<len; i++) {
+    for (i=0; i<(int)len; i++) {
         hd->const_mask[i] &= ~(hd->const_value[i] ^ p[i]);
         hd->const_value[i] = hd->const_mask[i] & p[i];
     }

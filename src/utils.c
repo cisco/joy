@@ -51,7 +51,6 @@
 #define JOY_UTILS_MAX_FILEPATH 128
 
 /* external definitions from joy.c */
-extern struct configuration *glb_config;
 extern FILE *info;
 
 #ifdef USE_BZIP2
@@ -279,6 +278,7 @@ void joy_utils_convert_to_json_string (char *s, unsigned int len) {
             case '/':
             case '"':
                 s[i] = '.';
+                break;
             default:
                 continue;
         }

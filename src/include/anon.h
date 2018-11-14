@@ -103,10 +103,13 @@ char *addr_get_anon_hexstring(const struct in_addr *a);
 unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);
 
 /** \brief initialize the http anonymization */
-joy_status_e anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, char *anon_keyfile);
+joy_status_e anon_http_init(const char *pathname, FILE *logfile, enum anon_mode mode, const char *anon_keyfile);
 
-/** \brief prints out '*' for length of the string */
-void zprintf_anon_nbytes(zfile f, char *s, size_t len);
+/** \brief cleanup the http anonymization structure */
+void anon_http_ctx_cleanup(void);
+
+/** \brief prints out '*' for length */
+void zprintf_anon_nbytes(zfile f, size_t len);
 
 /** \brief prints out number of bytes specified */
 void zprintf_nbytes(zfile f, char *s, size_t len);
@@ -140,9 +143,9 @@ void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text);
 void zprintf_usernames(zfile f, struct matches *matches, char *text, char_selector selector, string_transform transform);
 
 /** \brief initializes the key used for anonymization routines */
-joy_status_e key_init(char *ANON_KEYFILE);
+joy_status_e key_init(const char *ANON_KEYFILE);
 
 /** \brief anonymization unit test main entry point */
-int anon_unit_test();
+int anon_unit_test(void);
 
 #endif /* ANON_H */

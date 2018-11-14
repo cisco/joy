@@ -131,7 +131,7 @@ int calculate_sha256_hash(unsigned char* path, unsigned char *output)
     return 0;
 }
 
-static void host_flow_table_init() {
+static void host_flow_table_init(void) {
     int i;
 
     for (i = 0; i < HOST_PROC_FLOW_TABLE_LEN; ++i) {
@@ -410,6 +410,7 @@ int host_flow_table_add_tcp(int all_sockets) {
     host_flow_t *record = NULL;
     int i;
     
+    joy_log_debug("Parameter sockets values (%d)",all_sockets);
     // Take a snapshot of all processes in the system.
     hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hProcessSnap == INVALID_HANDLE_VALUE)
@@ -616,7 +617,7 @@ static void get_pid_path_hash (host_flow_t *hf) {
 }
 
 static void process_pid_string (struct ss_flow *fr, char *string) {
-    char *s = string;
+    char *s = NULL;
 
     /* search to beginning of the app name */
     s = strstr(string,"\"");
@@ -643,7 +644,7 @@ static void process_pid_string (struct ss_flow *fr, char *string) {
 }
 
 static void process_addr_string (int which, struct ss_flow *fr, char *string) {
-    char *s = string;
+    char *s = NULL;
 
     /* find the end of the ip address */
     s = strstr(string,":");
@@ -677,6 +678,7 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
     host_flow_t *hf = NULL;
     FILE *ss_file;
 
+    joy_log_debug("passed in parameter all sockets (%d)", all_sockets);
     ss_file = popen(SS_COMMAND, "r");
     if (ss_file == NULL) {
         joy_log_err("popen returned null (command(%d): %s)\n", rc, SS_COMMAND);
@@ -690,6 +692,10 @@ static void host_flow_table_add_tcp (unsigned int all_sockets) {
     while (1) {
         /* clean out the ss flow record */
         memset(&fr,0x00,sizeof(struct ss_flow));
+        memset(src_string,0x00,ADDR_MAX_LEN);
+        memset(dst_string,0x00,ADDR_MAX_LEN);
+        memset(pid_string,0x00,PID_MAX_LEN);
+        memset(dummy_string,0x00,PID_MAX_LEN);
 
         /* process ss output 1 line at a time */
         rc = fscanf(ss_file,"%s %d %d %s %s %s\n", dummy_string,&dummy_int,&dummy_int,src_string,dst_string,pid_string);
@@ -1023,7 +1029,7 @@ int get_host_flow_data(joy_ctx_data *ctx) {
     /* get current time and determine the delta from last refresh */
     gettimeofday(&current_time, NULL);
     joy_timer_sub(&current_time, &last_refresh_time, &delta_time);
-    seconds = (float) joy_timeval_to_milliseconds(delta_time) / 1000.0;
+    seconds = (float) (joy_timeval_to_milliseconds(delta_time) / 1000.0);
 
     /* see if we need to refresh the application process data */
     if (seconds > 45) {

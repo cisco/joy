@@ -434,9 +434,9 @@ static void ssh_parse_kexinit(struct ssh *ssh,
 static void ssh_get_kex_algo(struct ssh *cli,
                              struct ssh *srv) {
     char *cli_copy, *srv_copy;
-    char *cli_algo, *srv_algo;
+    const char *cli_algo, *srv_algo;
     char *cli_ptr, *srv_ptr;
-    char *sep = ",";
+    const char *sep = ",";
     unsigned len;
     int found = 0;
 
@@ -664,12 +664,22 @@ static void ssh_dh_kex(struct ssh *cli,
 #define SSH_MSG_KEXGSS_GROUP                      41
 static void ssh_gss_dh_kex(struct ssh *cli,
                            struct ssh *srv) {
+    /* sanity check */
+    if ((cli == NULL) || (srv == NULL)) {
+        return;
+    }
+
     /* TODO */
     return;
 }
 
 static void ssh_gss_gex_kex(struct ssh *cli,
                             struct ssh *srv) {
+    /* sanity check */
+    if ((cli == NULL) || (srv == NULL)) {
+        return;
+    }
+
     /* TODO */
     return;
 }
@@ -787,8 +797,16 @@ void ssh_update(struct ssh *ssh,
     const char *tmpptr;
 
     if (len == 0) {
-    return;        /* skip zero-length messages */
+        return;    /* skip zero-length messages */
     }
+
+    /* sanity check */
+    if (ssh == NULL) {
+        return;
+    }
+
+    joy_log_debug("ssh[%p],header[%p],data[%p],len[%d],report[%d]",
+            ssh,header,data,len,report_ssh);
 
     if (report_ssh) {
 
@@ -1018,7 +1036,7 @@ void ssh_delete(struct ssh **ssh_handle) {
     *ssh_handle = NULL;
 }
 
-static int ssh_test_handshake() {
+static int ssh_test_handshake(void) {
     struct ssh *cli = NULL;
     struct ssh *srv = NULL;
     int num_fails = 0;

@@ -119,8 +119,8 @@ static unsigned int splt_pkt_index = 0;
 /* Exporter object to send messages, alive until process termination */
 #ifdef DARWIN
 static ipfix_exporter_t gateway_export = {
-    {0,0,0,{'0'}},
-    {0,0,0,{'0'}},
+    {0,0,0,{'0'},{0}},
+    {0,0,0,{'0'},{0}},
     0,0
 };
 #else
@@ -135,7 +135,7 @@ static ipfix_exporter_t gateway_export = {
 /* Collector object to receive messages, alive until process termination */
 #ifdef DARWIN
 static ipfix_collector_t gateway_collect = {
-    {0,0,0,{'0'}},
+    {0,0,0,{'0'},{0}},
     0,0
 };
 #else
@@ -250,7 +250,9 @@ static int ipfix_collect_process_socket(joy_ctx_data *ctx,
 
   record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
-  process_ipfix(ctx, (char*)data, data_len, record);
+  if (record != NULL) {
+      process_ipfix(ctx, (char*)data, data_len, record);
+  }
 
   return 0;
 }
@@ -286,16 +288,6 @@ static void ipfix_collect_socket_loop(joy_ctx_data *ctx, ipfix_collector_t *c) {
             return;
         }
 
-#if 0
-        if (recvlen > 0) {
-            buf[recvlen] = '\0';
-            printf("received message: ");
-            for (i=0; i < recvlen; i++) {
-                printf("0x%08x", buf[i]);
-            }
-            printf("\n");
-        }
-#endif
     }
 }
 
@@ -452,9 +444,18 @@ static int ipfix_cts_scan_expired(void) {
  *
  * @return Never return and the thread terminates when joy exits.
  */
-void *ipfix_cts_monitor(void *ptr) {
-
+#ifdef WIN32
+__declspec(noreturn) void *ipfix_cts_monitor(void *ptr) {
+#else
+__attribute__((__noreturn__)) void *ipfix_cts_monitor(void *ptr) {
+#endif
+    const char *tmp;
     uint16_t num_expired = 0;
+
+    /* satisfy compiler warning */
+    tmp = ptr;
+    ptr = (void*)tmp;
+
     while (1) {
         /* let's only wake up and do work at specific intervals */
         num_expired = ipfix_cts_scan_expired();
@@ -536,6 +537,9 @@ void ipfix_cts_cleanup(void) {
         
         ipfix_cts_delete(this_template);
     }
+
+    /* list is now empty set head pointer */
+    collect_template_store_head = NULL;
     pthread_mutex_unlock(&cts_lock);
 }
 
@@ -1060,21 +1064,22 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
             
             /* Init flow key */
             ipfix_flow_key_init(&key, cur_template, (const char*)data_ptr);
-            
+
             /* Get a flow record related to ipfix data */
             ix_record = flow_key_get_record(ctx, &key, CREATE_RECORDS,NULL);
-            
-            
-            /* Fill out record */
-            if (memcmp(&key, prev_data_key, sizeof(flow_key_t)) != 0) {
-                ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
-            } else {
-                ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
+
+            if (ix_record != NULL) {
+                /* Fill out record */
+                if (memcmp(&key, prev_data_key, sizeof(flow_key_t)) != 0) {
+                    ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
+                } else {
+                    ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
+                }
+                memcpy(prev_data_key, &key, sizeof(flow_key_t));
+
+                data_ptr += data_record_size;
+                data_set_len -= data_record_size;
             }
-            memcpy(prev_data_key, &key, sizeof(flow_key_t));
-            
-            data_ptr += data_record_size;
-            data_set_len -= data_record_size;
         }
     } else {
         /* FIXME hold onto the data set for a certain amount of time since
@@ -1459,23 +1464,6 @@ static void ipfix_process_spt(flow_record_t *ix_record,
             break;
         }
 //    } else {
-#if 0
-        /*
-         * Packet_time value represents the number of packets that were
-         * observed that had an arrival time equal to the last observed
-         * arrival time
-         */
-        int k;
-        repeated_times = packet_time * -1;
-        for (k = 0; k < repeated_times; k++) {
-            if (pkt_time_index < MAX_NUM_PKT_LEN) {
-                ix_record->pkt_time[pkt_time_index] = previous_time;
-                pkt_time_index++;
-            } else {
-                break;
-            }
-        }
-#endif
 //    }
         
         data += element_length;
@@ -1938,13 +1926,8 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
                 flow_ptr += field_length;
                 break;
             }
-#if 0
-        case IPFIX_BYTE_DISTRIBUTION_FORMAT:
-            bd_format = (uint16_t)*((const uint16_t *)flow_data);
-            flow_ptr += field_length;
             break;
-#endif
-            
+
         case IPFIX_BASIC_LIST:
             ipfix_parse_basic_list(ix_record, flow_data, field_length);
             flow_ptr += field_length;
@@ -2120,7 +2103,8 @@ static inline void ipfix_delete_exp_data_record(ipfix_exporter_data_t *data_reco
             free(data_record->record.idp_record.idp_field.info);
         }
         break;
-        
+    case IPFIX_RESERVED_TEMPLATE:
+    case IPFIX_SIMPLE_TEMPLATE:
     default:
         break;
     }
@@ -2280,11 +2264,12 @@ void ipfix_xts_cleanup(void) {
     ipfix_exporter_template_t *this_template;
     ipfix_exporter_template_t *next_template;
     
+    pthread_mutex_lock(&export_lock);
     if (export_template_store_head == NULL) {
+        pthread_mutex_unlock(&export_lock);
         return;
     }
 
-    pthread_mutex_lock(&export_lock);
     this_template = export_template_store_head;
     next_template = this_template->next;
     
@@ -2298,6 +2283,9 @@ void ipfix_xts_cleanup(void) {
         
         ipfix_delete_exp_template(this_template);
     }
+
+    /* list is now empty set head pointer */
+    export_template_store_head = NULL;
     pthread_mutex_unlock(&export_lock);
 }
 
@@ -3335,7 +3323,8 @@ static ipfix_exporter_data_t *ipfix_exp_create_data_record
     case IPFIX_IDP_TEMPLATE:
         data_record = ipfix_exp_create_idp_data_record(fr_record);
         break;
-        
+
+    case IPFIX_RESERVED_TEMPLATE:
     default:
         loginfo("api-error: template type is not supported");
         break;
@@ -3502,6 +3491,7 @@ static ipfix_exporter_template_t *ipfix_exp_create_template
         template = ipfix_exp_create_idp_template();
         break;
         
+    case IPFIX_RESERVED_TEMPLATE:
     default:
         loginfo("api-error: template type is not supported");
         break;
@@ -3856,6 +3846,7 @@ static int ipfix_exp_encode_data_set(ipfix_exporter_data_set_t *set,
             }
             break;
             
+        case IPFIX_RESERVED_TEMPLATE:
         default:
             loginfo("error: invalid data record type, cannot encode into message");
             return 1;
@@ -4113,6 +4104,8 @@ static int ipfix_export_message_attach_data_set(const flow_record_t *fr_record,
             data_record = ipfix_exp_create_data_record(IPFIX_IDP_TEMPLATE,
                                                        fr_record);
             break;
+
+        case IPFIX_RESERVED_TEMPLATE:
         default:
             loginfo("error: template type not supported for exporting");
             goto end;

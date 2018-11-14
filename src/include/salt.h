@@ -62,31 +62,18 @@
   
 /** salt structure */
 typedef struct salt {
+    unsigned int np;                      /* used for tracking ack/seq array */
+    unsigned int op;                      /* used for tracking len/time array */
+    unsigned int idx;                     /* used for tracking array entries */
+    unsigned int tcp_ack;                 /* acknowledgement number */
     unsigned short pkt_len[MAX_NUM_PKT];  /*!< array of packet appdata lengths */  
     struct timeval pkt_time[MAX_NUM_PKT]; /*!< array of arrival times          */
     unsigned int ack[MAX_NUM_PKT];
     unsigned int seq[MAX_NUM_PKT];
-    unsigned int np;
 } salt_t;
 
 
 declare_feature(salt);
-
-#if 0
-/** initialization function */
-/**
-* \fn __inline void salt_init (struct salt *salt)
-* \param salt structure to initialize
-* \return none
-*/
-__inline void salt_init(struct salt *salt) {
-    salt->np = 0;
-    memset(salt->pkt_len, 0, sizeof(salt->pkt_len));
-    memset(salt->pkt_time, 0, sizeof(salt->pkt_time));
-    memset(salt->seq, 0, sizeof(salt->seq));
-    memset(salt->ack, 0, sizeof(salt->ack));
-}
-#endif
 
 /** initialization function */
 void salt_init(struct salt **salt_handle);
@@ -107,6 +94,6 @@ void salt_print_json(const struct salt *w1,
 void salt_delete(struct salt **salt_handle);
 
 /** salt unit test entry point */
-void salt_unit_test();
+void salt_unit_test(void);
 
 #endif /* SALT_H */

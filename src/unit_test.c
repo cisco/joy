@@ -50,13 +50,11 @@
 #include "joy_api.h"
 
 /**
- * \fn int main (int argc, char *argv[]) 
+ * \fn int main ()
  * \brief main entry point for unit test execution
- * \param argc command line argument count
- * \param argv command line arguments
  * \return 0
  */
-int main (int argc, char *argv[]) {
+int main (void) {
     int rc = 0;
     joy_init_t init_data;
 
@@ -64,7 +62,6 @@ int main (int argc, char *argv[]) {
     memset(&init_data, 0x00, sizeof(joy_init_t));
 
     /* Set logging to warning level */
-    init_data.type = 1;
     init_data.verbosity = JOY_LOG_WARN;
 
     /* intialize joy */

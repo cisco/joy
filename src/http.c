@@ -106,7 +106,7 @@ void http_init (http_t **http_handle) {
  * \return none
  */
 void http_update(http_t *http,
-                             const struct pcap_pkthdr *header,
+                 const struct pcap_pkthdr *header,
                  const void *data,
                  unsigned int data_len,
                  unsigned int report_http) {
@@ -124,6 +124,9 @@ void http_update(http_t *http,
     if (http == NULL) {
         return;
     }
+
+    joy_log_debug("http[%p],header[%p],data[%p],len[%d],report[%d]",
+            http,header,data,data_len,report_http);
 
     if (http->num_messages >= HTTP_MAX_MESSAGES - 1) {
         /* Already at maximum message capacity */
@@ -187,7 +190,7 @@ void http_print_json(const http_t *h1,
                      zfile f) {
 
     unsigned int total_messages = 0;
-    int i = 0;
+    unsigned int i = 0;
 
     /* Sanity check */
     if (h1 == NULL) {
@@ -690,7 +693,11 @@ static enum http_type http_get_start_line (char **saveptr,
 }
 
 static int http_header_select (char *h) {
-  return 1;
+    int rc = 0;
+    if (h != NULL) {
+        rc = 1;
+    }
+    return rc;
 }
 
 #define PRINT_USERNAMES 1
@@ -962,18 +969,5 @@ static void http_print_message(zfile f,
  */
 void http_unit_test()
 {
-#if 0
-    int num_fails = 0;
-
-    fprintf(info, "\n******************************\n");
-    fprintf(info, "HTTP Unit Test starting...\n");
-
-    if (num_fails) {
-        fprintf(info, "Finished - # of failures: %d\n", num_fails);
-    } else {
-        fprintf(info, "Finished - success\n");
-    }
-    fprintf(info, "******************************\n\n");
-#endif
 }
 

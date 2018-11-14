@@ -61,8 +61,12 @@
 #include "feature.h"
 #include "joy_api.h"
 
+/* ETTA Spec defiintions for feature readiness */
+#define ETTA_MIN_PACKETS 10
+#define ETTA_MIN_OCTETS 4000
+
 /* flow value definitions */
-#define flow_key_hash_mask 0x000fffff
+#define flow_key_hash_mask 0xFFFF
 #define FLOW_RECORD_LIST_LEN (flow_key_hash_mask + 1)
 
 enum twins_match {
@@ -96,10 +100,15 @@ typedef struct tcp_info_ {
 typedef struct flow_key_ {
     struct in_addr sa;
     struct in_addr da;
-    unsigned short int sp;
-    unsigned short int dp;
-    unsigned short int prot;
+    uint16_t sp;
+    uint16_t dp;
+    uint8_t prot;
 } flow_key_t;
+
+typedef struct tcp_retrans_ {
+    uint32_t seq;
+    uint16_t len;
+} tcp_retrans_t;
 
 #include "procwatch.h"
 #include "config.h"
@@ -112,41 +121,56 @@ extern FILE *info;
  * default and maximum number of packets on which to report
  * lengths/times (actual value configurable on command line)
  */
-#define NUM_PKT_LEN 50
+#define DEFAULT_NUM_PKT_LEN 50
 #define MAX_NUM_PKT_LEN 200
 #define MAX_IDP 1500
+#define MAX_TCP_RETRANS_BUFFER 10
 
 typedef struct flow_record_ {
     flow_key_t key;                       /*!< identifies flow by 5-tuple          */
+    uint32_t key_hash;                    /*!< hash of the 5-tuple key             */
     uint16_t app;                         /*!< application protocol prediction     */
     uint8_t dir;                          /*!< direction of the flow               */
-    unsigned int np;                      /*!< number of packets                   */
-    unsigned int op;                      /*!< number of packets (w/nonzero data)  */
-    unsigned int ob;                      /*!< number of bytes of application data */
+    uint8_t np;                           /*!< number of packets                   */
+    uint8_t op;                           /*!< number of packets (w/nonzero data)  */
+    uint16_t ob;                          /*!< number of bytes of application data */
     struct timeval start;                 /*!< start time                          */ 
     struct timeval end;                   /*!< end time                            */
-    unsigned int last_pkt_len;            /*!< last observed appdata length        */
-    unsigned short pkt_len[MAX_NUM_PKT_LEN];  /*!< array of packet appdata lengths */  
+    uint16_t last_pkt_len;                /*!< last observed appdata length        */
+    uint16_t pkt_len[MAX_NUM_PKT_LEN];    /*!< array of packet appdata lengths */  
     struct timeval pkt_time[MAX_NUM_PKT_LEN]; /*!< array of arrival times          */
-    unsigned char pkt_flags[MAX_NUM_PKT_LEN]; /*!< array of packet flags           */
-    unsigned int byte_count[256];         /*!< number of occurences of each byte   */
-    unsigned int compact_byte_count[16];         /*!< number of occurences of each byte, mapping to compact form   */
-    unsigned long int num_bytes;
+    uint8_t pkt_flags[MAX_NUM_PKT_LEN];   /*!< array of packet flags           */
+    uint32_t byte_count[256];             /*!< number of occurences of each byte   */
+    uint32_t compact_byte_count[16];      /*!< number of occurences of each byte, mapping to compact form   */
+    uint32_t num_bytes;
     double bd_mean;
     double bd_variance;
-    header_description_t hd;         /*!< header description (proto ident)    */
+    header_description_t hd;              /*!< header description (proto ident)    */
+    bool idp_packet;                   /*!< determines if packet is used for IDP */
+    int32_t idp_seq_num;                  /*!< marks the SYN packet for IDP determination */
     void *idp;
-    unsigned int idp_len;
+    uint16_t idp_len;
     ip_info_t ip;
     tcp_info_t tcp;
-    unsigned int invalid;
+    uint8_t is_tcp_retrans;
+    uint8_t tcp_retrans_tail;
+    tcp_retrans_t tcp_retrans[MAX_TCP_RETRANS_BUFFER];
+    bool invalid;
     char *exe_name;                       /*!< executable associated with flow    */
     char *full_path;                      /*!< executable path associated with flow    */
     char *file_version;                   /*!< executable version associated with flow    */
     char *file_hash;                      /*!< executable file hash associated with flow    */
-    unsigned long uptime_seconds;         /*!< executable uptime associated with flow    */
-    unsigned char exp_type;
-    unsigned char first_switched_found;   /*!< hack to make sure we only correct once */
+    uint8_t joy_app_data_len;             /*!< application specific data length */
+    char *joy_app_data;                   /*!< application specific data */
+    uint64_t uptime_seconds;              /*!< executable uptime associated with flow    */
+    uint8_t exp_type;
+    bool first_switched_found;    /*!< hack to make sure we only correct once */
+    bool idp_ext_processed;
+    bool tls_ext_processed;
+    bool salt_ext_processed;
+    bool splt_ext_processed;
+    bool bd_ext_processed;
+    uint8_t feature_flags;                /*!< flags to signal when a data feature is ready */
   
     define_all_features(feature_list)     /*!< define all features listed in feature.h */
   
@@ -244,6 +268,8 @@ void flow_record_update_compact_byte_count(flow_record_t *f, const void *x, unsi
 
 void flow_record_update_byte_dist_mean_var(flow_record_t *f, const void *x, unsigned int len);
 
+void flow_record_update_timeouts(unsigned int inact, unsigned int act);
+
 void flow_record_list_init(joy_ctx_data *ctx);
 
 void flow_record_list_free(joy_ctx_data *ctx); 
@@ -313,11 +339,15 @@ void flocap_stats_timer_init(joy_ctx_data *ctx);
 int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const host_flow_t *data);
 
 /** Main entry point for the uploader thread */
-void *uploader_main(void* ptr);
+#ifdef WIN32
+__declspec(noreturn) void *uploader_main(void *ptr);
+#else
+__attribute__((__noreturn__)) void *uploader_main(void *ptr);
+#endif
 
 int upload_file(char *filename);
 
-void p2f_unit_test();
+void p2f_unit_test(void);
 
 /** print a buffer as hexadecimal */
 void zprintf_raw_as_hex(zfile f, const unsigned char *data, unsigned int len);

@@ -113,6 +113,15 @@ We are pleased to announce the 3.0.0 release of the package, which has these fea
 * Cleaned up coverity errors and warnings.
 * Various bug fixes.
 
+### Release 4.0.1
+We are pleased to announce the 4.0.1 release of the package, which has these features:
+* Add additional API's for parent application processing of Flow Records and data features
+* Fixed TCP retransmission and out of order detection
+* Better identification of IDP packet
+* Fixed some memory usage issues
+* Fixed minor bugs
+* Removed dead code
+
 ### Release 4.0.0
 We are pleased to announce the 4.0.0 release of the package, which has these features:
 * Add support for building with autotools. ./configure;make clean;make

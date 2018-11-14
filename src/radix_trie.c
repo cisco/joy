@@ -179,7 +179,7 @@ struct radix_trie *radix_trie_alloc () {
  * returns radix_trie_node pointer
  * returns NULL on failure
  */
-static struct radix_trie_node *radix_trie_node_init () {
+static struct radix_trie_node *radix_trie_node_init (void) {
     struct radix_trie_node *rt_node = NULL;
   
     rt_node = rt_malloc(sizeof(struct radix_trie_node));
@@ -239,9 +239,9 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
         }
     }  
     if (rt->type == leaf) {
-        struct radix_trie_leaf *leaf = (struct radix_trie_leaf *)rt;
-        debug_printf("%s:found leaf (value: %x)\n", __FUNCTION__, leaf->value);
-        rc_flags = leaf->value;
+        struct radix_trie_leaf *lleaf = (struct radix_trie_leaf *)rt;
+        debug_printf("%s:found leaf (value: %x)\n", __FUNCTION__, lleaf->value);
+        rc_flags = lleaf->value;
         return rc_flags; /* indicate success by returning flags  */
     }
 
@@ -273,6 +273,7 @@ static void radix_trie_node_add_flag_to_all_leaves (const struct radix_trie_node
                 radix_trie_node_add_flag_to_all_leaves(rt->table[i], flags);
             }
             break;
+        case reservd:
         default:
             break;
     }
@@ -470,7 +471,7 @@ static void attr_flags_print_labels (const struct radix_trie *rt, attr_flags f) 
  * \param zfile file pointer of where to send output
  * \return none
  */
-void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, char *prefix, zfile file) {
+void attr_flags_json_print_labels (const struct radix_trie *rt, attr_flags f, const char *prefix, zfile file) {
     unsigned int i, c = 0;
 
     /* sanity check */
@@ -533,6 +534,7 @@ static joy_status_e radix_trie_deep_free (const struct radix_trie_node *rt) {
            /* now free the internal node */
            rt_free((void*)rt);
            break;
+        case reservd:
         default:
            break;
     }
@@ -545,7 +547,7 @@ static joy_status_e radix_trie_deep_free (const struct radix_trie_node *rt) {
  * \return ok
  */
 joy_status_e radix_trie_free (struct radix_trie *r) {
-    int i = 0;
+    unsigned int i = 0;
 
     /* sanity check the trie */
     if (r == NULL) {
@@ -702,7 +704,8 @@ joy_status_e radix_trie_add_subnets_from_file (struct radix_trie *rt,
  * function to print out the contents of a node
  */
 static void radix_trie_node_print (const struct radix_trie *r, 
-                                   const struct radix_trie_node *rt, char *string) {
+                                   const struct radix_trie_node *rt,
+                                   const char *string) {
     uint32_t i = 0;
     char tmp[TMP_BUFF_256_LEN];
     char *ptr = NULL;
@@ -722,15 +725,6 @@ static void radix_trie_node_print (const struct radix_trie *r,
     }
 
 
-#if 0
-    // Wow this code is totally unsafe
-    strcpy(tmp, string);
-    ptr = index(tmp, 0);
-    *ptr++ = ' ';
-    *ptr++ = ' ';
-    *ptr++ = ' ';
-    *ptr = 0;
-#endif
     //safe copy of string into tmp buffer
     strncpy(tmp, string, TMP_BUFF_256_LEN-1);
     tmp[TMP_BUFF_256_LEN-1] = '\0'; // make sure string is terminated
@@ -765,6 +759,7 @@ static void radix_trie_node_print (const struct radix_trie *r,
                 }
             }
             break;
+        case reservd:
         default:
             break;
     }
@@ -783,13 +778,13 @@ static void radix_trie_print (const struct radix_trie *rt) {
  * returns 0 on success
  * returns 1 on failure
  */
-static int radix_trie_high_level_unit_test () {
+static int radix_trie_high_level_unit_test (void) {
     struct radix_trie *rt = NULL;
     attr_flags flag_internal, flag_malware, flag;
 #ifdef HAVE_CONFIG_H
-    char *configfile = "../internal.net";
+    const char *configfile = "../internal.net";
 #else
-    char *configfile = "internal.net";
+    const char *configfile = "internal.net";
 #endif
     struct in_addr addr;
     joy_status_e err;

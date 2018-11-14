@@ -93,15 +93,48 @@ void salt_update (struct salt *salt,
           const void *tcp_start,
           unsigned int len,
           unsigned int report_salt) {
+
+    unsigned int curr_tcp_ack = 0;
+    unsigned int payload_len = 0;
+    const struct timeval *time = &header->ts;
     const struct tcp_hdr *tcp = tcp_start;
 
-    if (report_salt) {
-        if (salt->np < MAX_NUM_PKT) {
-            salt->seq[salt->np] = ntohl(tcp->tcp_seq);
-            salt->ack[salt->np] = ntohl(tcp->tcp_ack);
-            salt->np++;
+    /* see if we are configured to report SALT */
+    if (!report_salt) {
+        return;
+    }
+
+    if (salt->np < MAX_NUM_PKT) {
+        salt->seq[salt->np] = ntohl(tcp->tcp_seq);
+        salt->ack[salt->np] = ntohl(tcp->tcp_ack);
+        salt->np++;
+    }
+
+    if (salt->idx < MAX_NUM_PKT) {
+        /* get payload len and ack number */
+        payload_len = len - tcp_hdr_length(tcp);
+        curr_tcp_ack = ntohl(tcp->tcp_ack);
+
+        /* figure out the index into salt array */
+        if (curr_tcp_ack != salt->tcp_ack) {
+            if (salt->pkt_len[salt->idx] != 0) {
+                salt->idx++;
+            }
+        }
+
+        /* store the Len and Time values */
+        if (glb_config->include_zeroes || payload_len != 0) {
+            /* see if we need to increment the observed message count */
+            if (salt->pkt_len[salt->idx] == 0) {
+                salt->op++;
+            }
+            salt->pkt_len[salt->idx] += payload_len;
+            salt->pkt_time[salt->idx] = *time;
         }
     }
+
+    /* store the TCP ack number */
+    salt->tcp_ack = curr_tcp_ack;
 }
 
 /**
@@ -113,45 +146,6 @@ void salt_update (struct salt *salt,
  */
 void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
     unsigned int i;
-
-#if 0
-
-    if (x1->np) {
-        zprintf(f, ",\"oseq\":[");
-    for (i=0; i < x1->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x1->seq[i] - x1->seq[0]);
-    }
-        zprintf(f, "],oack\":[");
-    for (i=0; i < x1->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x1->ack[i] - x1->ack[0]);
-    }
-        zprintf(f, "]");
-    }
-    if (x2 && x2->np) {
-        zprintf(f, ",\"iseq\":[");
-    for (i=0; i < x2->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x2->seq[i] - x2->seq[0]);
-    }
-        zprintf(f, "],iack\":[");
-    for (i=0; i < x2->np; i++) {
-        if (i) {
-        zprintf(f, ",");
-        }
-        zprintf(f, "%u", x2->ack[i] - x2->ack[0]);
-    }
-        zprintf(f, "]");
-    }
-
-#else
 
     if (x1->np) {
         zprintf(f, ",\"oseq\":[");
@@ -192,8 +186,6 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
         zprintf(f, "]");
     }
 
-#endif
-
 }
 
 /**
@@ -204,14 +196,13 @@ void salt_print_json (const struct salt *x1, const struct salt *x2, zfile f) {
  * \return none
  */
 void salt_delete (struct salt **salt_handle) {
-    struct salt *salt = *salt_handle;
 
-    if (salt == NULL) {
+    if (*salt_handle == NULL) {
         return;
     }
 
     /* Free the memory and set to NULL */
-    free(salt);
+    free(*salt_handle);
     *salt_handle = NULL;
 }
 

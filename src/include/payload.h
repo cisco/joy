@@ -84,6 +84,6 @@ void payload_print_json(const struct payload *w1,
 void payload_delete(struct payload **payload_handle);
 
 /** payload unit test entry point */
-void payload_unit_test();
+void payload_unit_test(void);
 
 #endif /* PAYLOAD_H */

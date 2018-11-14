@@ -52,16 +52,13 @@ test_params = [[''],
                ['bidir=1', 'entropy=1'],
                ['bidir=1', 'tls=1'],
                ['bidir=1', 'idp=1400'],
-               ['bidir=1', 'num_pkts=0'],
-               ['bidir=1', 'num_pkts=101'],
                ['bidir=1', 'anon=internal.net'],
                ['bidir=1', 'label=internal:internal.net'],
                ['bidir=1', 'classify=1'],
                ['bidir=1', 'wht=1'],
                ['bidir=1', 'dns=1'],
                ['bidir=1', 'bpf=tcp'],
-               ['bidir=1', 'hd=1'],
-               ['bidir=1', 'type=1'], ]
+               ['bidir=1', 'hd=1'], ]
 
 
 class ValidateGeneral(object):

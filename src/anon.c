@@ -92,7 +92,7 @@ unsigned int anonymize = 0;
  * \return ok 
  * \return failure 
  */
-joy_status_e key_init (char *ANON_KEYFILE) {
+joy_status_e key_init (const char *ANON_KEYFILE) {
     int fd;
     ssize_t bytes;
     unsigned char buf[MAX_KEY_SIZE];
@@ -173,28 +173,6 @@ joy_status_e key_init (char *ANON_KEYFILE) {
     return ok; 
 }
 
-#if 0
-/* prints out the bytes in binary format */
-static void print_binary (FILE *f, const void *x, unsigned int bytes) {
-    const unsigned char *buf = x;
-
-    while (bytes-- > 0) {
-        unsigned char bit = 128;
-    
-        while (bit > 0) {
-            if (bit & *buf) {
-                fprintf(f, "1");
-            } else {
-                fprintf(f, "0");
-            }
-            bit >>= 1;
-        }
-        fprintf(f, "|");
-        buf++;
-    }
-}
-#endif
-
 /** anonymized subnets */
 anon_subnet_t anon_subnet[MAX_ANON_SUBNETS];
 
@@ -218,7 +196,6 @@ static joy_status_e anon_subnet_add_from_string (char *addr) {
     int i, masklen = 0;
     char *mask = NULL;
     struct in_addr a;
-    extern FILE *anon_info;
 
     for (i=0; i<80; i++) {
         if (addr[i] == '/') {
@@ -256,7 +233,7 @@ static joy_status_e anon_subnet_add_from_string (char *addr) {
 
 /* finds address in anonymization list */
 static unsigned int addr_is_in_set (const struct in_addr *a) {
-    int i;
+    unsigned int i;
 
     for (i=0; i < num_subnets; i++) {
         if ((a->s_addr & anon_subnet[i].mask.s_addr) == anon_subnet[i].addr.s_addr) {
@@ -268,7 +245,6 @@ static unsigned int addr_is_in_set (const struct in_addr *a) {
 /* determines number of bits in the subnet mask */
 static unsigned int bits_in_mask (void *a, unsigned int bytes) {
     unsigned int n = 0;
-    extern FILE *anon_info;
     unsigned char *buf = (unsigned char *)a;
 
     while (bytes-- > 0) {
@@ -323,7 +299,6 @@ joy_status_e anon_init (const char *pathname, FILE *logfile) {
     FILE *fp;
     size_t len;
     char *line = NULL;
-    extern FILE *anon_info;
 
     if (logfile != NULL) {
         anon_info = logfile;
@@ -414,7 +389,6 @@ unsigned int ipv4_addr_needs_anonymization (const struct in_addr *a) {
  */
 int anon_unit_test () {
     struct in_addr inp;
-    extern FILE *anon_info;
 
     anon_init("internal.net", stderr);
 
@@ -500,22 +474,6 @@ joy_status_e deanon_string (const char *hexinput, unsigned int len, char *s, uns
     return ok; 
 }
 
-#if 0
-/* prints out the anonymized string */
-static joy_status_e zprint_anon_string (zfile f, char *input, unsigned int len) {
-    joy_status_e err;
-    char hex[33];
-  
-    err = anon_string(input, len, hex, sizeof(hex));
-    if (err != ok) {
-        return err;
-    }
-    zprintf(f, "%s", hex);
-
-    return ok;
-}
-#endif
-
 /* context used for unsername anonymization */
 str_match_ctx usernames_ctx = NULL;
 
@@ -528,7 +486,7 @@ str_match_ctx usernames_ctx = NULL;
  * \return ok
  * \return failure
  */
-joy_status_e anon_http_init (const char *pathname, FILE *logfile, enum anon_mode mode, char *ANON_KEYFILE) {
+joy_status_e anon_http_init (const char *pathname, FILE *logfile, enum anon_mode mode, const char *ANON_KEYFILE) {
     joy_status_e s;
     string_transform transform = NULL;
 
@@ -558,6 +516,22 @@ joy_status_e anon_http_init (const char *pathname, FILE *logfile, enum anon_mode
 }
 
 /**
+ * \fn void anon_http_ctx_cleanup (void)
+ * \param none
+ * \return none
+ */
+void anon_http_ctx_cleanup (void)
+{
+    /* nothing to do */
+    if (usernames_ctx == NULL) {
+        return;
+    }
+
+    str_match_ctx_free(usernames_ctx);
+    usernames_ctx = NULL;
+}
+
+/**
  * \fn void zprintf_nbytes (zfile f, char *s, size_t len)
  * \param f file to output to
  * \param s pointer to the bytes to print
@@ -577,13 +551,12 @@ void zprintf_nbytes (zfile f, char *s, size_t len) {
 }
 
 /**
- * \fn void zprintf_anon_nbytes (zfile f, char *s, size_t len)
+ * \fn void zprintf_anon_nbytes (zfile f, size_t len)
  * \param f file to output to
- * \param s pointer to the bytes to print anonynmized
  * \param len length of the bytes to print
  * \return none
  */
-void zprintf_anon_nbytes (zfile f, char *s, size_t len) {
+void zprintf_anon_nbytes (zfile f, size_t len) {
     char tmp[1024];
     unsigned int i;
 
@@ -629,7 +602,7 @@ void anon_print_uri(zfile f, struct matches *matches, char *text) {
         if ((matches->start[i] == 0 || is_special(text + matches->start[i] - 1)) &&
             is_special(text + matches->stop[i] + 1)) {
             /* matching and special */
-            zprintf_anon_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1); 
+            zprintf_anon_nbytes(f, matches->stop[i] - matches->start[i] + 1);
         } else {
             /* matching, not special */
             zprintf_nbytes(f, text + matches->start[i], matches->stop[i] - matches->start[i] + 1);
@@ -691,10 +664,10 @@ void anon_print_string (zfile f, struct matches *matches, char *text,
                       if (err == ok) {
                           zprintf(f, "%s", hex);
                       } else {
-                          zprintf_anon_nbytes(f, start, len);  
+                          zprintf_anon_nbytes(f, len);
                       }
             } else {
-                      zprintf_nbytes(f, start, len);  
+                      zprintf_nbytes(f, start, len);
             }
         } else {
             /* matching, not special */

@@ -105,8 +105,12 @@ void wht_update (wht_t *wht, const struct pcap_pkthdr *header, const void *data,
     const uint8_t *d = data;
 
     /* sanity checks */
-    if (data == NULL)
+    if (data == NULL) {
         return;
+    }
+
+    joy_log_debug("wht[%p],header[%p],data[%p],len[%d],report[%d]",
+            wht,header,data,len,report_wht);
 
     /* see if we should process */
     if (report_wht) {
@@ -179,18 +183,6 @@ void wht_print_json (const wht_t *w1, const wht_t *w2, zfile f) {
 	      (float) s[1] / n,
 	      (float) s[2] / n,
 	      (float) s[3] / n);
-#if 0
-    zprintf(f, ",\"RAW1\":[%d,%d,%d,%d]",
-	      w1->spectrum[0], 
-	      w1->spectrum[1],
-	      w1->spectrum[2],
-	      w1->spectrum[3]);
-    zprintf(f, ",\"RAW2\":[%d,%d,%d,%d]",
-	      w1->spectrum[0], 
-	      w1->spectrum[1],
-	      w1->spectrum[2],
-	      w1->spectrum[3]);
-#endif 
 }
 
 /**

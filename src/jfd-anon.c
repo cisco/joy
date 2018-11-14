@@ -197,7 +197,7 @@ int main (int argc, char *argv[]) {
     size_t len;
     char *line = NULL;  
     joy_status_e err;
-    char *keyfile = ANON_KEYFILE_DEFAULT;
+    const char *keyfile = ANON_KEYFILE_DEFAULT;
     char *userfile = NULL;
     char *subnetfile = NULL;
     char *datafile = NULL;
@@ -281,36 +281,6 @@ int main (int argc, char *argv[]) {
      */
     while ((bytes_read = getline(&line, &len, input)) != -1) {
   
-#if 0
-        unsigned int i;
-        char *text;
-        char lhs[256];
-
-        /* remove leading whitespace */
-        i = 0;
-        text = line;
-        while (isblank(*text) && (i < len)) { 
-            text++;
-            i++;
-        } 
-
-#if 0
-        if (*text == '{') {
-            printf("{");
-        } else if (*text == '}') {
-            printf("}");
-        }
-#endif
-
-        if (sscanf(text, "%[\"a-zA-Z_{}]", lhs) > 0) {
-            printf("lhs: %s\n", lhs);
-            if (strncmp(lhs, "flow", 5) == 0) {
-	              printf("found flow\n");
-            }
-        }
-
-#else 
-
         if (type == addresses) {
             if (mode == mode_anonymize) {
 	              anon_addresses(line);
@@ -338,7 +308,6 @@ int main (int argc, char *argv[]) {
 
             }
         }
-#endif    
 
         linenum++;
 

@@ -222,7 +222,7 @@ void ike_print_json(const ike_t *w1,
 
 void ike_delete(ike_t **ike_handle);
 
-void ike_unit_test();
+void ike_unit_test(void);
 
 #endif /* IKE_H */
 

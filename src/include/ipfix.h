@@ -515,8 +515,11 @@ typedef struct ipfix_exporter_ {
 # define bytes_to_u32(bytes) bytes[0] + (bytes[1] << 8) + (bytes[2] << 16) + (bytes[3] << 24)
 #endif
 
-
-void *ipfix_cts_monitor(void *ptr);
+#ifdef WIN32
+__declspec(noreturn) void *ipfix_cts_monitor(void *ptr);
+#else
+__attribute__((__noreturn__)) void *ipfix_cts_monitor(void *ptr);
+#endif
 
 
 void ipfix_module_cleanup(joy_ctx_data *ctx);

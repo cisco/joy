@@ -81,6 +81,6 @@ void example_print_json(const struct example *w1,
 void example_delete(struct example **example_handle);
 
 /** example unit test entry point */
-void example_unit_test();
+void example_unit_test(void);
 
 #endif /* EXAMPLE_H */

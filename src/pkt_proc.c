@@ -65,190 +65,89 @@ static u_short num_templates = 0;
 
 pthread_mutex_t nfv9_lock = PTHREAD_MUTEX_INITIALIZER;
 
-/**
- * \fn int data_sanity_check ()
- * \param none
- * \return ok
- * \return failure
- */
-int data_sanity_check () {
-    assert(sizeof(struct ip_hdr) == 20);
-    assert(sizeof(struct tcp_hdr) == 20);
-    assert(sizeof(struct udp_hdr) == 8);
-    assert(sizeof(struct icmp_hdr) == 8);
-    return ok;
-}
-
-#if 0
-static void print_payload(const char *payload, int len);
-
-static void print_hex_ascii_line(const char *payload, int len, int offset);
-#endif
-
-#if 0
 /*
- * print_hex_ascii_line prints data in rows of 16 bytes, with a format
- * of offset, hex bytes, then ASCII characters.
+ * re-implement this function to handle SPLT properly by itself. SALT
+ * is handled by the function feature update function in the feature module.
+ * The original function is conditionally compiled out and still exists
+ * in its entirty below this implementation.
  */
-void print_hex_ascii_line (const char *data, int len, int offset) {
-    const char *d;
-    int i, j;
-
-    fprintf(info, "%05d   ", offset);
-    d = data;
-    for(i = 0; i < len; i++) {
-        fprintf(info, "%02x ", *d);
-        d++;
-        if (i == 7)
-            fprintf(info, " ");
-    }
-    if (len < 8)
-        fprintf(info, " ");
-
-    if (len < 16) {
-        j = 16 - len;
-        for (i = 0; i < j; i++) {
-            fprintf(info, "   ");
-        }
-    }
-    fprintf(info, "   ");
-
-    d = data;
-    for(i = 0; i < len; i++) {
-        if (isprint(*d))
-            fprintf(info, "%c", *d);
-        else
-            fprintf(info, ".");
-        d++;
-    }
-    fprintf(info, "\n");
-
-    return;
-}
-#endif
-
-#if 0
-/*
- * print packet payload data (avoid printing binary data)
- */
-static void print_payload (const char *payload, int len) {
-    int len_rem = len;
-    int line_width = 16;                        /* number of bytes per line */
-    int line_len;
-    int offset = 0;                     /* zero-based offset counter */
-    const char *ch = payload;
-
-    if (len <= 0)
-        return;
-
-    /* data fits on one line */
-    if (len <= line_width) {
-        print_hex_ascii_line(ch, len, offset);
-        return;
-    }
-
-    /* data spans multiple lines */
-    for ( ;; ) {
-        /* compute current line length */
-        line_len = line_width % len_rem;
-        /* print line */
-        print_hex_ascii_line(ch, line_len, offset);
-        /* compute total remaining */
-        len_rem = len_rem - line_len;
-        /* shift pointer to remaining bytes to print */
-        ch = ch + line_len;
-        /* add offset */
-        offset = offset + line_width;
-        /* check if we have line width chars or less */
-        if (len_rem <= line_width) {
-            /* print last line and get out */
-            print_hex_ascii_line(ch, len_rem, offset);
-            break;
-        }
-    }
-
-    return;
-}
-#endif
-
 static void flow_record_process_packet_length_and_time_ack (flow_record_t *record,
-                                                            unsigned int length, 
+                                                            unsigned int length,
                                                             const struct timeval *time,
                                                             const struct tcp_hdr *tcp) {
 
-    if (record->op >= NUM_PKT_LEN) {
+    /* make sure we have room in the array */
+    if (record->op >= MAX_NUM_PKT_LEN) {
         return;  /* no more room */
     }
 
-    switch(glb_config->salt_algo) {
-        case rle:
-            if (glb_config->include_zeroes || length != 0) {
-                if (length == record->last_pkt_len) {
-		    if (record->pkt_len[record->op] < 32768) {
-			record->op++;
-		    }
-		    (record->pkt_len[record->op])--;
-		    record->pkt_time[record->op] = *time;
-		    // fprintf(info, " == pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
-                } else {
-		    if (record->pkt_len[record->op] != 0) {
-			record->op++;
-		    }
-		    record->pkt_len[record->op] = length;
-		    record->pkt_time[record->op] = *time;
-		    record->last_pkt_len = length;
-		    // fprintf(info, " != pkt_len[%d]: %d\n", record->op, record->pkt_len[record->op]);
-                }
-            }
-            break;
-
-        case aggregated:
-            if (glb_config->include_zeroes || length != 0) {
-                record->pkt_len[record->op] += length;
-                record->pkt_time[record->op] = *time;
-            }
-            if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
-		if (record->pkt_len[record->op] != 0) {
-		    record->op++;
-		}
-            }
-            break;
-
-        case defragmented:
-            if (glb_config->include_zeroes || length != 0) {
-                if (length == record->last_pkt_len) {
-		    record->op--;
-		    record->pkt_len[record->op] += length;
-		    record->pkt_time[record->op] = *time;
-		    record->op++;
-                } else {
-		    record->pkt_len[record->op] = length;
-		    record->pkt_time[record->op] = *time;
-		    record->last_pkt_len = length;
-		    record->op++;
-                }
-            }
-            if (ntohl(tcp->tcp_ack) > record->tcp.ack) {
-                if (record->pkt_len[record->op] != 0) {
-		    record->op++;
-                }
-                record->last_pkt_len = length;
-            }
-            break;
-
-        default:
-        case raw:
-            if (glb_config->include_zeroes || (length != 0)) {
-                record->pkt_len[record->op] = length;
-                record->pkt_time[record->op] = *time;
-                record->op++;
-            }
-            break;
+    /*
+     * let's figure out the SPLT values
+     * This is the "raw" case from the original function below
+     */
+    if (glb_config->include_zeroes || (length != 0)) {
+        record->pkt_len[record->op] = length;
+        record->pkt_time[record->op] = *time;
+        record->op++;
     }
 
     record->pkt_flags[record->op] = tcp->tcp_flags;
     record->tcp.seq = ntohl(tcp->tcp_seq);
     record->tcp.ack = ntohl(tcp->tcp_ack);
+
+    /* store the sequence number and length into the retransmission buffer */
+    record->tcp_retrans[record->tcp_retrans_tail].seq = ntohl(tcp->tcp_seq);
+    record->tcp_retrans[record->tcp_retrans_tail].len = length;
+    record->tcp_retrans_tail++;
+    if (record->tcp_retrans_tail == MAX_TCP_RETRANS_BUFFER) {
+        /* go back to the beginning of the buffer */
+        record->tcp_retrans_tail = 0;
+    }
+}
+
+/*
+ * This function checks the various data features to see if enough
+ * data has been collected in the flow record to satisfy the requirments
+ * for reporting on that data feature.
+ */
+static void flow_record_set_feature_ready_flags (joy_ctx_data *ctx, flow_record_t *rec)
+{
+    /* check IDP feature */
+    if ((!(rec->feature_flags & JOY_IDP_READY)) && (rec->idp_len > 0)) {
+        rec->feature_flags |= JOY_IDP_READY;
+        ++ctx->idp_recs_ready;
+    }
+
+    /* check TLS feature */
+    if ((!(rec->feature_flags & JOY_TLS_READY)) && (rec->tls != NULL)) {
+        if (rec->tls->done_handshake) {
+            rec->feature_flags |= JOY_TLS_READY;
+            ++ctx->tls_recs_ready;
+        }
+    }
+
+    /* check SPLT feature */
+    if ((!(rec->feature_flags & JOY_SPLT_READY)) && (rec->op >= ETTA_MIN_PACKETS)) {
+        /* ETTA spec specifies 10 packets for SPLT */
+        rec->feature_flags |= JOY_SPLT_READY;
+        ++ctx->splt_recs_ready;
+    }
+
+    /* check SALT feature */
+    if ((!(rec->feature_flags & JOY_SALT_READY)) && (rec->salt != NULL)) {
+        if (rec->salt->np >= ETTA_MIN_PACKETS) {
+            /* ETTA spec specifies 10 packets for SALT */
+            rec->feature_flags |= JOY_SALT_READY;
+            ++ctx->salt_recs_ready;
+        }
+    }
+
+    /* check BD feature */
+    if ((!(rec->feature_flags & JOY_BD_READY)) && (rec->ob >= ETTA_MIN_OCTETS)) {
+        /* ETTA spec specifies 4000 octets for BD */
+        rec->feature_flags |= JOY_BD_READY;
+        ++ctx->bd_recs_ready;
+    }
 }
 
 /*
@@ -282,18 +181,7 @@ joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
     
     joy_log_info("Processing ipfix packet");
     inet_ntop(AF_INET, &r->key.sa, ipv4_addr, INET_ADDRSTRLEN);
-    joy_log_debug(" Source IP: %s\n", ipv4_addr);
-    joy_log_debug(" Observation Domain ID: %i", htonl(ipfix->observe_dom_id));
-    joy_log_debug(" Packet len: %u", len);
-    
-#if 0
-    if (len > 0) {
-        joy_log_debug("Payload:");
-        if (verbosity == JOY_LOG_DEBUG) {
-            print_payload(start, len);
-        }
-    }
-#endif
+    joy_log_debug(" Source IP: %s\n Observation Domain ID: %i\n Packet len: %u",ipv4_addr,htonl(ipfix->observe_dom_id),len);
     
     /* Move past ipfix_hdr, i.e. IPFIX message header */
     start += 16;
@@ -352,7 +240,6 @@ joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
 }
 
 static joy_status_e process_nfv9 (joy_ctx_data *ctx, 
-                                  const struct pcap_pkthdr *header, 
                                   const char *start, int len, 
                                   flow_record_t *r) {
 
@@ -361,21 +248,11 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
     int flowset_num = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
 
-    joy_log_info("Processing NFV9");
-    joy_log_info("Source ID: %i", htonl(nfv9->SourceID));
-    inet_ntop(AF_INET, &r->key.sa, ipv4_addr, INET_ADDRSTRLEN);
-    joy_log_info("Source IP: %s", ipv4_addr);
-    joy_log_debug("Packet len: %u", len);
-
-#if 0
-    /* Print payload */
-    if (len > 0) {
-        joy_log_debug("Payload:");
-        if (verbosity == JOY_LOG_DEBUG) {
-            print_payload(start, len);
-        }
+    if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_INFO) {
+        inet_ntop(AF_INET, &r->key.sa, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_info("Processing NFV9\nSource ID: %i\nSource IP: %s",htonl(nfv9->SourceID),ipv4_addr);
+        joy_log_debug("Packet len: %u", len);
     }
-#endif
 
     memset(&prev_key, 0x0, sizeof(flow_key_t));
 
@@ -383,7 +260,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
     len -= 20;
     const struct nfv9_flowset_hdr *nfv9_fh;
 
-    while (len > sizeof(struct nfv9_flowset_hdr)) {
+    while (len > (int)sizeof(struct nfv9_flowset_hdr)) {
         flowset_num += 1;
         nfv9_fh = (const struct nfv9_flowset_hdr*)start;
 
@@ -501,27 +378,28 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
                           // init key
                           nfv9_flow_key_init(&key, cur_template, flow_data);
 
-                      /*
-                       * Either get an existing record for the netflow data or make a new one.
-                       * Don't include the header because it is the packet that was sent
-                       * by exporter -> collector (not the netflow data).
-                       */
+                          /*
+                           * Either get an existing record for the netflow data or make a new one.
+                           * Don't include the header because it is the packet that was sent
+                           * by exporter -> collector (not the netflow data).
+                           */
                           flow_record_t *nf_record = NULL;
                           nf_record = flow_key_get_record(ctx, &key, CREATE_RECORDS, NULL);
 
-                          // fill out record
-                          if (memcmp(&key,&prev_key,sizeof(flow_key_t)) != 0) {
-                              nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
-                          } else {
-                              nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
+                          if (nf_record != NULL) {
+                              // fill out record
+                              if (memcmp(&key,&prev_key,sizeof(flow_key_t)) != 0) {
+                                  nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
+                              } else {
+                                  nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
+                              }
+                              memcpy(&prev_key,&key,sizeof(flow_key_t));
+
+                              flowset_num += 1;
+
+                              /* print the record immediately to output */
+                              //flow_record_print_json(nf_record);
                           }
-                          memcpy(&prev_key,&key,sizeof(flow_key_t));
-
-                          flowset_num += 1;
-
-                          /* print the record immediately to output */
-                          //flow_record_print_json(nf_record);
-
                       }
             } else {
                 joy_log_warn("Current template is null");
@@ -535,9 +413,50 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
     return ok;
 }
 
+/*
+ * Function: retrans_detected
+ *
+ * Description: This function looks over the last 10 stored TCP sequence numbers
+ *         to see if we have a retransmitted TCP packet.
+ *
+ * Parameters:
+ *         rec - pointer to the flow record
+ *         seq_num - current TCP packets sequence number
+ *         len - current TCP packets payload size
+ *
+ * Returns:
+ *         0 - no retransmission detected
+ *         1 - retransmission with same data detected
+ *         2 - retransmission with new data detected
+ */
+static int retrans_detected (flow_record_t *rec, uint32_t seq_num, uint16_t len) {
+    int i;
+    int rc = 0;
+
+    /* look for the sequence number in the stored array */
+    for (i=0; i < MAX_TCP_RETRANS_BUFFER; ++i) {
+        if (rec->tcp_retrans[i].seq == seq_num) {
+            if (rec->tcp_retrans[i].len < len) {
+                joy_log_debug("Retransmission with new data detected! "
+                             "SEQ(%d), Orig LEN(%d), New LEN (%d)",
+                             seq_num, rec->tcp_retrans[i].len, len);
+                /* update length with new length */
+                rec->tcp_retrans[i].len = len;
+                rc = 2;
+            } else {
+                joy_log_debug("Retransmission detected! "
+                             "SEQ(%d), LEN(%d)", seq_num, len);
+                rc = 1;
+            }
+            break;
+        }
+    }
+    return rc;
+}
+
 static flow_record_t *
 process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tcp_start, int tcp_len, flow_key_t *key) {
-    unsigned int tcp_hdr_len;
+    int tcp_hdr_len;
     const char *payload;
     unsigned int size_payload;
     const struct tcp_hdr *tcp = (const struct tcp_hdr *)tcp_start;
@@ -557,12 +476,8 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
     /* compute tcp payload (segment) size */
     size_payload = tcp_len - tcp_hdr_len;
 
-    joy_log_info("Src port: %d", ntohs(tcp->src_port));
-    joy_log_info("Dst port: %d", ntohs(tcp->dst_port));
-    joy_log_info("Payload len: %u", size_payload);
-    joy_log_debug("TCP len: %u", tcp_len);
-    joy_log_debug("TCP hdr len: %u", tcp_hdr_len);
-    joy_log_debug("flags:");
+    joy_log_info("Src port: %d\nDst port: %d\nPayload len: %u\n", ntohs(tcp->src_port),ntohs(tcp->dst_port),size_payload);
+    joy_log_debug("TCP len: %u\nTCP hdr len: %u\nflags (0x%x):", tcp_len,tcp_hdr_len,tcp->tcp_flags);
     if (tcp->tcp_flags & TCP_FIN) { joy_log_debug("* FIN"); }
     if (tcp->tcp_flags & TCP_SYN) { joy_log_debug("* SYN"); }
     if (tcp->tcp_flags & TCP_RST) { joy_log_debug("* RST"); }
@@ -572,29 +487,23 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
     if (tcp->tcp_flags & TCP_ECE) { joy_log_debug("* ECE"); }
     if (tcp->tcp_flags & TCP_CWR) { joy_log_debug("* CWR"); }
 
-#if 0
-    if (size_payload > 0) {
-        joy_log_debug("Payload:");
-        if (verbosity == JOY_LOG_DEBUG) {
-            print_payload(payload, size_payload);
-        }
-    }
-#endif
-
     key->sp = ntohs(tcp->src_port);
     key->dp = ntohs(tcp->dst_port);
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
 
     joy_log_debug("SEQ: %d -- relative SEQ: %d", ntohl(tcp->tcp_seq), ntohl(tcp->tcp_seq) - record->tcp.seq);
     joy_log_debug("ACK: %d -- relative ACK: %d", ntohl(tcp->tcp_ack), ntohl(tcp->tcp_ack) - record->tcp.ack);
 
+    /* see if this is a retransmission */
     if (size_payload > 0) {
-        if (ntohl(tcp->tcp_seq) < record->tcp.seq) {
-            joy_log_debug("retransmission detected");
+        uint32_t curr_seq = ntohl(tcp->tcp_seq);
+        record->is_tcp_retrans = retrans_detected(record, curr_seq, (uint16_t)size_payload);
+        if (record->is_tcp_retrans != 0) {
             record->tcp.retrans++;
             if (!glb_config->include_retrans) {
                 // do not process TCP retransmissions
@@ -602,6 +511,7 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
             }
         }
     }
+
     if (glb_config->include_zeroes || size_payload > 0) {
           flow_record_process_packet_length_and_time_ack(record, size_payload, &header->ts, tcp);
     }
@@ -666,12 +576,30 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
         header_description_update(&record->hd, payload, glb_config->report_hd);
     }
 
+    /* look for IDP packet potential before retrans detection for OOO packets */
+    if (tcp->tcp_flags & TCP_SYN) {
+        /* we have the SYN packet, store the sequence number */
+        record->idp_seq_num = ntohl(tcp->tcp_seq);
+    } else {
+        /* see if we have the SYN packet sequence number already */
+        if (record->idp_seq_num != 0) {
+            if ((size_payload > 0) && ((int)ntohl(tcp->tcp_seq) == (record->idp_seq_num + 1))) {
+                record->idp_seq_num = 0;
+                record->idp_packet = 1;
+            }
+        } else {
+            if (size_payload > 0) {
+                record->idp_packet = 1;
+            }
+        }
+    }
+
     return record;
 }
 
 static flow_record_t *
 process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *udp_start, int udp_len, flow_key_t *key) {
-    unsigned int udp_hdr_len;
+    uint8_t udp_hdr_len;
     const char *payload;
     unsigned int size_payload;
     const struct udp_hdr *udp = (const struct udp_hdr *)udp_start;
@@ -688,31 +616,17 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
     payload = (char *)(udp_start + udp_hdr_len);
     size_payload = udp_len - udp_hdr_len;
 
-    joy_log_info("Src port: %d", ntohs(udp->src_port));
-    joy_log_info("Dst port: %d", ntohs(udp->dst_port));
-    joy_log_info("Payload len: %d", size_payload);
-
-    /*
-     * Print payload data; it might be binary, so don't just
-     * treat it as a string.
-     */
-#if 0
-    if (size_payload > 0) {
-        joy_log_debug("payload (%d bytes):", size_payload);
-        if (verbosity == JOY_LOG_DEBUG) {
-            print_payload(payload, size_payload);
-        }
-    }
-#endif
+    joy_log_info("Src port: %d\nDst port: %d\nPayload len: %d", ntohs(udp->src_port),ntohs(udp->dst_port),size_payload);
 
     key->sp = ntohs(udp->src_port);
     key->dp = ntohs(udp->dst_port);
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
-    if (record->op < NUM_PKT_LEN) {
+    if (record->op < MAX_NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
@@ -742,13 +656,13 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
      */
     update_all_features(payload_feature_list);
 
-    if (glb_config->nfv9_capture_port && (key->dp == glb_config->nfv9_capture_port)) {
+    if ((glb_config->nfv9_capture_port > 0) && (key->dp == glb_config->nfv9_capture_port)) {
         pthread_mutex_lock(&nfv9_lock);
-        process_nfv9(ctx, header, payload, size_payload, record);
+        process_nfv9(ctx, payload, size_payload, record);
         pthread_mutex_unlock(&nfv9_lock);
     }
 
-    if (glb_config->ipfix_collect_port && (key->dp == glb_config->ipfix_collect_port)) {
+    if ((glb_config->ipfix_collect_port > 0) && (key->dp == glb_config->ipfix_collect_port)) {
       process_ipfix(ctx, payload, size_payload, record);
     }
 
@@ -757,7 +671,7 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
 
 static flow_record_t *
 process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *start, int len, flow_key_t *key) {
-    int size_icmp_hdr;
+    uint8_t size_icmp_hdr;
     const char *payload;
     int size_payload;
     const struct icmp_hdr *icmp = (const struct icmp_hdr *)start;
@@ -771,24 +685,10 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
         return NULL;
     }
 
-    joy_log_info("Type: %d", icmp->type);
-    joy_log_info("Code: %d", icmp->code);
+    joy_log_info("Type: %d\nCode: %d", icmp->type, icmp->code);
 
     payload = (char *)(start + size_icmp_hdr);
     size_payload = len - size_icmp_hdr;
-
-    /*
-     * Print payload data; it might be binary, so don't just
-     * treat it as a string.
-     */
-#if 0
-    if (size_payload > 0) {
-        joy_log_debug("Payload (%d bytes):", size_payload);
-        if (verbosity == JOY_LOG_DEBUG) {
-            print_payload(payload, size_payload);
-        }
-    }
-#endif
 
     /*
      * signify ICMP by using sp = dp = 0 (which is an IANA-reserved
@@ -800,9 +700,10 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
-    if (record->op < NUM_PKT_LEN) {
+    if (record->op < MAX_NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
@@ -830,24 +731,12 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
     payload = (char *)(ip_start);
     size_payload = ip_len;
 
-    /*
-     * Print payload data; it might be binary, so don't just
-     * treat it as a string.
-     */
-#if 0
-    if (size_payload > 0) {
-        joy_log_debug("Payload (%d bytes):\n", size_payload);
-        if (verbosity == JOY_LOG_DEBUG) {
-            print_payload(payload, size_payload);
-        }
-    }
-#endif
-
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
     if (record == NULL) {
+        joy_log_err("Couldn't allocate a new record structure!");
         return NULL;
     }
-    if (record->op < NUM_PKT_LEN) {
+    if (record->op < MAX_NUM_PKT_LEN) {
         if (glb_config->include_zeroes || (size_payload != 0)) {
             record->pkt_len[record->op] = size_payload;
             record->pkt_time[record->op] = header->ts;
@@ -865,37 +754,160 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 }
 
 /**
- * \fn void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
-                     const unsigned char *packet)
+ * \fn int get_packet_5tuple_key (const unsigned char *packet,
+                               flow_key_t *key)
+ * \param packet pointer to the packet
+ * \param key pointer to the key structure to be filled in
+ * \return 0 - failed, 1 - success
+ */
+uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
+    uint8_t rc = 0;
+    uint16_t ether_type = 0;
+    uint16_t vlan_ether_type = 0;
+    uint16_t vlan2_ether_type = 0;
+    const struct ip_hdr *ip = NULL;
+    unsigned int ip_hdr_len = 0;
+    const void *transport_start = NULL;
+
+    /* clear the key structure */
+    memset(key, 0x00, sizeof(flow_key_t));
+
+    /* make sure we have a packet */
+    if (packet == NULL) {
+        joy_log_err(" NULL packet passed in");
+        return rc;
+    }
+
+    ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
+
+    /* Support for both normal ethernet, 802.1q and 802.1ad. Distinguish between
+     * the three accepted types
+     */
+    switch(ether_type) {
+       case ETH_TYPE_IP:
+           joy_log_info("Ethernet type - IP");
+           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
+           ip_hdr_len = ip_hdr_length(ip);
+           break;
+       case ETH_TYPE_DOT1Q:
+       case ETH_TYPE_QNQ:
+           joy_log_info("Ethernet type - 802.1q VLAN #1");
+           //Offset to get VLAN_TYPE
+           vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
+           switch(vlan_ether_type) {
+               case ETH_TYPE_IP:
+                   joy_log_info("Ethernet type - IP with VLAN #1");
+                   ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
+                   ip_hdr_len = ip_hdr_length(ip);
+                   break;
+               case ETH_TYPE_DOT1Q:
+               case ETH_TYPE_QNQ:
+                   joy_log_info("Ethernet type - 802.1q VLAN #2");
+                    //Offset to get VLAN_TYPE
+                   vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
+                   switch(vlan2_ether_type) {
+                       case ETH_TYPE_IP:
+                           joy_log_info("Ethernet type - IP with 802.1q VLAN #2");
+                           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
+                           ip_hdr_len = ip_hdr_length(ip);
+                           break;
+                       default :
+                           joy_log_info("Ethernet type - Unknown with 802.1q VLAN #2");
+                           return rc;
+                   }
+                   break;
+               default :
+                   joy_log_info("Ethernet type - Unknown with 802.1q VLAN #1");
+                   return rc;
+           }
+           break;
+       default:
+           return rc;
+    }
+
+    if (ip_hdr_len < 20) {
+        joy_log_err("Invalid IP header length: %u bytes", ip_hdr_len);
+        return rc;
+    }
+
+    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+        /*
+         * IP packet is malformed (shorter than a complete IP header, or
+         * claims to be longer than it is), or not entirely captured by
+         * libpcap (which will depend on MTU and SNAPLEN; you can change
+         * the latter if need be).
+         */
+        joy_log_err("Malformed IP packet");
+        return rc;
+    }
+
+    /* we are able to fill out the key structure */
+    rc = 1;
+    if (ip_fragment_offset(ip) == 0) {
+        /* fill out IP-specific fields of flow key, plus proto selector */
+        key->sa = ip->ip_src;
+        key->da = ip->ip_dst;
+        key->prot = ip->ip_prot;
+
+    }  else {
+        /*
+         * select IP processing, since we don't have a TCP or UDP header
+         */
+        key->sa = ip->ip_src;
+        key->da = ip->ip_dst;
+        key->prot = IPPROTO_IP;
+    }
+
+    transport_start = (char *)ip + ip_hdr_len;
+    if (key->prot == IPPROTO_TCP) {
+        const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
+        key->sp = ntohs(tcp->src_port);
+        key->dp = ntohs(tcp->dst_port);
+    } else if (key->prot == IPPROTO_UDP) {
+        const struct udp_hdr *udp = (const struct udp_hdr *)transport_start;
+        key->sp = ntohs(udp->src_port);
+        key->dp = ntohs(udp->dst_port);
+    } else {
+        key->sp = 0;
+        key->dp = 0;
+    }
+
+    return rc;
+}
+
+/**
+ * \fn void* process_packet (unsigned char *ctx_ptr,
+                            const struct pcap_pkthdr *pkt_header,
+                            const unsigned char *packet)
  * \param ctx_ptr currently used to store the context data pointer
  * \param pkt_header pointer to the packer header structure
  * \param packet pointer to the packet
- * \return none
+ * \return pointer to the flow record
  */
-void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
+void* process_packet (unsigned char *ctx_ptr,
+                     const struct pcap_pkthdr *pkt_header,
                      const unsigned char *packet) {
-    //  static int packet_count = 1;
-    flow_record_t *record;
-    unsigned char proto = 0;
-    unsigned int allocated_packet_header = 0;
+    flow_record_t *record = NULL;
+    bool allocated_packet_header = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0, vlan2_ether_type = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
     struct pcap_pkthdr *header = (struct pcap_pkthdr*)pkt_header;
+
+    /* declare pointers to packet headers */
+    const struct ip_hdr *ip = NULL;
+    unsigned int transport_len = 0;
+    unsigned int ip_hdr_len = 0;
+    const void *transport_start = NULL;
+    flow_key_t key;
+    uint16_t ip_len = 0;
 
     /* grab the context for this packet */
     joy_ctx_data *ctx = (joy_ctx_data*)ctx_ptr;
     if (ctx == NULL) {
         joy_log_err("NULL Data Context Pointer");
-        return;
+        return NULL;
     }
 
-    /* declare pointers to packet headers */
-    const struct ip_hdr *ip;
-    unsigned int transport_len;
-    unsigned int ip_hdr_len;
-    const void *transport_start;
-    flow_key_t key;
-    
     memset(&key, 0x00, sizeof(flow_key_t));
 
     flocap_stats_incr_num_packets(ctx);
@@ -937,21 +949,21 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
                            break;
                        default :
                            joy_log_info("Ethernet type - Unknown with 802.1q VLAN #2");
-                           return;
+                           return NULL;
                    }
                    break;
                default :
                    joy_log_info("Ethernet type - Unknown with 802.1q VLAN #1");
-                   return;
+                   return NULL;
            }
            break;
        default:
-           return;
+           return NULL;
     }  
     
     if (ip_hdr_len < 20) {
         joy_log_err(" Invalid IP header length: %u bytes", ip_hdr_len);
-        return;
+        return NULL;
     }
 
     /* make sure we have a valid packet header */
@@ -961,7 +973,7 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
         header = calloc(1,sizeof(struct pcap_pkthdr));
         if (header == NULL) {
             joy_log_err(" Couldn't allocate memory for packet header.");
-            return;
+            return NULL;
         }
         allocated_packet_header = 1;
         gettimeofday(&now,NULL);
@@ -971,7 +983,8 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
         header->len = ip->ip_len;
     }
 
-    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr) || ntohs(ip->ip_len) > header->caplen) {
+    ip_len = ntohs(ip->ip_len);
+    if (ip_len < sizeof(struct ip_hdr) || ip_len > header->caplen) {
         /*
          * IP packet is malformed (shorter than a complete IP header, or
          * claims to be longer than it is), or not entirely captured by
@@ -980,25 +993,26 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
          */
         if (allocated_packet_header)
             free(header);
-        return ;
+        return NULL;
     }
-    transport_len =  ntohs(ip->ip_len) - ip_hdr_len;
+    transport_len =  ip_len - ip_hdr_len;
 
     /* print source and destination IP addresses */
-    inet_ntop(AF_INET, &ip->ip_src, ipv4_addr, INET_ADDRSTRLEN);
-    joy_log_info("Source IP: %s", ipv4_addr);
-    inet_ntop(AF_INET, &ip->ip_dst, ipv4_addr, INET_ADDRSTRLEN);
-    joy_log_info("Dest IP: %s", ipv4_addr);
-    joy_log_info("Len: %u", ntohs(ip->ip_len));
-    joy_log_debug("IP header len: %u", ip_hdr_len);
+    if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_INFO) { \
+        inet_ntop(AF_INET, &ip->ip_src, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_info("Source IP: %s", ipv4_addr);
+        inet_ntop(AF_INET, &ip->ip_dst, ipv4_addr, INET_ADDRSTRLEN);
+        joy_log_info("Dest IP: %s", ipv4_addr);
+        joy_log_info("Len: %u", ip_len);
+        joy_log_debug("IP header len: %u", ip_hdr_len);
+    }
 
     if (ip_fragment_offset(ip) == 0) {
 
-        /* fill out IP-specific fields of flow key, plus proto selector */
+        /* fill out IP-specific fields of flow key */
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
         key.prot = ip->ip_prot;
-        proto = (unsigned char)key.prot;
 
     }  else {
         // fprintf(info, "found IP fragment (offset: %02x)\n", ip_fragment_offset(ip));
@@ -1009,7 +1023,6 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
         key.sa = ip->ip_src;
         key.da = ip->ip_dst;
         key.prot = IPPROTO_IP;
-        proto = (unsigned char)key.prot;
     }
 
     /*
@@ -1026,11 +1039,55 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
     /* determine transport protocol and handle appropriately */
 
     transport_start = (char *)ip + ip_hdr_len;
-    switch(proto) {
+    switch(key.prot) {
         case IPPROTO_TCP:
             record = process_tcp(ctx, header, transport_start, transport_len, &key);
             if (record) {
               update_all_tcp_features(tcp_feature_list);
+            } else {
+                /*
+                 * if record is NULL at this point, it is either a retransmission or
+                 * a malformed packet, or we couldn't create a new record. Try to find the
+                 * record. If we don't find it, then its the memory error issue and just
+                 * return at this point. If we do find it, check for retransmission flag.
+                 * If we do find it and the retransmission flag is not set, then its a
+                 * malformed packet and let it get processed as plain IP.
+                 */
+                flow_key_t tcp_retrans_key;
+                const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
+                tcp_retrans_key.sa = ip->ip_src;
+                tcp_retrans_key.da = ip->ip_dst;
+                tcp_retrans_key.sp = ntohs(tcp->src_port);
+                tcp_retrans_key.dp = ntohs(tcp->dst_port);
+                tcp_retrans_key.prot = IPPROTO_IP;
+                record = flow_key_get_record(ctx, &tcp_retrans_key, DONT_CREATE_RECORDS, header);
+                if (record == NULL) {
+                    /* couldn't find the record, memory error scenario */
+	            if (allocated_packet_header) {
+		        free(header);
+	            }
+                    return NULL;
+                } else {
+                    /* found record, check for retransmission flag */
+                    if (record->is_tcp_retrans == 1) {
+                        /* same packet retransmitted, just bail */
+	                if (allocated_packet_header) {
+		            free(header);
+	                }
+                        return NULL;
+                    } else if (record->is_tcp_retrans == 2) {
+                        /* same packet retransmitted but with additional data */
+                        /* TODO: process the additional data */
+	                if (allocated_packet_header) {
+		            free(header);
+	                }
+                        return NULL;
+                    }
+                    /* if we found the record but retransmission flag not set, then
+                     * its a malformed packet and let the process_ip function below
+                     * handle the packet. FALL THROUGH
+                     */
+                }
             }
             break;
         case IPPROTO_UDP:
@@ -1051,22 +1108,15 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
      * as just an IP packet
      */
     if (record == NULL) {
-#if 1
         record = process_ip(ctx, header, transport_start, transport_len, &key);
         if (record == NULL) {
             joy_log_err("Unable to process ip packet (improper length or otherwise malformed)");
-            return;
+	    if (allocated_packet_header) {
+		free(header);
+	    }
+            return NULL;
         }
         record->invalid++;
-#else
-        /*
-         * if the processing of malformed packets causes trouble, choose
-         * this code path instead
-         */
-        if (allocated_packet_header)
-            free(header);
-        return;
-#endif
     }
 
     /*
@@ -1102,26 +1152,60 @@ void process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_heade
         if (record->idp != NULL) {
             free(record->idp);
         }
-        record->idp_len = (ntohs(ip->ip_len) < glb_config->idp ? ntohs(ip->ip_len) : glb_config->idp);
+        record->idp_len = (ip_len < glb_config->idp ? ip_len : glb_config->idp);
         record->idp = calloc(1, record->idp_len);
         if (!record->idp) {
             joy_log_err("Out of memory");
             if (allocated_packet_header)
                 free(header);
-            return;
+            return record;
         }
 
-        memcpy(record->idp, ip, record->idp_len);
-        joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
+        /* for TCP we guard against out of order packets */
+        if (key.prot == IPPROTO_TCP) {
+            /* SYN flag processed and got the next non-zero packet */
+            if (record->idp_packet == 1) {
+                memcpy(record->idp, ip, record->idp_len);
+                record->idp_packet = 0;
+                joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
+            } else {
+                /* not IDP packet, free up resources */
+                record->idp_len = 0;
+                free(record->idp);
+                record->idp = NULL;
+            }
+        } else {
+            memcpy(record->idp, ip, record->idp_len);
+            joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
+        }
     }
 
     /* increment overall byte count */
     flocap_stats_incr_num_bytes(ctx,transport_len);
 
+    /* set the feature ready flags for this flow record */
+    flow_record_set_feature_ready_flags(ctx,record);
+
     /* if we allocated the packet header, then free it now */
     if (allocated_packet_header)
         free(header);
-    return;
+    return record;
+}
+
+/**
+ * \fn void libpcap_process_packet (unsigned char *ctx_ptr,
+                                    const struct pcap_pkthdr *pkt_header,
+                                    const unsigned char *packet)
+ * \brief This function is a wrapper that matches what libpcap defines
+        for a handler to use when invoking packet dispatch routines.
+ * \param ctx_ptr currently used to store the context data pointer
+ * \param pkt_header pointer to the packer header structure
+ * \param packet pointer to the packet
+ * \return none
+ */
+void libpcap_process_packet (unsigned char *ctx_ptr, const struct pcap_pkthdr *pkt_header,
+                     const unsigned char *packet) {
+    process_packet(ctx_ptr, pkt_header, packet);
 }
 
 /* END packet processing */

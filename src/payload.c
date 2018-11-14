@@ -92,9 +92,14 @@ void payload_update (struct payload *payload,
 		     unsigned int len, 
 		     unsigned int report_payload) {
     
+    /* sanity check */
     if (payload == NULL || payload->length != 0) {
 	return;
     }
+
+    joy_log_debug("payload[%p],header[%p],data[%p],len[%d],report[%d]",
+            payload,header,data,len,report_payload);
+
     if (report_payload && len) {
 	unsigned int copylen = len > JOY_PAYLOAD_LEN ? JOY_PAYLOAD_LEN : len;
 	payload->length = copylen;
