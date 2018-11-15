@@ -46,7 +46,7 @@
 #include <stdlib.h>
 #include <string.h>    
 #include "config.h"
-#include "tls_fp.h"
+#include "fp_tls.h"
 #include "p2f.h"     /* for zprintf_raw_as_hex() */
 #include "err.h"
 #include "extractor.h"

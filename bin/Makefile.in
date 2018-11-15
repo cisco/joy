@@ -78,7 +78,9 @@ am_joy_OBJECTS = ../src/joy-p2f.$(OBJEXT) \
 	../src/joy-ppi.$(OBJEXT) ../src/joy-utils.$(OBJEXT) \
 	../src/joy-dhcp.$(OBJEXT) ../src/joy-payload.$(OBJEXT) \
 	../src/joy-config.$(OBJEXT) \
-	../src/joy-proto_identify.$(OBJEXT) ../src/joy-joy.$(OBJEXT)
+	../src/joy-proto_identify.$(OBJEXT) \
+	../src/joy-fp_tls.$(OBJEXT) ../src/joy-extractor.$(OBJEXT) \
+	../src/joy-joy.$(OBJEXT)
 joy_OBJECTS = $(am_joy_OBJECTS)
 joy_LDADD = $(LDADD)
 joy_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
@@ -302,6 +304,8 @@ joy_SOURCES = \
 	../src/payload.c \
 	../src/config.c \
 	../src/proto_identify.c \
+	../src/fp_tls.c \
+	../src/extractor.c \
 	../src/joy.c 
 
 unit_test_SOURCES = ../src/unit_test.c
@@ -501,6 +505,10 @@ jfd-anon$(EXEEXT): $(jfd_anon_OBJECTS) $(jfd_anon_DEPENDENCIES)
 	../src/$(DEPDIR)/$(am__dirstamp)
 ../src/joy-proto_identify.$(OBJEXT): ../src/$(am__dirstamp) \
 	../src/$(DEPDIR)/$(am__dirstamp)
+../src/joy-fp_tls.$(OBJEXT): ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
+../src/joy-extractor.$(OBJEXT): ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
 ../src/joy-joy.$(OBJEXT): ../src/$(am__dirstamp) \
 	../src/$(DEPDIR)/$(am__dirstamp)
 joy$(EXEEXT): $(joy_OBJECTS) $(joy_DEPENDENCIES) 
@@ -556,7 +564,9 @@ mostlyclean-compile:
 	-rm -f ../src/joy-dhcp.$(OBJEXT)
 	-rm -f ../src/joy-dns.$(OBJEXT)
 	-rm -f ../src/joy-example.$(OBJEXT)
+	-rm -f ../src/joy-extractor.$(OBJEXT)
 	-rm -f ../src/joy-fingerprint.$(OBJEXT)
+	-rm -f ../src/joy-fp_tls.$(OBJEXT)
 	-rm -f ../src/joy-hdr_dsc.$(OBJEXT)
 	-rm -f ../src/joy-http.$(OBJEXT)
 	-rm -f ../src/joy-ike.$(OBJEXT)
@@ -606,7 +616,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-dhcp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-dns.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-example.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-extractor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-fingerprint.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-fp_tls.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-hdr_dsc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-http.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-ike.Po@am__quote@
@@ -1166,6 +1178,34 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/proto_identify.c' object='../src/joy-proto_identify.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-proto_identify.obj `if test -f '../src/proto_identify.c'; then $(CYGPATH_W) '../src/proto_identify.c'; else $(CYGPATH_W) '$(srcdir)/../src/proto_identify.c'; fi`
+
+../src/joy-fp_tls.o: ../src/fp_tls.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -MT ../src/joy-fp_tls.o -MD -MP -MF ../src/$(DEPDIR)/joy-fp_tls.Tpo -c -o ../src/joy-fp_tls.o `test -f '../src/fp_tls.c' || echo '$(srcdir)/'`../src/fp_tls.c
+@am__fastdepCC_TRUE@	$(am__mv) ../src/$(DEPDIR)/joy-fp_tls.Tpo ../src/$(DEPDIR)/joy-fp_tls.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/fp_tls.c' object='../src/joy-fp_tls.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-fp_tls.o `test -f '../src/fp_tls.c' || echo '$(srcdir)/'`../src/fp_tls.c
+
+../src/joy-fp_tls.obj: ../src/fp_tls.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -MT ../src/joy-fp_tls.obj -MD -MP -MF ../src/$(DEPDIR)/joy-fp_tls.Tpo -c -o ../src/joy-fp_tls.obj `if test -f '../src/fp_tls.c'; then $(CYGPATH_W) '../src/fp_tls.c'; else $(CYGPATH_W) '$(srcdir)/../src/fp_tls.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) ../src/$(DEPDIR)/joy-fp_tls.Tpo ../src/$(DEPDIR)/joy-fp_tls.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/fp_tls.c' object='../src/joy-fp_tls.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-fp_tls.obj `if test -f '../src/fp_tls.c'; then $(CYGPATH_W) '../src/fp_tls.c'; else $(CYGPATH_W) '$(srcdir)/../src/fp_tls.c'; fi`
+
+../src/joy-extractor.o: ../src/extractor.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -MT ../src/joy-extractor.o -MD -MP -MF ../src/$(DEPDIR)/joy-extractor.Tpo -c -o ../src/joy-extractor.o `test -f '../src/extractor.c' || echo '$(srcdir)/'`../src/extractor.c
+@am__fastdepCC_TRUE@	$(am__mv) ../src/$(DEPDIR)/joy-extractor.Tpo ../src/$(DEPDIR)/joy-extractor.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/extractor.c' object='../src/joy-extractor.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-extractor.o `test -f '../src/extractor.c' || echo '$(srcdir)/'`../src/extractor.c
+
+../src/joy-extractor.obj: ../src/extractor.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -MT ../src/joy-extractor.obj -MD -MP -MF ../src/$(DEPDIR)/joy-extractor.Tpo -c -o ../src/joy-extractor.obj `if test -f '../src/extractor.c'; then $(CYGPATH_W) '../src/extractor.c'; else $(CYGPATH_W) '$(srcdir)/../src/extractor.c'; fi`
+@am__fastdepCC_TRUE@	$(am__mv) ../src/$(DEPDIR)/joy-extractor.Tpo ../src/$(DEPDIR)/joy-extractor.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/extractor.c' object='../src/joy-extractor.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-extractor.obj `if test -f '../src/extractor.c'; then $(CYGPATH_W) '../src/extractor.c'; else $(CYGPATH_W) '$(srcdir)/../src/extractor.c'; fi`
 
 ../src/joy-joy.o: ../src/joy.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -MT ../src/joy-joy.o -MD -MP -MF ../src/$(DEPDIR)/joy-joy.Tpo -c -o ../src/joy-joy.o `test -f '../src/joy.c' || echo '$(srcdir)/'`../src/joy.c

@@ -81,7 +81,9 @@ include_HEADERS=../src/include/acsm.h \
 		../src/include/utils.h \
 		../src/include/fp_tls.h \
 		../src/include/extractor.h \
-		../src/include/wht.h 
+		../src/include/wht.h \
+		../src/include/fp_tls.h \
+		../src/include/extractor.h
 
 
 

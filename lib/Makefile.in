@@ -89,7 +89,8 @@ am_libjoy_la_OBJECTS = ../src/libjoy_la-joy_api.lo \
 	../src/libjoy_la-parson.lo ../src/libjoy_la-fingerprint.lo \
 	../src/libjoy_la-ppi.lo ../src/libjoy_la-utils.lo \
 	../src/libjoy_la-dhcp.lo ../src/libjoy_la-payload.lo \
-	../src/libjoy_la-config.lo ../src/libjoy_la-proto_identify.lo
+	../src/libjoy_la-config.lo ../src/libjoy_la-proto_identify.lo \
+	../src/libjoy_la-fp_tls.lo ../src/libjoy_la-extractor.lo
 libjoy_la_OBJECTS = $(am_libjoy_la_OBJECTS)
 libjoy_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libjoy_la_CFLAGS) \
@@ -266,7 +267,9 @@ libjoy_la_SOURCES = \
 	../src/dhcp.c \
 	../src/payload.c \
 	../src/config.c \
-	../src/proto_identify.c 
+	../src/proto_identify.c \
+	../src/fp_tls.c \
+	../src/extractor.c
 
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) 
 libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION) $(SSL_LDFLAGS) -lcrypto
@@ -308,7 +311,11 @@ include_HEADERS = ../src/include/acsm.h \
 		../src/include/tls.h \
 		../src/include/updater.h \
 		../src/include/utils.h \
-		../src/include/wht.h 
+		../src/include/fp_tls.h \
+		../src/include/extractor.h \
+		../src/include/wht.h \
+		../src/include/fp_tls.h \
+		../src/include/extractor.h
 
 all: all-am
 
@@ -443,6 +450,10 @@ clean-libLTLIBRARIES:
 	../src/$(DEPDIR)/$(am__dirstamp)
 ../src/libjoy_la-proto_identify.lo: ../src/$(am__dirstamp) \
 	../src/$(DEPDIR)/$(am__dirstamp)
+../src/libjoy_la-fp_tls.lo: ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
+../src/libjoy_la-extractor.lo: ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
 libjoy.la: $(libjoy_la_OBJECTS) $(libjoy_la_DEPENDENCIES) 
 	$(libjoy_la_LINK) -rpath $(libdir) $(libjoy_la_OBJECTS) $(libjoy_la_LIBADD) $(LIBS)
 
@@ -466,8 +477,12 @@ mostlyclean-compile:
 	-rm -f ../src/libjoy_la-dns.lo
 	-rm -f ../src/libjoy_la-example.$(OBJEXT)
 	-rm -f ../src/libjoy_la-example.lo
+	-rm -f ../src/libjoy_la-extractor.$(OBJEXT)
+	-rm -f ../src/libjoy_la-extractor.lo
 	-rm -f ../src/libjoy_la-fingerprint.$(OBJEXT)
 	-rm -f ../src/libjoy_la-fingerprint.lo
+	-rm -f ../src/libjoy_la-fp_tls.$(OBJEXT)
+	-rm -f ../src/libjoy_la-fp_tls.lo
 	-rm -f ../src/libjoy_la-hdr_dsc.$(OBJEXT)
 	-rm -f ../src/libjoy_la-hdr_dsc.lo
 	-rm -f ../src/libjoy_la-http.$(OBJEXT)
@@ -523,7 +538,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-dhcp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-dns.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-example.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-extractor.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-fingerprint.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-fp_tls.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-hdr_dsc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-http.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-ike.Plo@am__quote@
@@ -786,6 +803,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/proto_identify.c' object='../src/libjoy_la-proto_identify.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -c -o ../src/libjoy_la-proto_identify.lo `test -f '../src/proto_identify.c' || echo '$(srcdir)/'`../src/proto_identify.c
+
+../src/libjoy_la-fp_tls.lo: ../src/fp_tls.c
+@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -MT ../src/libjoy_la-fp_tls.lo -MD -MP -MF ../src/$(DEPDIR)/libjoy_la-fp_tls.Tpo -c -o ../src/libjoy_la-fp_tls.lo `test -f '../src/fp_tls.c' || echo '$(srcdir)/'`../src/fp_tls.c
+@am__fastdepCC_TRUE@	$(am__mv) ../src/$(DEPDIR)/libjoy_la-fp_tls.Tpo ../src/$(DEPDIR)/libjoy_la-fp_tls.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/fp_tls.c' object='../src/libjoy_la-fp_tls.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -c -o ../src/libjoy_la-fp_tls.lo `test -f '../src/fp_tls.c' || echo '$(srcdir)/'`../src/fp_tls.c
+
+../src/libjoy_la-extractor.lo: ../src/extractor.c
+@am__fastdepCC_TRUE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -MT ../src/libjoy_la-extractor.lo -MD -MP -MF ../src/$(DEPDIR)/libjoy_la-extractor.Tpo -c -o ../src/libjoy_la-extractor.lo `test -f '../src/extractor.c' || echo '$(srcdir)/'`../src/extractor.c
+@am__fastdepCC_TRUE@	$(am__mv) ../src/$(DEPDIR)/libjoy_la-extractor.Tpo ../src/$(DEPDIR)/libjoy_la-extractor.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../src/extractor.c' object='../src/libjoy_la-extractor.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL)  --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -c -o ../src/libjoy_la-extractor.lo `test -f '../src/extractor.c' || echo '$(srcdir)/'`../src/extractor.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
