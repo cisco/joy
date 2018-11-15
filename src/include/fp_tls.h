@@ -47,6 +47,7 @@
 #include <pcap.h>
 #include "output.h"
 #include "feature.h"
+#include "extractor.h"
 
 #define MAX_FP_LEN 1500
 

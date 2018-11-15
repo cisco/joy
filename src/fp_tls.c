@@ -49,6 +49,7 @@
 #include "tls_fp.h"
 #include "p2f.h"     /* for zprintf_raw_as_hex() */
 #include "err.h"
+#include "extractor.h"
 
 extern FILE *info;
 
