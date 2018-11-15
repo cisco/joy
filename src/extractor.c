@@ -36,6 +36,25 @@
 
 #include "extractor.h"
 
+/* utility functions */
+
+static void encode_uint16(unsigned char *p, uint16_t x) {
+    p[0] = x >> 8;
+    p[1] = 0xff & x;
+}
+
+static uint16_t raw_to_uint16 (const void *x) {
+    uint16_t y;
+    const unsigned char *z = x;
+
+    y = z[0];
+    y = y << 8;
+    y += z[1];
+    return y;
+}
+
+/* extractor methods */
+
 void extractor_init(struct extractor *x,
 		    const unsigned char *data,
 		    unsigned int data_len,
@@ -89,6 +108,7 @@ enum status extractor_read_u8(struct extractor *x,
     }
     return status_err;
 }
+
 
 enum status extractor_read_u16(struct extractor *x,
 			      uint16_t *output) {

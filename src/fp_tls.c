@@ -59,20 +59,7 @@ extern FILE *info;
 
 #define ciphersuite_start 44
 
-static void encode_uint16(unsigned char *p, uint16_t x) {
-    p[0] = x >> 8;
-    p[1] = 0xff & x;
-}
 
-static uint16_t raw_to_uint16 (const void *x) {
-    uint16_t y;
-    const unsigned char *z = x;
-
-    y = z[0];
-    y = y << 8;
-    y += z[1];
-    return y;
-}
 
 unsigned int ciphersuite_is_grease(uint16_t cs) {
     switch(cs) {
@@ -97,32 +84,6 @@ unsigned int ciphersuite_is_grease(uint16_t cs) {
 	return 0; // FALSE
     }
     return 0;     // FALSE
-}
-
-static void ciphersuite_vector_normalize_grease(void *cs_vector,
-						int len) {
-    // unsigned int num_ciphersuites;
-    uint16_t cs;
-    unsigned char *data = cs_vector;
-    
-    // num_ciphersuites = raw_to_uint16(data)/2;
-    //    fprintf(stderr, "num ciphersuites: %hx\n", num_ciphersuites);
-    data += 2;
-    len -= 2;
-    
-    while (len > 0) {
-	cs = raw_to_uint16(data);
-	if (ciphersuite_is_grease(cs)) {
-	    // fprintf(stderr, "ciphersuite: %hx is GREASE (len: %d)\n", cs, len);
-	    data[0] = 0x0A;
-	    data[1] = 0x0A;
-	} else {
-	    // fprintf(stderr, "ciphersuite: %hx is NOT GREASE (len: %d)\n", cs, len);
-	}
-	data += 2;
-	len -= 2;
-    }
-
 }
 
 

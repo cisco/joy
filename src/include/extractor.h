@@ -37,6 +37,8 @@
 #ifndef EXTRACTOR_H
 #define EXTRACTOR_H
 
+#include <stddef.h>
+#include <stdint.h>
 
 /*
  * An extractor is an object that parses data in one buffer, selects
