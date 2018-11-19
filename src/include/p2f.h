@@ -282,7 +282,7 @@ unsigned int flow_record_is_expired(joy_ctx_data *ctx, flow_record_t *record);
 
 void remove_record_and_update_list(joy_ctx_data *ctx, flow_record_t *rec);
 
-int process_pcap_file(char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);
+int process_pcap_file(char *file_name, const char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp);
 
 /* flocap_stats holds high-level statistics about packets and flow
  * records, for use in accounting and troubleshooting
