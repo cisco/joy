@@ -12417,10 +12417,9 @@ CC="$lt_save_CC"
 
 
 
-#tmp_am_cflags="-Werror -Wall -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O"
-tmp_am_cflags_no_cast_qual="-Werror -Wall -Wbad-function-cast -Wcast-align -Wchar-subscripts -Wcomment -Wdeprecated-declarations -Wdisabled-optimization -Wdiv-by-zero -Wendif-labels -Wformat -Wformat-extra-args -Wformat-security -Wformat-y2k -Wimplicit -Wimplicit-function-declaration -Wimplicit-int -Wimport -Winline -Winvalid-pch -Wmain -Wmissing-braces -Wmissing-format-attribute -Wmissing-noreturn -Wmultichar -Wnested-externs -Wnonnull -Wparentheses -Wpointer-arith -Wreturn-type -Wsequence-point -Wshadow -Wsign-compare -Wstrict-aliasing -Wstrict-prototypes -Wswitch -Wswitch-default -Wswitch-enum -Wsystem-headers -Wtrigraphs -Wunknown-pragmas -Wunused -Wunused-function -Wunused-label -Wunused-parameter -Wunused-value -Wunused-variable -Wunused-but-set-variable -Wwrite-strings -Wno-pointer-sign -Wextra -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -D_GNU_SOURCE"
+tmp_am_cflags="-Werror -Wall -Wbad-function-cast -Wchar-subscripts -Wcomment -Wdeprecated-declarations -Wdisabled-optimization -Wdiv-by-zero -Wendif-labels -Wformat -Wformat-extra-args -Wformat-security -Wformat-y2k -Wimplicit -Wimplicit-function-declaration -Wimplicit-int -Wimport -Winline -Winvalid-pch -Wmain -Wmissing-braces -Wmissing-format-attribute -Wmissing-noreturn -Wmultichar -Wnested-externs -Wnonnull -Wparentheses -Wpointer-arith -Wreturn-type -Wsequence-point -Wshadow -Wsign-compare -Wstrict-aliasing -Wstrict-prototypes -Wswitch -Wswitch-default -Wswitch-enum -Wsystem-headers -Wtrigraphs -Wunknown-pragmas -Wunused -Wunused-function -Wunused-label -Wunused-parameter -Wunused-value -Wunused-variable -Wwrite-strings -Wno-pointer-sign -Wextra -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -D_GNU_SOURCE"
 
-tmp_am_cflags="-Werror -Wall -Wbad-function-cast -Wcast-align -Wchar-subscripts -Wcomment -Wdeprecated-declarations -Wdisabled-optimization -Wdiv-by-zero -Wendif-labels -Wformat -Wformat-extra-args -Wformat-security -Wformat-y2k -Wimplicit -Wimplicit-function-declaration -Wimplicit-int -Wimport -Winline -Winvalid-pch -Wmain -Wmissing-braces -Wmissing-format-attribute -Wmissing-noreturn -Wmultichar -Wnested-externs -Wnonnull -Wparentheses -Wpointer-arith -Wreturn-type -Wsequence-point -Wsign-compare -Wstrict-aliasing -Wstrict-prototypes -Wswitch -Wswitch-default -Wswitch-enum -Wsystem-headers -Wtrigraphs -Wunknown-pragmas -Wunused -Wunused-function -Wunused-label -Wunused-parameter -Wunused-value -Wunused-variable -Wunused-but-set-variable -Wwrite-strings -Wno-pointer-sign -Wextra -Wcast-qual -fPIC -fPIE -D_FORTIFY_SOURCE=2 -O -D_GNU_SOURCE"
+
 
 #
 # Disabling cast-qual Support
@@ -12444,7 +12443,6 @@ $as_echo "no" >&6; };
 fi
 
 
-AM_CFLAGS="$tmp_am_cflags"
 
 { $as_echo "$as_me:$LINENO: checking host system type" >&5
 $as_echo_n "checking host system type... " >&6; }
@@ -12485,6 +12483,7 @@ case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
 
 case "$host_os" in
   linux*)
+        tmp_am_cflags+=" -Wunused-but-set-variable -Wcast-align"
          if FALSE; then
   BUILD_MAC_TRUE=
   BUILD_MAC_FALSE='#'
@@ -12499,6 +12498,7 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 ;;
   darwin*)
+        tmp_am_cflags+=" -Wno-expansion-to-defined -Wno-nullability-completeness"
          if TRUE; then
   BUILD_MAC_TRUE=
   BUILD_MAC_FALSE='#'
@@ -12514,6 +12514,8 @@ _ACEOF
 ;;
   *)
 esac
+
+AM_CFLAGS="$tmp_am_cflags"
 
 #
 # Here if -disable-cast-qual was selected we would need to turn off
