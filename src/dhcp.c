@@ -297,7 +297,7 @@ void dhcp_update(dhcp_t *dhcp,
                  unsigned int data_len,
                  unsigned int report_dhcp)
 {
-    const unsigned char *ptr = (unsigned char *)data;
+    const unsigned char *ptr = (const unsigned char *)data;
     dhcp_message_t *msg = NULL;
     const unsigned char magic_cookie[] = {0x63, 0x82, 0x53, 0x63};
 
@@ -571,16 +571,16 @@ void dhcp_print_json(const dhcp_t *d1,
  *
  * \return pointer to the beginning of DHCP message data, NULL if fail
  */
-static unsigned char* dhcp_skip_packet_udp_header(const unsigned char *packet_data,
+static const unsigned char* dhcp_skip_packet_udp_header(const unsigned char *packet_data,
                                                   unsigned int packet_len,
                                                   unsigned int *size_payload) {
     const struct ip_hdr *ip = NULL;
     unsigned int ip_hdr_len = 0;
     unsigned int udp_hdr_len = 8;
-    unsigned char *payload = NULL;
+    const unsigned char *payload = NULL;
 
     /* define/compute ip header offset */
-    ip = (struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
+    ip = (const struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         joy_log_err("invalid ip header of len %d", ip_hdr_len);
@@ -594,7 +594,7 @@ static unsigned char* dhcp_skip_packet_udp_header(const unsigned char *packet_da
     }
 
     /* define/compute udp payload (segment) offset */
-    payload = (unsigned char *)(packet_data + ETHERNET_HDR_LEN + ip_hdr_len + udp_hdr_len);
+    payload = (const unsigned char *)(packet_data + ETHERNET_HDR_LEN + ip_hdr_len + udp_hdr_len);
 
     /* compute udp payload (segment) size */
     *size_payload = packet_len - ETHERNET_HDR_LEN - ip_hdr_len - udp_hdr_len;

@@ -538,7 +538,7 @@ void anon_http_ctx_cleanup (void)
  * \param len length of the bytes to print
  * \return none
  */
-void zprintf_nbytes (zfile f, char *s, size_t len) {
+void zprintf_nbytes (zfile f, const char *s, size_t len) {
     char tmp[1024];
   
     if (len >= 1024) {
@@ -577,7 +577,7 @@ void zprintf_anon_nbytes (zfile f, size_t len) {
  * \return 0 is not special
  * \return 1 is special
  */
-int is_special (char *ptr) {
+int is_special (const char *ptr) {
     char c = *ptr;
     return (c=='?')||(c=='&')||(c=='/')||(c=='-')||(c=='\\')||(c=='_')||(c=='.')||(c=='=')||(c==';')||(c==0); // ||(c==' ')||(c=='@')||(c=='.');
 }
@@ -589,7 +589,7 @@ int is_special (char *ptr) {
  * \param text the uri string
  * \return none
  */
-void anon_print_uri(zfile f, struct matches *matches, char *text) {
+void anon_print_uri(zfile f, struct matches *matches, const char *text) {
     unsigned int i;
 
     if (matches->count == 0) {
@@ -623,7 +623,7 @@ void anon_print_uri(zfile f, struct matches *matches, char *text) {
  * \return o is not special
  * \return 1 is special
  */
-int email_special_chars (char *ptr) {
+int email_special_chars (const char *ptr) {
     char c = *ptr;
     return (c==0)||(c==' ')||(c=='@')||(c==',')||(c=='\t')||(c=='"')||(c=='\'');
 }
@@ -638,7 +638,7 @@ int email_special_chars (char *ptr) {
  * \param transform transform to use for anonymization
  * \return none
  */
-void anon_print_string (zfile f, struct matches *matches, char *text, 
+void anon_print_string (zfile f, struct matches *matches, const char *text, 
                         char_selector selector, string_transform transform) {
     unsigned int i;
     joy_status_e err;
@@ -656,7 +656,7 @@ void anon_print_string (zfile f, struct matches *matches, char *text,
             /* 
              * matching and special 
              */
-            void *start = text + matches->start[i];
+            const void *start = text + matches->start[i];
             size_t len = matches->stop[i] - matches->start[i] + 1;
 
             if (transform) {
@@ -690,7 +690,7 @@ void anon_print_string (zfile f, struct matches *matches, char *text,
  * \param text string to print out
  * \return none
  */
-void anon_print_uri_pseudonym (zfile f, struct matches *matches, char *text) {
+void anon_print_uri_pseudonym (zfile f, struct matches *matches, const char *text) {
     anon_print_string(f, matches, text, is_special, anon_string);
         return;
 }
@@ -705,7 +705,7 @@ void anon_print_uri_pseudonym (zfile f, struct matches *matches, char *text) {
  * \param transform transform to use for anonymization
  * \return none
  */
-void zprintf_usernames (zfile f, struct matches *matches, char *text, 
+void zprintf_usernames (zfile f, struct matches *matches, const char *text, 
                         char_selector selector, string_transform transform) {
     unsigned int i;
     char tmp[1024];

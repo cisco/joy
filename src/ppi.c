@@ -127,7 +127,7 @@ void ppi_update (struct ppi *ppi,
         }
             if (opt_len) {
                 memcpy(ppi->pkt_info[ppi->np].opts, 
-                       (char*)tcp_start + 20, 
+                       (const char*)tcp_start + 20, 
                        opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len);
             } 
             ppi->np++;
@@ -321,7 +321,7 @@ void tcp_opt_print_json(zfile f,
             if (datalen != 2) {
             tcp_opt_malformed_print_json(f, *opt, data, datalen);
             } else {
-                const uint16_t *mss = (uint16_t*)data;
+                const uint16_t *mss = (const uint16_t*)data;
             zprintf(f, "\"mss\":%u", ntohs(*mss));
             }
         break;
@@ -340,7 +340,7 @@ void tcp_opt_print_json(zfile f,
             if (datalen != 8) {
             tcp_opt_malformed_print_json(f, *opt, data, datalen);
             } else {
-                const uint32_t *tsval = (uint32_t*)data;
+                const uint32_t *tsval = (const uint32_t*)data;
                 const uint32_t *tsecr = tsval + 1;
             zprintf(f, "\"ts\":{\"val\":%u,\"ecr\":%u}", ntohl(*tsval), ntohl(*tsecr));
             }

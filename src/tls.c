@@ -2848,17 +2848,17 @@ end_loop:
     return num_fails;
 }
 
-static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_data,
+static const unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_data,
                                                  unsigned int packet_len,
                                                  unsigned int *size_payload) {
     const struct ip_hdr *ip = NULL;
     unsigned int ip_hdr_len = 0;
     const struct tcp_hdr *tcp = NULL;
     unsigned int tcp_hdr_len = 0;
-    unsigned char *payload = NULL;
+    const unsigned char *payload = NULL;
 
     /* define/compute ip header offset */
-    ip = (struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
+    ip = (const struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         joy_log_err("invalid ip header of len %d", ip_hdr_len);
@@ -2871,7 +2871,7 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
         return NULL;
     }
 
-    tcp = (const struct tcp_hdr *)((unsigned char *)ip + ip_hdr_len);
+    tcp = (const struct tcp_hdr *)((const unsigned char *)ip + ip_hdr_len);
     tcp_hdr_len = tcp_hdr_length(tcp);
 
     if (tcp_hdr_len < 20 || tcp_hdr_len > (packet_len - ip_hdr_len)) {
@@ -2880,7 +2880,7 @@ static unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_dat
     }
 
     /* define/compute tcp payload (segment) offset */
-    payload = ((unsigned char *)tcp + tcp_hdr_len);
+    payload = ((const unsigned char *)tcp + tcp_hdr_len);
 
     /* compute tcp payload (segment) size */
     *size_payload = packet_len - ETHERNET_HDR_LEN - ip_hdr_len - tcp_hdr_len;

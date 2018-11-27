@@ -104,7 +104,7 @@ static int parse_bool (bool *x, const char *arg, int num_arg) {
 }
 
 /*parses a string values */
-static int parse_string (const char **s, char *arg, int num_arg) {
+static int parse_string (char **s, char *arg, int num_arg) {
     if (s == NULL || arg == NULL || num_arg != 2) {
         return failure;
     }
@@ -118,7 +118,7 @@ static int parse_string (const char **s, char *arg, int num_arg) {
 }
 
 /* parses mutliple part string values */
-static int parse_string_multiple (const char **s, char *arg, int num_arg,
+static int parse_string_multiple (char **s, char *arg, int num_arg,
            unsigned int string_num, unsigned int string_num_max) {
     if (s == NULL) {
         return failure;
