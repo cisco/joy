@@ -34,6 +34,9 @@
  *
  */
 
+#include <string.h>   /* for memcpy()   */
+#include <stdio.h>
+
 #include "extractor.h"
 
 /* utility functions */
@@ -149,6 +152,18 @@ enum status extractor_copy(struct extractor *x,
     return status_err;
 }
 
+enum status extractor_copy_alt(struct extractor *x,
+			       unsigned char *data, /* alternative data source */
+			       unsigned int len) {
+
+    if (x->output + len <= x->output_end) {
+	memcpy(x->output, data, len);
+	x->output += len;
+	return status_ok;
+    }
+    return status_err;
+}
+
 enum status extractor_reserve_output(struct extractor *x,
 				     size_t length,
 				     unsigned char **tmp_location) {
@@ -179,13 +194,13 @@ enum status extractor_copy_and_degrease(struct extractor *x,
 	while (len > 0) {
 	    cs = raw_to_uint16(x->data);
 	    if (ciphersuite_is_grease(cs)) {
-		// fprintf(stderr, "ciphersuite: %hx is GREASE (len: %d)\n", cs, len);
+		// fprintf(stderr, "%hx is GREASE (len: %d)\n", cs, len);
 		x->output[0] = 0x0A;
 		x->output[1] = 0x0A;
 	    } else {
 		x->output[0] = x->data[0];
 		x->output[1] = x->data[1];
-		// fprintf(stderr, "ciphersuite: %hx is NOT GREASE (len: %d)\n", cs, len);
+		// fprintf(stderr, "%hx is NOT GREASE (len: %d)\n", cs, len);
 	    }
 	    x->output += 2;
 	    x->data += 2;
@@ -197,7 +212,6 @@ enum status extractor_copy_and_degrease(struct extractor *x,
     return status_err;
 }
 
-
 enum status extractor_push_vector_extractor(struct extractor *y,
 					    struct extractor *x,
 					    size_t bytes_in_length_field) {
@@ -207,6 +221,7 @@ enum status extractor_push_vector_extractor(struct extractor *y,
     if (extractor_read_uint(x, bytes_in_length_field, &tmp_len)) {
 	return status_err;
     }
+    // fprintf(stderr, "extensions length: %zu\n", tmp_len);
     if (extractor_skip(x, bytes_in_length_field)) {
 	return status_err;
     }
@@ -244,5 +259,44 @@ unsigned int match(const unsigned char *data,
 	}
 	return 1;
     }    
+    return 0;
+}
+
+unsigned int extractor_match(struct extractor *x,
+			     const unsigned char *value,
+			     size_t value_len,
+			     const unsigned char *mask) {
+    int i;
+
+    if (x->data + value_len <= x->data_end) {
+	if (mask) {
+	    for (i = 0; i < value_len; i++) {
+		if ((x->data[i] & mask[i]) != value[i]) {
+		    return 0;
+		}
+	    }
+	} else { /* mask == NULL */
+	    for (i = 0; i < value_len; i++) {
+		if (x->data[i] != value[i]) {
+		    return 0;
+		}	    
+	    }
+	}
+	x->data += value_len;
+	return 1;
+    }    
+    return 0;
+}
+
+unsigned int uint16_match(uint16_t x,
+			  const uint16_t *ulist,
+			  unsigned int num) {
+    uint16_t *ulist_end = ulist + num;
+
+    while (ulist < ulist_end) {
+	if (x == *ulist++) {
+	    return 1;
+	}
+    }
     return 0;
 }

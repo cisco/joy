@@ -181,11 +181,24 @@ void extractor_pop_vector_extractor(struct extractor *x,
 enum status extractor_copy_and_degrease(struct extractor *x,
 					int len);
 
+enum status extractor_copy_alt(struct extractor *x,
+			       unsigned char *data, /* alternative data source */
+			       unsigned int len);
 
 unsigned int match(const unsigned char *data,
 		   size_t data_len,
 		   const unsigned char *mask,
 		   const unsigned char *value,
 		   size_t value_len);
+
+
+unsigned int extractor_match(struct extractor *x,
+			     const unsigned char *value,
+			     size_t value_len,
+			     const unsigned char *mask);
+
+unsigned int uint16_match(uint16_t x,
+			  const uint16_t *ulist,
+			  unsigned int num);
 
 #endif /* EXTRACTOR_H */

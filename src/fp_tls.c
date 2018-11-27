@@ -148,7 +148,7 @@ unsigned int extension_needs_degreasing(uint16_t ext_type) {
  */
 
 
-static unsigned int tls_client_hello_get_fp_new(const unsigned char *data,
+static unsigned int tls_client_hello_get_fp(const unsigned char *data,
 					    int len,
 					    void *fp) {
     size_t tmp_len;
@@ -159,28 +159,32 @@ static unsigned int tls_client_hello_get_fp_new(const unsigned char *data,
     unsigned char tls_client_hello_value[] = {
 	0x16, 0x03, 0x00, 0x00, 0x00, 0x01
     };
+    uint16_t static_extension_types[7] = {
+	5,         /* status_request                         */
+	10,        /* supported_groups                       */
+	11,        /* ec_point_formats                       */
+	13,        /* signature_algorithms                   */
+	16,        /* application_layer_protocol_negotiation */
+	43,        /* supported_versions                     */
+	45         /* psk_key_exchange_modes                 */
+    };
+    
+    extractor_init(&x, data, len, fp, MAX_FP_LEN);
 
     /* 
      * verify that we are looking at a TLS ClientHello 
      */
-    if (match(data,
-	      len,
-	      tls_client_hello_mask,
-	      tls_client_hello_value,
-	      sizeof(tls_client_hello_mask)) == 0) {
-	return 0;  /* not a clientHello */
+    if (!extractor_match(&x,
+			tls_client_hello_value,
+			L_ContentType +	L_ProtocolVersion + L_RecordLength + L_HandshakeType,
+			tls_client_hello_mask)) {
+	return 0; /* not a clientHello */
     }
     
-    extractor_init(&x, data, len, fp, MAX_FP_LEN);
-
     /*
      * skip over initial fields 
      */
-    if (extractor_skip(&x, (L_ContentType +
-			    L_ProtocolVersion +
-			    L_RecordLength +
-			    L_HandshakeType +
-			    L_HandshakeLength))) {
+    if (extractor_skip(&x, (L_HandshakeLength))) {
 	goto bail;
     }
     
@@ -210,7 +214,7 @@ static unsigned int tls_client_hello_get_fp_new(const unsigned char *data,
     if (extractor_read_uint(&x, L_CipherSuiteVectorLength, &tmp_len)) {
 	goto bail;
     }
-    if (extractor_copy_and_degrease(&x, tmp_len + L_CipherSuiteVectorLength)) {
+    if (extractor_copy(&x, tmp_len + L_CipherSuiteVectorLength)) {
 	goto bail;
     }
 
@@ -235,30 +239,26 @@ static unsigned int tls_client_hello_get_fp_new(const unsigned char *data,
 	if (extractor_read_uint(&y, L_ExtensionType, &tmp_type)) {
 	    break;
 	}
-	if (extractor_copy_and_degrease(&y, L_ExtensionType)) {
+	if (extractor_copy(&y, L_ExtensionType)) {
 	    break;
 	}
 	if (extractor_read_uint(&y, L_ExtensionLength, &tmp_len)) {
 	    break;
 	}
 
-	// fprintf(stderr, "t: %u\tl: %u\tD: %d\tL: %d\tO: %d\n", tmp_type, tmp_len, y.data_end-y.data, y.output-y.output_start, y.output_end-y.output);
+	//fprintf(stderr, "t: %zu\tl: %zu\tD: %d\tL: %d\n", tmp_type, tmp_len, y.data_end-y.data+2, y.output-y.output_start-2);
 
-	if (extension_is_static(tmp_type)) {
-	    if (extension_needs_degreasing(tmp_type)) {
-		if (extractor_copy_and_degrease(&y, tmp_len + L_ExtensionLength)) {
-		    break;
-		}
-	    } else {
-		if (extractor_copy(&y, tmp_len + L_ExtensionLength)) {
-		    break;
-		}		
-	    }
-	} else {
-	    if (extractor_copy(&y, L_ExtensionLength)) {
+	if (uint16_match(tmp_type, static_extension_types, 7)) { 
+	    if (extractor_copy(&y, tmp_len + L_ExtensionLength)) {
 		break;
+	    }		
+	} else {
+ 	    unsigned char zero[L_ExtensionLength] = { 0x00, 0x00 };
+	    
+	    if (extractor_copy_alt(&y, zero, L_ExtensionLength)) {
+	       break;
 	    }
-	    if (extractor_skip(&y, tmp_len)) {
+	    if (extractor_skip(&y, tmp_len + L_ExtensionLength)) {
 		break;
 	    }
 	}	
@@ -325,7 +325,7 @@ void fp_tls_update (struct fp_tls *fp_tls,
         if (fp_tls->fp_len > 0) {
 	    return;
 	} else {
-	    fp_tls->fp_len = tls_client_hello_get_fp_new(data, len, fp_tls->fp);
+	    fp_tls->fp_len = tls_client_hello_get_fp(data, len, fp_tls->fp);
 	}
     }
 }
