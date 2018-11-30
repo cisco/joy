@@ -1710,7 +1710,7 @@ static void ipfix_parse_basic_list(flow_record_t *ix_record,
     uint8_t hdr_length = 5; /* default 5 bytes */
     uint16_t remaining_length = data_length;
     
-    if ipfix_field_enterprise_bit(field_id) {
+    if (ipfix_field_enterprise_bit(field_id)) {
             /* Enterprise bit is set,  */
             //enterprise_num = ntohl(bl_hdr->enterprise_num);
             /* Remove the bit from field_id */

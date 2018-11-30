@@ -19,7 +19,7 @@ m4_define([joy_micro_version], [1])
 m4_define([joy_version],[joy_major_version.joy_minor_version.joy_micro_version])
 AC_PREREQ(2.63)
 
-AC_INIT([joy],[joy_version],[TBD@cisco.com])
+AC_INIT([joy],[joy_version],[joy-users@cisco.com])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS([joy_config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -76,7 +76,7 @@ fi
 AC_CANONICAL_HOST
 case "$host_os" in
   linux*)
-        tmp_am_cflags+=" -Wunused-but-set-variable -Wcast-align -Wl, -z,noexecstack"
+        tmp_am_cflags+=" -Wunused-but-set-variable -Wcast-align -Wl,-z,noexecstack"
         AM_CONDITIONAL(BUILD_MAC, FALSE)
         AC_DEFINE([LINUX], [1], [Linux OS]);;
   darwin*)

@@ -502,13 +502,13 @@ int joy_initialize(joy_init_t *init_data,
     /* initialize the protocol identification dictionary */
     if (proto_identify_init()) {
         joy_log_err("could not initialize the protocol identification dictionary");
-        JOY_API_FREE_CONTEXT(ctx_data)
+        JOY_API_FREE_CONTEXT(ctx_data);
         return failure;
     }
 
     /* initialize all the data context structures */
-    for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data) ++i) {
-        struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i)
+    for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data); ++i) {
+        struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i);
 
         /* id the context */
         this->ctx_id = i;
@@ -595,7 +595,7 @@ void joy_print_config(uint8_t index, uint8_t format)
     }
 
     /* get the context to print the config into */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     if (format == JOY_TERMINAL_FORMAT) {
         /* print the configuration in the output */
@@ -901,7 +901,7 @@ void joy_update_ctx_global_time(uint8_t ctx_index,
         return;
     }
 
-    ctx = JOY_CTX_AT_INDEX(ctx_data,ctx_index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,ctx_index);
 
     /* update the context global time */
     ctx->global_time.tv_sec = new_time->tv_sec;
@@ -1016,7 +1016,7 @@ void* joy_process_packet(unsigned char *ctx_index,
     }
 
     /* process the packet */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     record = process_packet((unsigned char*)ctx, header, packet);
 
     /* see if there is any app data to store */
@@ -1086,7 +1086,7 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
         return;
     }
 
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     process_packet((unsigned char*)ctx, header, packet);
 }
 
@@ -1129,7 +1129,7 @@ void joy_print_flow_data(uint8_t index, joy_flow_type_e type)
         return;
     }
 
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* see if we should collect host information */
     if (glb_config->report_exe) {
@@ -1200,7 +1200,7 @@ void joy_export_flows_ipfix(uint8_t index, joy_flow_type_e type)
     }
 
     /* export the flow records */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     flow_record_export_as_ipfix(ctx, type);
 }
 
@@ -1235,7 +1235,7 @@ void joy_get_feature_counts(uint8_t index, joy_ctx_feat_count_t *feat_counts)
     }
 
     /* report back the record counts for various features */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     feat_counts->idp_recs_ready = ctx->idp_recs_ready;
     feat_counts->tls_recs_ready = ctx->tls_recs_ready;
     feat_counts->splt_recs_ready = ctx->splt_recs_ready;
@@ -1286,7 +1286,7 @@ void joy_idp_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1352,7 +1352,7 @@ void joy_tls_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1455,7 +1455,7 @@ void joy_splt_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1550,7 +1550,7 @@ void joy_salt_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1657,7 +1657,7 @@ void joy_bd_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1724,7 +1724,7 @@ unsigned int joy_delete_flow_records(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records */
     rec = ctx->flow_record_chrono_first;
@@ -1801,7 +1801,7 @@ extern unsigned int joy_purge_old_flow_records(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records */
     rec = ctx->flow_record_chrono_first;
@@ -1863,7 +1863,7 @@ void joy_context_cleanup(uint8_t index)
     }
 
     /* find the context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* Flush any unsent exporter messages in Ipfix module */
     if (glb_config->ipfix_export_port) {
