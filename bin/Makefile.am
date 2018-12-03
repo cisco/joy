@@ -69,8 +69,8 @@ unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -Wl,-pie
 joy_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
 jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -Wl,-pie
 str_match_test_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -Wl,-pie
-joy_api_test_LDADD= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap 
-joy_api_test2_LDADD= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap
+joy_api_test_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap -Wl,-pie
+joy_api_test2_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap -Wl,-pie
 
 else
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -pie
@@ -78,6 +78,6 @@ unit_test_LDFLAGS = $(LDFLAGS) -L../lib/.libs -ljoy -lm -lpcap -pie
 joy_anon_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -pie
 jfd_anon_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -pie
 str_match_test_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto  -L../lib/.libs -ljoy -lm -lpcap -pie
-joy_api_test_LDADD= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap
-joy_api_test2_LDADD= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap
+joy_api_test_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap -pie
+joy_api_test2_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap -pie
 endif
