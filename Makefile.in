@@ -752,6 +752,7 @@ install-data-local:
 	mkdir -p $(DESTDIR)$(prefix)/share/joy
 	mkdir -p $(DESTDIR)$(prefix)/share/man
 	mkdir -p $(DESTDIR)$(prefix)/share/man/man1
+	cp doc/joy.1 $(DESTDIR)$(prefix)/share/man/man1
 	cp install_joy/options.cfg $(DESTDIR)$(prefix)/etc/joy/options.cfg
 	cp sleuth $(DESTDIR)$(prefix)/bin
 	cp resources/tls_fingerprint.json $(DESTDIR)$(prefix)/etc/joy
