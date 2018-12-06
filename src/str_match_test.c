@@ -58,7 +58,7 @@
 
 zfile output = NULL;
 
-static void matches_print (struct matches *matches, char *text) {
+static void matches_print (struct matches *matches, const char *text) {
     unsigned int i;
     char tmp[1024];
 
@@ -74,7 +74,7 @@ static void matches_print (struct matches *matches, char *text) {
     }
 }
 
-static void anon_print (zfile f, struct matches *matches, char *text) {
+static void anon_print (zfile f, struct matches *matches, const char *text) {
     unsigned int i;
 
     if (matches->count == 0) {
@@ -99,20 +99,20 @@ static void str_match_test (str_match_ctx ctx, const char *search) {
 
     str_match_ctx_find_all_longest(ctx, (const unsigned char *)search, strlen(search), &matches);
   
-    matches_print(&matches, (char *)search);
+    matches_print(&matches, search);
 
     zprintf(output, "text being searched:   %s\n", search);  
     zprintf(output, "anonymized string:     ");
-    anon_print(output, &matches, (char *)search);
+    anon_print(output, &matches, search);
     zprintf(output, "\n");
     zprintf(output, "anonymized uri string: ");
-    anon_print_uri(output, &matches, (char *)search);
+    anon_print_uri(output, &matches, search);
     zprintf(output, "anonymized string: ");
-    anon_print_uri_pseudonym(output, &matches, (char *)search);
+    anon_print_uri_pseudonym(output, &matches, search);
     zprintf(output, "\n");
-    zprintf_usernames(output, &matches, (char *)search, is_special, NULL);
+    zprintf_usernames(output, &matches, search, is_special, NULL);
     zprintf(output, "\n");
-    zprintf_usernames(output, &matches, (char *)search, is_special, anon_string);
+    zprintf_usernames(output, &matches, search, is_special, anon_string);
     zprintf(output, "\n");
 }
 

@@ -251,7 +251,7 @@ attr_flags radix_trie_lookup_addr (struct radix_trie *trie, struct in_addr addr)
 /*
  * fucntion add flags to all leaf nodes 
  */
-static void radix_trie_node_add_flag_to_all_leaves (const struct radix_trie_node *rt, attr_flags flags) {
+static void radix_trie_node_add_flag_to_all_leaves (struct radix_trie_node *rt, attr_flags flags) {
     unsigned int i = 0;
   
     /* sanity check */
@@ -516,7 +516,7 @@ joy_status_e radix_trie_init (struct radix_trie *rt) {
  * Function to free up the memory for leaf and internal nodes
  * returns ok
  */
-static joy_status_e radix_trie_deep_free (const struct radix_trie_node *rt) {
+static joy_status_e radix_trie_deep_free (struct radix_trie_node *rt) {
     int i = 0;
 
     switch (rt->type) {
@@ -704,7 +704,7 @@ joy_status_e radix_trie_add_subnets_from_file (struct radix_trie *rt,
  * function to print out the contents of a node
  */
 static void radix_trie_node_print (const struct radix_trie *r, 
-                                   const struct radix_trie_node *rt,
+                                   struct radix_trie_node *rt,
                                    const char *string) {
     uint32_t i = 0;
     char tmp[TMP_BUFF_256_LEN];

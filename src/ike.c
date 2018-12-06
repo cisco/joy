@@ -4918,7 +4918,7 @@ static int ike_sa_match(ike_sa_t *init_sa, ike_sa_t *resp_sa) {
  *
  * \return Pointer to an IKE security association structure, or NULL if none exist.
  */
-static ike_sa_t *ike_sa_get(ike_t *ike) {
+static ike_sa_t *ike_sa_get(const ike_t *ike) {
     int i, j;
 
     for (i = (int)(ike->num_messages-1); i >= 0; i--) {
@@ -4947,8 +4947,8 @@ static ike_sa_t *ike_sa_get(ike_t *ike) {
  *
  * \return
  */
-static void ike_process(ike_t *init,
-                        ike_t *resp) {
+static void ike_process(const ike_t *init,
+                        const ike_t *resp) {
     ike_sa_t *init_sa, *resp_sa;
 
     if (init == NULL || resp == NULL) {
@@ -5093,11 +5093,11 @@ void ike_update(ike_t *ike,
 void ike_print_json(const ike_t *data,
                     const ike_t *data_twin,
                     zfile f) {
-    ike_t *init = NULL, *resp = NULL;
+    const ike_t *init = NULL, *resp = NULL;
     unsigned int i;
 
-    init = (ike_t*)data;
-    resp = (ike_t*)data_twin;
+    init = data;
+    resp = data_twin;
 
     ike_process(init, resp);
 

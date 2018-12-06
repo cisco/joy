@@ -53,16 +53,16 @@
 /* VPP optimized implementations */
 
 #define JOY_API_ALLOC_CONTEXT(a,b)   \
-    vec_validate_aligned(a, (b-1), CLIB_CACHE_LINE_BYTES);
+    vec_validate_aligned(a, (b-1), CLIB_CACHE_LINE_BYTES)
 
 #define JOY_API_FREE_CONTEXT(a)    \
-    vec_free(a);
+    vec_free(a)
 
 #define JOY_MAX_CTX_INDEX(a)   \
-    vec_len(a);
+    vec_len(a)
 
 #define JOY_CTX_AT_INDEX(a,b)   \
-    vec_elt_at_index(a,b);
+    vec_elt_at_index(a,b)
 
 #else
 
@@ -76,10 +76,10 @@
     a = NULL;
 
 #define JOY_MAX_CTX_INDEX(a)   \
-    joy_num_contexts;
+    joy_num_contexts
 
 #define JOY_CTX_AT_INDEX(a,b)   \
-    (a + b);
+    (a + b)
 
 #endif
 

@@ -387,7 +387,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
     unsigned int flow_len = nf_record->idp_len;
 
     /* Compute ip header offset */
-    ip = (struct ip_hdr*)(flow_data);
+    ip = (const struct ip_hdr*)(flow_data);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         /*
@@ -413,7 +413,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
              return 1;
         }
         /* Compute icmp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
 
         /* Compute icmp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - icmp_hdr_len;
@@ -428,7 +428,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
         }
 
         /* Compute tcp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
 
         /* Compute tcp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - tcp_hdr_len;
@@ -436,7 +436,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
         unsigned int udp_hdr_len = 8;
 
         /* Compute udp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
 
         /* Compute udp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - udp_hdr_len;
