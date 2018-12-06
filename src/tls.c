@@ -69,7 +69,7 @@
 
 /*
  * The maxiumum allowed length of a serial number is 20 octets
- * according to RFC5290 section 4.1.2.2. We give some leeway
+ * according to RFC5280 section 4.1.2.2. We give some leeway
  * for any non-conforming certificates.
  */
 #define MAX_CERT_SERIAL_LENGTH 24
@@ -1982,6 +1982,8 @@ static void tls_print_extensions(const tls_extension_t *extensions,
         zprintf(f, ",\"c_extensions\":[");
     } else if (role == role_server) {
         zprintf(f, ",\"s_extensions\":[");
+    } else if (role == role_flow_data) {
+        zprintf(f, ",\"extensions\":[");
     } else {
         joy_log_err("unknown role is not permitted");
         return;
@@ -2064,6 +2066,8 @@ void tls_print_json (const tls_t *data,
             }
             zprintf(f, ",\"c_version\":%u", data->version);
         }
+    } else if (data->role == role_flow_data) {
+        zprintf(f, "\"version\":%u", data->version);
     } else {
         zprintf(f, "\"error\":\"no role\"}");
         return;
@@ -2074,12 +2078,16 @@ void tls_print_json (const tls_t *data,
      */
     if (data->client_key_length) {
         zprintf(f, ",\"c_key_length\":%u", data->client_key_length);
-        zprintf(f, ",\"c_key_exchange\":");
-        zprintf_raw_as_hex_tls(f, data->clientKeyExchange, data->client_key_length/8);
+        if (data->role != role_flow_data) {
+            zprintf(f, ",\"c_key_exchange\":");
+            zprintf_raw_as_hex_tls(f, data->clientKeyExchange, data->client_key_length/8);
+        }
     } else if (data_twin && data_twin->client_key_length) {
         zprintf(f, ",\"c_key_length\":%u", data_twin->client_key_length);
-        zprintf(f, ",\"c_key_exchange\":");
-        zprintf_raw_as_hex_tls(f, data_twin->clientKeyExchange, data_twin->client_key_length/8);
+        if (data->role != role_flow_data) {
+            zprintf(f, ",\"c_key_exchange\":");
+            zprintf_raw_as_hex_tls(f, data_twin->clientKeyExchange, data_twin->client_key_length/8);
+        }
     }
 
     /*
@@ -2093,13 +2101,16 @@ void tls_print_json (const tls_t *data,
             zprintf_raw_as_hex_tls(f, data_twin->random, 32);
         }
     }
-    else {
+    else if (data->role == role_server) {
         zprintf(f, ",\"s_random\":");
         zprintf_raw_as_hex_tls(f, data->random, 32);
         if (data_twin) {
             zprintf(f, ",\"c_random\":");
             zprintf_raw_as_hex_tls(f, data_twin->random, 32);
         }
+    } else {
+        zprintf(f, ",\"random\":");
+        zprintf_raw_as_hex_tls(f, data->random, 32);
     }
 
     /*
@@ -2113,13 +2124,16 @@ void tls_print_json (const tls_t *data,
                 zprintf(f, ",\"s_sid\":");
                 zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
             }
-        } else {
+        } else if (data->role == role_server) {
             zprintf(f, ",\"s_sid\":");
             zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
             if (data_twin && data_twin->sid_len) {
                 zprintf(f, ",\"c_sid\":");
                 zprintf_raw_as_hex_tls(f, data_twin->sid, data_twin->sid_len);
             }
+        } else {
+            zprintf(f, ",\"sid\":");
+            zprintf_raw_as_hex_tls(f, data->sid, data->sid_len);
         }
     }
 
@@ -2136,7 +2150,7 @@ void tls_print_json (const tls_t *data,
     /*
      * Offered and selected ciphersuites
      */
-    if (data->role == role_client) {
+    if ((data->role == role_client) || (data->role == role_flow_data)) {
         if (data_twin && data_twin->num_ciphersuites == 1) {
             zprintf(f, ",\"scs\":\"%04x\"", data_twin->ciphersuites[0]);
         }
@@ -2186,6 +2200,12 @@ void tls_print_json (const tls_t *data,
                              data_twin->num_server_extensions,
                              role_server, f);
 
+    }
+
+    if (data->num_extensions && data->role == role_flow_data) {
+        tls_print_extensions(data->extensions,
+                             data->num_extensions,
+                             role_flow_data, f);
     }
 
     if (data->tls_fingerprint) {

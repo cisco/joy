@@ -94,9 +94,10 @@ void joy_utils_convert_to_json_string (char *s, unsigned int len);
 void joy_log_timestamp ( char *log_ts);
 
 typedef enum joy_role_ {
-  role_unknown = 0,
-  role_client  = 1,
-  role_server  = 2
+  role_unknown   = 0,
+  role_client    = 1,
+  role_server    = 2,
+  role_flow_data = 3
 } joy_role_e;
 
 #endif /* P2FUTILS */

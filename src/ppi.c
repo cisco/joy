@@ -300,7 +300,7 @@ void tcp_opt_print_json(zfile f,
           first_line = 0;
         }
 
-        if ((optlen > total_len) || (optlen == 0)) {
+        if ((optlen > total_len) || (optlen < 2)) {
             /* Incomplete or malformed data */
         zprintf(f, "{");
         zprintf(f, "\"malformed\":{\"kind\":%u,\"len\":%u}", *opt, optlen);
