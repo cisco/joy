@@ -1005,9 +1005,9 @@ static void print_executable_json (zfile f, const flow_record_t *rec) {
         }
         if (rec->uptime_seconds > 0) {
             if (comma) {
-                zprintf(f, ",\"uptime\":%lu", rec->uptime_seconds);
+                zprintf(f, ",\"uptime\":%llu", (unsigned long long)rec->uptime_seconds);
             } else {
-                zprintf(f, "\"uptime\":%lu", rec->uptime_seconds);
+                zprintf(f, "\"uptime\":%llu", (unsigned long long)rec->uptime_seconds);
                 comma = 1;
             }
         }
