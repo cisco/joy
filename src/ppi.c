@@ -300,7 +300,7 @@ void tcp_opt_print_json(zfile f,
           first_line = 0;
         }
 
-        if ((optlen > total_len) || (optlen < 2)) {
+        if ((optlen > total_len) || (optlen == 0)) {
             /* Incomplete or malformed data */
         zprintf(f, "{");
         zprintf(f, "\"malformed\":{\"kind\":%u,\"len\":%u}", *opt, optlen);
@@ -311,6 +311,10 @@ void tcp_opt_print_json(zfile f,
     /* Pointer to option data and calculate length */
         data = opt + 2;
         datalen = optlen - 2;
+        if (datalen > total_len) {
+            /* malformed option, defensive code here to prevent overflow */
+            datalen = 0;
+        }
         
         zprintf(f, "{");
         switch(*opt) {
