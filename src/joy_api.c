@@ -781,7 +781,7 @@ int joy_update_compact_bd(const char *filename)
 	    }
         }
         fclose(fp);
-        glb_config->compact_byte_distribution = filename;
+        glb_config->compact_byte_distribution = (char*)filename;
     } else {
         joy_log_err("could not open compact BD file %s", filename);
         return failure;
