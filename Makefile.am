@@ -41,6 +41,6 @@ install-data-local:
 	cp install_joy/joy.service $(DESTDIR)$(prefix)/usr/lib/systemd/system
 	cp install_joy/joy.service $(DESTDIR)$(prefix)/usr/lib/systemd/system
 
-EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth Makefile.joy src/Makefile.joy VERSION
+EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth Makefile.joy src/Makefile.joy doc resources VERSION
 
 
