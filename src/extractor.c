@@ -153,10 +153,6 @@ enum status extractor_read_uint(struct extractor *x,
     return status_err;
 }
 
-#define EXTRACTOR_ENCODE_LENGTHS 1
-
-#if EXTRACTOR_ENCODE_LENGTHS
-
 enum status extractor_copy(struct extractor *x,
 			   unsigned int len) {
 
@@ -260,50 +256,6 @@ enum status extractor_copy_alt(struct extractor *x,
 			       unsigned int len) {
     return status_ok;
 }
-
-#else /* EXTRACTOR_ENCODE_LENGTHS == 0 */
-
-enum status extractor_copy(struct extractor *x,
-			   unsigned int len) {
-
-    if (x->data + len <= x->data_end && x->output + len <= x->output_end) {
-	memcpy(x->output, x->data, len);
-	x->data += len;
-	x->output += len;
-	return status_ok;
-    }
-    return status_err;
-}
-
-void zprintf_raw_as_structured_hex(zfile f,
-				   const unsigned char *data,
-				   unsigned int len) {
-
-    zprintf_raw_as_hex(f, data, len);
-    
-}
-
-enum status extractor_copy_append(struct extractor *x,
-				  unsigned int len) {
-
-    return extractor_copy(x, len);
-}
-
-enum status extractor_copy_alt(struct extractor *x,
-			       unsigned char *data, /* alternative data source */
-			       unsigned int len) {
-
-    if (x->output + len <= x->output_end) {
-	memcpy(x->output, data, len);
-	x->output += len;
-	return status_ok;
-    }
-    return status_err;
-}
-
-#define PARENT_NODE_INDICATOR 0
-
-#endif
 
 enum status extractor_reserve_output(struct extractor *x,
 				     size_t length) {
@@ -662,18 +614,12 @@ unsigned int extractor_process_tls(struct extractor *x) {
     if (extractor_read_uint(x, L_CipherSuiteVectorLength, &tmp_len)) {
 	goto bail;
     }
-#if EXTRACTOR_ENCODE_LENGTHS
     if (extractor_skip(x, L_CipherSuiteVectorLength)) {
 	goto bail;
     }    
     if (extractor_copy(x, tmp_len)) {
 	goto bail;
     }
-#else
-    if (extractor_copy(x, tmp_len + L_CipherSuiteVectorLength)) {
-	goto bail;
-    }    
-#endif    
 
     /* skip over compression methods */
     if (extractor_read_uint(x, L_CompressionMethodsLength, &tmp_len)) {
