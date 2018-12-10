@@ -39,6 +39,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include "output.h"   /* for zfile */
 
 /*
  * An extractor is an object that parses data in one buffer, selects
@@ -93,21 +94,38 @@ void extractor_init(struct extractor *x,
 
 
 /*
- * extractor_skip advances the data pointer, but not the output
- * pointer.  It does not copy any data.
+ * extractor_skip advances the data pointer by len bytes, but does not
+ * advance the output pointer.  It does not copy any data.
  */
 enum status extractor_skip(struct extractor *x,
 			   unsigned int len);
 
+/* 
+ * extractor_skip_to advances the data pointer to the location
+ * provided as input, but does not advance the output pointer.  It
+ * does not copy any data.
+ */
+enum status extractor_skip_to(struct extractor *x,
+			      const unsigned char *location);
 
 /*
  * extractor_copy copies data from the data buffer to the output
- * buffer, and advances both the data pointer and the output pointer.
+ * buffer, after prepending the length of that data, and advances both
+ * the data pointer and the output pointer.
  */
 enum status extractor_copy(struct extractor *x,
 			   unsigned int len);
 
+
 /*
+ * extractor_copy_append copies data from the data buffer to the
+ * output buffer, after updating the length of the previously copied
+ * data, then advances both the data pointer and the output pointer.
+ */
+enum status extractor_copy_append(struct extractor *x,
+				  unsigned int len);
+
+ /*
  * extractor_read_uint reads the next num_bytes from the data buffer,
  * interprets them as an unsigned integer in network byte (big endian)
  * order, and writes the resulting value into the size_t at
@@ -141,14 +159,13 @@ void extractor_pop(struct extractor *outer,
 /*
  * extractor_reserve_output reserves num_bytes bytes of the output
  * stream as the location to which data can be written in the future,
- * and returns that location by writing it into the pointer at
- * tmp_location.  This function can be used to encode variable-length
+ * and remembers that location (by storing it into its tmp_location
+ * variable).  This function can be used to encode variable-length
  * data in the output (and it is used by extractor_push and
  * extractor_pop).
  */
 enum status extractor_reserve_output(struct extractor *x,
-				     size_t num_bytes,
-				     unsigned char **tmp_location);
+				     size_t num_bytes);
 
 /*
  * extractor_get_data_length returns the number of bytes remaining in
@@ -170,17 +187,6 @@ enum status extractor_push_vector_extractor(struct extractor *y,
 void extractor_pop_vector_extractor(struct extractor *x,
 				    struct extractor *y);
 
-
-/*
- * extractor_copy_and_degrease copies data from the data buffer to the
- * output buffer, translating GREASE values as needed, and advances
- * both the data pointer and the output pointer.
- * 
- * This function may be generalized to copy_and_transcode.
- */
-enum status extractor_copy_and_degrease(struct extractor *x,
-					int len);
-
 enum status extractor_copy_alt(struct extractor *x,
 			       unsigned char *data, /* alternative data source */
 			       unsigned int len);
@@ -200,5 +206,18 @@ unsigned int extractor_match(struct extractor *x,
 unsigned int uint16_match(uint16_t x,
 			  const uint16_t *ulist,
 			  unsigned int num);
+
+void zprintf_raw_as_structured_hex(zfile f,
+				   const unsigned char *data,
+				   unsigned int len);
+
+/*
+ * protocol-specific functions
+ */
+
+unsigned int extractor_process_tcp(struct extractor *x);
+
+unsigned int extractor_process_tls(struct extractor *x);
+
 
 #endif /* EXTRACTOR_H */

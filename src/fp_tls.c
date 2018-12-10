@@ -37,8 +37,8 @@
 /**
  * \file tls_fp.c
  *
- * \brief TLS fingerprinting data feature module that uses the C
- * preprocessor generic programming interface defined in feature.h.
+ * \brief Protocol fingerprint extraction feature module that uses the
+ * C preprocessor generic programming interface defined in feature.h.
  *
  */
 
@@ -46,335 +46,143 @@
 #include <stdlib.h>
 #include <string.h>    
 #include "config.h"
-#include "fp_tls.h"
-#include "p2f.h"     /* for zprintf_raw_as_hex() */
 #include "err.h"
+#include "fp_tls.h"
 #include "extractor.h"
 
 extern FILE *info;
 
-/* tls fingerprint functions */
-
-#define LEN MAX_FP_LEN
-
-#define ciphersuite_start 44
-
-
-
-unsigned int ciphersuite_is_grease(uint16_t cs) {
-    switch(cs) {
-    case 0x0A0A:
-    case 0x1A1A:
-    case 0x2A2A:
-    case 0x3A3A:
-    case 0x4A4A:
-    case 0x5A5A:
-    case 0x6A6A:
-    case 0x7A7A:
-    case 0x8A8A:
-    case 0x9A9A:
-    case 0xAAAA:
-    case 0xBABA:
-    case 0xCACA:
-    case 0xDADA:
-    case 0xEAEA:
-    case 0xFAFA:
-	return 1; // TRUE
-    default:
-	return 0; // FALSE
-    }
-    return 0;     // FALSE
-}
-
-
-unsigned int extension_is_static(uint16_t ext_type) {
-    switch(ext_type) {
-    case 5:         /* status_request                         */
-    case 10:        /* supported_groups                       */
-    case 11:        /* ec_point_formats                       */
-    case 13:        /* signature_algorithms                   */
-    case 16:        /* application_layer_protocol_negotiation */
-    case 43:        /* supported_versions                     */
-    case 45:        /* psk_key_exchange_modes                 */
-	return 1;   /* TRUE  */
-    default:
-	return 0;   /* FALSE */
-    }
-    return 0;       /* FALSE */     
-}
-
-unsigned int extension_needs_degreasing(uint16_t ext_type) {
-    switch(ext_type) {
-    case 10:        /* supported_groups                       */
-    case 11:        /* ec_point_formats                       */
-    case 13:        /* signature_algorithms                   */
-    case 43:        /* supported_versions                     */
-	return 1;   /* TRUE  */
-    default:
-	return 0;   /* FALSE */
-    }
-    return 0;       /* FALSE */     
-}
-
-#define extension_is_grease(ext_type) ciphersuite_is_grease(ext_type)
-
-
-#define L_ContentType              1    
-#define L_ProtocolVersion          2    
-#define L_RecordLength             2    
-#define L_HandshakeType            1    
-#define L_HandshakeLength          3    
-#define L_ProtocolVersion          2    
-#define L_Random                  32
-#define L_SessionIDLength          1
-#define L_CipherSuiteVectorLength  2
-#define L_CompressionMethodsLength 1
-#define L_ExtensionsVectorLength   2
-#define L_ExtensionType            2
-#define L_ExtensionLength          2
-
-
-/*
- * Hex strings for TLS ClientHello (which appear at the start of the
- * TCP Data field):
- * 
- *    16 03 01  *  * 01   v1.0 data
- *    16 03 02  *  * 01   v1.1 data
- *    16 03 03  *  * 01   v1.2 data
- *    ---------------------------------------
- *    ff ff fc 00 00 ff   mask
- *    16 03 00 00 00 01   value = data & mask 
- *    
- */
-
-
-static unsigned int tls_client_hello_get_fp(const unsigned char *data,
-					    int len,
-					    void *fp) {
-    size_t tmp_len;
-    struct extractor x, y;
-    unsigned char tls_client_hello_mask[] = {
-	0xff, 0xff, 0xfc, 0x00, 0x00, 0xff
-    };
-    unsigned char tls_client_hello_value[] = {
-	0x16, 0x03, 0x00, 0x00, 0x00, 0x01
-    };
-    uint16_t static_extension_types[7] = {
-	5,         /* status_request                         */
-	10,        /* supported_groups                       */
-	11,        /* ec_point_formats                       */
-	13,        /* signature_algorithms                   */
-	16,        /* application_layer_protocol_negotiation */
-	43,        /* supported_versions                     */
-	45         /* psk_key_exchange_modes                 */
-    };
-    
-    extractor_init(&x, data, len, fp, MAX_FP_LEN);
-
-    /* 
-     * verify that we are looking at a TLS ClientHello 
-     */
-    if (!extractor_match(&x,
-			tls_client_hello_value,
-			L_ContentType +	L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-			tls_client_hello_mask)) {
-	return 0; /* not a clientHello */
-    }
-    
-    /*
-     * skip over initial fields 
-     */
-    if (extractor_skip(&x, (L_HandshakeLength))) {
-	goto bail;
-    }
-    
-    /* 
-     * copy clientHello.ProtocolVersion 
-     */
-    if (extractor_copy(&x, L_ProtocolVersion)) {
-	goto bail;
-    }
-    
-    /*
-     * skip over Random
-     */
-    if (extractor_skip(&x, L_Random)) {
-	goto bail;
-    }
-    
-    /* skip over SessionID and SessionIDLen */
-    if (extractor_read_uint(&x, L_SessionIDLength, &tmp_len)) {
-	goto bail;
-    }
-    if (extractor_skip(&x, tmp_len + L_SessionIDLength)) {
-	goto bail;
-    }
-
-    /* copy ciphersuite offer vector */
-    if (extractor_read_uint(&x, L_CipherSuiteVectorLength, &tmp_len)) {
-	goto bail;
-    }
-    if (extractor_copy(&x, tmp_len + L_CipherSuiteVectorLength)) {
-	goto bail;
-    }
-
-    /* skip over compression methods */
-    if (extractor_read_uint(&x, L_CompressionMethodsLength, &tmp_len)) {
-	goto bail;
-    }
-    if (extractor_skip(&x, tmp_len + L_CompressionMethodsLength)) {
-	goto bail;
-    }
-    
-    /*
-     * parse extensions vector by pushing a new extractor and then
-     * looping over all extensions in its data
-     */
-    if (extractor_push_vector_extractor(&y, &x, L_ExtensionsVectorLength)) {
-	goto bail;
-    }    
-    while (extractor_get_data_length(&y) > 0) {
-	size_t tmp_type;
-	
-	if (extractor_read_uint(&y, L_ExtensionType, &tmp_type)) {
-	    break;
-	}
-	if (extractor_copy(&y, L_ExtensionType)) {
-	    break;
-	}
-	if (extractor_read_uint(&y, L_ExtensionLength, &tmp_len)) {
-	    break;
-	}
-
-	//fprintf(stderr, "t: %zu\tl: %zu\tD: %d\tL: %d\n", tmp_type, tmp_len, y.data_end-y.data+2, y.output-y.output_start-2);
-
-	if (uint16_match(tmp_type, static_extension_types, 7)) { 
-	    if (extractor_copy(&y, tmp_len + L_ExtensionLength)) {
-		break;
-	    }		
-	} else {
- 	    unsigned char zero[L_ExtensionLength] = { 0x00, 0x00 };
-	    
-	    if (extractor_copy_alt(&y, zero, L_ExtensionLength)) {
-	       break;
-	    }
-	    if (extractor_skip(&y, tmp_len + L_ExtensionLength)) {
-		break;
-	    }
-	}	
-    }
-
-    /*
-     * we are done parsing extensions, so pop the vector extractor
-     */
-    extractor_pop_vector_extractor(&x, &y);
-    
-    return extractor_get_output_length(&x);
-    
- bail:
-    /*
-     * handle packet parsing errors
-     */
-    fprintf(stderr, "warning: TLS clientHello processing did not fully complete\n");
-    return extractor_get_output_length(&x);
-}
-
-
-
 
 /**
- * \brief Initialize the memory of fp_tls struct.
+ * \brief Initialize the memory of fpx struct.
  *
- * \param fp_tls_handle contains fp_tls structure to init
+ * \param fpx_handle contains fpx structure to init
  *
  * \return none
  */
-__inline void fp_tls_init (struct fp_tls **fp_tls_handle) {
-    if (*fp_tls_handle != NULL) {
-        fp_tls_delete(fp_tls_handle);
+__inline void fpx_init (struct fpx **fpx_handle) {
+    if (*fpx_handle != NULL) {
+        fpx_delete(fpx_handle);
     }
 
-    *fp_tls_handle = calloc(1, sizeof(struct fp_tls));
-    if (*fp_tls_handle == NULL) {
+    *fpx_handle = calloc(1, sizeof(struct fpx));
+    if (*fpx_handle == NULL) {
         /* Allocation failed */
         joy_log_err("malloc failed");
         return;
     }
+
+    /* initialize lengths */
+    {
+	struct fpx *f = *fpx_handle;
+	
+	f->fp_len = 0;
+	f->tcp_fp_len = 0;
+    }
 }
 
 /**
- * \fn void fp_tls_update (struct fp_tls *fp_tls,
+ * \fn void fpx_update (struct fpx *fpx,
  *                          const struct pcap_pkthdr *header,
                             const void *data,
                             unsigned int len,
-                            unsigned int report_fp_tls)
- * \param fp_tls structure to initialize
+                            unsigned int report_fpx)
+ * \param fpx structure to initialize
  * \param header pointer to the pcap packet header
  * \param data data to use for update
  * \param len length of the data
- * \param report_fp_tls flag to determine if we filter fp_tls
+ * \param report_fpx flag to determine if we filter fpx
  * \return none
  */
-void fp_tls_update (struct fp_tls *fp_tls, 
+void fpx_update (struct fpx *fpx, 
 		    const struct pcap_pkthdr *header, 
 		    const void *data, 
 		    unsigned int len, 
-		    unsigned int report_fp_tls) {
+		    unsigned int report_fpx) {
+    struct extractor x;
+    
+    if (report_fpx) {
 
-    if (report_fp_tls) {
-        if (fp_tls->fp_len > 0) {
-	    return;
-	} else {
-	    fp_tls->fp_len = tls_client_hello_get_fp(data, len, fp_tls->fp);
+	if (fpx->tcp_fp_len == 0) {
+	    extractor_init(&x, data, len, fpx->tcp_fp, MAX_TCP_FP_LEN);  	    
+	    fpx->tcp_fp_len = extractor_process_tcp(&x);
+	}
+
+	if (fpx->fp_len == 0) {
+	    extractor_init(&x, data, len, fpx->fp, MAX_FP_LEN);  	    
+	    fpx->fp_len = extractor_process_tls(&x);	    
 	}
     }
 }
 
-/**
- * \fn void fp_tls_print_json (const struct fp_tls *x1, const struct fp_tls *x2, zfile f)
- * \param x1 pointer to fp_tls structure
- * \param x2 pointer to fp_tls structure
- * \param f output file
- * \return none
- */
-void fp_tls_print_json (const struct fp_tls *x1, const struct fp_tls *x2, zfile f) {
-
-    if (x1->fp_len || 1) {
-        zprintf(f, ",\"fp_tls\":");
-	zprintf_raw_as_hex(f, x1->fp, x1->fp_len);
+static void fpx_print_json_unidirectional(const struct fpx *x, zfile f) {
+    if (x->tcp_fp_len) {
+	zprintf(f, "\"tcp\":");
+	zprintf_raw_as_structured_hex(f, x->tcp_fp, x->tcp_fp_len);
+	if (x->fp_len) {
+	    zprintf(f, ",");
+	}
     }
-    if (x2->fp_len) {
-	;
+    if (x->fp_len) {
+	zprintf(f, "\"tls\":");
+	zprintf_raw_as_structured_hex(f, x->fp, x->fp_len);
     }
-
 }
 
 /**
- * \brief Delete the memory of fp_tls struct.
+ * \fn void fpx_print_json (const struct fpx *x1, const struct fpx *x2, zfile f)
+ * \param x1 pointer to fpx structure (MUST NOT be NULL)
+ * \param x2 pointer to fpx structure (MAY be NULL)
+ * \param f output file
+ * \return none
+ */
+void fpx_print_json (const struct fpx *x1, const struct fpx *x2, zfile f) {
+
+    /*
+     * check for fingerprints and print if needed
+     */
+    if (x1->tcp_fp_len || x1->fp_len) {
+	zprintf(f, ",\"fingerprints\":{");
+	fpx_print_json_unidirectional(x1, f);
+	zprintf(f, "}");
+    }
+
+    /*
+     * if flow twin x2 is present, check for fingerprints and print if needed
+     */
+    if (x2 && (x2->tcp_fp_len || x2->fp_len)) {
+	zprintf(f, ",\"fingerprints_in\":{");
+	fpx_print_json_unidirectional(x2, f);
+	zprintf(f, "}");	
+    }
+}
+
+/**
+ * \brief Delete the memory of fpx struct.
  *
- * \param fp_tls_handle contains fp_tls structure to delete
+ * \param fpx_handle contains fpx structure to delete
  *
  * \return none
  */
-void fp_tls_delete (struct fp_tls **fp_tls_handle) { 
-    struct fp_tls *fp_tls = *fp_tls_handle;
+void fpx_delete (struct fpx **fpx_handle) { 
+    struct fpx *fpx = *fpx_handle;
 
-    if (fp_tls == NULL) {
+    if (fpx == NULL) {
         return;
     }
 
     /* Free the memory and set to NULL */
-    free(fp_tls);
-    *fp_tls_handle = NULL;
+    free(fpx);
+    *fpx_handle = NULL;
 }
 
 /**
- * \fn void fp_tls_unit_test ()
+ * \fn void fpx_unit_test ()
  * \param none
  * \return none
  */
-void fp_tls_unit_test () {
-    // struct fp_tls *fp_tls = NULL;
+void fpx_unit_test () {
+    // struct fpx *fpx = NULL;
     // const struct pcap_pkthdr *header = NULL; 
 
     /* TBD */
