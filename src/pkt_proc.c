@@ -77,7 +77,7 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
                                                             const struct tcp_hdr *tcp) {
 
     /* make sure we have room in the array */
-    if (record->op >= MAX_NUM_PKT_LEN) {
+    if (record->op >= (MAX_NUM_PKT_LEN-1)) {
         return;  /* no more room */
     }
 
