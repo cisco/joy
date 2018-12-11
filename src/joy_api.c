@@ -919,13 +919,14 @@ void joy_update_ctx_global_time(uint8_t ctx_index,
  *
  * Parameters:
  *      packet - pointer to the IP packet data
+ *      num_contexts - number of contexts to use for distribution
  *
  * Returns:
  *      context - the context number the packet belongs to for JOY processing.
  *          This algorithms keeps bidirectional flows in the same context.
  *
  */
-uint8_t joy_packet_to_context(const unsigned char *packet) {
+uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts) {
     uint8_t rc = 0;
     uint8_t context = 0;
     unsigned int sum = 0;
@@ -955,7 +956,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet) {
     sum &= 0xff;
 
     /* fit the mod 257 hash into the number of contexts configured */
-    context = sum % joy_num_contexts;
+    context = sum % num_contexts;
 
     joy_log_debug("Packet goes into context (%d)", context);
     return context;
