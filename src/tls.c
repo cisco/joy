@@ -1358,49 +1358,35 @@ static int tls_version_to_internal(unsigned char major,
                                    unsigned char minor) {
     int internal_version = 0;
 
-    if ((major != 3) || (minor > 4)) {
-        /*
-         * Currently only capture SSLV3, TLS1.0, 1.1, 1.2, 1.3
-         * Allow the dev version of TlS 1.3
-         */
-        if (major != 0x7F || minor != 0x12) {
-            return 0;
+    /*
+     * Currently only capture SSLV3, TLS1.0, 1.1, 1.2, 1.3
+     * Allow the dev version of TlS 1.3
+     */
+
+    if (major == 0x03) {
+        switch(minor) {
+            case 0:
+                internal_version = TLS_VERSION_SSLV3;
+                break;
+            case 1:
+                internal_version = TLS_VERSION_1_0;
+                break;
+            case 2:
+                internal_version = TLS_VERSION_1_1;
+                break;
+            case 3:
+                internal_version = TLS_VERSION_1_2;
+                break;
+            case 4:
+                internal_version = TLS_VERSION_1_3;
+                break;
+            default:
+                break;
         }
-    }
-
-    switch(major) {
-        case 3:
-            switch(minor) {
-                case 0:
-                    internal_version = TLS_VERSION_SSLV3;
-                    break;
-                case 1:
-                    internal_version = TLS_VERSION_1_0;
-                    break;
-                case 2:
-                    internal_version = TLS_VERSION_1_1;
-                    break;
-                case 3:
-                    internal_version = TLS_VERSION_1_2;
-                    break;
-                case 4:
-                    internal_version = TLS_VERSION_1_3;
-                    break;
-                default:
-                    ;
-            }
-            break;
-
-        case 0x7F:
-            switch(minor) {
-                case 0x12:
-                    internal_version = TLS_VERSION_1_3;
-                    break;
-                default:
-                    ;
-            }
-        default:
-            ;
+    } else if (major == 0x7f) {
+        if (minor == 0x12) {
+            internal_version = TLS_VERSION_1_3;
+        }
     }
 
     return internal_version;
@@ -2084,7 +2070,7 @@ void tls_print_json (const tls_t *data,
         }
     } else if (data_twin && data_twin->client_key_length) {
         zprintf(f, ",\"c_key_length\":%u", data_twin->client_key_length);
-        if (data->role != role_flow_data) {
+        if (data_twin->role != role_flow_data) {
             zprintf(f, ",\"c_key_exchange\":");
             zprintf_raw_as_hex_tls(f, data_twin->clientKeyExchange, data_twin->client_key_length/8);
         }

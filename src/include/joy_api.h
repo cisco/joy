@@ -334,13 +334,14 @@ extern void joy_update_ctx_global_time (uint8_t ctx_index,
  *
  * Parameters:
  *      packet - pointer to the IP packet data
+ *      num_contexts - number of contexts to use for distribution
  *
  * Returns:
  *      context - the context number the packet belongs to for JOY processing.
  *          This algorithm keeps bidirectional flows in the same context.
  *
  */
-extern uint8_t joy_packet_to_context (const unsigned char *packet);
+extern uint8_t joy_packet_to_context (const unsigned char *packet, uint8_t num_contexts);
 
 /*
  * Function: joy_process_packet
