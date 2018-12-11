@@ -68,6 +68,7 @@
 #include "ipfix.h"
 #include "pkt_proc.h"
 
+#define MAX_APP_DATA_LEN 32
 #define MAX_NFV9_SPLT_SALT_PKTS 10
 #define MAX_NFV9_SPLT_SALT_ARRAY_LENGTH 40
 #define MAX_BYTE_COUNT_ARRAY_LENGTH 256
@@ -1026,15 +1027,22 @@ void* joy_process_packet(unsigned char *ctx_index,
         return record;
     }
 
-    /* only allow the app to store at most 100 bytes of app data in the flow record */
-    if (app_data_len > 100) {
+    /* only allow the app to store at most 32 bytes of app data in the flow record */
+    if (app_data_len > MAX_APP_DATA_LEN) {
         record->joy_app_data_len = 0;
         joy_log_err("App Specific data is too large(%d bytes), not storing the information",app_data_len);
         return record;
     }
 
     /* now store the app data in the flow record */
-    record->joy_app_data = calloc(1,app_data_len);
+    if (record->joy_app_data == NULL) {
+        /* allocate all 32 bytes, so we don't have to thrash memory
+         * if the caller changes the app data size on subsequent calls.
+         */
+        record->joy_app_data = calloc(1,MAX_APP_DATA_LEN);
+    }
+
+    /* copy the data into the app data buffer */
     if (record->joy_app_data != NULL) {
         record->joy_app_data_len = app_data_len;
         memcpy(record->joy_app_data, app_data, app_data_len);
