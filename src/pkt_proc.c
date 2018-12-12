@@ -1045,7 +1045,7 @@ void* process_packet (unsigned char *ctx_ptr,
         case IPPROTO_TCP:
             record = process_tcp(ctx, header, transport_start, transport_len, &key);
             if (record) {
-              update_all_tcp_features(tcp_feature_list);
+                update_all_tcp_features(tcp_feature_list);
             } else {
                 /*
                  * if record is NULL at this point, it is either a retransmission or
@@ -1055,38 +1055,32 @@ void* process_packet (unsigned char *ctx_ptr,
                  * If we do find it and the retransmission flag is not set, then its a
                  * malformed packet and let it get processed as plain IP.
                  */
-                flow_key_t tcp_retrans_key;
-                const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
-                tcp_retrans_key.sa = ip->ip_src;
-                tcp_retrans_key.da = ip->ip_dst;
-                tcp_retrans_key.sp = ntohs(tcp->src_port);
-                tcp_retrans_key.dp = ntohs(tcp->dst_port);
-                tcp_retrans_key.prot = IPPROTO_IP;
-                record = flow_key_get_record(ctx, &tcp_retrans_key, DONT_CREATE_RECORDS, header);
-                if (record == NULL) {
-                    /* couldn't find the record, memory error scenario */
-	            if (allocated_packet_header) {
-		        free(dyn_header);
-	            }
-                    return NULL;
-                } else {
+                record = flow_key_get_record(ctx, &key, DONT_CREATE_RECORDS, header);
+                if (record != NULL) {
                     /* found record, check for retransmission flag */
                     if (record->is_tcp_retrans == 1) {
-                        /* same packet retransmitted, just bail */
+                        /* same packet retransmitted, just stop processing */
 	                if (allocated_packet_header) {
 		            free(dyn_header);
 	                }
-                        return NULL;
+                        /* return the existing flow record */
+                        return record;
                     } else if (record->is_tcp_retrans == 2) {
                         /* same packet retransmitted but with additional data */
                         /* TODO: process the additional data */
 	                if (allocated_packet_header) {
 		            free(dyn_header);
 	                }
-                        return NULL;
+                        /* return the existing flow record with the new data */
+                        return record;
+                    } else {
+                        /* if we did find the flow record but retrans was not set, then
+                         * let the process_ip function below handle the packet. FALL THROUGH
+                         */
                     }
-                    /* if we found the record but retransmission flag not set, then
-                     * its a malformed packet and let the process_ip function below
+                } else {
+                    /* if we didn't find the flow record, then it is probably
+                     * a malformed packet and let the process_ip function below
                      * handle the packet. FALL THROUGH
                      */
                 }
