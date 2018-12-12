@@ -1027,6 +1027,12 @@ void* joy_process_packet(unsigned char *ctx_index,
         return record;
     }
 
+    /* sanity check that we got a valid flow record */
+    if (record == NULL) {
+        /* processed the packet but didn't get a flow record, stop here */
+        return record;
+    }
+
     /* only allow the app to store at most 32 bytes of app data in the flow record */
     if (app_data_len > MAX_APP_DATA_LEN) {
         record->joy_app_data_len = 0;
