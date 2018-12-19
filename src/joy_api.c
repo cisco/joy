@@ -50,10 +50,10 @@
 #include <sys/types.h>
 #include <stdlib.h>  
 #include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 #include <errno.h>  
 
+#include "safe_lib.h"
 #include "config.h"
 #include "pcap.h"
 #include "p2f.h"
@@ -381,7 +381,7 @@ int joy_initialize(joy_init_t *init_data,
     char output_filename[MAX_FILENAME_LEN];
 
     /* clear out the configuration structure */
-    memset(&active_config, 0x00, sizeof(struct configuration));
+    memset_s(&active_config, sizeof(struct configuration), 0x00, sizeof(struct configuration));
     glb_config = &active_config;
 
     /* set 'info' to stderr as a precaution */
@@ -409,20 +409,20 @@ int joy_initialize(joy_init_t *init_data,
     joy_num_contexts = init_data->contexts;
 
     /* set the output directory */
-    memset(output_dirname, 0x00, MAX_DIRNAME_LEN);
+    memset_s(output_dirname, MAX_DIRNAME_LEN, 0x00, MAX_DIRNAME_LEN);
     if (output_dir != NULL) {
-        int len = strlen(output_dir);
+        int len = strnlen_s(output_dir, MAX_DIRNAME_LEN);
         if (len > (MAX_DIRNAME_LEN-1)) {
             /* output dir is too long, default to /tmp */
-            strncpy(output_dirname, "/tmp/", 5);
+            strncpy_s(output_dirname, MAX_DIRNAME_LEN, "/tmp/", 5);
         } else {
-            strncpy(output_dirname, output_dir, len);
+            strncpy_s(output_dirname, MAX_DIRNAME_LEN, output_dir, len);
             if (output_dirname[len-1] != '/') {
-                strncat(output_dirname, "/", 1);
+                strncat_s(output_dirname, MAX_DIRNAME_LEN, "/", 1);
             }
         }
     } else {
-        strncpy(output_dirname, "/tmp/", 5);
+        strncpy_s(output_dirname, MAX_DIRNAME_LEN, "/tmp/", 5);
     }
 
     glb_config->verbosity = init_data->verbosity;
@@ -514,9 +514,9 @@ int joy_initialize(joy_init_t *init_data,
         this->ctx_id = i;
 
         /* setup the output file basename for the context */
-        memset(output_filename, 0x00, MAX_FILENAME_LEN);
+        memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
         if (output_file != NULL) {
-            if (strlen(output_file) > (MAX_FILENAME_LEN - strlen(output_dirname) - 16)) {
+            if (strnlen_s(output_file, MAX_FILENAME_LEN) > (int)(MAX_FILENAME_LEN - strnlen_s(output_dirname, MAX_FILENAME_LEN) - 16), MAX_FILENAME_LEN) {
                 /* dirname + filename is too long, use default filename scheme */
                 snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
             } else {
@@ -527,18 +527,18 @@ int joy_initialize(joy_init_t *init_data,
         }
 
         /* store off the output file base name */
-        this->output_file_basename = malloc(strlen(output_filename)+1);
+        this->output_file_basename = calloc(1, strnlen_s(output_filename, MAX_FILENAME_LEN)+1);
         if (this->output_file_basename == NULL) {
             joy_log_err("could not store off base output filename");
             JOY_API_FREE_CONTEXT(ctx_data)
             return failure;
         } else {
-            memset(this->output_file_basename, 0x00, strlen(output_filename)+1);
-            strncpy(this->output_file_basename, output_filename, strlen(output_filename));
+            strncpy_s(this->output_file_basename, strnlen_s(output_filename, MAX_FILENAME_LEN)+1, 
+                    output_filename, strnlen_s(output_filename, MAX_FILENAME_LEN));
         }
 
         /* open the output file */
-        memset(output_filename, 0x00, MAX_FILENAME_LEN);
+        memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
         if (glb_config->max_records) {
             format_output_filename(this->output_file_basename, output_filename);
         } else {
@@ -767,7 +767,7 @@ int joy_update_compact_bd(const char *filename)
         return failure;
     }
 
-    memset(glb_config->compact_bd_mapping, 0, sizeof(glb_config->compact_bd_mapping));
+    memset_s(glb_config->compact_bd_mapping, sizeof(glb_config->compact_bd_mapping), 0, sizeof(glb_config->compact_bd_mapping));
 
     fp = fopen(filename, "r");
     if (fp != NULL) {
@@ -844,8 +844,8 @@ int joy_label_subnets(const char *label, uint8_t type, const char *subnet_str)
     /* see if we are adding a file of subnets or just a single subnet address */
     if (type == JOY_SINGLE_SUBNET) {
         /* processing just a single subnet address */
-        memset(single_addr,0x00,64);
-        strncpy(single_addr,subnet_str,63);
+        memset_s(single_addr,64, 0x00,64);
+        strncpy_s(single_addr, 64, subnet_str,63);
         err = radix_trie_add_subnet_from_string(glb_config->rt, single_addr, subnet_flag, info);
         if (err != ok) {
             joy_log_err("could not add labeled subnet for %s", single_addr);
@@ -933,7 +933,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
     flow_key_t key;
 
     /* clear the key buffer */
-    memset(&key, 0x00, sizeof(flow_key_t));
+    memset_s(&key, sizeof(flow_key_t), 0x00, sizeof(flow_key_t));
 
     /* get the 5-tuple key for this packet */
     rc = get_packet_5tuple_key(packet, &key);
@@ -1037,7 +1037,7 @@ void* joy_process_packet(unsigned char *ctx_index,
     record->joy_app_data = calloc(1,app_data_len);
     if (record->joy_app_data != NULL) {
         record->joy_app_data_len = app_data_len;
-        memcpy(record->joy_app_data, app_data, app_data_len);
+        memcpy_s(record->joy_app_data, app_data_len, app_data, app_data_len);
     } else {
         record->joy_app_data_len = 0;
         joy_log_err("Couldn't allocate memory, can't store app data");
@@ -1150,7 +1150,7 @@ void joy_print_flow_data(uint8_t index, joy_flow_type_e type)
 
             zclose(ctx->output);
             ctx->records_in_file = 0;
-            memset(output_filename, 0x00, MAX_FILENAME_LEN);
+            memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
             format_output_filename(ctx->output_file_basename, output_filename);
             printf("Rolling Context :%d Output:%s\n",index,output_filename);
             ctx->output = zopen(output_filename, "w");
@@ -1464,7 +1464,7 @@ void joy_splt_external_processing(uint8_t index,
 
         /* clean up the formatted data structures */
         data_len = 0;
-        memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
+        memset_s(data, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
 
         /* see if this record has SPLT information or is expired */
         if ((rec->splt_ext_processed == 0) &&
@@ -1559,7 +1559,7 @@ void joy_salt_external_processing(uint8_t index,
 
         /* clean up the formatted data structures */
         data_len = 0;
-        memset(data, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
+        memset_s(data,  MAX_NFV9_SPLT_SALT_ARRAY_LENGTH, 0x00, MAX_NFV9_SPLT_SALT_ARRAY_LENGTH);
 
         /* see if this record has SALT information */
         if ((rec->salt_ext_processed == 0) && (rec->salt != NULL)) {
@@ -1666,7 +1666,7 @@ void joy_bd_external_processing(uint8_t index,
 
         /* clean up the formatted data structures */
         data_len = 0;
-        memset(data, 0x00, (MAX_BYTE_COUNT_ARRAY_LENGTH*2));
+        memset_s(data,  (MAX_BYTE_COUNT_ARRAY_LENGTH*2), 0x00, (MAX_BYTE_COUNT_ARRAY_LENGTH*2));
 
         /* see if this record has BD information or is expired */
         if ((rec->bd_ext_processed == 0) &&
@@ -1956,7 +1956,7 @@ void joy_shutdown(void)
     anon_http_ctx_cleanup();
 
     /* clear out the configuration structure */
-    memset(&active_config, 0x00, sizeof(struct configuration));
+    memset_s(&active_config,  sizeof(struct configuration), 0x00, sizeof(struct configuration));
     glb_config = NULL;
 
     /* reset the library initialized flag */

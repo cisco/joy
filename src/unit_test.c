@@ -41,12 +41,12 @@
  */
 
 #include <stdio.h>
-#include <string.h>
 #include "radix_trie.h"
 #include "modules.h"
 #include "p2f.h"
 #include "config.h"
 #include "err.h"
+#include "safe_lib.h"
 #include "joy_api.h"
 
 /**
@@ -59,7 +59,7 @@ int main (void) {
     joy_init_t init_data;
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(joy_init_t));
+    memset_s(&init_data, sizeof(joy_init_t), 0x00, sizeof(joy_init_t));
 
     /* Set logging to warning level */
     init_data.verbosity = JOY_LOG_WARN;

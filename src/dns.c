@@ -99,6 +99,7 @@
 #include <stdint.h>
 #include <ctype.h> 
 #include <assert.h> 
+#include "safe_lib.h"
 #include "pkt.h"  
 #include "dns.h"
 #include "anon.h"
@@ -768,7 +769,7 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
             return; /* failure */
         }
         // strncpy(r->dns_name[dns->pkt_count], name, len-13);
-        memcpy(dns->dns_name[dns->pkt_count], start, len);
+        memcpy_s(dns->dns_name[dns->pkt_count], len, start, len);
         dns->pkt_len[dns->pkt_count] = len;
         dns->pkt_count++;
         // dns_query_to_string(r->dns_name[dns->pkt_count] + 13, len-13);

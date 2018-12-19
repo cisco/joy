@@ -49,7 +49,6 @@
 #include <stdio.h>         
 #include <ctype.h>
 #include <stdlib.h>
-#include <string.h> 
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -62,6 +61,7 @@
 #include <wincrypt.h>
 #endif
 #include <openssl/aes.h>
+#include "safe_lib.h"
 #include "err.h" 
 #include "anon.h" 
 #include "addr.h"
@@ -360,7 +360,7 @@ char *addr_get_anon_hexstring (const struct in_addr *a) {
     unsigned char pt[16] = { 0, };
     unsigned char c[16];
 
-    memcpy(pt, a, sizeof(struct in_addr));
+    memcpy_s(pt, sizeof(struct in_addr), a, sizeof(struct in_addr));
     AES_encrypt(pt, c, &key.enc_key);
     snprintf(hexout, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
                c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
@@ -431,7 +431,7 @@ joy_status_e anon_string (const char *s, unsigned int len, char *outhex, unsigne
     if (len > 16 || outlen < 33) {
         return failure;
     }
-    memcpy(pt, s, len);
+    memcpy_s(pt, len, s, len);
     AES_encrypt(pt, c, &key.enc_key);
 
     snprintf(outhex, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
@@ -470,7 +470,7 @@ joy_status_e deanon_string (const char *hexinput, unsigned int len, char *s, uns
 
     AES_decrypt(c, pt, &key.dec_key);
     inet_ntop(AF_INET, addr, ipv4_addr, INET_ADDRSTRLEN);
-    strncpy(s, ipv4_addr, outlen);
+    strncpy_s(s, outlen, ipv4_addr, outlen-1);
     return ok; 
 }
 
@@ -545,7 +545,7 @@ void zprintf_nbytes (zfile f, const char *s, size_t len) {
         fprintf(stderr, "error: string longer than fixed buffer (length: %zu)\n", len);
         return;
     }
-    memcpy(tmp, s, len);
+    memcpy_s(tmp, len, s, len);
     tmp[len] = 0;
     zprintf(f, "%s", tmp);
 }
@@ -721,7 +721,7 @@ void zprintf_usernames (zfile f, struct matches *matches, const char *text,
         }
         if ((matches->start[i] == 0 || selector(text + matches->start[i] - 1)) && 
             selector(text + matches->stop[i] + 1)) {
-            memcpy(tmp, text + matches->start[i], len);
+            memcpy_s(tmp, len, text + matches->start[i], len);
             tmp[len] = 0;
             if (count++) {
                       zprintf(f, ",");

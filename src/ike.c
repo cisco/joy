@@ -43,7 +43,6 @@
 #include <stdio.h>      /* for fprintf()           */
 #include <stdlib.h>     /* for malloc, realloc, free */
 #include <stdint.h>     /* for uint32_t            */
-#include <string.h>     /* for memcpy               */
 
 #ifdef WIN32
 # include "Ws2tcpip.h"
@@ -51,7 +50,7 @@
 #else
 # include <arpa/inet.h>  /* for ntohl()             */
 #endif
-
+#include "safe_lib.h"
 #include "ike.h"
 #include "utils.h"      /* for enum role */
 #include "p2f.h"        /* for zprintf_ ...        */
@@ -128,7 +127,7 @@ static void vector_set(vector_t *vector,
         joy_log_err("malloc failed");
         return;
     }
-    memcpy(tmpptr, data, len);
+    memcpy_s(tmpptr, len, data, len);
     if (vector->bytes != NULL) {
         free(vector->bytes);
     }
@@ -159,8 +158,8 @@ static void vector_append(vector_t *vector,
         joy_log_err("malloc failed");
         return;
     }
-    memcpy(tmpptr, vector->bytes, vector->len);
-    memcpy(tmpptr + vector->len, data, len);
+    memcpy_s(tmpptr, vector->len, vector->bytes, vector->len);
+    memcpy_s(tmpptr + vector->len, len, data, len);
     if (vector->bytes != NULL) {
         free(vector->bytes);
     }
@@ -4123,12 +4122,13 @@ static unsigned int ike_nonce_unmarshal(ike_nonce_t *s, const char *data, unsign
 static void ike_vendor_id_print_json(ike_vendor_id_t *s, zfile f) {
     const char *id_string = NULL;
     unsigned int i;
+    int cmp_ind;
 
     if (s->data->len > 0) {
         /* Try to match entry in vendor id table */
         for (i = 0; i < sizeof(ike_vendor_ids)/sizeof(ike_vendor_ids[0]); i++) {
             if (s->data->len == ike_vendor_ids[i].len) {
-                if (memcmp(s->data->bytes, ike_vendor_ids[i].id, s->data->len) == 0) {
+                if ((memcmp_s(s->data->bytes,  s->data->len, ike_vendor_ids[i].id, s->data->len, &cmp_ind) == EOK) && cmp_ind == 0) {
                     id_string = ike_vendor_ids[i].desc;
                     break;
                 }
@@ -4591,8 +4591,8 @@ static unsigned int ike_header_unmarshal(ike_header_t *s, const char *data, unsi
     if (len < sizeof(ike_header_t)) {
         return 0;
     }
-    memcpy(s->init_spi, data+offset, 8); offset+=8;
-    memcpy(s->resp_spi, data+offset, 8); offset+=8;
+    memcpy_s(s->init_spi, 8, data+offset, 8); offset+=8;
+    memcpy_s(s->resp_spi, 8, data+offset, 8); offset+=8;
     s->next_payload = data[offset]; offset++;
     s->major = (data[offset] & 0xf0) >> 4; 
     s->minor = (data[offset] & 0x0f); offset++;
@@ -4752,6 +4752,7 @@ static unsigned int ike_message_unmarshal(ike_message_t *s, const char *data, un
  * \return 1 if match, otherwise 0.
  */
 static int ike_attribute_match(ike_attribute_t *a, ike_attribute_t *b) {
+    int cmp_ind;
 
     if (a->type != b->type) {
         return 0;
@@ -4762,7 +4763,7 @@ static int ike_attribute_match(ike_attribute_t *a, ike_attribute_t *b) {
     if (a->data->len != b->data->len) {
         return 0;
     }
-    if (memcmp(a->data->bytes, b->data->bytes, a->data->len) != 0) {
+    if ((memcmp_s(a->data->bytes, a->data->len, b->data->bytes, a->data->len, &cmp_ind) != EOK) || cmp_ind != 0) {
         return 0;
     }
     return 1;
@@ -5019,6 +5020,7 @@ void ike_update(ike_t *ike,
         unsigned int len,
         unsigned int report_ike) {
     unsigned int length;
+    int cmp_ind;
     const char *data_ptr = (const char *)data;
 
     if (len == 0) {
@@ -5044,7 +5046,7 @@ void ike_update(ike_t *ike,
      * TCP encapsulation uses a similar four zero byte non-ESP marker, but the
      * marker is preceeded by a 2-byte length field (RFC 8229).
      */
-    if (len >= 4 && memcmp(data_ptr, "\x00\x00\x00\x00", 4) == 0) {
+    if (len >= 4 && (memcmp_s(data_ptr, 4, "\x00\x00\x00\x00", 4, &cmp_ind) == EOK) && cmp_ind == 0) {
         len -= 4;
         data_ptr += 4;
     }
@@ -5173,6 +5175,7 @@ void ike_delete(ike_t **ike_handle) {
 static int ike_test_v1_handshake(void) {
     ike_t *init = NULL, *resp = NULL;
     int num_fails = 0;
+    int cmp_ind;
 
     /* input data */
     char init_main_sa[] = { 
@@ -5405,12 +5408,13 @@ static int ike_test_v1_handshake(void) {
         num_fails++;
     }
 
-    if (memcmp(init->messages[2]->payloads[0]->body->ke->data->bytes, init_ke_value, sizeof(init_ke_value)) != 0) {
+    if ((memcmp_s(init->messages[2]->payloads[0]->body->ke->data->bytes,  sizeof(init_ke_value), 
+                 init_ke_value, sizeof(init_ke_value), &cmp_ind) != EOK) || cmp_ind != 0){
         joy_log_err("initiator key exchange value");
         num_fails++;
     }
 
-    if (memcmp(resp->messages[2]->payloads[0]->body->ke->data->bytes, resp_ke_value, sizeof(resp_ke_value)) != 0) {
+    if ((memcmp_s(resp->messages[2]->payloads[0]->body->ke->data->bytes,  sizeof(resp_ke_value), resp_ke_value, sizeof(resp_ke_value), &cmp_ind) != EOK) || cmp_ind != 0) {
         joy_log_err("responder key exchange value");
         num_fails++;
     }
@@ -5430,6 +5434,7 @@ static int ike_test_v1_handshake(void) {
 static int ike_test_v2_handshake(void) {
     ike_t *init = NULL, *resp = NULL;
     int num_fails = 0;
+    int cmp_ind;
 
     /* input data */
     char init_sa[] = {
@@ -5593,12 +5598,14 @@ static int ike_test_v2_handshake(void) {
         num_fails++;
     }
 
-    if (memcmp(init->messages[0]->payloads[1]->body->ke->data->bytes, init_ke_value, sizeof(init_ke_value)) != 0) {
+    if ((memcmp_s(init->messages[0]->payloads[1]->body->ke->data->bytes,  sizeof(init_ke_value), 
+                 init_ke_value, sizeof(init_ke_value), &cmp_ind) != EOK) || cmp_ind != 0) {
         joy_log_err("initiator key exchange value");
         num_fails++;
     }
 
-    if (memcmp(resp->messages[0]->payloads[1]->body->ke->data->bytes, resp_ke_value, sizeof(resp_ke_value)) != 0) {
+    if ((memcmp_s(resp->messages[0]->payloads[1]->body->ke->data->bytes,  sizeof(init_ke_value), 
+             resp_ke_value, sizeof(resp_ke_value), &cmp_ind) != EOK) || cmp_ind != 0) {
         joy_log_err("responder key exchange value");
         num_fails++;
     }

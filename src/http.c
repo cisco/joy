@@ -40,7 +40,7 @@
  * \brief http data extraction implementation
  */
 #include <ctype.h>
-#include <string.h> 
+#include "safe_lib.h" 
 #include <stdlib.h>   
 #include "http.h"
 #include "p2f.h"
@@ -315,7 +315,7 @@ void http_free_message(struct http_message *msg) {
         free(msg->body);
     }
 
-    memset(msg, 0, sizeof(struct http_message));
+    memset_s(msg, sizeof(struct http_message), 0, sizeof(struct http_message));
 }
 
 /**
@@ -740,62 +740,62 @@ static int http_parse_message(struct http_message *msg,
     if (type == http_request_line) {
         hdr->line_type = HTTP_LINE_REQUEST;
 
-        str_len = strnlen(token1, MAX_STRLEN);
+        str_len = strnlen_s(token1, MAX_STRLEN);
         hdr->line.request.method = calloc(str_len + 1, sizeof(char));
         if (hdr->line.request.method == NULL) {
             joy_log_err("calloc failed");
             rc = PARSE_FAIL;
             goto end;
         }
-        strncpy(hdr->line.request.method, token1, str_len);
+        strncpy_s(hdr->line.request.method, str_len+1, token1, str_len);
 
-        str_len = strnlen(token2, MAX_STRLEN);
+        str_len = strnlen_s(token2, MAX_STRLEN);
         hdr->line.request.uri = calloc(str_len + 1, sizeof(char));
         if (hdr->line.request.uri == NULL) {
             joy_log_err("calloc failed");
             rc = PARSE_FAIL;
             goto end;
         }
-        strncpy(hdr->line.request.uri, token2, str_len);
+        strncpy_s(hdr->line.request.uri, str_len+1, token2, str_len);
 
-        str_len = strnlen(token3, MAX_STRLEN);
+        str_len = strnlen_s(token3, MAX_STRLEN);
         hdr->line.request.version = calloc(str_len + 1, sizeof(char));
         if (hdr->line.request.version == NULL) {
             joy_log_err("calloc failed");
             rc = PARSE_FAIL;
             goto end;
         }
-        strncpy(hdr->line.request.version, token3, str_len);
+        strncpy_s(hdr->line.request.version, str_len+1, token3, str_len);
 
     } else if (type == http_status_line) {
         hdr->line_type = HTTP_LINE_STATUS;
 
-        str_len = strnlen(token1, MAX_STRLEN);
+        str_len = strnlen_s(token1, MAX_STRLEN);
         hdr->line.status.version = calloc(str_len + 1, sizeof(char));
         if (hdr->line.status.version == NULL) {
             joy_log_err("calloc failed");
             rc = PARSE_FAIL;
             goto end;
         }
-        strncpy(hdr->line.status.version, token1, str_len);
+        strncpy_s(hdr->line.status.version, str_len+1, token1, str_len);
 
-        str_len = strnlen(token2, MAX_STRLEN);
+        str_len = strnlen_s(token2, MAX_STRLEN);
         hdr->line.status.code = calloc(str_len + 1, sizeof(char));
         if (hdr->line.status.code == NULL) {
             joy_log_err("calloc failed");
             rc = PARSE_FAIL;
             goto end;
         }
-        strncpy(hdr->line.status.code, token2, str_len);
+        strncpy_s(hdr->line.status.code, str_len+1, token2, str_len);
 
-        str_len = strnlen(token3, MAX_STRLEN);
+        str_len = strnlen_s(token3, MAX_STRLEN);
         hdr->line.status.reason = calloc(str_len + 1, sizeof(char));
         if (hdr->line.status.reason == NULL) {
             joy_log_err("calloc failed");
             rc = PARSE_FAIL;
             goto end;
         }
-        strncpy(hdr->line.status.reason, token3, str_len);
+        strncpy_s(hdr->line.status.reason, str_len+1,token3, str_len);
     }
 
     if (type != http_done) {
@@ -816,7 +816,7 @@ static int http_parse_message(struct http_message *msg,
             if (http_header_select(token1)) {
                 struct http_header_element *elem = &hdr->elements[hdr->num_elements];
 
-                str_len = strnlen(token1, MAX_STRLEN);
+                str_len = strnlen_s(token1, MAX_STRLEN);
                 if (str_len == 0) {
                     if (type == http_done) {
                         break;
@@ -831,9 +831,9 @@ static int http_parse_message(struct http_message *msg,
                     rc = 1;
                     goto end;
                 }
-                strncpy(elem->name, token1, str_len);
+                strncpy_s(elem->name, str_len+1, token1, str_len);
 
-                str_len = strnlen(token2, MAX_STRLEN);
+                str_len = strnlen_s(token2, MAX_STRLEN);
                 elem->value = calloc(str_len + 1, sizeof(char));
                 if (elem->value == NULL) {
                     joy_log_err("calloc failed");
@@ -842,7 +842,7 @@ static int http_parse_message(struct http_message *msg,
                     rc = 1;
                     goto end;
                 }
-                strncpy(elem->value, token2, str_len);
+                strncpy_s(elem->value, str_len+1, token2, str_len);
 
                 /* Increment number of header elements */
                 hdr->num_elements++;
@@ -864,7 +864,7 @@ static int http_parse_message(struct http_message *msg,
             goto end;
         }
 
-        memcpy(msg->body, saveptr, MAGIC);
+        memcpy_s(msg->body, MAGIC, saveptr, MAGIC);
         msg->body_length = MAGIC;
     }
 
@@ -910,7 +910,7 @@ static void http_print_message(zfile f,
         if (usernames_ctx) {
             str_match_ctx_find_all_longest(usernames_ctx,
                                            (unsigned char*)line->uri,
-                                           strlen(line->uri), &matches);
+                                           strnlen_s(line->uri, MAX_STRLEN), &matches);
             anon_print_uri_pseudonym(f, &matches, line->uri);
         } else {
             zprintf(f, "%s", line->uri);

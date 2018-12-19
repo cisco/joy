@@ -49,9 +49,11 @@
 #include <unistd.h>
 #include "pthread.h"
 #include "joy_api.h"
+#include "safe_lib.h"
 
 /* test program variables */
 #define NUM_PACKETS_IN_LOOP 20
+#define IP_OR_VLAN  "ip or vlan"
 
 int proc_pcap_file (unsigned long index, char *file_name) {
     int more = 1;
@@ -62,8 +64,8 @@ int proc_pcap_file (unsigned long index, char *file_name) {
     char errbuf[PCAP_ERRBUF_SIZE];
 
     /* initialize fp structure */
-    memset(&fp, 0x00, sizeof(struct bpf_program));
-    strcpy(filter_exp,"ip or vlan");
+    memset_s(&fp, sizeof(struct bpf_program),  0x00, sizeof(struct bpf_program));
+    strncpy_s(filter_exp, PCAP_ERRBUF_SIZE, IP_OR_VLAN, strnlen_s(IP_OR_VLAN, 20));
 
     handle = pcap_open_offline(file_name, errbuf);
     if (handle == NULL) {

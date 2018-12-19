@@ -68,7 +68,7 @@ static void matches_print (struct matches *matches, const char *text) {
         if (len >= 1024) {
             return;
         }
-        memcpy(tmp, text + matches->start[i], len);
+        memcpy_s(tmp, len, text + matches->start[i], len);
         tmp[len] = '\0';
         printf("match %d: %s\n", i, tmp);
     }

@@ -174,7 +174,6 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_VERSION_NUMBER = @PKG_VERSION_NUMBER@
 RANLIB = @RANLIB@
 SAFEC_DIR = @SAFEC_DIR@
-SAFEC_STUB_DIR = @SAFEC_STUB_DIR@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
@@ -268,7 +267,7 @@ libjoy_la_SOURCES = \
 	../src/config.c \
 	../src/proto_identify.c 
 
-libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) 
+libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
 libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION) $(SSL_LDFLAGS) -lcrypto
 include_HEADERS = ../src/include/acsm.h \
 		../src/include/addr_attr.h \

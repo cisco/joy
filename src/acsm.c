@@ -213,12 +213,15 @@ static int acsm_state_add_match_pattern(acsm_context_t *ctx,
         int state, acsm_pattern_t *p)
 {
     acsm_pattern_t *copy;
+    int acsm_pattern_size = 0;
 
-    copy = calloc(1, sizeof(acsm_pattern_t));
+    acsm_pattern_size = sizeof(acsm_pattern_t);
+
+    copy = calloc(1, acsm_pattern_size);
     if (copy == NULL) {
         return -1;
     }
-    memcpy(copy, p, sizeof(acsm_pattern_t));
+    memcpy_s(copy, acsm_pattern_size, p, acsm_pattern_size);
 
     copy->next = ctx->state_table[state].match_list; 
     ctx->state_table[state].match_list = copy; 

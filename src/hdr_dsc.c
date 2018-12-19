@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@
  */
 
 #include "hdr_dsc.h"
-#include <string.h> 
+#include "safe_lib.h"
 #include "p2f.h"
 
 /** maximum number of description headers */
@@ -54,9 +54,9 @@
  */
 void header_description_init (header_description_t *hd) {
     if (hd != NULL) {
-        memset(hd->const_value, 0, sizeof(hd->const_value));
-        memset(hd->const_mask, 0, sizeof(hd->const_mask));
-        memset(hd->seq_mask, 0, sizeof(hd->seq_mask));
+        memset_s(hd->const_value, sizeof(hd->const_value), 0, sizeof(hd->const_value));
+        memset_s(hd->const_mask, sizeof(hd->const_mask), 0, sizeof(hd->const_mask));
+        memset_s(hd->seq_mask, sizeof(hd->seq_mask), 0, sizeof(hd->seq_mask));
         hd->num_headers_seen = 0;
     }
 }
@@ -70,9 +70,9 @@ void header_description_init (header_description_t *hd) {
  */
 void header_description_set_initial (header_description_t *hd, const void *packet, unsigned int len) {
     if ((hd != NULL) && (packet != NULL)) {
-        memcpy(hd->initial, packet, len);
-        memcpy(hd->const_value, packet, len);
-        memset(hd->const_mask, 0xff, sizeof(hd->const_mask));
+        memcpy_s(hd->initial, len, packet, len);
+        memcpy_s(hd->const_value, len, packet, len);
+        memset_s(hd->const_mask,  sizeof(hd->const_mask), 0xff, sizeof(hd->const_mask));
         hd->num_headers_seen = 1;
     }
 }

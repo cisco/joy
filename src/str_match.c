@@ -183,7 +183,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
             char *string = line;
 
             if (transform != NULL) {
-                      err = transform(line, (unsigned int)acsm_strlen(line), hexout, sizeof(hexout));
+                err = transform(line, (unsigned int)strnlen_s(line, len), hexout, sizeof(hexout));
                       if (err != ok) {
                           fclose(fp);
                           return err;
@@ -192,7 +192,7 @@ int str_match_ctx_init_from_file (str_match_ctx ctx,
             }
       
             // printf("adding pattern \"%s\"\n", string);
-            if (acsm_add_pattern(ctx, (unsigned char *)string, acsm_strlen(string)) != 0) {
+            if (acsm_add_pattern(ctx, (unsigned char *)string, acsm_strlen(string, len)) != 0) {
                       fprintf(stderr, "acsm_add_pattern() with pattern \"%s\" error.\n", line);
                       fclose(fp);
                       return -1;

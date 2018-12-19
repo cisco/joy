@@ -41,7 +41,6 @@
  **********************************************************/
 #include <errno.h>
 #include <unistd.h>
-#include <string.h>   /* for memcpy() */
 #include <stdlib.h>
 #include <time.h>
 
@@ -53,6 +52,7 @@
 #endif
 
 #include <openssl/rand.h>
+#include "safe_lib.h"
 #include "ipfix.h"
 #include "pkt.h"
 #include "http.h"
@@ -203,7 +203,7 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
 static int ipfix_collector_init(ipfix_collector_t *c) {
 
   /* Initialize the collector structures */
-  memset(c, 0, sizeof(ipfix_collector_t));
+    memset_s(c, sizeof(ipfix_collector_t), 0, sizeof(ipfix_collector_t));
 
   /* Get a socket for the collector */
   c->socket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -240,7 +240,7 @@ static int ipfix_collect_process_socket(joy_ctx_data *ctx,
   flow_record_t *record = NULL;
 
   /* Create a flow_key and flow_record to use */
-  memset(&key, 0, sizeof(flow_key_t));
+  memset_s(&key, sizeof(flow_key_t), 0, sizeof(flow_key_t));
 
   key.sa = remote_addr->sin_addr;
   key.sp = ntohs(remote_addr->sin_port);
@@ -263,12 +263,11 @@ static void ipfix_collect_socket_loop(joy_ctx_data *ctx, ipfix_collector_t *c) {
     socklen_t remote_addrlen = 0;
     int recvlen = 0;
     unsigned char buf[TRANSPORT_MTU];
-    //int i = 0;
     
     /* Initialize stuff for receiving data */
-    memset(&remote_addr, 0, sizeof(struct sockaddr_in));
+    memset_s(&remote_addr, sizeof(struct sockaddr_in), 0, sizeof(struct sockaddr_in));
     remote_addrlen = sizeof(remote_addr);
-    memset(buf, 0, sizeof(TRANSPORT_MTU));
+    memset_s(buf, TRANSPORT_MTU, 0, TRANSPORT_MTU);
     
     /*
      * Loop waiting to receive data.
@@ -328,12 +327,12 @@ static inline void ipfix_delete_template(ipfix_template_t *template) {
     if (template->fields) {
         field_count = template->hdr.field_count;
         field_list_size = sizeof(ipfix_template_field_t) * field_count;
-        memset(template->fields, 0, field_list_size);
+        memset_s(template->fields, field_list_size, 0, field_list_size);
         free(template->fields);
         template->fields = NULL;
     }
     
-    memset(template, 0, sizeof(ipfix_template_t));
+    memset_s(template, sizeof(ipfix_template_t), 0, sizeof(ipfix_template_t));
     free(template);
     template = NULL;
 }
@@ -577,7 +576,7 @@ static void ipfix_cts_copy(ipfix_template_t **dest_template,
         /* Save pointer to new_template field memory */
         new_fields = new_template->fields;
         
-        memcpy(new_template, src_template, sizeof(ipfix_template_t));
+        memcpy_s(new_template, sizeof(ipfix_template_t), src_template, sizeof(ipfix_template_t));
         
         /* Reattach new_fields */
         new_template->fields = new_fields;
@@ -588,7 +587,7 @@ static void ipfix_cts_copy(ipfix_template_t **dest_template,
         
         /* Copy the fields data */
         if (src_template->fields && new_template->fields) {
-            memcpy(new_template->fields, src_template->fields, field_list_size);
+            memcpy_s(new_template->fields, field_list_size, src_template->fields, field_list_size);
         }
         
         /* Assign dest_template handle to newly allocated template */
@@ -720,7 +719,7 @@ static int ipfix_cts_append(ipfix_template_t *tmp) {
         /* Copy the atrribute data */
         template->template_key = tmp->template_key;
         template->hdr = tmp->hdr;
-        memcpy(template->fields, tmp->fields, field_list_size);
+        memcpy_s(template->fields, field_list_size, tmp->fields, field_list_size);
         template->payload_length = tmp->payload_length;
         
         /* Write the current time */
@@ -820,7 +819,7 @@ static void ipfix_template_key_init(ipfix_template_key_t *k,
                                     uint32_t id,
                                     uint16_t template_id) {
 
-    memset(k, 0, sizeof(ipfix_template_key_t));
+    memset_s(k, sizeof(ipfix_template_key_t), 0, sizeof(ipfix_template_key_t));
     k->exporter_addr.s_addr = addr;
     k->observe_dom_id = id;
     k->template_id = template_id;
@@ -1030,6 +1029,7 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
     ipfix_template_t *cur_template = NULL;
     uint16_t min_record_len = 0;
     int rc = 1;
+    int ind = 0;
     
     /* Define data template key:
      * {source IP + observation domain ID + template ID}
@@ -1048,7 +1048,7 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
         flow_key_t key;
         flow_record_t *ix_record;
         
-        memset(&key, 0, sizeof(flow_key_t));
+        memset_s(&key, sizeof(flow_key_t), 0, sizeof(flow_key_t));
         
         /* Process all data records in set */
         while (data_set_len > min_record_len){
@@ -1070,12 +1070,13 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
 
             if (ix_record != NULL) {
                 /* Fill out record */
-                if (memcmp(&key, prev_data_key, sizeof(flow_key_t)) != 0) {
+                if ((memcmp_s(&key, sizeof(flow_key_t), prev_data_key, sizeof(flow_key_t), &ind) == EOK) 
+                    && (ind != 0)) {
                     ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 0);
                 } else {
                     ipfix_process_flow_record(ix_record, cur_template, (const char*)data_ptr, 1);
                 }
-                memcpy(prev_data_key, &key, sizeof(flow_key_t));
+                memcpy_s(prev_data_key, sizeof(flow_key_t), &key, sizeof(flow_key_t));
 
                 data_ptr += data_record_size;
                 data_set_len -= data_record_size;
@@ -1402,11 +1403,10 @@ static void ipfix_process_spt(flow_record_t *ix_record,
                               uint16_t hdr_length) {
     struct timeval previous_time;
     uint16_t packet_time = 0;
-    //int repeated_times = 0;
     unsigned int pkt_time_index = 0;
     int i = 0;
     
-    memset(&previous_time, 0, sizeof(struct timeval));
+    memset_s(&previous_time, sizeof(struct timeval), 0, sizeof(struct timeval));
     
     pkt_time_index = splt_pkt_index;
     
@@ -1885,12 +1885,12 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
             
         case IPFIX_TLS_SESSION_ID:
             ix_record->tls->sid_len = min(field_length, 256);
-            memcpy(ix_record->tls->sid, flow_data, ix_record->tls->sid_len);
+            memcpy_s(ix_record->tls->sid, ix_record->tls->sid_len, flow_data, ix_record->tls->sid_len);
             flow_ptr += field_length;
             break;
             
         case IPFIX_TLS_RANDOM:
-            memcpy(ix_record->tls->random, flow_data, 32);
+            memcpy_s(ix_record->tls->random, 32, flow_data, 32);
             flow_ptr += field_length;
             break;
             
@@ -1909,7 +1909,7 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
                     loginfo("out of memory for idp\n");
                     return;
                 }
-                memcpy(ix_record->idp, flow_data, ix_record->idp_len);
+                memcpy_s(ix_record->idp, ix_record->idp_len, flow_data, ix_record->idp_len);
                 
                 
                 /* Get the start of IDP packet payload */
@@ -2001,7 +2001,7 @@ static void ipfix_delete_exp_template_fields(ipfix_exporter_template_t *template
     
     size_t field_list_size = field_count * sizeof(ipfix_exporter_template_field_t);
     if (template->fields) {
-        memset(template->fields, 0, field_list_size);
+        memset_s(template->fields, field_list_size, 0, field_list_size);
         free(template->fields);
         template->fields = NULL;
     } else {
@@ -2053,7 +2053,7 @@ static inline void ipfix_delete_exp_template(ipfix_exporter_template_t *template
     }
     
     /* Free the template */
-    memset(template, 0, sizeof(ipfix_exporter_template_t));
+    memset_s(template, sizeof(ipfix_exporter_template_t), 0, sizeof(ipfix_exporter_template_t));
     free(template);
     template = NULL;
 }
@@ -2098,7 +2098,7 @@ static inline void ipfix_delete_exp_data_record(ipfix_exporter_data_t *data_reco
         variable_len = data_record->record.idp_record.idp_field.length;
         if (variable_len != 0) {
             /* Deallocate the IDP memory buffer */
-            memset(data_record->record.idp_record.idp_field.info, 0,
+            memset_s(data_record->record.idp_record.idp_field.info, variable_len, 0,
                    variable_len);
             free(data_record->record.idp_record.idp_field.info);
         }
@@ -2110,7 +2110,7 @@ static inline void ipfix_delete_exp_data_record(ipfix_exporter_data_t *data_reco
     }
     
     /* Free the data record */
-    memset(data_record, 0, sizeof(ipfix_exporter_data_t));
+    memset_s(data_record, sizeof(ipfix_exporter_data_t), 0, sizeof(ipfix_exporter_data_t));
     free(data_record);
     data_record = NULL;
 }
@@ -2194,7 +2194,7 @@ static int ipfix_xts_copy(ipfix_exporter_template_t **dest_template,
     /* Save pointer to new_template field memory */
     new_fields = new_template->fields;
     
-    memcpy(new_template, src_template, sizeof(ipfix_exporter_template_t));
+    memcpy_s(new_template,  sizeof(ipfix_exporter_template_t), src_template, sizeof(ipfix_exporter_template_t));
     
     /* Reattach new_fields */
     new_template->fields = new_fields;
@@ -2205,7 +2205,7 @@ static int ipfix_xts_copy(ipfix_exporter_template_t **dest_template,
     
     /* Copy the fields data */
     if (src_template->fields && new_template->fields) {
-        memcpy(new_template->fields, src_template->fields, field_list_size);
+        memcpy_s(new_template->fields,  field_list_size, src_template->fields, field_list_size);
     }
     
     /* Assign dest_template handle to newly allocated template */
@@ -2308,7 +2308,7 @@ static void ipfix_exp_template_set_init(ipfix_exporter_template_set_t *set) {
         return;
     }
 
-    memset(set, 0, sizeof(ipfix_exporter_template_set_t));
+    memset_s(set, sizeof(ipfix_exporter_template_set_t), 0, sizeof(ipfix_exporter_template_set_t));
     set->set_hdr.set_id = IPFIX_TEMPLATE_SET;
     set->set_hdr.length = 4; /* size of the header */
 }
@@ -2422,7 +2422,7 @@ static void ipfix_delete_exp_template_set(ipfix_exporter_template_set_t *set) {
     
     ipfix_exp_template_set_cleanup(set);
     
-    memset(set, 0, sizeof(ipfix_exporter_template_set_t));
+    memset_s(set, sizeof(ipfix_exporter_template_set_t), 0, sizeof(ipfix_exporter_template_set_t));
     free(set);
     set = NULL;
 }
@@ -2447,7 +2447,7 @@ static void ipfix_exp_data_set_init(ipfix_exporter_data_set_t *set,
         return;
     }
     
-    memset(set, 0, sizeof(ipfix_exporter_data_set_t));
+    memset_s(set, sizeof(ipfix_exporter_data_set_t), 0, sizeof(ipfix_exporter_data_set_t));
     set->set_hdr.set_id = rel_template_id;
     set->set_hdr.length = 4; /* size of the header */
 }
@@ -2564,7 +2564,7 @@ static void ipfix_delete_exp_data_set(ipfix_exporter_data_set_t *set) {
     
     ipfix_exp_data_set_cleanup(set);
     
-    memset(set, 0, sizeof(ipfix_exporter_data_set_t));
+    memset_s(set, sizeof(ipfix_exporter_data_set_t), 0, sizeof(ipfix_exporter_data_set_t));
     free(set);
     set = NULL;
 }
@@ -2600,7 +2600,7 @@ static int ipfix_exp_set_node_init(ipfix_exporter_set_node_t *node,
         return 1;
     }
     
-    memset(node, 0, sizeof(ipfix_exporter_set_node_t));
+    memset_s(node, sizeof(ipfix_exporter_set_node_t), 0, sizeof(ipfix_exporter_set_node_t));
     
     if (set_id == IPFIX_TEMPLATE_SET) {
         /* Create and attach a template set */
@@ -2716,7 +2716,7 @@ static void ipfix_delete_exp_set_node(ipfix_exporter_set_node_t *node) {
     
     ipfix_exp_set_node_cleanup(node);
     
-    memset(node, 0, sizeof(ipfix_exporter_set_node_t));
+    memset_s(node, sizeof(ipfix_exporter_set_node_t), 0, sizeof(ipfix_exporter_set_node_t));
     free(node);
     node = NULL;
 }
@@ -2734,7 +2734,7 @@ static void ipfix_delete_exp_set_node(ipfix_exporter_set_node_t *node) {
  */
 static void ipfix_exp_message_init(ipfix_message_t *message) {
 
-    memset(message, 0, sizeof(ipfix_message_t));
+    memset_s(message, sizeof(ipfix_message_t), 0, sizeof(ipfix_message_t));
     
     /* IPFIX version = 10 */
     message->hdr.version_number = htons(10);
@@ -2979,7 +2979,7 @@ static void ipfix_delete_exp_message(ipfix_message_t *message) {
     
     ipfix_exp_message_cleanup(message);
     
-    memset(message, 0, sizeof(ipfix_message_t));
+    memset_s(message, sizeof(ipfix_message_t), 0, sizeof(ipfix_message_t));
     free(message);
     message = NULL;
 }
@@ -3001,11 +3001,12 @@ int ipfix_exporter_init(const char *host_name) {
     unsigned long localhost = 0;
     unsigned int remote_port = 0;
     ipfix_exporter_t *e = &gateway_export;
+    int cmp_ind;
     
-    memset(e, 0, sizeof(ipfix_exporter_t));
+    memset_s(e, sizeof(ipfix_exporter_t),0, sizeof(ipfix_exporter_t));
     
     if (host_name != NULL) {
-        strncpy(host_desc, host_name, HOST_NAME_MAX_SIZE-1);
+        strncpy_s(host_desc, HOST_NAME_MAX_SIZE, host_name, HOST_NAME_MAX_SIZE-1);
     }
     
     e->socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -3040,9 +3041,9 @@ int ipfix_exporter_init(const char *host_name) {
             loginfo("error: could not find address for collector %s", host_desc);
             return 1;
         }
-        memcpy((void *)&e->clctr_addr.sin_addr, host->h_addr_list[0], host->h_length);
+        memcpy_s ((void *)&e->clctr_addr.sin_addr, host->h_length, host->h_addr_list[0], host->h_length);
     } else {
-        strncpy(host_desc, "127.0.0.1", HOST_NAME_MAX_SIZE);
+        strncpy_s(host_desc, HOST_NAME_MAX_SIZE, "127.0.0.1", HOST_NAME_MAX_SIZE-1);
         localhost = inet_addr(host_desc);
         e->clctr_addr.sin_addr.s_addr = localhost;
     }
@@ -3064,10 +3065,10 @@ int ipfix_exporter_init(const char *host_name) {
     
     /* Set the template type to use */
     if (glb_config->ipfix_export_template) {
-        if (!strncmp(glb_config->ipfix_export_template, "simple", TEMPLATE_NAME_MAX_SIZE)) {
+        if ((strcmp_s(glb_config->ipfix_export_template, TEMPLATE_NAME_MAX_SIZE, "simple", &cmp_ind) == EOK) || cmp_ind == 0) {
             export_template_type = IPFIX_SIMPLE_TEMPLATE;
             loginfo("Template Type: %s", "simple");
-        } else if (!strncmp(glb_config->ipfix_export_template, "idp", TEMPLATE_NAME_MAX_SIZE)) {
+        } else if ((strcmp_s(glb_config->ipfix_export_template, TEMPLATE_NAME_MAX_SIZE, "idp", &cmp_ind) == EOK) || cmp_ind == 0) {
             export_template_type = IPFIX_IDP_TEMPLATE;
             loginfo("Template Type: %s", "idp");
         } else {
@@ -3274,7 +3275,7 @@ static ipfix_exporter_data_t *ipfix_exp_create_idp_data_record
                 return NULL;
             }
             
-            memcpy(data_record->record.idp_record.idp_field.info, fr_record->idp,
+            memcpy_s(data_record->record.idp_record.idp_field.info, idp_payload_len, fr_record->idp,
                    idp_payload_len);
         }
         /* Set the type of template for identification */
@@ -3556,11 +3557,11 @@ static int ipfix_exp_encode_template_set(ipfix_exporter_template_set_t *set,
     bigend_set_len = htons(set->set_hdr.length);
     
     /* Encode the set header into message */
-    memcpy(data_ptr, (const void *)&bigend_set_id, 2);
+    memcpy_s(data_ptr, 2, (const void *)&bigend_set_id, 2);
     data_ptr += 2;
     *msg_length += 2;
     
-    memcpy(data_ptr, (const void *)&bigend_set_len, 2);
+    memcpy_s(data_ptr, 2, (const void *)&bigend_set_len, 2);
     data_ptr += 2;
     *msg_length += 2;
     
@@ -3573,11 +3574,11 @@ static int ipfix_exp_encode_template_set(ipfix_exporter_template_set_t *set,
         uint16_t bigend_template_field_count = htons(current->hdr.field_count);
         
         /* Encode the template header into message */
-        memcpy(data_ptr, (const void *)&bigend_template_id, 2);
+        memcpy_s(data_ptr, 2, (const void *)&bigend_template_id, 2);
         data_ptr += 2;
         *msg_length += 2;
         
-        memcpy(data_ptr, (const void *)&bigend_template_field_count, 2);
+        memcpy_s(data_ptr, 2, (const void *)&bigend_template_field_count, 2);
         data_ptr += 2;
         *msg_length += 2;
         
@@ -3587,17 +3588,17 @@ static int ipfix_exp_encode_template_set(ipfix_exporter_template_set_t *set,
             uint32_t bigend_ent_num = htonl(current->fields[i].enterprise_num);
             
             /* Encode the field element into message */
-            memcpy(data_ptr, (const void *)&bigend_field_id, 2);
+            memcpy_s(data_ptr, 2, (const void *)&bigend_field_id, 2);
             data_ptr += 2;
             *msg_length += 2;
             
-            memcpy(data_ptr, (const void *)&bigend_field_len, 2);
+            memcpy_s(data_ptr, 2, (const void *)&bigend_field_len, 2);
             data_ptr += 2;
             *msg_length += 2;
             
             /* Enterprise number */
             if (bigend_ent_num) {
-                memcpy(data_ptr, (const void *)&bigend_ent_num, sizeof(uint32_t));
+                memcpy_s(data_ptr, sizeof(uint32_t), (const void *)&bigend_ent_num, sizeof(uint32_t));
                 data_ptr += sizeof(uint32_t);
                 *msg_length += sizeof(uint32_t);
             }
@@ -3647,35 +3648,35 @@ static int ipfix_exp_encode_data_record_simple(ipfix_exporter_data_t *data_recor
     ptr = message_buf;
     
     /* IPFIX_SOURCE_IPV4_ADDRESS */
-    memcpy(ptr, &data_record->record.simple.source_ipv4_address, sizeof(uint32_t));
+    memcpy_s(ptr,  sizeof(uint32_t), &data_record->record.simple.source_ipv4_address, sizeof(uint32_t));
     ptr += sizeof(uint32_t);
     
     /* IPFIX_DESTINATION_IPV4_ADDRESS */
-    memcpy(ptr, &data_record->record.simple.destination_ipv4_address, sizeof(uint32_t));
+    memcpy_s(ptr,  sizeof(uint32_t), &data_record->record.simple.destination_ipv4_address, sizeof(uint32_t));
     ptr += sizeof(uint32_t);
     
     /* IPFIX_SOURCE_TRANSPORT_PORT */
     bigend_src_port = htons(data_record->record.simple.source_transport_port);
-    memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
+    memcpy_s(ptr,  sizeof(uint16_t), &bigend_src_port, sizeof(uint16_t));
     ptr += sizeof(uint16_t);
     
     /* IPFIX_DESTINATION_TRANSPORT_PORT */
     bigend_dest_port = htons(data_record->record.simple.destination_transport_port);
-    memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
+    memcpy_s(ptr,  sizeof(uint16_t), &bigend_dest_port, sizeof(uint16_t));
     ptr += sizeof(uint16_t);
     
     /* IPFIX_PROTOCOL_IDENTIFIER */
-    memcpy(ptr, &data_record->record.simple.protocol_identifier, sizeof(uint8_t));
+    memcpy_s(ptr, sizeof(uint8_t), &data_record->record.simple.protocol_identifier, sizeof(uint8_t));
     ptr += sizeof(uint8_t);
     
     /* IPFIX_FLOW_START_MICROSECONDS */
     bigend_start_time = hton64(data_record->record.simple.flow_start_microseconds);
-    memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
+    memcpy_s(ptr,  sizeof(uint64_t), &bigend_start_time, sizeof(uint64_t));
     ptr += sizeof(uint64_t);
     
     /* IPFIX_FLOW_END_MICROSECONDS */
     bigend_end_time = hton64(data_record->record.simple.flow_end_microseconds);
-    memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
+    memcpy_s(ptr, sizeof(uint64_t), &bigend_end_time, sizeof(uint64_t));
     
     return 0;
 }
@@ -3719,51 +3720,51 @@ static int ipfix_exp_encode_data_record_idp(ipfix_exporter_data_t *data_record,
     ptr = message_buf;
     
     /* IPFIX_SOURCE_IPV4_ADDRESS */
-    memcpy(ptr, &data_record->record.idp_record.source_ipv4_address, sizeof(uint32_t));
+    memcpy_s(ptr,  sizeof(uint32_t), &data_record->record.idp_record.source_ipv4_address, sizeof(uint32_t));
     ptr += sizeof(uint32_t);
     
     /* IPFIX_DESTINATION_IPV4_ADDRESS */
-    memcpy(ptr, &data_record->record.idp_record.destination_ipv4_address, sizeof(uint32_t));
+    memcpy_s(ptr,  sizeof(uint32_t), &data_record->record.idp_record.destination_ipv4_address, sizeof(uint32_t));
     ptr += sizeof(uint32_t);
     
     /* IPFIX_SOURCE_TRANSPORT_PORT */
     bigend_src_port = htons(data_record->record.idp_record.source_transport_port);
-    memcpy(ptr, &bigend_src_port, sizeof(uint16_t));
+    memcpy_s(ptr,  sizeof(uint16_t), &bigend_src_port, sizeof(uint16_t));
     ptr += sizeof(uint16_t);
     
     /* IPFIX_DESTINATION_TRANSPORT_PORT */
     bigend_dest_port = htons(data_record->record.idp_record.destination_transport_port);
-    memcpy(ptr, &bigend_dest_port, sizeof(uint16_t));
+    memcpy_s(ptr,  sizeof(uint16_t), &bigend_dest_port, sizeof(uint16_t));
     ptr += sizeof(uint16_t);
     
     /* IPFIX_PROTOCOL_IDENTIFIER */
-    memcpy(ptr, &data_record->record.idp_record.protocol_identifier, sizeof(uint8_t));
+    memcpy_s(ptr,  sizeof(uint8_t), &data_record->record.idp_record.protocol_identifier, sizeof(uint8_t));
     ptr += sizeof(uint8_t);
     
     /* IPFIX_FLOW_START_MICROSECONDS */
     bigend_start_time = hton64(data_record->record.idp_record.flow_start_microseconds);
-    memcpy(ptr, &bigend_start_time, sizeof(uint64_t));
+    memcpy_s(ptr, sizeof(uint64_t), &bigend_start_time, sizeof(uint64_t));
     ptr += sizeof(uint64_t);
     
     /* IPFIX_FLOW_END_MICROSECONDS */
     bigend_end_time = hton64(data_record->record.idp_record.flow_end_microseconds);
-    memcpy(ptr, &bigend_end_time, sizeof(uint64_t));
+    memcpy_s(ptr, sizeof(uint64_t), &bigend_end_time, sizeof(uint64_t));
     ptr += sizeof(uint64_t);
     
     /*
      * IPFIX_IDP
      */
     /* Encode the flag */
-    memcpy(ptr, &data_record->record.idp_record.idp_field.flag, sizeof(uint8_t));
+    memcpy_s(ptr,  sizeof(uint8_t), &data_record->record.idp_record.idp_field.flag, sizeof(uint8_t));
     ptr += sizeof(uint8_t);
     
     /* Encode the IDP variable length */
     bigend_variable_length = htons(data_record->record.idp_record.idp_field.length);
-    memcpy(ptr, &bigend_variable_length, sizeof(uint16_t));
+    memcpy_s(ptr, sizeof(uint16_t), &bigend_variable_length, sizeof(uint16_t));
     ptr += sizeof(uint16_t);
     
     /* Copy the IDP */
-    memcpy(ptr, data_record->record.idp_record.idp_field.info,
+    memcpy_s(ptr,  data_record->record.idp_record.idp_field.length, data_record->record.idp_record.idp_field.info,
            data_record->record.idp_record.idp_field.length);
     
     return 0;
@@ -3819,11 +3820,11 @@ static int ipfix_exp_encode_data_set(ipfix_exporter_data_set_t *set,
     bigend_set_len = htons(set->set_hdr.length);
     
     /* Encode the set header into message */
-    memcpy(data_ptr, &bigend_set_id, 2);
+    memcpy_s(data_ptr, 2, &bigend_set_id, 2);
     data_ptr += 2;
     *msg_length += 2;
     
-    memcpy(data_ptr, &bigend_set_len, 2);
+    memcpy_s(data_ptr, 2, &bigend_set_len, 2);
     data_ptr += 2;
     *msg_length += 2;
     
@@ -3984,7 +3985,7 @@ static int ipfix_export_send_message(ipfix_message_t *message) {
     ipfix_exporter_t *e = &gateway_export;
     ipfix_raw_message_t raw_message;
     
-    memset(&raw_message, 0, sizeof(ipfix_raw_message_t));
+    memset_s(&raw_message, sizeof(ipfix_raw_message_t), 0, sizeof(ipfix_raw_message_t));
     
     /*
      * Encode the message contents according to RFC7011,
@@ -4002,7 +4003,7 @@ static int ipfix_export_send_message(ipfix_message_t *message) {
     /*
      * Copy message header into raw_message header
      */
-    memcpy(&raw_message.hdr, &message->hdr, sizeof(ipfix_hdr_t));
+    memcpy_s(&raw_message.hdr, sizeof(ipfix_hdr_t), &message->hdr, sizeof(ipfix_hdr_t));
     
     /* Send the message */
     bytes = sendto(e->socket, (const char*)&raw_message, msg_len, 0,

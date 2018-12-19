@@ -174,7 +174,7 @@ AC_CHECK_LIB([crypto], [EVP_EncryptInit], [AC_MSG_NOTICE("openSSL is installed")
 # to override defaults
 ##
 AC_ARG_WITH([libcurl-dir],
-    [AS_HELP_STRING([--with-libcurl-dir],
+    [AS_HELP_STRING([--with-libcurl-dir=],
     [enable support for joy using libcurl])],
     [libcurldir="$withval"],
     [libcurldir="no"])
@@ -225,48 +225,30 @@ if test "x$enable_gzip" = "xyes"; then
     AC_CHECK_HEADERS([zlib.h])
     AC_CHECK_HEADERS([zlib.h],[ ],[AC_MSG_FAILURE([can't find zlib.h])])
 else
-    AC_MSG_RESULT(no);
+    AC_MSG_RESULT(no)
 fi
 
 
 
 
 SAFEC_STUB_DIR='$(abs_top_builddir)/safe_c_stub'
-AC_SUBST(SAFEC_STUB_DIR)
+#AC_SUBST(SAFEC_STUB_DIR)
 
 AC_ARG_WITH([safec-dir],
             [AS_HELP_STRING([--with-safec-dir=],
-                [location of SAFEC install folder, This is an optional option. --disable-safec can be used to override])],
+                [location of SAFEC install folder, This is an optional option. SafecStubs is the default])],
             [safecdir="$withval"],
             [safecdir="no"])
 
-#AC_ARG_WITH([cunit-dir],
-#            [AS_HELP_STRING([--with-cunit-dir=],
-#                [location of cunit install folder for testing)],
-#            [cunitdir="$withval"],
-#            [cunitdir="/usr/local"])
-
-#AC_SUBST([CUNIT_CFLAGS], "$cunitdir/include")
-
-#
-# Disabling SAFEC Support
-#
-#AC_MSG_CHECKING([disable SAFEC Usage])
-#AC_ARG_ENABLE(safec,
-#        [AS_HELP_STRING([--disable-safec],[disable SAFEC use: **WARNING** this #is not recommended])],
-#        [disable_safec="yes"],
-#        [disable_safec="no"])  
-
-# If user didn't set safecdir and we are not disabling safec
-# we notify the user.
-#if test "x$disable_safec" = "xyes"; then
-#    safecdir="$SAFEC_STUB_DIR" 
-#    AC_MSG_RESULT(yes)
-#else
-#    AC_MSG_RESULT(no);
-#fi
-
-AC_SUBST([SAFEC_DIR], "$safecdir")
+if test "x$safecdir" != "xno";then
+   AC_SUBST([SAFEC_DIR], "$safecdir")
+   AC_MSG_RESULT(no)
+else
+   AC_SUBST([SAFEC_DIR], "$SAFEC_STUB_DIR")
+   AC_MSG_RESULT(yes)
+fi
+AM_CONDITIONAL(BUILD_WITH_SAFEC, test "x$safecdir" != "xno")
+#AC_SUBST([SAFEC_DIR], "$safecdir")
  
 
 AC_CONFIG_FILES([

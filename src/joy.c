@@ -77,6 +77,7 @@
 #include <unistd.h>   
 #include <pthread.h>
 
+#include "safe_lib.h"
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* joy data structures       */
 #include "config.h"   /* configuration                   */
@@ -273,7 +274,7 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
 
     sock=socket(PF_INET, SOCK_STREAM, 0);
     if (sock >= 0) {
-	strncpy(ifr.ifr_name,name,sizeof(ifr.ifr_name)-1);
+	strncpy_s(ifr.ifr_name, sizeof(ifr.ifr_name), name, sizeof(ifr.ifr_name)-1);
 	ifr.ifr_name[sizeof(ifr.ifr_name)-1]='\0';
 	ioctl(sock, SIOCGIFHWADDR, &ifr);
 
@@ -600,10 +601,10 @@ static int set_logfile(void) {
 
             if (windir != NULL) CoTaskMemFree(windir);
         } else {
-            strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN-1);
+            strncpy_s(logfile, MAX_FILENAME_LEN, glb_config->logfile, MAX_FILENAME_LEN-1);
         }
 #else
-        strncpy(logfile, glb_config->logfile, MAX_FILENAME_LEN-1);
+        strncpy_s(logfile, MAX_FILENAME_LEN, glb_config->logfile, MAX_FILENAME_LEN-1);
 #endif
 
         info = fopen(logfile, "a");
@@ -951,7 +952,7 @@ static int set_data_output_file(char *output_filename, char *interface_name, cha
          * Set output file based on command line or config file
          */
         if (glb_config->filename[0] == '/') {
-            strncpy(output_filename, glb_config->filename, MAX_FILENAME_LEN-1);
+            strncpy_s(output_filename, MAX_FILENAME_LEN, glb_config->filename, MAX_FILENAME_LEN-1);
         } else {
 #ifdef WIN32
             if (windir) {
@@ -1041,7 +1042,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
         while ((ent = readdir(dir)) != NULL) {
             static int fc_cnt = 1;
             if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
-                strncpy(pcap_filename, input_directory, (MAX_FILENAME_LEN*2)-1);
+                strncpy_s(pcap_filename, (MAX_FILENAME_LEN*2), input_directory, (MAX_FILENAME_LEN*2)-1);
 #ifdef WIN32
                 if (pcap_filename[strlen(pcap_filename) - 1] != '\\') {
                     strcat(pcap_filename, "\\");
@@ -1143,7 +1144,7 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     }
 
     /* copy input filename path */
-    strncpy(input_path,input_filename,255);
+    strncpy_s(input_path, 255, input_filename,254);
 
 #ifdef WIN32
     /* get the input basename */

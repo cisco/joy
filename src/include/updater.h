@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include "safe_lib.h"
 #include <ctype.h>
 #include <pthread.h>
 #include "radix_trie.h"

@@ -52,7 +52,7 @@
 # include <arpa/inet.h>  /* for ntohl()             */
 #endif
 
-#include <string.h>
+#include "safe_lib.h"
 #include "ssh.h"
 #include "utils.h"      /* for enum role */
 #include "p2f.h"        /* for zprintf_ ...        */
@@ -103,12 +103,13 @@ static const char * memsearch(const char *buf,
 			      const char *sub, 
 			      const unsigned int sublen) {
     unsigned int bufidx;
+    int cmp_rc;
 
     for (bufidx = 0; bufidx < buflen; bufidx++) {
         if ((bufidx + sublen > buflen) || buf[bufidx] == '\0') {
             break;
         }
-        if (memcmp(buf+bufidx, sub, sublen) == 0) {
+        if ((EOK == memcmp_s(buf+bufidx, sublen, sub, sublen, &cmp_rc)) && cmp_rc == 0) {
             return buf+bufidx;
         }
     }
@@ -171,7 +172,7 @@ static void vector_set(struct vector *vector,
     if (tmpptr == NULL) {
         return;
     }
-    memcpy(tmpptr, data, len);
+    memcpy_s(tmpptr, len, data, len);
     vector_free(vector); /* does nothing if already empty */
     vector->bytes = tmpptr;
     vector->len = len;
@@ -195,7 +196,7 @@ static void vector_append(struct vector *vector,
     if (vector->bytes == NULL) {
         return;
     }
-    memcpy(vector->bytes + vector->len, data, len);
+    memcpy_s(vector->bytes + vector->len, len, data, len);
     vector->len += len;
 }
 
@@ -394,7 +395,7 @@ static void ssh_parse_kexinit(struct ssh *ssh,
     if (datalen < 16) {
         return;
     }
-    memcpy(ssh->cookie, data, 16);
+    memcpy_s(ssh->cookie, 16, data, 16);
     data += 16;
     datalen -= 16;
 
@@ -439,13 +440,14 @@ static void ssh_get_kex_algo(struct ssh *cli,
     const char *sep = ",";
     unsigned len;
     int found = 0;
+    int cmp_ind;
 
     cli_copy = vector_string(cli->kex_algos);
     srv_copy = vector_string(srv->kex_algos);
 
     for(cli_algo = strtok_r(cli_copy, sep, &cli_ptr); cli_algo && !found; cli_algo = strtok_r(NULL, sep, &cli_ptr)) {
         for(srv_algo = strtok_r(srv_copy, sep, &srv_ptr); srv_algo && !found; srv_algo = strtok_r(NULL, sep, &srv_ptr)) {
-            if (strcmp(srv_algo, cli_algo) == 0) {
+            if ((strcmp_s(srv_algo, 200, cli_algo, &cmp_ind) == EOK) && cmp_ind == 0 ) {
                 found = 1;
                 break;
             }
@@ -458,11 +460,11 @@ static void ssh_get_kex_algo(struct ssh *cli,
         cli_algo = "";
     }
 
-    len = strlen(cli_algo);
+    len = strnlen_s(cli_algo, 100);//tbd
     cli->kex_algo = malloc(len+1);
-    strncpy(cli->kex_algo, cli_algo, len+1); /* strncpy will null-terminate the string */
+    strncpy_s(cli->kex_algo, len, cli_algo, len+1); /* strncpy will null-terminate the string */
     srv->kex_algo = malloc(len+1);
-    strncpy(srv->kex_algo, cli_algo, len+1); /* strncpy will null-terminate the string */
+    strncpy_s(srv->kex_algo, len, cli_algo, len+1); /* strncpy will null-terminate the string */
 
     free(cli_copy);
     free(srv_copy);
@@ -1040,6 +1042,7 @@ static int ssh_test_handshake(void) {
     struct ssh *cli = NULL;
     struct ssh *srv = NULL;
     int num_fails = 0;
+    int cmp_ind;
 
     char c_protocol[] = { /* Client Protocol */
         0x53, 0x53, 0x48, 0x2d, 0x32, 0x2e, 0x30, 0x2d,
@@ -1500,27 +1503,27 @@ static int ssh_test_handshake(void) {
     ssh_update(srv, NULL, s_dhkex_newkeys, sizeof(s_dhkex_newkeys), 1);
     ssh_process(cli, srv);
 
-    if (strcmp(cli->protocol, "SSH-2.0-OpenSSH_7.4p1 Debian-10") != 0) {
+    if ((strcmp_s(cli->protocol, 50, "SSH-2.0-OpenSSH_7.4p1 Debian-10", &cmp_ind) != EOK)  || cmp_ind != 0) {
         joy_log_err("failure: cli protocol");
         num_fails++;
     }
 
-    if (strcmp(srv->protocol, "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2.8") != 0) {
+    if ((strcmp_s(srv->protocol, 50, "SSH-2.0-OpenSSH_6.6.1p1 Ubuntu-2ubuntu2.8", &cmp_ind) != EOK) || cmp_ind != 0) {
         joy_log_err("failure: srv protocol");
         num_fails++;
     }
 
-    if (strcmp(cli->kex_algo, "curve25519-sha256@libssh.org") != 0) {
+    if ((strcmp_s(cli->kex_algo, 50, "curve25519-sha256@libssh.org", &cmp_ind) != EOK) || cmp_ind != 0) {
         joy_log_err("failure: cli kex_algo");
         num_fails++;
     }
 
-    if (strcmp(srv->kex_algo, "curve25519-sha256@libssh.org") != 0) {
+    if ((strcmp_s(srv->kex_algo, 50, "curve25519-sha256@libssh.org", &cmp_ind) != EOK) || cmp_ind != 0) {
         joy_log_err("failure: srv kex_algo");
         num_fails++;
     }
 
-    if ( ! cli->newkeys) {
+    if ( !cli->newkeys) {
         joy_log_err("failure: cli newkeys");
         num_fails++;
     }
