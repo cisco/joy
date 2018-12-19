@@ -462,9 +462,9 @@ static void ssh_get_kex_algo(struct ssh *cli,
 
     len = strnlen_s(cli_algo, 100);//tbd
     cli->kex_algo = malloc(len+1);
-    strncpy_s(cli->kex_algo, len, cli_algo, len+1); /* strncpy will null-terminate the string */
+    strncpy_s(cli->kex_algo, len+1, cli_algo, len); /* strncpy will null-terminate the string */
     srv->kex_algo = malloc(len+1);
-    strncpy_s(srv->kex_algo, len, cli_algo, len+1); /* strncpy will null-terminate the string */
+    strncpy_s(srv->kex_algo, len+1, cli_algo, len); /* strncpy will null-terminate the string */
 
     free(cli_copy);
     free(srv_copy);
