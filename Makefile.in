@@ -658,12 +658,13 @@ info: info-recursive
 info-am:
 
 install-data-am:
-
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 install-dvi: install-dvi-recursive
 
 install-dvi-am:
 
-install-exec-am: install-exec-local
+install-exec-am:
 
 install-html: install-html-recursive
 
@@ -706,7 +707,8 @@ ps-am:
 uninstall-am:
 
 .MAKE: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) all \
-	ctags-recursive install-am install-strip tags-recursive
+	ctags-recursive install-am install-data-am install-strip \
+	tags-recursive
 
 .PHONY: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) CTAGS GTAGS \
 	all all-am am--refresh check check-am clean clean-generic \
@@ -715,12 +717,12 @@ uninstall-am:
 	distcheck distclean distclean-generic distclean-hdr \
 	distclean-libtool distclean-tags distcleancheck distdir \
 	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-exec-local \
-	install-html install-html-am install-info install-info-am \
-	install-man install-pdf install-pdf-am install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs installdirs-am maintainer-clean \
+	install install-am install-data install-data-am \
+	install-data-hook install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-generic \
 	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-recursive \
 	uninstall uninstall-am
@@ -744,25 +746,28 @@ clean_make:
 	rm bin/Makefile
 	echo "You must rerun configure"
 
-install-exec-local:
-	mkdir -p $(DESTDIR)/var/log
-	mkdir -p $(DESTDIR)/var/joy
-	mkdir -p $(DESTDIR)/etc/joy
+install-data-hook:
+	mkdir -p $(DESTDIR)/etc/init.d/joy
+	cp install_joy/joy.rc  $(DESTDIR)/etc/init.d/joy
+	mkdir -p $(DESTDIR)/usr/lib/systemd/system
+	cp install_joy/joy.service $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)/etc/systemd/system/joy.service.d
+	cp install_joy/joy-accounting.conf $(DESTDIR)/etc/systemd/system/joy.service.d/20-accounting.conf
+	mkdir -p $(DESTDIR)/$(prefix)/var/log
+	mkdir -p $(DESTDIR)/$(prefix)/var/joy
+	mkdir -p $(DESTDIR)/$(prefix)/etc/joy
 	mkdir -p $(DESTDIR)/etc/logrotate.d/joy
-	mkdir -p $(DESTDIR)/share/joy
-	mkdir -p $(DESTDIR)/share/man
-	mkdir -p $(DESTDIR)/share/man/man1
-	cp doc/joy.1 $(DESTDIR)/share/man/man1
-	cp install_joy/options.cfg $(DESTDIR)/etc/joy/options.cfg
-	cp sleuth $(DESTDIR)/bin
-	cp resources/tls_fingerprint.json $(DESTDIR)/etc/joy
-	cp internal.net $(DESTDIR)/etc/joy
 	cp install_joy/joy.logrotate $(DESTDIR)/etc/logrotate.d/joy
-	mkdir -p  $(DESTDIR)/usr/lib/systemd/system
-	mkdir -p  $(DESTDIR)/etc/systemd/system/joy.service
-	mkdir -p  $(DESTDIR)/etc/systemd/system/joy.service.d
-	cp install_joy/joy.service $(DESTDIR)/usr/lib/systemd/system
-	cp install_joy/joy.service $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)/$(prefix)/share/joy
+	mkdir -p $(DESTDIR)/$(prefix)/share/man
+	mkdir -p $(DESTDIR)/$(prefix)/share/man/man1
+	cp doc/joy.1 $(DESTDIR)/$(prefix)/share/man/man1
+	cp sleuth $(DESTDIR)/$(prefix)/bin
+	cp resources/tls_fingerprint.json $(DESTDIR)/$(prefix)/etc/joy
+	cp install_joy/options.cfg $(DESTDIR)/$(prefix)/etc/joy
+	cp internal.net $(DESTDIR)/$(prefix)/etc/joy
+	mkdir -p $(DESTDIR)/$(prefix)/include/joy
+	cp src/include/joy_api.h $(DESTDIR)/$(prefix)/include/joy
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
