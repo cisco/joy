@@ -749,7 +749,7 @@ PACKAGE_VERSION='4.0.1'
 PACKAGE_STRING='joy 4.0.1'
 PACKAGE_BUGREPORT='joy-users@cisco.com'
 
-ac_default_prefix=/usr/local/joy
+#ac_default_prefix=/usr/local/joy
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>
