@@ -101,7 +101,7 @@ void fpx_update (struct fpx *fpx,
 		    unsigned int report_fpx) {
     struct extractor x;
     
-    if (report_fpx) {
+    if (report_fpx && fpx) {
 
 	if (fpx->tcp_fp_len == 0) {
 	    extractor_init(&x, data, len, fpx->tcp_fp, MAX_TCP_FP_LEN);  	    

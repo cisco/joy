@@ -309,24 +309,10 @@ void extractor_pop_vector_extractor(struct extractor *x,
     extractor_pop(x, y);
 }
 
-unsigned int match(const unsigned char *data,
-		   size_t data_len,
-		   const unsigned char *mask,
-		   const unsigned char *value,
-		   size_t value_len) {
-    int i;
-
-    if (data_len >= value_len) {
-	for (i = 0; i < value_len; i++) {
-	    if ((data[i] & mask[i]) != value[i]) {
-		return 0;
-	    }
-	}
-	return 1;
-    }    
-    return 0;
-}
-
+/*
+ * extractor_match(x, value, value_len, mask) returns status_ok if
+ * (x->data & mask) == value, and returns status_err otherwise
+ */
 unsigned int extractor_match(struct extractor *x,
 			     const unsigned char *value,
 			     size_t value_len,
@@ -337,20 +323,20 @@ unsigned int extractor_match(struct extractor *x,
 	if (mask) {
 	    for (i = 0; i < value_len; i++) {
 		if ((x->data[i] & mask[i]) != value[i]) {
-		    return 0;
+		    return status_err;
 		}
 	    }
 	} else { /* mask == NULL */
 	    for (i = 0; i < value_len; i++) {
 		if (x->data[i] != value[i]) {
-		    return 0;
+		    return status_err;
 		}	    
 	    }
 	}
 	x->data += value_len;
-	return 1;
+	return status_ok;
     }    
-    return 0;
+    return status_err;
 }
 
 unsigned int uint16_match(uint16_t x,
@@ -423,17 +409,17 @@ unsigned int extractor_process_tcp(struct extractor *x) {
     // fprintf(stderr, "processing packet (len %d)\n", len);
     // fprintf_hex(data, len);
     
-    if (extractor_skip(x, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack)) {
-	goto bail;
+    if (extractor_skip(x, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
+	return 0;
     }
-    if (extractor_read_uint(x, L_tcp_offrsv, &offrsv)) {
-	goto bail;
+    if (extractor_read_uint(x, L_tcp_offrsv, &offrsv) == status_err) {
+	return 0;
     }
-    if (extractor_skip(x, L_tcp_offrsv)) {
-	goto bail;
+    if (extractor_skip(x, L_tcp_offrsv) == status_err) {
+	return 0;
     }
-    if (extractor_read_uint(x, L_tcp_flags, &flags)) {
-	goto bail;
+    if (extractor_read_uint(x, L_tcp_flags, &flags) == status_err) {
+	return 0;
     }
     if (flags != TCP_SYN) {
 	/*
@@ -442,18 +428,18 @@ unsigned int extractor_process_tcp(struct extractor *x) {
 	 */
 	return 0;	
     }   
-    if (extractor_skip(x, L_tcp_flags + L_tcp_win + L_tcp_csm + L_tcp_urp)) {
-	goto bail;
+    if (extractor_skip(x, L_tcp_flags + L_tcp_win + L_tcp_csm + L_tcp_urp) == status_err) {
+	return 0;
     }
 
     while (extractor_get_data_length(x) > 0) {
 	size_t option_kind, option_length;
 	
-	if (extractor_read_uint(x, L_option_kind, &option_kind)) {
-	    goto bail;
+	if (extractor_read_uint(x, L_option_kind, &option_kind) == status_err) {
+	    return 0;
 	}
-	if (extractor_copy(x, L_option_kind)) {
-	    goto bail;
+	if (extractor_copy(x, L_option_kind) == status_err) {
+	    return 0;
 	}
 
 	if (option_kind == TCP_OPT_EOL || option_kind == TCP_OPT_NOP) {
@@ -462,34 +448,27 @@ unsigned int extractor_process_tcp(struct extractor *x) {
 	    ;
 	    
 	} else {
-	    if (extractor_read_uint(x, L_option_length, &option_length)) {
-		goto bail;
+	    if (extractor_read_uint(x, L_option_length, &option_length) == status_err) {
+		break;
 	    }
 	    if (option_kind == TCP_OPT_MSS || option_kind == TCP_OPT_WS) {
 		
-		if (extractor_copy_append(x, option_length - L_option_kind)) {
-		    goto bail;
+		if (extractor_copy_append(x, option_length - L_option_kind) == status_err) {
+		    break;
 		}
 	    } else {
 		unsigned char zero[] = { 0x00 };
 		
-		if (extractor_copy_alt(x, zero, L_option_length)) {
-		    goto bail;
+		if (extractor_copy_alt(x, zero, L_option_length) == status_err) {
+		    break;
 		}
-		if (extractor_skip(x, option_length - L_option_kind)) {
-		    goto bail;
+		if (extractor_skip(x, option_length - L_option_kind) == status_err) {
+		    break;
 		}
 	    }
 	}
     }    
 
-    return extractor_get_output_length(x);
-    
- bail:
-    /*
-     * handle packet parsing errors
-     */
-    // fprintf(stderr, "warning: TCP processing did not fully complete\n");
     return extractor_get_output_length(x);
 }
 
@@ -556,76 +535,76 @@ unsigned int extractor_process_tls(struct extractor *x) {
 
     /* skip over TCP header */
     
-    if (extractor_skip(x, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack)) {
+    if (extractor_skip(x, L_src_port + L_dst_port + L_tcp_seq + L_tcp_ack) == status_err) {
 	goto bail;
     }
-    if (extractor_read_uint(x, L_tcp_offrsv, &offrsv)) {
+    if (extractor_read_uint(x, L_tcp_offrsv, &offrsv) == status_err) {
 	goto bail;
     }
-    if (extractor_skip(x, L_tcp_offrsv)) {
+    if (extractor_skip(x, L_tcp_offrsv) == status_err) {
 	goto bail;
     }
 
     /* compute offset to the TCP Data field */
-    if (extractor_skip_to(x, data + ((offrsv >> 4) * 4))) {
+    if (extractor_skip_to(x, data + ((offrsv >> 4) * 4)) == status_err) {
 	goto bail;
     }
     
     /* 
      * verify that we are looking at a TLS ClientHello 
      */
-    if (!extractor_match(x,
+    if (extractor_match(x,
 			tls_client_hello_value,
 			L_ContentType +	L_ProtocolVersion + L_RecordLength + L_HandshakeType,
-			tls_client_hello_mask)) {
+			tls_client_hello_mask) == status_err) {
 	return 0; /* not a clientHello */
     }
     
     /*
      * skip over initial fields 
      */
-    if (extractor_skip(x, L_HandshakeLength)) {
-	goto bail;
+    if (extractor_skip(x, L_HandshakeLength) == status_err) {
+	return 0;
     }
     
     /* 
      * copy clientHello.ProtocolVersion 
      */
-    if (extractor_copy(x, L_ProtocolVersion)) {
+    if (extractor_copy(x, L_ProtocolVersion) == status_err) {
 	goto bail;
     }
     
     /*
      * skip over Random
      */
-    if (extractor_skip(x, L_Random)) {
+    if (extractor_skip(x, L_Random) == status_err) {
 	goto bail;
     }
     
     /* skip over SessionID and SessionIDLen */
-    if (extractor_read_uint(x, L_SessionIDLength, &tmp_len)) {
+    if (extractor_read_uint(x, L_SessionIDLength, &tmp_len) == status_err) {
 	goto bail;
     }
-    if (extractor_skip(x, tmp_len + L_SessionIDLength)) {
+    if (extractor_skip(x, tmp_len + L_SessionIDLength) == status_err) {
 	goto bail;
     }
 
     /* copy ciphersuite offer vector */
-    if (extractor_read_uint(x, L_CipherSuiteVectorLength, &tmp_len)) {
+    if (extractor_read_uint(x, L_CipherSuiteVectorLength, &tmp_len) == status_err) {
 	goto bail;
     }
-    if (extractor_skip(x, L_CipherSuiteVectorLength)) {
+    if (extractor_skip(x, L_CipherSuiteVectorLength) == status_err) {
 	goto bail;
     }    
-    if (extractor_copy(x, tmp_len)) {
+    if (extractor_copy(x, tmp_len) == status_err) {
 	goto bail;
     }
 
     /* skip over compression methods */
-    if (extractor_read_uint(x, L_CompressionMethodsLength, &tmp_len)) {
+    if (extractor_read_uint(x, L_CompressionMethodsLength, &tmp_len) == status_err) {
 	goto bail;
     }
-    if (extractor_skip(x, tmp_len + L_CompressionMethodsLength)) {
+    if (extractor_skip(x, tmp_len + L_CompressionMethodsLength) == status_err) {
 	goto bail;
     }
     
@@ -633,35 +612,35 @@ unsigned int extractor_process_tls(struct extractor *x) {
      * parse extensions vector by pushing a new extractor and then
      * looping over all extensions in its data
      */
-    if (extractor_push_vector_extractor(&y, x, L_ExtensionsVectorLength)) {
+    if (extractor_push_vector_extractor(&y, x, L_ExtensionsVectorLength) == status_err) {
 	goto bail;
     }    
     while (extractor_get_data_length(&y) > 0) {
 	size_t tmp_type;
 	
-	if (extractor_read_uint(&y, L_ExtensionType, &tmp_type)) {
+	if (extractor_read_uint(&y, L_ExtensionType, &tmp_type) == status_err) {
 	    break;
 	}
-	if (extractor_copy(&y, L_ExtensionType)) {
+	if (extractor_copy(&y, L_ExtensionType) == status_err) {
 	    break;
 	}
-	if (extractor_read_uint(&y, L_ExtensionLength, &tmp_len)) {
+	if (extractor_read_uint(&y, L_ExtensionLength, &tmp_len) == status_err) {
 	    break;
 	}
 
 	//fprintf(stderr, "t: %zu\tl: %zu\tD: %d\tL: %d\n", tmp_type, tmp_len, y.data_end-y.data+2, y.output-y.output_start-2);
 
-	if (uint16_match(tmp_type, static_extension_types, num_static_extension_types)) { 
-	    if (extractor_copy_append(&y, tmp_len + L_ExtensionLength)) {
+	if (uint16_match(tmp_type, static_extension_types, num_static_extension_types) == status_err) { 
+	    if (extractor_copy_append(&y, tmp_len + L_ExtensionLength) == status_err) {
 		break;
 	    }		
 	} else {
  	    unsigned char zero[L_ExtensionLength] = { 0x00, 0x00 };
 	    
-	    if (extractor_copy_alt(&y, zero, L_ExtensionLength)) {
+	    if (extractor_copy_alt(&y, zero, L_ExtensionLength) == status_err) {
 	       break;
 	    }
-	    if (extractor_skip(&y, tmp_len + L_ExtensionLength)) {
+	    if (extractor_skip(&y, tmp_len + L_ExtensionLength) == status_err) {
 		break;
 	    }
 	}	
@@ -676,7 +655,7 @@ unsigned int extractor_process_tls(struct extractor *x) {
     
  bail:
     /*
-     * handle packet parsing errors
+     * handle possible packet parsing errors
      */
     // fprintf(stderr, "warning: TLS clientHello processing did not fully complete\n");
     return extractor_get_output_length(x);
