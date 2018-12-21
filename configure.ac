@@ -23,7 +23,7 @@ AC_INIT([joy],[joy_version],[https://github.com/cisco/joy/issues],[],[https://gi
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS([joy_config.h])
 AC_CONFIG_MACRO_DIR([m4])
-AC_PREFIX_DEFAULT(/usr/local/joy)
+AC_PREFIX_DEFAULT(/usr/local)
 
 AM_INIT_AUTOMAKE([subdir-objects -Wall -Werror])
 AC_USE_SYSTEM_EXTENSIONS
