@@ -4,11 +4,15 @@ language: c
 
 compiler: gcc
 
+env:
+  global:
+   - secure: "H9DpsRuwica2FsRYItn1u5U4FiZK1TB9GUX8orwYQTheAIDYuvpD6aeVgCZa66841xv6wvjvz+VS/0mb3w6bPvEJ3CGj+EiR8tgAR8XDji6DldmDLDEgcBSnJa0O1rqoP9x7Ei28qAHeTZvi86IEh4s0urbx4BXkzMfE2CZ5WS0xpMfwPcwjFE5i37EDCZfc4k/N+COX7I/o9FyDGfEf3RS/0YmHAEBakgWJDBFsgMeCK2b8q6M0IKd9nPes6yK7/N3sdnIytK+/sd++fzrpEOGUC3uayVdAx3emZwKXfURG5l2tDxappaPVFX5ExIpJqHXQ2tIWe82iTBGmaJPT1RUjbYfPBWBr9VCRtqTdkxObTf/KWkpS+5DdIl6TG1T6wrkBp6KO2p96++YzVUD+v6+GhhoD+oiOf51vZirTi4Wv/hL+l2OYP1J8HuHovxE513YBDBq0b4FBomEhwvr7di+mm9D00pMgXD20EEj4zIYEjM043FmV9SZCBqY8YSt2xYyoqQf5XE8hrAV4GPLEB2v0egSdt6h6cXRAvaLyYxU2Z0fCf3gsrtV2Y+5qBQriYiTNfun9LEurGvEQzCSrv52mKHNreDjmYNMRjI2yLNON2NZ8VCYnLf4K+iNZWyE8lbdoSeoAdctqEFA0M4sduAIQho+Vv6XScjZgIbk7lV0="
+
 before_install:
     - sudo apt-get -qq update
 
 install:
-    - sudo apt-get install -y build-essential libssl-dev libpcap-dev libcurl4-openssl-dev cppcheck
+    - sudo apt-get install -y build-essential libssl-dev libpcap-dev libcurl4-openssl-dev
 
 script:
     - ./configure --enable-gzip
@@ -16,4 +20,13 @@ script:
     - make
     - bin/unit_test
     - test/run_tests.py
-    - ./.cppcheck.sh
+
+addons:
+  coverity_scan:
+    project:
+      name: "cisco/joy"
+      description: “Package form capturing and analyzing network flow data“
+    notification_email: jrocker@cisco.com
+    build_command_prepend: “./configure —enable-gzip“
+    build_command: “make”
+    branch_pattern: $TRAVIS_BRANCH
