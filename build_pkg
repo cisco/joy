@@ -147,9 +147,9 @@ fi
 
 # Compression-specific packages and requirements
 #
-CONFIGURE_ARGS=""
+CONFIGURE_ARGS="--prefix=/usr/local"
 if [ $COMPRESSION == "gzip" ]; then
-    CONFIGURE_ARGS="--enable-gzip"
+    CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-gzip"
     DEBIAN_PKGS="$DEBIAN_PKGS zlib1g zlib1g-dev"
     DEBIAN_REQS="$DEBIAN_REQS -d zlib1g"
     UBUNTU_PKGS="$UBUNTU_PKGS zlib1g zlib1g-dev"
@@ -157,7 +157,7 @@ if [ $COMPRESSION == "gzip" ]; then
     RPM_PKGS="$RPM_PKGS zlib zlib-devel"
     RPM_REQS="$RPM_REQS -d zlib"
 elif [ $COMPRESSION == "bzip2" ]; then
-    CONFIGURE_ARGS="--enable-bzip2"
+    CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-bzip2"
     DEBIAN_PKGS="$DEBIAN_PKGS libbz2-1.0 libbz2-dev"
     DEBIAN_REQS="$DEBIAN_REQS -d bzip2 -d libbz2-1.0"
     UBUNTU_PKGS="$UBUNTU_PKGS libbz2-1.0 libbz2-dev"
@@ -345,23 +345,16 @@ if [ "$?" != 0 ]; then
     exit 1
 fi
 echo "$FULL_VERSION" > VERSION
-make
+make clean; make
 if [ "$?" != 0 ]; then
     echo Failed to run make
     exit 1
 fi
-make DESTDIR=${BUILDROOT} BUILDROOT=${BUILDROOT} PKG_BUILD=1 install
+make DESTDIR=${BUILDROOT} BUILDROOT=${BUILDROOT} install
 if [ "$?" != 0 ]; then
     echo Failed to run make install
     exit 1
 fi
-
-# make install is missing a bunch of stuff that was present in install_sh script.
-#
-mkdir -p ${BUILDROOT}/usr/local/etc/joy/
-mkdir -p ${BUILDROOT}/usr/local/var/joy/
-mkdir -p ${BUILDROOT}/usr/local/var/log/
-install -D install_joy/joy-accounting.conf /etc/systemd/system/joy.service.d/20-accounting.conf
 
 #strip -s ${TMPDIR}/usr/local/bin/joy
 
