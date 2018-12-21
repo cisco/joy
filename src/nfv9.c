@@ -387,7 +387,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
     unsigned int flow_len = nf_record->idp_len;
 
     /* Compute ip header offset */
-    ip = (struct ip_hdr*)(flow_data);
+    ip = (const struct ip_hdr*)(flow_data);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         /*
@@ -413,7 +413,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
              return 1;
         }
         /* Compute icmp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
 
         /* Compute icmp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - icmp_hdr_len;
@@ -428,7 +428,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
         }
 
         /* Compute tcp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
 
         /* Compute tcp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - tcp_hdr_len;
@@ -436,7 +436,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
         unsigned int udp_hdr_len = 8;
 
         /* Compute udp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
 
         /* Compute udp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - udp_hdr_len;
@@ -520,6 +520,20 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_SRLT:
+                /* if TLS structure is NULL get one */
+                if (nf_record->tls == NULL) {
+                    tls_init(&nf_record->tls);
+                    /* if still NULL bail on this processing */
+                    if (nf_record->tls == NULL) {
+                        flow_data += htons(cur_template->fields[i].FieldLength);
+                        break;
+                    }
+                }
+
+                /* specify role as flow data if necessary */
+                if (nf_record->tls->role == role_unknown) {
+                    nf_record->tls->role = role_flow_data;
+                }
                 total_ms = 0;
                 for (j = 0; j < 20; j++) {
                     if (htons(*(const short *)(flow_data+j*2)) == 0) {
@@ -540,6 +554,20 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_CS:
+                /* if TLS structure is NULL get one */
+                if (nf_record->tls == NULL) {
+                    tls_init(&nf_record->tls);
+                    /* if still NULL bail on this processing */
+                    if (nf_record->tls == NULL) {
+                        flow_data += htons(cur_template->fields[i].FieldLength);
+                        break;
+                    }
+                }
+
+                /* specify role as flow data if necessary */
+                if (nf_record->tls->role == role_unknown) {
+                    nf_record->tls->role = role_flow_data;
+                }
                 for (j = 0; j < 125; j++) {
                     if (htons(*(const short *)(flow_data+j*2)) == 65535) {
                         break;
@@ -551,6 +579,20 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_EXT:
+                /* if TLS structure is NULL get one */
+                if (nf_record->tls == NULL) {
+                    tls_init(&nf_record->tls);
+                    /* if still NULL bail on this processing */
+                    if (nf_record->tls == NULL) {
+                        flow_data += htons(cur_template->fields[i].FieldLength);
+                        break;
+                    }
+                }
+
+                /* specify role as flow data if necessary */
+                if (nf_record->tls->role == role_unknown) {
+                    nf_record->tls->role = role_flow_data;
+                }
                 for (j = 0; j < 35; j++) {
                     if (htons(*(const short *)(flow_data+j*2)) == 0) {
                         break;
@@ -564,20 +606,76 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_VERSION:
+                /* if TLS structure is NULL get one */
+                if (nf_record->tls == NULL) {
+                    tls_init(&nf_record->tls);
+                    /* if still NULL bail on this processing */
+                    if (nf_record->tls == NULL) {
+                        flow_data += htons(cur_template->fields[i].FieldLength);
+                        break;
+                    }
+                }
+
+                /* specify role as flow data if necessary */
+                if (nf_record->tls->role == role_unknown) {
+                    nf_record->tls->role = role_flow_data;
+                }
                 nf_record->tls->version = *(const char *)flow_data;
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_CLIENT_KEY_LENGTH:
+                /* if TLS structure is NULL get one */
+                if (nf_record->tls == NULL) {
+                    tls_init(&nf_record->tls);
+                    /* if still NULL bail on this processing */
+                    if (nf_record->tls == NULL) {
+                        flow_data += htons(cur_template->fields[i].FieldLength);
+                        break;
+                    }
+                }
+
+                /* specify role as flow data if necessary */
+                if (nf_record->tls->role == role_unknown) {
+                    nf_record->tls->role = role_flow_data;
+                }
                 nf_record->tls->client_key_length = htons(*(const short *)flow_data);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_SESSION_ID:
+                /* if TLS structure is NULL get one */
+                if (nf_record->tls == NULL) {
+                    tls_init(&nf_record->tls);
+                    /* if still NULL bail on this processing */
+                    if (nf_record->tls == NULL) {
+                        flow_data += htons(cur_template->fields[i].FieldLength);
+                        break;
+                    }
+                }
+
+                /* specify role as flow data if necessary */
+                if (nf_record->tls->role == role_unknown) {
+                    nf_record->tls->role = role_flow_data;
+                }
                 nf_record->tls->sid_len = htons(*(const short *)flow_data);
                 nf_record->tls->sid_len = min(nf_record->tls->sid_len,256);
                 memcpy(nf_record->tls->sid, flow_data+2, nf_record->tls->sid_len);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_HELLO_RANDOM:
+                /* if TLS structure is NULL get one */
+                if (nf_record->tls == NULL) {
+                    tls_init(&nf_record->tls);
+                    /* if still NULL bail on this processing */
+                    if (nf_record->tls == NULL) {
+                        flow_data += htons(cur_template->fields[i].FieldLength);
+                        break;
+                    }
+                }
+
+                /* specify role as flow data if necessary */
+                if (nf_record->tls->role == role_unknown) {
+                    nf_record->tls->role = role_flow_data;
+                }
                 memcpy(nf_record->tls->random, flow_data, 32);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;

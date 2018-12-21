@@ -1079,7 +1079,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 flow_record_list_init(&main_ctx);
                 flocap_stats_timer_init(&main_ctx);
 
-                tmp_ret = process_pcap_file(pcap_filename, (char*)filter_exp, &net, &fp);
+                tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
 		    closedir(dir);
                     return tmp_ret;
@@ -1183,7 +1183,7 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
     }
 
     /* process the file */
-    tmp_ret = process_pcap_file(input_filename, (char*)filter_exp, &net, &fp);
+    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
     if (tmp_ret < 0) {
         return tmp_ret;
     }
@@ -1220,7 +1220,7 @@ int process_single_input_file (char *input_filename, char *output_filename) {
     /* print configuration */
     config_print_json(main_ctx.output, glb_config);
 
-    tmp_ret = process_pcap_file(input_filename, (char*)filter_exp, &net, &fp);
+    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
     return tmp_ret;
 }
 
@@ -1687,7 +1687,7 @@ int main (int argc, char **argv) {
  * \return -3 could not install filter
  * \return 0 success
  */
-int process_pcap_file (char *file_name, char *filtr_exp, bpf_u_int32 *net, struct bpf_program *fp) {
+int process_pcap_file (char *file_name, const char *filtr_exp, bpf_u_int32 *net, struct bpf_program *fp) {
     char errbuf[PCAP_ERRBUF_SIZE]; 
     int more = 1;
 
