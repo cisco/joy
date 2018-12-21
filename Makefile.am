@@ -21,25 +21,28 @@ clean_make:
 	rm bin/Makefile
 	echo "You must rerun configure"
 
-install-data-local:
-	mkdir -p $(DESTDIR)$(prefix)/var/log
-	mkdir -p $(DESTDIR)$(prefix)/var/joy
-	mkdir -p $(DESTDIR)$(prefix)/etc/joy
-	mkdir -p $(DESTDIR)$(prefix)/etc/logrotate.d/joy
-	mkdir -p $(DESTDIR)$(prefix)/share/joy
-	mkdir -p $(DESTDIR)$(prefix)/share/man
-	mkdir -p $(DESTDIR)$(prefix)/share/man/man1
-	cp doc/joy.1 $(DESTDIR)$(prefix)/share/man/man1
-	cp install_joy/options.cfg $(DESTDIR)$(prefix)/etc/joy/options.cfg
-	cp sleuth $(DESTDIR)$(prefix)/bin
-	cp resources/tls_fingerprint.json $(DESTDIR)$(prefix)/etc/joy
-	cp internal.net $(DESTDIR)$(prefix)/etc/joy
-	cp install_joy/joy.logrotate $(DESTDIR)$(prefix)/etc/logrotate.d/joy
-	mkdir -p  $(DESTDIR)$(prefix)/usr/lib/systemd/system
-	mkdir -p  $(DESTDIR)$(prefix)/etc/systemd/system/joy.service
-	mkdir -p  $(DESTDIR)$(prefix)/etc/systemd/system/joy.service.d
-	cp install_joy/joy.service $(DESTDIR)$(prefix)/usr/lib/systemd/system
-	cp install_joy/joy.service $(DESTDIR)$(prefix)/usr/lib/systemd/system
+install-data-hook:
+	mkdir -p $(DESTDIR)/etc/init.d/joy
+	cp install_joy/joy.rc  $(DESTDIR)/etc/init.d/joy
+	mkdir -p $(DESTDIR)/usr/lib/systemd/system
+	cp install_joy/joy.service $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)/etc/systemd/system/joy.service.d
+	cp install_joy/joy-accounting.conf $(DESTDIR)/etc/systemd/system/joy.service.d/20-accounting.conf
+	mkdir -p $(DESTDIR)/$(prefix)/var/log
+	mkdir -p $(DESTDIR)/$(prefix)/var/joy
+	mkdir -p $(DESTDIR)/$(prefix)/etc/joy
+	mkdir -p $(DESTDIR)/etc/logrotate.d/joy
+	cp install_joy/joy.logrotate $(DESTDIR)/etc/logrotate.d/joy
+	mkdir -p $(DESTDIR)/$(prefix)/share/joy
+	mkdir -p $(DESTDIR)/$(prefix)/share/man
+	mkdir -p $(DESTDIR)/$(prefix)/share/man/man1
+	cp doc/joy.1 $(DESTDIR)/$(prefix)/share/man/man1
+	cp sleuth $(DESTDIR)/$(prefix)/bin
+	cp resources/tls_fingerprint.json $(DESTDIR)/$(prefix)/etc/joy
+	cp install_joy/options.cfg $(DESTDIR)/$(prefix)/etc/joy
+	cp internal.net $(DESTDIR)/$(prefix)/etc/joy
+	mkdir -p $(DESTDIR)/$(prefix)/include/joy
+	cp src/include/joy_api.h $(DESTDIR)/$(prefix)/include/joy
 
 EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth Makefile.joy src/Makefile.joy doc resources VERSION
 
