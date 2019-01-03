@@ -158,7 +158,7 @@ th {
       % for i in range(len(fp_['fingerprint']['tls_features']['extensions'])):
         <tr>
           <td>{{fp_['fingerprint']['tls_features']['extensions'][i].keys()[0]}}</td>
-          <td></td>
+          <td>{{str(fp_['fingerprint']['tls_features']['extensions'][i][fp_['fingerprint']['tls_features']['extensions'][i].keys()[0]])}}</td>
         </tr>
       % end
     % end
