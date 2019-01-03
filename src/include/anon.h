@@ -79,7 +79,7 @@ enum anon_mode {
 #define MAX_ANON_SUBNETS 256
 
 /** prototype for character operations */
-typedef int (*char_selector)(char *ptr);
+typedef int (*char_selector)(const char *ptr);
 
 /** stucture used for anonimzed subnets */
 typedef struct {
@@ -112,21 +112,21 @@ void anon_http_ctx_cleanup(void);
 void zprintf_anon_nbytes(zfile f, size_t len);
 
 /** \brief prints out number of bytes specified */
-void zprintf_nbytes(zfile f, char *s, size_t len);
+void zprintf_nbytes(zfile f, const char *s, size_t len);
 
 /** \brief prints out URI with or without anonymization depending on URI status */
-void anon_print_uri(zfile f, struct matches *matches, char *text);
+void anon_print_uri(zfile f, struct matches *matches, const char *text);
 
 /** \brief finds special characters in email addresses */
-int email_special_chars(char *ptr);
+int email_special_chars(const char *ptr);
 
 /** \brief determines if characters are special or not */
-int is_special(char *ptr);
+int is_special(const char *ptr);
 
 /** \brief prints out a string with or without anonymization depending on matching criteria */
 void anon_print_string(zfile f, 
 		       struct matches *matches, 
-		       char *text, 
+		       const char *text, 
 		       char_selector selector, 
 		       string_transform transform);
 
@@ -137,10 +137,10 @@ joy_status_e anon_string(const char *s, unsigned int len, char *hex, unsigned in
 joy_status_e deanon_string(const char *hexinput, unsigned int len, char *s, unsigned int outlen);
 
 /** \brief prints a URI anonymized if applicable */
-void anon_print_uri_pseudonym(zfile f, struct matches *matches, char *text);
+void anon_print_uri_pseudonym(zfile f, struct matches *matches, const char *text);
 
 /** \brief prints usersnames anonymized if applicable */
-void zprintf_usernames(zfile f, struct matches *matches, char *text, char_selector selector, string_transform transform);
+void zprintf_usernames(zfile f, struct matches *matches, const char *text, char_selector selector, string_transform transform);
 
 /** \brief initializes the key used for anonymization routines */
 joy_status_e key_init(const char *ANON_KEYFILE);

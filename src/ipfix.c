@@ -449,7 +449,7 @@ __declspec(noreturn) void *ipfix_cts_monitor(void *ptr) {
 #else
 __attribute__((__noreturn__)) void *ipfix_cts_monitor(void *ptr) {
 #endif
-    const char *tmp;
+    char *tmp;
     uint16_t num_expired = 0;
 
     /* satisfy compiler warning */
@@ -971,7 +971,7 @@ static int ipfix_loop_data_fields(const unsigned char *data_ptr,
                 variable_length_hdr += 1;
                 min_field_len = 1;
             } else if (fld_len_flag == 255) {
-                actual_fld_len = ntohs(*(unsigned short *)(data_ptr + 1));
+                actual_fld_len = ntohs(*(const unsigned short *)(data_ptr + 1));
                 /* Fill in the variable length field in global template list */
                 cur_template->fields[i].variable_length = actual_fld_len;
                 /* RFC 7011 section 7, Figure S. */
@@ -1120,7 +1120,7 @@ static int ipfix_skip_idp_header(flow_record_t *ix_record,
     unsigned int flow_len = ix_record->idp_len;
     
     /* define/compute ip header offset */
-    ip = (struct ip_hdr*)(flow_data);
+    ip = (const struct ip_hdr*)(flow_data);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < IPV4_HDR_LEN) {
         /*
@@ -1146,7 +1146,7 @@ static int ipfix_skip_idp_header(flow_record_t *ix_record,
             return 1;
         }
         /* define/compute icmp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + icmp_hdr_len);
         
         /* compute icmp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - icmp_hdr_len;
@@ -1160,7 +1160,7 @@ static int ipfix_skip_idp_header(flow_record_t *ix_record,
             return 1;
         }
         /* define/compute tcp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + tcp_hdr_len);
         
         /* compute tcp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - tcp_hdr_len;
@@ -1168,7 +1168,7 @@ static int ipfix_skip_idp_header(flow_record_t *ix_record,
         unsigned int udp_hdr_len = 8;
         
         /* define/compute udp payload (segment) offset */
-        *payload = (unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
+        *payload = (const unsigned char *)(flow_data + ip_hdr_len + udp_hdr_len);
         
         /* compute udp payload (segment) size */
         *size_payload = flow_len - ip_hdr_len - udp_hdr_len;
@@ -1710,7 +1710,7 @@ static void ipfix_parse_basic_list(flow_record_t *ix_record,
     uint8_t hdr_length = 5; /* default 5 bytes */
     uint16_t remaining_length = data_length;
     
-    if ipfix_field_enterprise_bit(field_id) {
+    if (ipfix_field_enterprise_bit(field_id)) {
             /* Enterprise bit is set,  */
             //enterprise_num = ntohl(bl_hdr->enterprise_num);
             /* Remove the bit from field_id */
@@ -1875,23 +1875,23 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
             
         case IPFIX_TLS_VERSION:
             ix_record->tls->version = *(const uint8_t *)flow_data;
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_TLS_KEY_LENGTH:
             ix_record->tls->client_key_length = ntohs(*(const uint16_t *)flow_data);
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_TLS_SESSION_ID:
             ix_record->tls->sid_len = min(field_length, 256);
             memcpy(ix_record->tls->sid, flow_data, ix_record->tls->sid_len);
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_TLS_RANDOM:
             memcpy(ix_record->tls->random, flow_data, 32);
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_COLLECT_IDP:

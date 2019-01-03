@@ -77,7 +77,7 @@ static void flow_record_process_packet_length_and_time_ack (flow_record_t *recor
                                                             const struct tcp_hdr *tcp) {
 
     /* make sure we have room in the array */
-    if (record->op >= MAX_NUM_PKT_LEN) {
+    if (record->op >= (MAX_NUM_PKT_LEN-1)) {
         return;  /* no more room */
     }
 
@@ -471,7 +471,7 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
     }
 
     /* define/compute tcp payload (segment) offset */
-    payload = (char *)(tcp_start + tcp_hdr_len);
+    payload = (const char *)(tcp_start + tcp_hdr_len);
 
     /* compute tcp payload (segment) size */
     size_payload = tcp_len - tcp_hdr_len;
@@ -613,7 +613,7 @@ process_udp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *ud
         return NULL;
     }
 
-    payload = (char *)(udp_start + udp_hdr_len);
+    payload = (const char *)(udp_start + udp_hdr_len);
     size_payload = udp_len - udp_hdr_len;
 
     joy_log_info("Src port: %d\nDst port: %d\nPayload len: %d", ntohs(udp->src_port),ntohs(udp->dst_port),size_payload);
@@ -687,7 +687,7 @@ process_icmp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *s
 
     joy_log_info("Type: %d\nCode: %d", icmp->type, icmp->code);
 
-    payload = (char *)(start + size_icmp_hdr);
+    payload = (const char *)(start + size_icmp_hdr);
     size_payload = len - size_icmp_hdr;
 
     /*
@@ -728,7 +728,7 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 
     joy_log_info("Protocol: IP");
 
-    payload = (char *)(ip_start);
+    payload = (const char *)(ip_start);
     size_payload = ip_len;
 
     record = flow_key_get_record(ctx, key, CREATE_RECORDS, header);
@@ -778,7 +778,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
         return rc;
     }
 
-    ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
+    ether_type = ntohs(*(const uint16_t *)(packet + 12));//Offset to get ETH_TYPE
 
     /* Support for both normal ethernet, 802.1q and 802.1ad. Distinguish between
      * the three accepted types
@@ -786,29 +786,29 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
     switch(ether_type) {
        case ETH_TYPE_IP:
            joy_log_info("Ethernet type - IP");
-           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
+           ip = (const struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = ip_hdr_length(ip);
            break;
        case ETH_TYPE_DOT1Q:
        case ETH_TYPE_QNQ:
            joy_log_info("Ethernet type - 802.1q VLAN #1");
            //Offset to get VLAN_TYPE
-           vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
+           vlan_ether_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
                case ETH_TYPE_IP:
                    joy_log_info("Ethernet type - IP with VLAN #1");
-                   ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
+                   ip = (const struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = ip_hdr_length(ip);
                    break;
                case ETH_TYPE_DOT1Q:
                case ETH_TYPE_QNQ:
                    joy_log_info("Ethernet type - 802.1q VLAN #2");
                     //Offset to get VLAN_TYPE
-                   vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
+                   vlan2_ether_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
                    switch(vlan2_ether_type) {
                        case ETH_TYPE_IP:
                            joy_log_info("Ethernet type - IP with 802.1q VLAN #2");
-                           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
+                           ip = (const struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
                            ip_hdr_len = ip_hdr_length(ip);
                            break;
                        default :
@@ -858,7 +858,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
         key->prot = IPPROTO_IP;
     }
 
-    transport_start = (char *)ip + ip_hdr_len;
+    transport_start = (const char *)ip + ip_hdr_len;
     if (key->prot == IPPROTO_TCP) {
         const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
         key->sp = ntohs(tcp->src_port);
@@ -891,7 +891,8 @@ void* process_packet (unsigned char *ctx_ptr,
     bool allocated_packet_header = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0, vlan2_ether_type = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
-    struct pcap_pkthdr *header = (struct pcap_pkthdr*)pkt_header;
+    const struct pcap_pkthdr *header =  pkt_header;
+    struct pcap_pkthdr *dyn_header = NULL;
 
     /* declare pointers to packet headers */
     const struct ip_hdr *ip = NULL;
@@ -915,36 +916,36 @@ void* process_packet (unsigned char *ctx_ptr,
     //  packet_count++;
 
     // ethernet = (struct ethernet_hdr*)(packet);
-    ether_type = ntohs(*(uint16_t *)(packet + 12));//Offset to get ETH_TYPE
+    ether_type = ntohs(*(const uint16_t *)(packet + 12));//Offset to get ETH_TYPE
     /* Support for both normal ethernet, 802.1q and 802.1ad. Distinguish between 
      * the three accepted types
     */
     switch(ether_type) {
        case ETH_TYPE_IP:
            joy_log_info("Ethernet type - IP");
-           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
+           ip = (const struct ip_hdr*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = ip_hdr_length(ip);
            break;
        case ETH_TYPE_DOT1Q:
        case ETH_TYPE_QNQ:
            joy_log_info("Ethernet type - 802.1q VLAN #1");
            //Offset to get VLAN_TYPE
-           vlan_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
+           vlan_ether_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
            switch(vlan_ether_type) {
                case ETH_TYPE_IP:
                    joy_log_info("Ethernet type - IP with VLAN #1");
-                   ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
+                   ip = (const struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = ip_hdr_length(ip);
                    break;
                case ETH_TYPE_DOT1Q:
                case ETH_TYPE_QNQ:
                    joy_log_info("Ethernet type - 802.1q VLAN #2");
                     //Offset to get VLAN_TYPE
-                   vlan2_ether_type = ntohs(*(uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
+                   vlan2_ether_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
                    switch(vlan2_ether_type) {
                        case ETH_TYPE_IP:
                            joy_log_info("Ethernet type - IP with 802.1q VLAN #2");
-                           ip = (struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
+                           ip = (const struct ip_hdr*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
                            ip_hdr_len = ip_hdr_length(ip);
                            break;
                        default :
@@ -970,17 +971,18 @@ void* process_packet (unsigned char *ctx_ptr,
     if (header == NULL) {
         struct timeval now;
 
-        header = calloc(1,sizeof(struct pcap_pkthdr));
-        if (header == NULL) {
+        dyn_header = (struct pcap_pkthdr*) calloc(1,sizeof(struct pcap_pkthdr));
+        if (dyn_header == NULL) {
             joy_log_err(" Couldn't allocate memory for packet header.");
             return NULL;
         }
         allocated_packet_header = 1;
         gettimeofday(&now,NULL);
-        header->ts.tv_sec = now.tv_sec;
-        header->ts.tv_usec = now.tv_usec;
-        header->caplen = ip->ip_len;
-        header->len = ip->ip_len;
+        dyn_header->ts.tv_sec = now.tv_sec;
+        dyn_header->ts.tv_usec = now.tv_usec;
+        dyn_header->caplen = ip->ip_len;
+        dyn_header->len = ip->ip_len;
+        header = dyn_header;
     }
 
     ip_len = ntohs(ip->ip_len);
@@ -992,7 +994,7 @@ void* process_packet (unsigned char *ctx_ptr,
          * the latter if need be).
          */
         if (allocated_packet_header)
-            free(header);
+            free(dyn_header);
         return NULL;
     }
     transport_len =  ip_len - ip_hdr_len;
@@ -1038,12 +1040,12 @@ void* process_packet (unsigned char *ctx_ptr,
 
     /* determine transport protocol and handle appropriately */
 
-    transport_start = (char *)ip + ip_hdr_len;
+    transport_start = (const char *)ip + ip_hdr_len;
     switch(key.prot) {
         case IPPROTO_TCP:
             record = process_tcp(ctx, header, transport_start, transport_len, &key);
             if (record) {
-              update_all_tcp_features(tcp_feature_list);
+                update_all_tcp_features(tcp_feature_list);
             } else {
                 /*
                  * if record is NULL at this point, it is either a retransmission or
@@ -1053,38 +1055,32 @@ void* process_packet (unsigned char *ctx_ptr,
                  * If we do find it and the retransmission flag is not set, then its a
                  * malformed packet and let it get processed as plain IP.
                  */
-                flow_key_t tcp_retrans_key;
-                const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
-                tcp_retrans_key.sa = ip->ip_src;
-                tcp_retrans_key.da = ip->ip_dst;
-                tcp_retrans_key.sp = ntohs(tcp->src_port);
-                tcp_retrans_key.dp = ntohs(tcp->dst_port);
-                tcp_retrans_key.prot = IPPROTO_IP;
-                record = flow_key_get_record(ctx, &tcp_retrans_key, DONT_CREATE_RECORDS, header);
-                if (record == NULL) {
-                    /* couldn't find the record, memory error scenario */
-	            if (allocated_packet_header) {
-		        free(header);
-	            }
-                    return NULL;
-                } else {
+                record = flow_key_get_record(ctx, &key, DONT_CREATE_RECORDS, header);
+                if (record != NULL) {
                     /* found record, check for retransmission flag */
                     if (record->is_tcp_retrans == 1) {
-                        /* same packet retransmitted, just bail */
+                        /* same packet retransmitted, just stop processing */
 	                if (allocated_packet_header) {
-		            free(header);
+		            free(dyn_header);
 	                }
-                        return NULL;
+                        /* return the existing flow record */
+                        return record;
                     } else if (record->is_tcp_retrans == 2) {
                         /* same packet retransmitted but with additional data */
                         /* TODO: process the additional data */
 	                if (allocated_packet_header) {
-		            free(header);
+		            free(dyn_header);
 	                }
-                        return NULL;
+                        /* return the existing flow record with the new data */
+                        return record;
+                    } else {
+                        /* if we did find the flow record but retrans was not set, then
+                         * let the process_ip function below handle the packet. FALL THROUGH
+                         */
                     }
-                    /* if we found the record but retransmission flag not set, then
-                     * its a malformed packet and let the process_ip function below
+                } else {
+                    /* if we didn't find the flow record, then it is probably
+                     * a malformed packet and let the process_ip function below
                      * handle the packet. FALL THROUGH
                      */
                 }
@@ -1112,7 +1108,7 @@ void* process_packet (unsigned char *ctx_ptr,
         if (record == NULL) {
             joy_log_err("Unable to process ip packet (improper length or otherwise malformed)");
 	    if (allocated_packet_header) {
-		free(header);
+		free(dyn_header);
 	    }
             return NULL;
         }
@@ -1157,7 +1153,7 @@ void* process_packet (unsigned char *ctx_ptr,
         if (!record->idp) {
             joy_log_err("Out of memory");
             if (allocated_packet_header)
-                free(header);
+                free(dyn_header);
             return record;
         }
 
@@ -1188,7 +1184,7 @@ void* process_packet (unsigned char *ctx_ptr,
 
     /* if we allocated the packet header, then free it now */
     if (allocated_packet_header)
-        free(header);
+        free(dyn_header);
     return record;
 }
 

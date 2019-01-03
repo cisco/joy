@@ -68,6 +68,7 @@
 #include "ipfix.h"
 #include "pkt_proc.h"
 
+#define MAX_APP_DATA_LEN 32
 #define MAX_NFV9_SPLT_SALT_PKTS 10
 #define MAX_NFV9_SPLT_SALT_ARRAY_LENGTH 40
 #define MAX_BYTE_COUNT_ARRAY_LENGTH 256
@@ -502,13 +503,13 @@ int joy_initialize(joy_init_t *init_data,
     /* initialize the protocol identification dictionary */
     if (proto_identify_init()) {
         joy_log_err("could not initialize the protocol identification dictionary");
-        JOY_API_FREE_CONTEXT(ctx_data)
+        JOY_API_FREE_CONTEXT(ctx_data);
         return failure;
     }
 
     /* initialize all the data context structures */
-    for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data) ++i) {
-        struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i)
+    for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data); ++i) {
+        struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i);
 
         /* id the context */
         this->ctx_id = i;
@@ -595,7 +596,7 @@ void joy_print_config(uint8_t index, uint8_t format)
     }
 
     /* get the context to print the config into */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     if (format == JOY_TERMINAL_FORMAT) {
         /* print the configuration in the output */
@@ -781,7 +782,7 @@ int joy_update_compact_bd(const char *filename)
 	    }
         }
         fclose(fp);
-        glb_config->compact_byte_distribution = filename;
+        glb_config->compact_byte_distribution = (char*)filename;
     } else {
         joy_log_err("could not open compact BD file %s", filename);
         return failure;
@@ -901,7 +902,7 @@ void joy_update_ctx_global_time(uint8_t ctx_index,
         return;
     }
 
-    ctx = JOY_CTX_AT_INDEX(ctx_data,ctx_index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,ctx_index);
 
     /* update the context global time */
     ctx->global_time.tv_sec = new_time->tv_sec;
@@ -919,13 +920,14 @@ void joy_update_ctx_global_time(uint8_t ctx_index,
  *
  * Parameters:
  *      packet - pointer to the IP packet data
+ *      num_contexts - number of contexts to use for distribution
  *
  * Returns:
  *      context - the context number the packet belongs to for JOY processing.
  *          This algorithms keeps bidirectional flows in the same context.
  *
  */
-uint8_t joy_packet_to_context(const unsigned char *packet) {
+uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts) {
     uint8_t rc = 0;
     uint8_t context = 0;
     unsigned int sum = 0;
@@ -955,7 +957,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet) {
     sum &= 0xff;
 
     /* fit the mod 257 hash into the number of contexts configured */
-    context = sum % joy_num_contexts;
+    context = sum % num_contexts;
 
     joy_log_debug("Packet goes into context (%d)", context);
     return context;
@@ -1016,7 +1018,7 @@ void* joy_process_packet(unsigned char *ctx_index,
     }
 
     /* process the packet */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     record = process_packet((unsigned char*)ctx, header, packet);
 
     /* see if there is any app data to store */
@@ -1025,15 +1027,28 @@ void* joy_process_packet(unsigned char *ctx_index,
         return record;
     }
 
-    /* only allow the app to store at most 100 bytes of app data in the flow record */
-    if (app_data_len > 100) {
+    /* sanity check that we got a valid flow record */
+    if (record == NULL) {
+        /* processed the packet but didn't get a flow record, stop here */
+        return record;
+    }
+
+    /* only allow the app to store at most 32 bytes of app data in the flow record */
+    if (app_data_len > MAX_APP_DATA_LEN) {
         record->joy_app_data_len = 0;
         joy_log_err("App Specific data is too large(%d bytes), not storing the information",app_data_len);
         return record;
     }
 
     /* now store the app data in the flow record */
-    record->joy_app_data = calloc(1,app_data_len);
+    if (record->joy_app_data == NULL) {
+        /* allocate all 32 bytes, so we don't have to thrash memory
+         * if the caller changes the app data size on subsequent calls.
+         */
+        record->joy_app_data = calloc(1,MAX_APP_DATA_LEN);
+    }
+
+    /* copy the data into the app data buffer */
     if (record->joy_app_data != NULL) {
         record->joy_app_data_len = app_data_len;
         memcpy(record->joy_app_data, app_data, app_data_len);
@@ -1086,7 +1101,7 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
         return;
     }
 
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     process_packet((unsigned char*)ctx, header, packet);
 }
 
@@ -1129,7 +1144,7 @@ void joy_print_flow_data(uint8_t index, joy_flow_type_e type)
         return;
     }
 
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* see if we should collect host information */
     if (glb_config->report_exe) {
@@ -1200,7 +1215,7 @@ void joy_export_flows_ipfix(uint8_t index, joy_flow_type_e type)
     }
 
     /* export the flow records */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     flow_record_export_as_ipfix(ctx, type);
 }
 
@@ -1235,7 +1250,7 @@ void joy_get_feature_counts(uint8_t index, joy_ctx_feat_count_t *feat_counts)
     }
 
     /* report back the record counts for various features */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
     feat_counts->idp_recs_ready = ctx->idp_recs_ready;
     feat_counts->tls_recs_ready = ctx->tls_recs_ready;
     feat_counts->splt_recs_ready = ctx->splt_recs_ready;
@@ -1286,7 +1301,7 @@ void joy_idp_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1352,7 +1367,7 @@ void joy_tls_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1455,7 +1470,7 @@ void joy_splt_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1550,7 +1565,7 @@ void joy_salt_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1657,7 +1672,7 @@ void joy_bd_external_processing(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records and let the callback function process */
     rec = ctx->flow_record_chrono_first;
@@ -1724,7 +1739,7 @@ unsigned int joy_delete_flow_records(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records */
     rec = ctx->flow_record_chrono_first;
@@ -1801,7 +1816,7 @@ extern unsigned int joy_purge_old_flow_records(uint8_t index,
     }
 
     /* get the correct context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* go through the records */
     rec = ctx->flow_record_chrono_first;
@@ -1863,7 +1878,7 @@ void joy_context_cleanup(uint8_t index)
     }
 
     /* find the context */
-    ctx = JOY_CTX_AT_INDEX(ctx_data,index)
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
 
     /* Flush any unsent exporter messages in Ipfix module */
     if (glb_config->ipfix_export_port) {
