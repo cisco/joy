@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2018 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -35,25 +35,58 @@
  */
 
 /**
- * \file modules.h
+ * \file fp.h
  *
- * \brief module interface
+ * \brief  Fingerprint extraction module
  *
  */
-#ifndef MODULES_H
-#define MODULES_H
+#ifndef FPX_H
+#define FPX_H
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* secure shell protocol         */
-#include "ike.h"          /* ike protocol                  */
-#include "salt.h"         /* seq of app lengths and times  */
-#include "ppi.h"          /* per-packet information        */
-#include "tls.h"          /* tls protocol                  */
-#include "dhcp.h"         /* dhcp protocol                 */
-#include "http.h"         /* http protocol                 */
-#include "payload.h"      /* TCP, UDP, IP payload prefix   */
-#include "fp.h"           /* implementation fingerprinting */
+#include <stdio.h> 
+#include <pcap.h>
+#include "output.h"
+#include "feature.h"
+#include "extractor.h"
 
-#endif /* MODULES_H */
+#define MAX_TCP_FP_LEN 32
+#define MAX_FP_LEN 1500
+
+/** usage string */
+#define fpx_usage "  fpx=1                      include fingerprint extraction\n"
+
+/** fpx filter key */
+#define fpx_filter(record) 1
+
+/** fpx structure */
+typedef struct fpx {
+    unsigned int tcp_fp_len;
+    unsigned char tcp_fp[MAX_TCP_FP_LEN];
+    unsigned int fp_len;
+    unsigned char fp[MAX_FP_LEN];
+} fpx_t;
+
+declare_feature(fpx);
+
+/** initialization function */
+void fpx_init(struct fpx **fpx_handle);
+
+/** update fpx */
+void fpx_update(struct fpx *fpx, 
+		    const struct pcap_pkthdr *header,
+		    const void *data, 
+		    unsigned int len, 
+		    unsigned int report_fpx);
+
+/** JSON print fpx */
+void fpx_print_json(const struct fpx *w1, 
+		    const struct fpx *w2,
+		    zfile f);
+
+/** delete fpx */
+void fpx_delete(struct fpx **fpx_handle);
+
+/** fpx unit test entry point */
+void fpx_unit_test(void);
+
+#endif /* FPX_H */

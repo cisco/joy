@@ -32,6 +32,8 @@ joy_SOURCES = \
 	../src/payload.c \
 	../src/config.c \
 	../src/proto_identify.c \
+	../src/fp.c \
+	../src/extractor.c \
 	../src/joy.c 
 
 unit_test_SOURCES = ../src/unit_test.c
