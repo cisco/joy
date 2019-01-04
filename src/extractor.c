@@ -251,12 +251,6 @@ void zprintf_raw_as_structured_hex (zfile f,
     zprintf(f, "\"");
 }
 
-enum status extractor_copy_alt(struct extractor *x,
-			       unsigned char *data, /* alternative data source */
-			       unsigned int len) {
-    return status_ok;
-}
-
 enum status extractor_reserve_output(struct extractor *x,
 				     size_t length) {
 
@@ -317,7 +311,7 @@ unsigned int extractor_match(struct extractor *x,
 			     const unsigned char *value,
 			     size_t value_len,
 			     const unsigned char *mask) {
-    int i;
+    unsigned int i;
 
     if (x->data + value_len <= x->data_end) {
 	if (mask) {
@@ -457,11 +451,7 @@ unsigned int extractor_process_tcp(struct extractor *x) {
 		    break;
 		}
 	    } else {
-		unsigned char zero[] = { 0x00 };
-		
-		if (extractor_copy_alt(x, zero, L_option_length) == status_err) {
-		    break;
-		}
+
 		if (extractor_skip(x, option_length - L_option_kind) == status_err) {
 		    break;
 		}
@@ -635,11 +625,6 @@ unsigned int extractor_process_tls(struct extractor *x) {
 		break;
 	    }		
 	} else {
- 	    unsigned char zero[L_ExtensionLength] = { 0x00, 0x00 };
-	    
-	    if (extractor_copy_alt(&y, zero, L_ExtensionLength) == status_err) {
-	       break;
-	    }
 	    if (extractor_skip(&y, tmp_len + L_ExtensionLength) == status_err) {
 		break;
 	    }
