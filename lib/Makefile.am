@@ -33,7 +33,7 @@ libjoy_la_SOURCES = \
 	../src/payload.c \
 	../src/config.c \
 	../src/proto_identify.c \
-	../src/fp_tls.c \
+	../src/fp.c \
 	../src/extractor.c
 
 
@@ -79,10 +79,10 @@ include_HEADERS=../src/include/acsm.h \
 		../src/include/tls.h \
 		../src/include/updater.h \
 		../src/include/utils.h \
-		../src/include/fp_tls.h \
+		../src/include/fp.h \
 		../src/include/extractor.h \
 		../src/include/wht.h \
-		../src/include/fp_tls.h \
+		../src/include/fp.h \
 		../src/include/extractor.h
 
 

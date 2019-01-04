@@ -47,7 +47,7 @@
 #include <string.h>    
 #include "config.h"
 #include "err.h"
-#include "fp_tls.h"
+#include "fp.h"
 #include "extractor.h"
 
 extern FILE *info;

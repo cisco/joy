@@ -32,7 +32,7 @@ joy_SOURCES = \
 	../src/payload.c \
 	../src/config.c \
 	../src/proto_identify.c \
-	../src/fp_tls.c \
+	../src/fp.c \
 	../src/extractor.c \
 	../src/joy.c 
 

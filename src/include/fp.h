@@ -35,7 +35,7 @@
  */
 
 /**
- * \file fp_tls.h
+ * \file fp.h
  *
  * \brief  Fingerprint extraction module
  *
@@ -87,6 +87,6 @@ void fpx_print_json(const struct fpx *w1,
 void fpx_delete(struct fpx **fpx_handle);
 
 /** fpx unit test entry point */
-void fpx_unit_test();
+void fpx_unit_test(void);
 
 #endif /* FPX_H */
