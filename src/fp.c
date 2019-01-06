@@ -60,7 +60,7 @@ extern FILE *info;
  *
  * \return none
  */
-__inline void fpx_init (struct fpx **fpx_handle) {
+void fpx_init(struct fpx **fpx_handle) {
     if (*fpx_handle != NULL) {
         fpx_delete(fpx_handle);
     }
