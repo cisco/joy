@@ -42,12 +42,14 @@ install-data-hook:
 	cp install_joy/options.cfg $(DESTDIR)/$(prefix)/etc/joy
 	cp internal.net $(DESTDIR)/$(prefix)/etc/joy
 	mkdir -p $(DESTDIR)/$(prefix)/include/joy
-#	SLEUTHVER= grep version sleuth_pkg/setup.py | awk -F\' '{print $2}'
-	python sleuth_pkg/setup.py bdist --format=gztar
+#	SLEUTHVER= grep version setup.py | awk -F\' '{print $2}'
+	(cd sleuth_pkg && python setup.py bdist --format=gztar)
 #       SLEUTHFILE="dist/sleuth-${SLEUTHVER}.linux-${build_cpu}.tar.gz"
-        SLEUTHFILE="dist/sleuth-1.0.linux-${build_cpu}.tar.gz"
+        SLEUTHFILE="sleuth_pkg/dist/sleuth-1.0.linux-${build_cpu}.tar.gz"
 	tar -xf $(SLEUTHFILE) -C $(DESTDIR)
 
-EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth Makefile.joy src/Makefile.joy doc resources VERSION
+EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg rpm examples.sh \
+	config.sh compact_bd.txt Makefile.joy sleuth Makefile.joy src/Makefile.joy doc \
+	resources fingerprinting VERSION
 
 
