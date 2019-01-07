@@ -68,6 +68,7 @@
 #include "ipfix.h"
 #include "pkt_proc.h"
 
+#define MAX_APP_DATA_LEN 32
 #define MAX_NFV9_SPLT_SALT_PKTS 10
 #define MAX_NFV9_SPLT_SALT_ARRAY_LENGTH 40
 #define MAX_BYTE_COUNT_ARRAY_LENGTH 256
@@ -781,7 +782,7 @@ int joy_update_compact_bd(const char *filename)
 	    }
         }
         fclose(fp);
-        glb_config->compact_byte_distribution = filename;
+        glb_config->compact_byte_distribution = (char*)filename;
     } else {
         joy_log_err("could not open compact BD file %s", filename);
         return failure;
@@ -919,13 +920,14 @@ void joy_update_ctx_global_time(uint8_t ctx_index,
  *
  * Parameters:
  *      packet - pointer to the IP packet data
+ *      num_contexts - number of contexts to use for distribution
  *
  * Returns:
  *      context - the context number the packet belongs to for JOY processing.
  *          This algorithms keeps bidirectional flows in the same context.
  *
  */
-uint8_t joy_packet_to_context(const unsigned char *packet) {
+uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts) {
     uint8_t rc = 0;
     uint8_t context = 0;
     unsigned int sum = 0;
@@ -955,7 +957,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet) {
     sum &= 0xff;
 
     /* fit the mod 257 hash into the number of contexts configured */
-    context = sum % joy_num_contexts;
+    context = sum % num_contexts;
 
     joy_log_debug("Packet goes into context (%d)", context);
     return context;
@@ -1025,15 +1027,28 @@ void* joy_process_packet(unsigned char *ctx_index,
         return record;
     }
 
-    /* only allow the app to store at most 100 bytes of app data in the flow record */
-    if (app_data_len > 100) {
+    /* sanity check that we got a valid flow record */
+    if (record == NULL) {
+        /* processed the packet but didn't get a flow record, stop here */
+        return record;
+    }
+
+    /* only allow the app to store at most 32 bytes of app data in the flow record */
+    if (app_data_len > MAX_APP_DATA_LEN) {
         record->joy_app_data_len = 0;
         joy_log_err("App Specific data is too large(%d bytes), not storing the information",app_data_len);
         return record;
     }
 
     /* now store the app data in the flow record */
-    record->joy_app_data = calloc(1,app_data_len);
+    if (record->joy_app_data == NULL) {
+        /* allocate all 32 bytes, so we don't have to thrash memory
+         * if the caller changes the app data size on subsequent calls.
+         */
+        record->joy_app_data = calloc(1,MAX_APP_DATA_LEN);
+    }
+
+    /* copy the data into the app data buffer */
     if (record->joy_app_data != NULL) {
         record->joy_app_data_len = app_data_len;
         memcpy(record->joy_app_data, app_data, app_data_len);

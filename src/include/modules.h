@@ -54,5 +54,6 @@
 #include "dhcp.h"         /* dhcp protocol                 */
 #include "http.h"         /* http protocol                 */
 #include "payload.h"      /* TCP, UDP, IP payload prefix   */
+#include "fp.h"           /* implementation fingerprinting */
 
 #endif /* MODULES_H */

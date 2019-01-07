@@ -830,6 +830,7 @@ void flow_record_update_timeouts (unsigned int inact, unsigned int act) {
 void flow_record_update_byte_count (flow_record_t *f, const void *x, unsigned int len) {
     const unsigned char *data = x;
     unsigned int i;
+    unsigned int current_count = 0;
 
     /*
      * implementation note: The spec says that 4000 octets is enough of a
@@ -838,10 +839,17 @@ void flow_record_update_byte_count (flow_record_t *f, const void *x, unsigned in
      * the 4000th octet has been seen for a flow.
      */
 
+    /* octet count was already incremented before processing this payload */
+    current_count = f->ob - len;
+
     if (glb_config->byte_distribution || glb_config->report_entropy) {
-        if (f->ob < ETTA_MIN_OCTETS) {
+        if (current_count < ETTA_MIN_OCTETS) {
             for (i=0; i<len; i++) {
                 f->byte_count[data[i]]++;
+                current_count++;
+                if (current_count >= ETTA_MIN_OCTETS) {
+                   break;
+                }
             }
         }
     }
@@ -1005,9 +1013,9 @@ static void print_executable_json (zfile f, const flow_record_t *rec) {
         }
         if (rec->uptime_seconds > 0) {
             if (comma) {
-                zprintf(f, ",\"uptime\":%lu", rec->uptime_seconds);
+                zprintf(f, ",\"uptime\":%llu", (unsigned long long)rec->uptime_seconds);
             } else {
-                zprintf(f, "\"uptime\":%lu", rec->uptime_seconds);
+                zprintf(f, "\"uptime\":%llu", (unsigned long long)rec->uptime_seconds);
                 comma = 1;
             }
         }

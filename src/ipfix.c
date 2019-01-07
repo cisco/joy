@@ -1875,23 +1875,23 @@ static void ipfix_process_flow_record(flow_record_t *ix_record,
             
         case IPFIX_TLS_VERSION:
             ix_record->tls->version = *(const uint8_t *)flow_data;
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_TLS_KEY_LENGTH:
             ix_record->tls->client_key_length = ntohs(*(const uint16_t *)flow_data);
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_TLS_SESSION_ID:
             ix_record->tls->sid_len = min(field_length, 256);
             memcpy(ix_record->tls->sid, flow_data, ix_record->tls->sid_len);
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_TLS_RANDOM:
             memcpy(ix_record->tls->random, flow_data, 32);
-            flow_data += field_length;
+            flow_ptr += field_length;
             break;
             
         case IPFIX_COLLECT_IDP:

@@ -311,6 +311,10 @@ void tcp_opt_print_json(zfile f,
     /* Pointer to option data and calculate length */
         data = opt + 2;
         datalen = optlen - 2;
+        if (datalen > total_len) {
+            /* malformed option, defensive code here to prevent overflow */
+            datalen = 0;
+        }
         
         zprintf(f, "{");
         switch(*opt) {
