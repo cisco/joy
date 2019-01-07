@@ -19,11 +19,11 @@ m4_define([joy_micro_version], [2])
 m4_define([joy_version],[joy_major_version.joy_minor_version.joy_micro_version])
 AC_PREREQ(2.63)
 
-AC_INIT([joy],[joy_version],[joy-users@cisco.com])
+AC_INIT([joy],[joy_version],[https://github.com/cisco/joy/issues],[],[https://github.com/cisco/joy/])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS([joy_config.h])
 AC_CONFIG_MACRO_DIR([m4])
-AC_PREFIX_DEFAULT(/usr/local/joy)
+AC_PREFIX_DEFAULT(/usr/local)
 
 AM_INIT_AUTOMAKE([subdir-objects -Wall -Werror])
 AC_USE_SYSTEM_EXTENSIONS
