@@ -36,7 +36,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = lib
-DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
+DIST_COMMON = $(library_include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
@@ -70,7 +70,8 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
+am__installdirs = "$(DESTDIR)$(libdir)" \
+	"$(DESTDIR)$(library_includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libjoy_la_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
@@ -110,7 +111,7 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(libjoy_la_SOURCES)
 DIST_SOURCES = $(libjoy_la_SOURCES)
-HEADERS = $(include_HEADERS)
+HEADERS = $(library_include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -269,11 +270,56 @@ libjoy_la_SOURCES = \
 	../src/config.c \
 	../src/proto_identify.c \
 	../src/fp.c \
-	../src/extractor.c
+	../src/extractor.c \
+	../src/include/acsm.h \
+		../src/include/addr_attr.h \
+		../src/include/addr.h \
+		../src/include/anon.h \
+		../src/include/classify.h \
+		../src/include/config.h \
+		../src/include/dhcp.h \
+		../src/include/dns.h \
+		../src/include/err.h \
+		../src/include/example.h \
+		../src/include/feature.h \
+		../src/include/fingerprint.h \
+		../src/include/hdr_dsc.h \
+		../src/include/http.h \
+		../src/include/ike.h \
+		../src/include/ipfix.h \
+		../src/include/joy_api.h \
+		../src/include/joy_api_private.h \
+		../src/include/map.h \
+		../src/include/modules.h \
+		../src/include/nfv9.h \
+		../src/include/osdetect.h \
+		../src/include/output.h \
+		../src/include/p2f.h \
+		../src/include/parson.h \
+		../src/include/payload.h \
+		../src/include/pkt.h \
+		../src/include/pkt_proc.h \
+		../src/include/ppi.h \
+		../src/include/procwatch.h \
+		../src/include/proto_identify.h \
+		../src/include/radix_trie.h \
+		../src/include/salt.h \
+		../src/include/ssh.h \
+		../src/include/str_match.h \
+		../src/include/tls.h \
+		../src/include/updater.h \
+		../src/include/utils.h \
+		../src/include/fp.h \
+		../src/include/extractor.h \
+		../src/include/wht.h \
+		../src/include/fp.h \
+		../src/include/extractor.h
 
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) 
 libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION) $(SSL_LDFLAGS) -lcrypto
-include_HEADERS = ../src/include/acsm.h \
+library_includedir = $(includedir)/joy
+library_include_HEADERS = \
+		../src/include/acsm.h \
 		../src/include/addr_attr.h \
 		../src/include/addr.h \
 		../src/include/anon.h \
@@ -824,26 +870,26 @@ mostlyclean-libtool:
 clean-libtool:
 	-rm -rf .libs _libs
 	-rm -rf ../src/.libs ../src/_libs
-install-includeHEADERS: $(include_HEADERS)
+install-library_includeHEADERS: $(library_include_HEADERS)
 	@$(NORMAL_INSTALL)
-	test -z "$(includedir)" || $(MKDIR_P) "$(DESTDIR)$(includedir)"
-	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	test -z "$(library_includedir)" || $(MKDIR_P) "$(DESTDIR)$(library_includedir)"
+	@list='$(library_include_HEADERS)'; test -n "$(library_includedir)" || list=; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(includedir)'"; \
-	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(includedir)" || exit $$?; \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(library_includedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(library_includedir)" || exit $$?; \
 	done
 
-uninstall-includeHEADERS:
+uninstall-library_includeHEADERS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	@list='$(library_include_HEADERS)'; test -n "$(library_includedir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
 	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(includedir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(includedir)" && rm -f $$files
+	echo " ( cd '$(DESTDIR)$(library_includedir)' && rm -f" $$files ")"; \
+	cd "$(DESTDIR)$(library_includedir)" && rm -f $$files
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -931,7 +977,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LTLIBRARIES) $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(library_includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -984,7 +1030,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-includeHEADERS
+install-data-am: install-library_includeHEADERS
 
 install-dvi: install-dvi-am
 
@@ -1030,7 +1076,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES
+uninstall-am: uninstall-libLTLIBRARIES \
+	uninstall-library_includeHEADERS
 
 .MAKE: install-am install-strip
 
@@ -1040,17 +1087,16 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-includeHEADERS install-info \
-	install-info-am install-libLTLIBRARIES install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-includeHEADERS \
-	uninstall-libLTLIBRARIES
+	install-html-am install-info install-info-am \
+	install-libLTLIBRARIES install-library_includeHEADERS \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	mostlyclean mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags uninstall \
+	uninstall-am uninstall-libLTLIBRARIES \
+	uninstall-library_includeHEADERS
 
-
-#libjoy_la_LIBADD = $(LIBOBJS)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

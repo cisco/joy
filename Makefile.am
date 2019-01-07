@@ -42,7 +42,6 @@ install-data-hook:
 	cp install_joy/options.cfg $(DESTDIR)/$(prefix)/etc/joy
 	cp internal.net $(DESTDIR)/$(prefix)/etc/joy
 	mkdir -p $(DESTDIR)/$(prefix)/include/joy
-	cp src/include/joy_api.h $(DESTDIR)/$(prefix)/include/joy
 #	SLEUTHVER= grep version sleuth_pkg/setup.py | awk -F\' '{print $2}'
 	python sleuth_pkg/setup.py bdist --format=gztar
 #       SLEUTHFILE="dist/sleuth-${SLEUTHVER}.linux-${build_cpu}.tar.gz"
