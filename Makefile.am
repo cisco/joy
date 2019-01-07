@@ -22,8 +22,8 @@ clean_make:
 	echo "You must rerun configure"
 
 install-data-hook:
-	mkdir -p $(DESTDIR)/etc/init.d/joy
-	cp install_joy/joy.rc  $(DESTDIR)/etc/init.d/joy
+#	mkdir -p $(DESTDIR)/etc/init.d
+#	cp install_joy/joy.rc  $(DESTDIR)/etc/init.d/joy
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
 	cp install_joy/joy.service $(DESTDIR)/usr/lib/systemd/system
 	mkdir -p $(DESTDIR)/etc/systemd/system/joy.service.d
@@ -31,7 +31,7 @@ install-data-hook:
 	mkdir -p $(DESTDIR)/$(prefix)/var/log
 	mkdir -p $(DESTDIR)/$(prefix)/var/joy
 	mkdir -p $(DESTDIR)/$(prefix)/etc/joy
-	mkdir -p $(DESTDIR)/etc/logrotate.d/joy
+	mkdir -p $(DESTDIR)/etc/logrotate.d
 	cp install_joy/joy.logrotate $(DESTDIR)/etc/logrotate.d/joy
 	mkdir -p $(DESTDIR)/$(prefix)/share/joy
 	mkdir -p $(DESTDIR)/$(prefix)/share/man
@@ -43,6 +43,11 @@ install-data-hook:
 	cp internal.net $(DESTDIR)/$(prefix)/etc/joy
 	mkdir -p $(DESTDIR)/$(prefix)/include/joy
 	cp src/include/joy_api.h $(DESTDIR)/$(prefix)/include/joy
+#	SLEUTHVER= grep version sleuth_pkg/setup.py | awk -F\' '{print $2}'
+	python sleuth_pkg/setup.py bdist --format=gztar
+#       SLEUTHFILE="dist/sleuth-${SLEUTHVER}.linux-${build_cpu}.tar.gz"
+        SLEUTHFILE="dist/sleuth-1.0.linux-${build_cpu}.tar.gz"
+	tar -xf $(SLEUTHFILE) -C $(DESTDIR)
 
 EXTRA_DIST=internal.net build_pkg install_joy test sleuth_pkg rpm examples.sh config.sh compact_bd.txt Makefile.joy sleuth Makefile.joy src/Makefile.joy doc resources VERSION
 
