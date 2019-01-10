@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2018 Cisco Systems, Inc.
+ * Copyright (c) 2018-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -95,10 +95,10 @@ void fpx_init(struct fpx **fpx_handle) {
  * \return none
  */
 void fpx_update (struct fpx *fpx, 
-		    const struct pcap_pkthdr *header, 
-		    const void *data, 
-		    unsigned int len, 
-		    unsigned int report_fpx) {
+                 const struct pcap_pkthdr *header __attribute__((unused)), 
+                 const void *data, 
+                 unsigned int len, 
+                 unsigned int report_fpx) {
     struct extractor x;
     
     if (report_fpx && fpx) {
