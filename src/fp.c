@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2018 Cisco Systems, Inc.
+ * Copyright (c) 2018-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,8 @@ void fpx_update (struct fpx *fpx,
 		    unsigned int len, 
 		    unsigned int report_fpx) {
     struct extractor x;
-    
+    JOY_UNUSED(header);
+
     if (report_fpx && fpx) {
 
 	if (fpx->tcp_fp_len == 0) {
