@@ -1112,7 +1112,7 @@ void* process_packet (unsigned char *ctx_ptr,
 	    }
             return NULL;
         }
-        record->invalid++;
+        record->invalid = 1;
     }
 
     /*
