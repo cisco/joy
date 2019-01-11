@@ -283,7 +283,7 @@ static int is_decimal(const char *string, size_t length) {
         c[1] = '\0';
 
 #define HEX_PREFIX_STR_LEN 2
-        strstr_s("xX", HEX_PREFIX_STR_LEN, c, 1, &substr);
+        strstr_s((char*)"xX", HEX_PREFIX_STR_LEN, (const char *)c, 1, &substr);
         if (substr) {
             return 0;
         }
