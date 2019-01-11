@@ -111,7 +111,7 @@
  * build of joy, add/remove it from this list.
  */
 //#define ip_feature_list
-#define tcp_feature_list salt, ppi
+#define tcp_feature_list salt, ppi, fpx
 #define payload_feature_list wht, example, dns, ssh, tls, dhcp, http, ike, payload
 #define feature_list payload_feature_list, tcp_feature_list
 //#define feature_list payload_feature_list, ip_feature_list, tcp_feature_list

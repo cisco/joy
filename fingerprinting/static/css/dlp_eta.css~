@@ -1,0 +1,7 @@
+table.contents {
+    border-collapse: collapse;
+}
+
+table.contents, th.contents, td.contents {
+    border: 1px solid black;
+}

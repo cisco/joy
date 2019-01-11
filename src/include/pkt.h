@@ -125,7 +125,6 @@ struct ip_hdr {
 #define TCP_ECE  0x40
 #define TCP_CWR  0x80
 #define TCP_FLAGS   (TCP_FIN|TCP_SYN|TCP_RST|TCP_ACK|TCP_URG|TCP_ECE|TCP_CWR)
-#define TCP_OFF(h)  (((h)->tcp_off2 & 0xf0) >> 4)
 #define tcp_hdr_length(h) (((h)->tcp_offrsv >> 4) * 4)
 
 /** TCP header structure */

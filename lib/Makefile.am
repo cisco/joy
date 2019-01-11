@@ -32,7 +32,9 @@ libjoy_la_SOURCES = \
 	../src/dhcp.c \
 	../src/payload.c \
 	../src/config.c \
-	../src/proto_identify.c 
+	../src/proto_identify.c \
+	../src/fp.c \
+	../src/extractor.c
 
 
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
@@ -77,7 +79,11 @@ include_HEADERS=../src/include/acsm.h \
 		../src/include/tls.h \
 		../src/include/updater.h \
 		../src/include/utils.h \
-		../src/include/wht.h 
+		../src/include/fp.h \
+		../src/include/extractor.h \
+		../src/include/wht.h \
+		../src/include/fp.h \
+		../src/include/extractor.h
 
 
 

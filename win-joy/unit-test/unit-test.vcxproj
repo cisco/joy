@@ -132,7 +132,9 @@
     <ClCompile Include="..\..\src\dhcp.c" />
     <ClCompile Include="..\..\src\dns.c" />
     <ClCompile Include="..\..\src\example.c" />
+    <ClCompile Include="..\..\src\extractor.c" />
     <ClCompile Include="..\..\src\fingerprint.c" />
+    <ClCompile Include="..\..\src\fp.c" />
     <ClCompile Include="..\..\src\getline.c" />
     <ClCompile Include="..\..\src\hdr_dsc.c" />
     <ClCompile Include="..\..\src\http.c" />
@@ -169,8 +171,10 @@
     <ClInclude Include="..\..\src\include\dns.h" />
     <ClInclude Include="..\..\src\include\err.h" />
     <ClInclude Include="..\..\src\include\example.h" />
+    <ClInclude Include="..\..\src\include\extractor.h" />
     <ClInclude Include="..\..\src\include\feature.h" />
     <ClInclude Include="..\..\src\include\fingerprint.h" />
+    <ClInclude Include="..\..\src\include\fp.h" />
     <ClInclude Include="..\..\src\include\hdr_dsc.h" />
     <ClInclude Include="..\..\src\include\http.h" />
     <ClInclude Include="..\..\src\include\ike.h" />

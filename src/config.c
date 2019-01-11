@@ -96,11 +96,36 @@ static int parse_int (unsigned int *x, const char *arg, int num_arg, unsigned in
 
 /* parses a boolean value */
 static int parse_bool (bool *x, const char *arg, int num_arg) {
+    bool val = 0;
+
+    /* if the number of arguments is one, default turn the option on */
     if (num_arg == 1) {
-        arg = "1";
-        num_arg = 2;
+        *x = 1;
+        return ok;
     }
-    return parse_int((unsigned int*)x, arg, num_arg, 0, 1);
+
+    /* sanity check the length of the value string */
+    if (strlen(arg) > 1) {
+        printf("error: value too big, value must be 0 or 1");
+        return failure;
+    }
+
+    /* make sure value is a digit */
+    if (!isdigit(*arg)) {
+        printf("error: non-digit, value must be 0 or 1");
+        return failure;
+    }
+
+    /* change the value into a digit */
+    val = atoi(arg);
+
+    /* if value is not 1, turn off option */
+    if (val == 1) {
+        *x = 1;
+    } else {
+        *x = 0;
+    }
+    return ok;
 }
 
 /*parses a string values */

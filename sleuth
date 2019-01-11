@@ -58,12 +58,6 @@ def attach_iterators(source, args):
                                           compliance=args.compliance, failure_threshold=args.failure_threshold)
     
     if args.fplist:
-        for fp in args.fplist.split(','):
-            if fp in fingerprinter.types():
-                source = DictStreamEnrichIntoIterator(source, "fingerprint", fingerprinter.get_instance(fp).get_fingerprint)
-            elif fp == 'all':
-                for fp in fingerprinter.types():
-                    source = DictStreamEnrichIntoIterator(source, "fingerprint", fingerprinter.get_instance(fp).get_fingerprint)
         source = DictStreamEnrichIntoIterator(source, "inferences", tls_inference)
 
     if args.filter:
@@ -105,8 +99,8 @@ def pipeline():
                         help="Turn off stitching together successive flows separated by active timeouts.")
     parser.add_argument("--sum", dest="sumvars",
                         help="Compute sum over selected element(s).")
-    parser.add_argument("--fingerprint", dest="fplist",
-                        help="Enrich with fingerprint(s): (all, tcp, tls, or http).")
+    parser.add_argument("--fingerprint", dest="fplist", action="store_true",
+                        help="Enrich with inferences about fingerprint(s).")
     parser.add_argument("--tls_sec", dest='tls_sec', action="store_true",
                         help="Report security level of TLS sessions.")
     parser.add_argument("--sec_policy_file", dest='policy_file',
