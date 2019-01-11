@@ -517,7 +517,7 @@ int joy_initialize(joy_init_t *init_data,
         /* setup the output file basename for the context */
         memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
         if (output_file != NULL) {
-            if (strnlen_s(output_file, MAX_FILENAME_LEN) > (int)(MAX_FILENAME_LEN - strnlen_s(output_dirname, MAX_FILENAME_LEN) - 16), MAX_FILENAME_LEN) {
+            if ((int)strnlen_s(output_file, MAX_FILENAME_LEN) > (int)(MAX_FILENAME_LEN - strnlen_s(output_dirname, MAX_FILENAME_LEN) - 16)) {
                 /* dirname + filename is too long, use default filename scheme */
                 snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
             } else {

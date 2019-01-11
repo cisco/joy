@@ -881,7 +881,7 @@ char* get_application_version (char* full_path) {
         /* setup the plist file name */
         memset_s(plist_file, PLIST_FILE_MAX, 0x00, PLIST_FILE_MAX);
         strncpy_s(plist_file, PLIST_FILE_MAX, full_path,found_base);
-        strncat_s(plist_file, PLIST_FILE_MAX, (PLIST_FILE_MAX-found_base), ".app/Contents/Info.plist");
+        strncat_s(plist_file, PLIST_FILE_MAX, ".app/Contents/Info.plist", (PLIST_FILE_MAX-found_base));
 
         /* setup the command to retireve the version info */
         ver_cmd = calloc(1, found_base + 100);
@@ -926,7 +926,7 @@ void lsof_process_output(struct lsof_flow *fr, char *s, int sockets) {
                             }
                             if (hf->exe_name != NULL) {
                                 strncpy_s(hf->exe_name, strnlen_s(fr->command,
-                                                                  PROC_PATH_LEN, 
+                                                                  PROC_PATH_LEN), 
                                                                   fr->command, 
                                                                   strnlen_s(fr->command, PROC_PATH_LEN));
                                 hf->full_path = get_full_path_from_pid(hf->pid);
