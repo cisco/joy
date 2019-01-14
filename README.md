@@ -85,16 +85,24 @@ This package was written by David McGrew, Blake Anderson, Philip Perricone
 and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
 Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
-### Release 2.0
+### Release 4.0.3
+* Added support for make install for Centos
 
-We are pleased to announce the 2.0 release of the package, which has these features:
-* The JSON schema has been updated to be better organized, more readable, and more searchable (by putting searchable keywords as the JSON names),
-* The new sleuth tool replaces query/joyq, and brings new functionality such as —fingerprint, 
-* Much improved documentation, which covers the joy and sleuth tools, examples, and the JSON schema
-(see [using-joy](https://github.com/cisco/joy/blob/master/doc/using-joy-05.pdf))
+### Release 4.0.2
+* Add support for fingerprinting
 
-We hope that you find it useful!
-- the Joy Team
+### Release 4.0.1
+We are pleased to announce the 4.0.1 release of the package, which has these features:
+* Add additional API's for parent application processing of Flow Records and data features
+* Fixed TCP retransmission and out of order detection
+* Better identification of IDP packet
+* Fixed some memory usage issues
+* Fixed minor bugs
+* Removed dead code
+
+### Release 4.0.0
+We are pleased to announce the 4.0.0 release of the package, which has these features:
+* Add support for building with autotools. ./configure;make clean;make
 
 ### Release 3.0.0
 We are pleased to announce the 3.0.0 release of the package, which has these features:
@@ -113,18 +121,13 @@ We are pleased to announce the 3.0.0 release of the package, which has these fea
 * Cleaned up coverity errors and warnings.
 * Various bug fixes.
 
-### Release 4.0.1
-We are pleased to announce the 4.0.1 release of the package, which has these features:
-* Add additional API's for parent application processing of Flow Records and data features
-* Fixed TCP retransmission and out of order detection
-* Better identification of IDP packet
-* Fixed some memory usage issues
-* Fixed minor bugs
-* Removed dead code
+### Release 2.0
 
-### Release 4.0.0
-We are pleased to announce the 4.0.0 release of the package, which has these features:
-* Add support for building with autotools. ./configure;make clean;make
+We are pleased to announce the 2.0 release of the package, which has these features:
+* The JSON schema has been updated to be better organized, more readable, and more searchable (by putting searchable keywords as the JSON names),
+* The new sleuth tool replaces query/joyq, and brings new functionality such as —fingerprint, 
+* Much improved documentation, which covers the joy and sleuth tools, examples, and the JSON schema
+(see [using-joy](https://github.com/cisco/joy/blob/master/doc/using-joy-05.pdf))
 
 ## Quick Start
 
