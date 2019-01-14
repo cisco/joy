@@ -26,8 +26,7 @@ usage() {
     echo "   The -s ssl-path is required when building osxpkg and specifies the"
     echo "   location of the OpenSSL header files."
     echo ""
-    echo "   The -z compression-type should be none, gzip or bzip2. This option is passed"
-    echo "   to joy's config script. Default: gzip"
+    echo "   The -z compression-type should be none, gzip or bzip2. Default: gzip"
     echo ""
 } 
 
@@ -148,7 +147,9 @@ fi
 
 # Compression-specific packages and requirements
 #
+CONFIGURE_ARGS="--prefix=/usr/local"
 if [ $COMPRESSION == "gzip" ]; then
+    CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-gzip"
     DEBIAN_PKGS="$DEBIAN_PKGS zlib1g zlib1g-dev"
     DEBIAN_REQS="$DEBIAN_REQS -d zlib1g"
     UBUNTU_PKGS="$UBUNTU_PKGS zlib1g zlib1g-dev"
@@ -156,6 +157,7 @@ if [ $COMPRESSION == "gzip" ]; then
     RPM_PKGS="$RPM_PKGS zlib zlib-devel"
     RPM_REQS="$RPM_REQS -d zlib"
 elif [ $COMPRESSION == "bzip2" ]; then
+    CONFIGURE_ARGS="$CONFIGURE_ARGS --enable-bzip2"
     DEBIAN_PKGS="$DEBIAN_PKGS libbz2-1.0 libbz2-dev"
     DEBIAN_REQS="$DEBIAN_REQS -d bzip2 -d libbz2-1.0"
     UBUNTU_PKGS="$UBUNTU_PKGS libbz2-1.0 libbz2-dev"
@@ -269,17 +271,17 @@ if [ "$?" != 0 ]; then
     exit 1
 fi
 FPM_LINUX_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION --iteration $ITERATION \
-    --after-install $APP_ROOT/joy/install/postinstall-linux \
-    --before-install $APP_ROOT/joy/install/preinstall-linux \
-    --before-remove $APP_ROOT/joy/install/preuninstall-linux \
+    --after-install $APP_ROOT/joy/install_joy/postinstall-linux \
+    --before-install $APP_ROOT/joy/install_joy/preinstall-linux \
+    --before-remove $APP_ROOT/joy/install_joy/preuninstall-linux \
     --vendor Cisco --config-files /usr/local/etc/joy/ \
     --config-files /usr/local/var/joy \
     --config-files /usr/local/var/log \
     -m brilong@cisco.com -p $APP_ROOT \
     --url https://github.com/cisco/joy"
 FPM_MAC_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION-$ITERATION \
-    --after-install $APP_ROOT/joy/install/postinstall-darwin \
-    --before-install $APP_ROOT/joy/install/preinstall-darwin \
+    --after-install $APP_ROOT/joy/install_joy/postinstall-darwin \
+    --before-install $APP_ROOT/joy/install_joy/preinstall-darwin \
     --vendor Cisco \
     --osxpkg-identifier-prefix com.cisco \
     --osxpkg-dont-obsolete /usr/local/etc/joy/ \
@@ -296,8 +298,8 @@ if [ "$?" != 0 ]; then
 fi
 # Used for pkg development; grab files not yet checked-in to master
 if [ "$GITREF" != "master" ]; then
-    tar -f $TAR_FILE --delete joy/install/install-sh 2>/dev/null
-    tar -rvf $TAR_FILE -C .. joy/src/joy.c joy/install/install-sh joy/install/postinstall-darwin joy/install/preinstall-darwin
+    tar -f $TAR_FILE --delete joy/install_joy/install-sh 2>/dev/null
+    tar -rvf $TAR_FILE -C .. joy/src/joy.c joy/install_joy/install-sh joy/install_joy/postinstall-darwin joy/install_joy/preinstall-darwin
     if [ "$?" != 0 ]; then
         echo Failed to update archive tar
         rmdir $TMPDIR
@@ -322,31 +324,35 @@ if [ "$?" != 0 ]; then
 fi
 if [ "$BUILDTYPE" == "deb" ]; then
     if [ "$ARCH" == "x86_64" ]; then
-        ./config -l /usr/lib/x86_64-linux-gnu -z $COMPRESSION
+        #./configure $CONFIGURE_ARGS -l /usr/lib/x86_64-linux-gnu
+        ./configure $CONFIGURE_ARGS
     elif [ "$ARCH" == "armv7l" ]; then
-        ./config -l /usr/lib/arm-linux-gnueabihf -z $COMPRESSION
+        #./configure $CONFIGURE_ARGS -l /usr/lib/arm-linux-gnueabihf
+        ./configure $CONFIGURE_ARGS
     else
         echo "Arch $ARCH not supported"
         exit 1
     fi
 elif [ "$BUILDTYPE" == "osxpkg" ]; then
-    ./config --ssl-path $SSL_PATH -z $COMPRESSION
+    ./configure $CONFIGURE_ARGS  --with-ssl-dir=$SSL_PATH
 elif [ "$BUILDTYPE" == "rpm" ]; then
-    ./config -l /usr/lib64 -z $COMPRESSION
+    #./configure $CONFIGURE_ARGS -l /usr/lib64
+    echo Running ./configure $CONFIGURE_ARGS
+    ./configure $CONFIGURE_ARGS
 fi
 if [ "$?" != 0 ]; then
-    echo Failed to run ./config
+    echo Failed to run ./configure
     exit 1
 fi
 echo "$FULL_VERSION" > VERSION
-make
+make clean; make
 if [ "$?" != 0 ]; then
     echo Failed to run make
     exit 1
 fi
-make DESTDIR=${BUILDROOT}/usr/local BUILDROOT=${BUILDROOT} PKG_BUILD=1 pkg
+make DESTDIR=${BUILDROOT} BUILDROOT=${BUILDROOT} install
 if [ "$?" != 0 ]; then
-    echo Failed to run make pkg
+    echo Failed to run make install
     exit 1
 fi
 

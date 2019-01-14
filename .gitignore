@@ -1,2 +1,4 @@
 config.vars
 joy-*.tar
+aclocal.m4
+autom4te.cache
