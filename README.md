@@ -85,6 +85,12 @@ This package was written by David McGrew, Blake Anderson, Philip Perricone
 and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
 Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
+### Release 4.0.3
+* Added support for make install for Centos
+
+### Release 4.0.2
+* Add support for fingerprinting
+
 ### Release 4.0.1
 We are pleased to announce the 4.0.1 release of the package, which has these features:
 * Add additional API's for parent application processing of Flow Records and data features
