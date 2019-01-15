@@ -35,6 +35,7 @@
 #define __SAFE_STR_LIB_H__
 
 #include <stdint.h>
+#include <string.h>
 #include "safe_lib_errno.h"
 
 /**

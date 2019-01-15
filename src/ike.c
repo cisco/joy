@@ -127,9 +127,11 @@ static void vector_set(vector_t *vector,
         joy_log_err("malloc failed");
         return;
     }
-    memcpy_s(tmpptr, len, data, len);
-    if (vector->bytes != NULL) {
-        free(vector->bytes);
+    if (data) {
+        memcpy_s(tmpptr, len, data, len);
+        if (vector->bytes != NULL) {
+            free(vector->bytes);
+        }
     }
     vector->bytes = tmpptr;
     vector->len = len;
@@ -158,8 +160,12 @@ static void vector_append(vector_t *vector,
         joy_log_err("malloc failed");
         return;
     }
-    memcpy_s(tmpptr, vector->len, vector->bytes, vector->len);
-    memcpy_s(tmpptr + vector->len, len, data, len);
+    if (vector->bytes) {
+        memcpy_s(tmpptr, vector->len, vector->bytes, vector->len);
+    }
+    if (data) {
+        memcpy_s(tmpptr + vector->len, len, data, len);
+    }
     if (vector->bytes != NULL) {
         free(vector->bytes);
     }
@@ -4591,8 +4597,10 @@ static unsigned int ike_header_unmarshal(ike_header_t *s, const char *data, unsi
     if (len < sizeof(ike_header_t)) {
         return 0;
     }
-    memcpy_s(s->init_spi, 8, data+offset, 8); offset+=8;
-    memcpy_s(s->resp_spi, 8, data+offset, 8); offset+=8;
+    if (data+offset) {
+        memcpy_s(s->init_spi, 8, data+offset, 8); offset+=8;
+        memcpy_s(s->resp_spi, 8, data+offset, 8); offset+=8;
+    }
     s->next_payload = data[offset]; offset++;
     s->major = (data[offset] & 0xf0) >> 4; 
     s->minor = (data[offset] & 0x0f); offset++;
