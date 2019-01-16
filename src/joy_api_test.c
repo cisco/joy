@@ -207,7 +207,7 @@ void *thread_main1 (void *file)
     sleep(1);
     printf("Thread 1 Starting\n");
     joy_print_config(0, JOY_JSON_FORMAT);
-    memset(&feat_counts, 0x00, sizeof(joy_ctx_feat_count_t));
+    memset_s(&feat_counts, sizeof(joy_ctx_feat_count_t), 0x00, sizeof(joy_ctx_feat_count_t));
     if (file != NULL) {
         joy_get_feature_counts(0,&feat_counts);
         printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
@@ -305,7 +305,7 @@ int main (int argc, char **argv)
     }
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(joy_init_t));
+    memset_s(&init_data, sizeof(joy_init_t), 0x00, sizeof(joy_init_t));
 
    /* this setup is for general processing */
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */

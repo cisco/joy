@@ -44,6 +44,7 @@
 
 #include <stdlib.h>  
 #include <stdio.h>
+#include "safe_lib.h"
 #include "pcap.h"
 #include "joy_api.h"
 
@@ -195,7 +196,7 @@ int main (void)
     struct joy_init init_data;
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(struct joy_init));
+    memset_s(&init_data, sizeof(struct joy_init), 0x00, sizeof(struct joy_init));
     init_data.verbosity = 4;                  /* verbosity 0 (off) - 5 (critical) */
     init_data.max_records = 0;                /* max_records in output file, 0 means single output file */
     init_data.contexts = 1;                   /* just use 1 worker context */

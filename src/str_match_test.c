@@ -137,7 +137,7 @@ int main (void) {
     joy_init_t init_data;
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(joy_init_t));
+    memset_s(&init_data, sizeof(joy_init_t), 0x00, sizeof(joy_init_t));
 
    /* this setup is for general processing */
     init_data.verbosity = 4;

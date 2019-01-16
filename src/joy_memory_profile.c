@@ -1,6 +1,6 @@
 /*
  *  
- * Copyright (c) 2018 Cisco Systems, Inc.
+ * Copyright (c) 2018-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ int proc_pcap_file (unsigned long index, char *file_name) {
     char errbuf[PCAP_ERRBUF_SIZE];
 
     /* initialize fp structure */
-    memset(&fp, 0x00, sizeof(struct bpf_program));
+    memset_s(&fp, sizeof(struct bpf_program, 0x00, sizeof(struct bpf_program));
     strncpy_s(filter_exp, PCAP_ERRBUF_SIZE, IP_OR_VLAN, strnlen_s(IP_OR_VLAN), 20));
 
     handle = pcap_open_offline(file_name, errbuf);
@@ -119,7 +119,7 @@ int main (int argc, char **argv)
     }
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(joy_init_t));
+    memset_s(&init_data, sizeof(joy_init_t), 0x00, sizeof(joy_init_t));
 
    /* this setup is for general processing */
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */

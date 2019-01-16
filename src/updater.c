@@ -279,7 +279,7 @@ static upd_return_codes_e dnload_classifier_file (const char *url, char *filenam
     snprintf(full_url, MAX_URL_LENGTH, "%s/%s", url, filename);
 
     /* setup the curl URL, output file, callback function and error buffer */
-    memset(errbuf, 0x00, CURL_ERROR_SIZE);
+    memset_s(errbuf, CURL_ERROR_SIZE, 0x00, CURL_ERROR_SIZE);
     curl_easy_setopt(handle, CURLOPT_URL, full_url);
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, classifier_file);
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, upd_write_data);
@@ -394,9 +394,9 @@ void *updater_main (void *ptr)
     struct configuration *config = ptr;
 
     /* initialize MD5 digests */
-    memset(blacklist_md5, 0x00, MD5_DIGEST_LENGTH);
-    memset(splt_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
-    memset(bd_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
+    memset_s(blacklist_md5, MD5_DIGEST_LENGTH, 0x00, MD5_DIGEST_LENGTH);
+    memset_s(splt_classifier_md5, MD5_DIGEST_LENGTH, 0x00, MD5_DIGEST_LENGTH);
+    memset_s(bd_classifier_md5, MD5_DIGEST_LENGTH, 0x00, MD5_DIGEST_LENGTH);
 
     /* check for labeling */
     if (config->label_url) {
