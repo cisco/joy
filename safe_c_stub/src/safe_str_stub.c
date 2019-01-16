@@ -99,6 +99,18 @@ errno_t strcasecmp_s (const char *dest, rsize_t dmax, const char *src, int *indi
     return (EOK);
 }
 
+errno_t
+strncasecmp_s (const char *s1, rsize_t s1max,
+               const char *s2, rsize_t n, int *indicator)
+{
+    if (s1 && s2 && s1max && s2 && n && indicator) {
+        return(strcasecmp_s(s1, s1max, s2, indicator));
+    } else {
+        *indicator = -1;
+        return(ESNULLP);  
+    }          
+}
+
 /*
  * strcat_s()
  *
