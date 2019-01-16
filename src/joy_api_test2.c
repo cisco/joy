@@ -44,7 +44,6 @@
 
 #include <stdlib.h>  
 #include <stdio.h>
-#include <string.h>
 #include "pcap.h"
 #include "joy_api.h"
 

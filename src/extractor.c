@@ -34,7 +34,7 @@
  *
  */
 
-#include <string.h>   /* for memcpy()   */
+#include "safe_lib.h"
 #include <stdio.h>
 
 #include "extractor.h"
@@ -160,7 +160,7 @@ enum status extractor_copy(struct extractor *x,
 	x->tmp_location = x->output;
 	encode_uint16(x->output, len);
 	x->output += 2;
-	memcpy(x->output, x->data, len);
+	memcpy_s(x->output, len, x->data, len);
 	x->data += len;
 	x->output += len;
 	return status_ok;
@@ -182,7 +182,7 @@ enum status extractor_copy_append(struct extractor *x,
 	/*
 	 * copy data to output buffer
 	 */
-	memcpy(x->output, x->data, len);
+	memcpy_s(x->output, len, x->data, len);
 	x->data += len;
 	x->output += len;
 	return status_ok;

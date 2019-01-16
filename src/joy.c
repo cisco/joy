@@ -48,7 +48,6 @@
 #include <pcap.h>
 #include <signal.h>
 #include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 #include <errno.h>
 
@@ -339,7 +338,7 @@ static unsigned int interface_list_get(void) {
         fprintf(stderr, "Error in pcap_findalldevs: %s\n", errbuf);
         return num_ifs;
     }
-    memset(&ifl, 0x00, sizeof(ifl));
+    memset_s(&ifl, sizeof(ifl), 0x00, sizeof(ifl));
 
     /* store off the interface list */
     for (d = alldevs; d; d = d->next) {
@@ -363,7 +362,7 @@ static unsigned int interface_list_get(void) {
                 i = find_interface_in_list(d->name);
                 if (i > -1) {
                     /* seen this interface before */
-                    memset(ip_string, 0x00, INET6_ADDRSTRLEN);
+                    memset_s(ip_string, INET6_ADDRSTRLEN, 0x00, INET6_ADDRSTRLEN);
                     if (dev_addr->addr->sa_family == AF_INET6) {
                         inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
                         snprintf((char*)ifl[i].ip_addr6, INET6_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
@@ -375,7 +374,7 @@ static unsigned int interface_list_get(void) {
                 } else {
                     /* first time seeing this interface add to list */
                     snprintf((char*)ifl[num_ifs].name, INTFACENAMESIZE, "%s", d->name);
-                    memset(ip_string, 0x00, INET6_ADDRSTRLEN);
+                    memset_s(ip_string,  INET6_ADDRSTRLEN, 0x00, INET6_ADDRSTRLEN);
                     if (dev_addr->addr->sa_family == AF_INET6) {
                         inet_ntop(AF_INET6, &((struct sockaddr_in6 *)dev_addr->addr)->sin6_addr, ip_string, INET6_ADDRSTRLEN);
                         snprintf((char*)ifl[num_ifs].ip_addr6, INET6_ADDRSTRLEN, "%s", (unsigned char*)ip_string);
@@ -554,7 +553,8 @@ static int config_sanity_check(void) {
  * \return 0 success, 1 failure
  */
 static int set_operating_mode(void) {
-    if (glb_config->intface != NULL && strcmp(glb_config->intface, NULL_KEYWORD)) {
+    int cmp_ind;
+    if (glb_config->intface != NULL && (strcmp_s(glb_config->intface, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind != 0)) {
         /*
          * Network interface sniffing using Pcap
          */
@@ -587,11 +587,12 @@ static int set_operating_mode(void) {
  */
 static int set_logfile(void) {
     char logfile[MAX_FILENAME_LEN];
+    int cmp_ind;
 #ifdef WIN32
     PWSTR windir = NULL;
 #endif
 
-    if (glb_config->logfile && strcmp(glb_config->logfile, NULL_KEYWORD)) {
+    if (glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind !=0)) {
 #ifdef WIN32
         if (!strncmp(glb_config->logfile, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
             /* Use the LocalAppDataFolder */
@@ -723,7 +724,7 @@ static int get_compact_bd(void) {
         return 0;
     }
 
-    memset(glb_config->compact_bd_mapping, 0, sizeof(glb_config->compact_bd_mapping));
+    memset_s(glb_config->compact_bd_mapping,  sizeof(glb_config->compact_bd_mapping), 0, sizeof(glb_config->compact_bd_mapping));
 
     fp = fopen(glb_config->compact_byte_distribution, "r");
     if (fp != NULL) {
@@ -1010,19 +1011,20 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
     struct dirent *ent = NULL;
     DIR *dir = NULL;
     char pcap_filename[MAX_FILENAME_LEN*2]; 
+    int cmp_ind;
     
-    tmp_ret = strnlen(input_directory, MAX_FILENAME_LEN*2);
+    tmp_ret = strnlen_s(input_directory, MAX_FILENAME_LEN*2);
     if (tmp_ret == 0 || tmp_ret >= MAX_FILENAME_LEN*2) {
 	return -1;
     }
     /* initialize variables */
-    memset(&fp, 0x00, sizeof(struct bpf_program));
-    memset(&pcap_filename[0], 0x00, (MAX_FILENAME_LEN*2));
+    memset_s(&fp,  sizeof(struct bpf_program), 0x00, sizeof(struct bpf_program));
+    memset_s(&pcap_filename[0], (MAX_FILENAME_LEN*2), 0x00, (MAX_FILENAME_LEN*2));
 
     /* create a directory to place all of the output files into */
     if (glb_config->filename) {
         struct stat st;
-        memset(&st, 0x00, sizeof(struct stat));
+        memset_s(&st,  sizeof(struct stat), 0x00, sizeof(struct stat));
         if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
             mkdir(output_filename);
@@ -1041,13 +1043,14 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 
         while ((ent = readdir(dir)) != NULL) {
             static int fc_cnt = 1;
-            if (strcmp(ent->d_name, ".") && strcmp(ent->d_name, "..")) {
+            if ((strcmp_s(ent->d_name, 1, ".", &cmp_ind) == EOK && cmp_ind !=0) && 
+                (strcmp_s(ent->d_name, 2, "..", &cmp_ind) == EOK && cmp_ind !=0)) {
                 strncpy_s(pcap_filename, (MAX_FILENAME_LEN*2), input_directory, (MAX_FILENAME_LEN*2)-1);
 #ifdef WIN32
                 if (pcap_filename[strlen(pcap_filename) - 1] != '\\') {
-                    strcat(pcap_filename, "\\");
+                    strcat_s(pcap_filename, MAX_FILENAME_LEN, "\\");
                 }
-                strcat(pcap_filename, ent->d_name);
+                strcat_s(pcap_filename, MAX_FILENAME_LEN, ent->d_name);
 
                 /* open new output file for multi-file processing */
                 if (glb_config->filename) {
@@ -1057,7 +1060,7 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 }
 #else
                 if (pcap_filename[strlen(pcap_filename)-1] != '/') {
-                    strcat(pcap_filename, "/");
+                    strncat_s(pcap_filename, MAX_FILENAME_LEN*2,"/", 1);
                 }
                 strcat(pcap_filename, ent->d_name);
 
@@ -1124,12 +1127,12 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
 #endif
 
     /* initialize variables */
-    memset(&fp, 0x00, sizeof(struct bpf_program));
+    memset_s(&fp, sizeof(struct bpf_program), 0x00, sizeof(struct bpf_program));
 
     /* create a directory to place all of the output files into */
     if (glb_config->filename) {
         struct stat st;
-        memset(&st, 0x00, sizeof(struct stat));
+        memset_s(&st, sizeof(struct stat), 0x00, sizeof(struct stat));
         if (stat(output_filename, &st) == -1) {
 #ifdef WIN32
             mkdir(output_filename);
@@ -1211,7 +1214,7 @@ int process_single_input_file (char *input_filename, char *output_filename) {
     struct bpf_program fp;
 
     /* initialize fp structure */
-    memset(&fp, 0x00, sizeof(struct bpf_program));
+    memset_s(&fp, sizeof(struct bpf_program), 0x00, sizeof(struct bpf_program));
 
     /* open outputfile */
     if (glb_config->filename) {
@@ -1250,14 +1253,15 @@ int main (int argc, char **argv) {
     pthread_t ipfix_cts_monitor_thread;
     int cts_monitor_thread_rc;
     int c, i = 0;
+    int cmp_ind;
 #ifndef _WIN32
     struct passwd *pw = NULL;
     const char *user = NULL;
 #endif
 
     /* initialize the config */
-    memset(&main_ctx, 0x00, sizeof(struct joy_ctx_data));
-    memset(&active_config, 0x00, sizeof(struct configuration));
+    memset_s(&main_ctx,  sizeof(struct joy_ctx_data), 0x00, sizeof(struct joy_ctx_data));
+    memset_s(&active_config,  sizeof(struct configuration), 0x00, sizeof(struct configuration));
     glb_config = &active_config;
 
     /* Sanity check argument syntax */
@@ -1545,7 +1549,7 @@ int main (int argc, char **argv) {
            }
            // fflush(main_ctx.output);
            // Close and reopen the log file if reopenLog flag is set
-           if (reopenLog && glb_config->logfile && strcmp(glb_config->logfile, NULL_KEYWORD)) {
+           if (reopenLog && glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind!= 0)) {
               fclose(info);
               reopenLog = 0;
               info = fopen(glb_config->logfile, "a");
@@ -1626,7 +1630,7 @@ int main (int argc, char **argv) {
         for (i=1+opt_count; i<argc; i++) {
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 /* processing an input directory */
-		tmp_ret = strnlen(argv[i], (MAX_FILENAME_LEN*2));
+		tmp_ret = strnlen_s(argv[i], (MAX_FILENAME_LEN*2));
 		if (tmp_ret == 0 || tmp_ret >= (MAX_FILENAME_LEN*2)) {
 		    fprintf(stderr, "error:failed filename too long %s\n", argv[i]);
 		    return -1;
