@@ -314,7 +314,7 @@ libjoy_la_SOURCES = \
 		../src/include/fp.h \
 		../src/include/extractor.h
 
-libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
+libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
 libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION) $(SSL_LDFLAGS) -lcrypto
 library_includedir = $(includedir)/joy
 library_include_HEADERS = \

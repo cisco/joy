@@ -61,13 +61,13 @@ else
  SAFEC_LIB_STUBS=$(SAFEC_DIR)/lib/libstubsafec.a
 endif
 
-joy_CFLAGS = -I ../src/include -DJOY_LIB_API -I $(SSL_CFLAGS) $(LIBCURL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
-unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
-jfd_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
-joy_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
-joy_api_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
-joy_api_test2_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
-str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include
+joy_CFLAGS = -I ../src/include -DJOY_LIB_API -I $(SSL_CFLAGS) $(LIBCURL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+jfd_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec 
+joy_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+joy_api_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+joy_api_test2_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 
 if BUILD_MAC
 joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
