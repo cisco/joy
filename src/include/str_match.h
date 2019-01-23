@@ -42,7 +42,7 @@
 #ifndef STR_MATCH_H
 #define STR_MATCH_H
 
-#include <string.h>
+#include "safe_lib.h"
 #include "acsm.h"
 #include "err.h"
 #define MATCH_ARRAY_LEN 32

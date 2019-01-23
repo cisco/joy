@@ -42,7 +42,7 @@
  */
 #include <stdio.h>   
 #include <ctype.h>   
-#include <string.h>
+#include "safe_lib.h"
 
 #ifndef WIN32
 #include <sys/time.h>

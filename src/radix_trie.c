@@ -78,14 +78,13 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
 #include "radix_trie.h"
 #include "addr.h"
 #include "config.h"
 #include "output.h"
 #include "updater.h"
-
+#include "safe_lib.h"
 #ifdef WIN32
 #include "Ws2tcpip.h"
 
@@ -146,12 +145,27 @@ pthread_mutex_t radix_trie_lock = PTHREAD_MUTEX_INITIALIZER;
  */
 static __inline void *rt_malloc (size_t s) {
     void *p = NULL;
-    p = calloc(1, s);
+    p = malloc(s);
     if (p != NULL) {
         debug_printf("rt_malloc[0x%x] of %zu bytes\n", (unsigned int)p, s);
     }
     return (p);
 }
+
+/* 
+ * radix trie memory allocation function
+ * returns pointer to memory allocated
+ * returns NULL on failure
+ */
+static __inline void *rt_calloc (size_t s) {
+    void *p = NULL;
+    p = calloc(1, s);
+    if (p != NULL) {
+        debug_printf("rt_calloc[0x%x] of %zu bytes\n", (unsigned int)p, s);
+    }
+    return (p);
+}
+
 
 /* 
  * radix trie memory free function
@@ -182,12 +196,9 @@ struct radix_trie *radix_trie_alloc () {
 static struct radix_trie_node *radix_trie_node_init (void) {
     struct radix_trie_node *rt_node = NULL;
   
-    rt_node = rt_malloc(sizeof(struct radix_trie_node));
+    rt_node = rt_calloc(sizeof(struct radix_trie_node));
     if (rt_node != NULL) {
         rt_node->type = internal;
-
-        /* initialize table entries to NULL */
-        memset(rt_node->table, 0, sizeof(rt_node->table));
     }
 
     return rt_node;  /* could be NULL */
@@ -424,7 +435,7 @@ attr_flags radix_trie_add_attr_label (struct radix_trie *rt, const char *attr_la
     }
 
     /* ensure label will fit into the trie */
-    if (strlen(attr_label) > MAX_LABEL_LEN-1) { 
+    if (strnlen_s(attr_label, MAX_LABEL_LEN) > MAX_LABEL_LEN-1) { 
         return 0;     /* not enough room for label and null terminator */
     }
 
@@ -503,7 +514,7 @@ joy_status_e radix_trie_init (struct radix_trie *rt) {
     if (rt != NULL) {
         rt->root = radix_trie_node_init();
         rt->num_flags = 0;
-        memset(rt->flag, 0, sizeof(rt->flag));
+        memset_s(rt->flag, sizeof(rt->flag), 0, sizeof(rt->flag));
         pthread_mutex_unlock(&radix_trie_lock);
         return ok;
     } else {
@@ -719,14 +730,14 @@ static void radix_trie_node_print (const struct radix_trie *r,
     /*
      * Verify the string isn't too long
      */
-    len = strnlen(string, TMP_BUFF_256_LEN);
+    len = strnlen_s(string, TMP_BUFF_256_LEN);
     if (len >= TMP_BUFF_256_LEN) {
 	return;
     }
 
 
     //safe copy of string into tmp buffer
-    strncpy(tmp, string, TMP_BUFF_256_LEN-1);
+    strncpy_s(tmp, TMP_BUFF_256_LEN, string, len);
     tmp[TMP_BUFF_256_LEN-1] = '\0'; // make sure string is terminated
     //replacement for index function
     for (i = 0; i < TMP_BUFF_256_LEN; ++i) {

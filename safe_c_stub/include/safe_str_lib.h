@@ -35,6 +35,7 @@
 #define __SAFE_STR_LIB_H__
 
 #include <stdint.h>
+#include <string.h>
 #include "safe_lib_errno.h"
 
 /**
@@ -59,6 +60,10 @@ extern errno_t strcmp_s(const char *dest, rsize_t dmax, const char *src, int *in
 
 /* Case insensitive string compare */
 extern errno_t strcasecmp_s (const char *dest, rsize_t dmax, const char *src, int *indicator);
+
+/* Case insensitive string compare */
+extern errno_t strncasecmp_s (const char *dest, rsize_t dmax, const char *src, rsize_t n, int *indicator);
+
 
 /* string concatenate */
 extern errno_t strcat_s(char *dest, rsize_t dmax, const char *src);

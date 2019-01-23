@@ -275,7 +275,7 @@ static void dhcp_get_option_value(dhcp_option_t *opt,
 	    joy_log_err("malloc failed");
 	    return;
 	}
-        memcpy(opt->value, data_ptr, opt_len);
+        memcpy_s(opt->value, opt_len, data_ptr, opt_len);
     }
 }
 
@@ -300,6 +300,7 @@ void dhcp_update(dhcp_t *dhcp,
     const unsigned char *ptr = (const unsigned char *)data;
     dhcp_message_t *msg = NULL;
     const unsigned char magic_cookie[] = {0x63, 0x82, 0x53, 0x63};
+    int cmp_ind;
 
     joy_log_debug("dhcp[%p],header[%p],data[%p],len[%d],report[%d]",
             dhcp,header,data,data_len,report_dhcp);
@@ -356,7 +357,7 @@ void dhcp_update(dhcp_t *dhcp,
     msg->giaddr.s_addr = *(const uint32_t *)ptr;
     ptr += sizeof(uint32_t);
 
-    memcpy(msg->chaddr, ptr, MAX_DHCP_CHADDR);
+    memcpy_s(msg->chaddr, MAX_DHCP_CHADDR, ptr, MAX_DHCP_CHADDR);
     ptr += MAX_DHCP_CHADDR;
 
     if (*ptr != 0) {
@@ -367,7 +368,7 @@ void dhcp_update(dhcp_t *dhcp,
 	    return;
 	}
 
-        strncpy(msg->sname, (const char *)ptr, MAX_DHCP_SNAME);
+        strncpy_s(msg->sname, MAX_DHCP_SNAME, (const char *)ptr, MAX_DHCP_SNAME-1);
         msg->sname[MAX_DHCP_SNAME - 1] = '\0';
     }
     ptr += MAX_DHCP_SNAME;
@@ -380,13 +381,14 @@ void dhcp_update(dhcp_t *dhcp,
 	    return;
 
 	}
-         strncpy(msg->file, (const char *)ptr, MAX_DHCP_FILE);
+        strncpy_s(msg->file, MAX_DHCP_FILE, (const char *)ptr, MAX_DHCP_FILE-1);
         msg->file[MAX_DHCP_FILE - 1] = '\0';
     }
     ptr += MAX_DHCP_FILE;
 
     /* Verify magic cookie */
-    if (memcmp(ptr, &magic_cookie, sizeof(magic_cookie)) != 0) {
+    if ((memcmp_s(ptr, sizeof(magic_cookie), &magic_cookie, sizeof(magic_cookie), &cmp_ind) != EOK) 
+        || cmp_ind !=0 ) {
         joy_log_err("bad magic cookie");
         return;
     }
@@ -613,6 +615,7 @@ static const unsigned char* dhcp_skip_packet_udp_header(const unsigned char *pac
 static int dhcp_test_message_equality(dhcp_message_t *m1,
                                       dhcp_message_t *m2) {
     int i = 0;
+    int cmp_ind;
 
     if (m1 == NULL || m2 == NULL) {
         joy_log_err("api parameter is null");
@@ -674,7 +677,8 @@ static int dhcp_test_message_equality(dhcp_message_t *m1,
         return 0;
     }
 
-    if (memcmp(m1->chaddr, m2->chaddr, MAX_DHCP_CHADDR) != 0) {
+    if ((memcmp_s(m1->chaddr, MAX_DHCP_CHADDR, m2->chaddr, MAX_DHCP_CHADDR, &cmp_ind) != EOK) || 
+        cmp_ind !=0 ) {
         joy_log_err("bad chaddr");
         return 0;
     }
@@ -686,7 +690,7 @@ static int dhcp_test_message_equality(dhcp_message_t *m1,
             return 0;
         } else {
             /* Compare the sname */
-            if (strncmp(m1->sname, m2->sname, MAX_DHCP_SNAME) != 0) {
+            if ((strcmp_s(m1->sname, MAX_DHCP_SNAME, m2->sname, &cmp_ind) != EOK) || cmp_ind != 0) {
                 joy_log_err("sname not equal");
                 return 0;
             }
@@ -700,7 +704,7 @@ static int dhcp_test_message_equality(dhcp_message_t *m1,
             return 0;
         } else {
             /* Compare the file */
-            if (strncmp(m1->file, m2->file, MAX_DHCP_FILE) != 0) {
+            if ((strcmp_s(m1->file, MAX_DHCP_FILE, m2->file, &cmp_ind) != EOK) || cmp_ind != 0) {
                 joy_log_err("file not equal");
                 return 0;
             }
@@ -738,7 +742,8 @@ static int dhcp_test_message_equality(dhcp_message_t *m1,
                 return 0;
             } else {
                 /* Compare the option values */
-                if (memcmp(m1->options[i].value, m2->options[i].value, m1->options[i].len) != 0) {
+                if ((memcmp_s(m1->options[i].value,  m1->options[i].len, 
+                              m2->options[i].value, m1->options[i].len, &cmp_ind) != EOK) || cmp_ind != 0) {
                     joy_log_err("options[%d] value not equal", i);
                     return 0;
                 }
@@ -751,9 +756,10 @@ static int dhcp_test_message_equality(dhcp_message_t *m1,
                 return 0;
             } else {
                 /* Compare the option value strings */
-                if (strncmp(m1->options[i].value_str,
-                            m2->options[i].value_str,
-                            MAX_DHCP_MSG_TYPE_STR) != 0) {
+                if ((strcmp_s(m1->options[i].value_str,
+                              MAX_DHCP_MSG_TYPE_STR,
+                              m2->options[i].value_str,
+                              &cmp_ind) != EOK) || cmp_ind != 0) {
                     joy_log_err("options[%d] value_str not equal", i);
                     return 0;
                 }
@@ -808,7 +814,7 @@ static int dhcp_test_vanilla_parsing(void) {
     msg->yiaddr.s_addr = ntohl(0x0a00020f);
     msg->siaddr.s_addr = ntohl(0x0a000204);
     msg->giaddr.s_addr = ntohl(0x00000000);
-    memcpy(msg->chaddr, kat_chaddr, MAX_DHCP_CHADDR);
+    memcpy_s(msg->chaddr, MAX_DHCP_CHADDR, kat_chaddr, MAX_DHCP_CHADDR);
 
     msg->file = calloc(1, MAX_DHCP_FILE);
     if (!msg->file) {
@@ -817,7 +823,7 @@ static int dhcp_test_vanilla_parsing(void) {
 	goto end;
     }
 
-    strncpy(msg->file, "Pythagoras.pxe", MAX_DHCP_FILE);
+    strncpy_s(msg->file, MAX_DHCP_FILE, "Pythagoras.pxe", MAX_DHCP_FILE-1);
 
     {
         /* Offer Options */

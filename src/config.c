@@ -46,7 +46,6 @@
 #include <stdlib.h>       
 #include <limits.h>
 #include <ctype.h> 
-#include <string.h> 
 #include "err.h"
 #include "anon.h"
 #include "config.h"

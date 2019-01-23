@@ -53,6 +53,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <float.h>   /* for FLT_EPSILON */
+#include "safe_lib.h"
 #include "pkt_proc.h" /* packet processing               */
 #include "p2f.h"      /* joy data structures       */
 #include "err.h"      /* error codes and error reporting */
@@ -129,7 +130,7 @@ void flocap_stats_output (joy_ctx_data *ctx, FILE *f) {
 #endif
 
         gettimeofday(&now, NULL);
-        memset(time_str, 0x00, sizeof(time_str));
+        memset_s(time_str, sizeof(time_str), 0x00, sizeof(time_str));
 
         joy_timer_sub(&now, &ctx->last_stats_output_time, &tmp);
     seconds = (float) (joy_timeval_to_milliseconds(tmp) / 1000.0);
@@ -213,7 +214,7 @@ static unsigned int flow_key_hash (const flow_key_t *f) {
  */
 void flow_record_list_init (joy_ctx_data *ctx) {
     ctx->flow_record_chrono_first = ctx->flow_record_chrono_last = NULL;
-    memset(ctx->flow_record_list_array, 0x00, sizeof(ctx->flow_record_list_array));
+    memset_s(ctx->flow_record_list_array,  sizeof(ctx->flow_record_list_array), 0x00, sizeof(ctx->flow_record_list_array));
 }
 
 /**
@@ -349,7 +350,7 @@ static void flow_record_init (joy_ctx_data *ctx,
     flocap_stats_incr_records_in_table(ctx);
 
     /* Zero out the flow_record structure */
-    memset(record, 0, sizeof(flow_record_t));
+    memset_s(record, sizeof(flow_record_t), 0, sizeof(flow_record_t));
 
     /* Set the flow_key and TTL */
     flow_key_copy(&record->key, key);
@@ -763,7 +764,7 @@ static void flow_record_delete (joy_ctx_data *ctx, flow_record_t *r) {
      * zeroize memory (this is defensive coding; pointers to deleted
      * records will result in crashes rather than silent errors)
      */
-    memset(r, 0, sizeof(flow_record_t));
+    memset_s(r, sizeof(flow_record_t), 0, sizeof(flow_record_t));
     free(r);
     r = NULL;
 }
@@ -785,19 +786,20 @@ int flow_key_set_process_info(joy_ctx_data *ctx, const flow_key_t *key, const ho
         // flow_key_print(key);
         if (r) {
                 if (r->exe_name == NULL) {
-                        r->exe_name = strdup(data->exe_name);
+                    //r->exe_name = strndup(data->exe_name, PID_MAX_LEN);
+                   r->exe_name = strdup(data->exe_name);
                 }
                 if (r->full_path == NULL) {
                     if (data->full_path)
-                        r->full_path = strdup(data->full_path);
+                        r->full_path = strndup(data->full_path, PROC_PATH_LEN);
                 }
                 if (r->file_version == NULL) {
                     if (data->file_version)
-                        r->file_version = strdup(data->file_version);
+                        r->file_version = strndup(data->file_version, PROC_EXE_LEN);
                 }
                 if (r->file_hash == NULL) {
                     if (data->hash)
-                        r->file_hash = strdup(data->hash);
+                        r->file_hash = strndup(data->hash, 100);// ??
                 }
                 r->uptime_seconds = data->uptime_seconds;
                 return ok;
@@ -2026,7 +2028,7 @@ __attribute__((__noreturn__)) void *uploader_main(void *ptr)
     struct configuration *config = ptr;
 
     /* initialize the uploader filename container */
-    memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
+    memset_s(upload_filename, MAX_FILENAME_LENGTH, 0x00, MAX_FILENAME_LENGTH);
 
     /* uploader stays alive until joy exists */
     while (1) {
@@ -2039,14 +2041,14 @@ __attribute__((__noreturn__)) void *uploader_main(void *ptr)
         }
 
         /* upload file now */
-        if (strlen(upload_filename) > 0) {
+        if (strnlen_s(upload_filename, MAX_FILENAME_LENGTH) > 0) {
             joy_log_info("uploading file [%s] ...", upload_filename);
             uploader_send_file(upload_filename, config->upload_servername,
                                config->upload_key, config->retain_local);
         }
 
         /* we are done uploading the file, go back to sleep */
-        memset(upload_filename, 0x00, MAX_FILENAME_LENGTH);
+        memset_s(upload_filename, MAX_FILENAME_LENGTH, 0x00, MAX_FILENAME_LENGTH);
         upload_can_run = 0;
         pthread_mutex_unlock(&upload_in_process);
     }
@@ -2072,7 +2074,7 @@ int upload_file (char *filename) {
 
     /* wake up the uploader thread so it can do its work */
     pthread_mutex_lock(&upload_in_process);
-    memcpy(upload_filename, filename, (MAX_FILENAME_LENGTH-1));
+    memcpy_s(upload_filename, MAX_FILENAME_LENGTH-1, filename, (MAX_FILENAME_LENGTH-1));
     upload_can_run = 1;
     pthread_cond_signal(&upload_run_cond);
     pthread_mutex_unlock(&upload_in_process);

@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016-2018 Cisco Systems, Inc.
+ * Copyright (c) 2016-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -48,12 +48,13 @@
  \endverbatim
  */
 #include <stdio.h>
-#include <string.h>
+#include "safe_lib.h"
 #include <stdlib.h>
 #include <ctype.h>
 #include <unistd.h>  
 #include "anon.h"
 #include "radix_trie.h"
+#include "safe_lib.h"
 
 #ifdef WIN32
 #include "Ws2tcpip.h"
@@ -72,7 +73,7 @@ static char *address_string_anonymize (char *addr_string) {
     struct in_addr addr;
     int l;
 
-    l = strnlen(addr_string, 256);
+    l = strnlen_s(addr_string, 256);
     if (l >= 32) {
         return addr_string;  /* probably already anonymized */
     }
@@ -146,7 +147,7 @@ static void matches_print (struct matches *matches, char *text) {
         if (len >= 1024) {
             return;
         }
-        memcpy(tmp, text + matches->start[i], len);
+        memcpy_s(tmp, len, text + matches->start[i], len);
         tmp[len] = '\0';
         printf("\tmatch %d: %s\n", i, tmp);
     }

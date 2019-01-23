@@ -45,7 +45,7 @@
  */
 #include <unistd.h>
 #include "updater.h"
-#include "string.h"
+#include "safe_lib.h"
 #include "classify.h"
 #include "config.h"
 #include "radix_trie.h"
@@ -186,6 +186,7 @@ static upd_return_codes_e dnload_blacklist_file (const char* full_url) {
     CURL *handle = NULL;
     FILE *blacklist_file = NULL;
     char errbuf[CURL_ERROR_SIZE];
+    int cmp_ind;
     
     /* get a curl handle for the download */
     handle = curl_easy_init();
@@ -203,12 +204,12 @@ static upd_return_codes_e dnload_blacklist_file (const char* full_url) {
     }
 
     /* setup the curl URL, output file, callback function and error buffer */
-    memset(errbuf, 0x00, CURL_ERROR_SIZE);
+    memset_s(errbuf, CURL_ERROR_SIZE, 0x00, CURL_ERROR_SIZE);
 #ifdef WIN32
 	if (strnicmp(full_url, "default", 7) == 0) {
 
 #else
-    if (strncasecmp(full_url, "default", 7) == 0) {
+            if (strncasecmp_s(full_url, MAX_URL_LENGTH, "default", 7, &cmp_ind) == EOK && cmp_ind == 0) {
 #endif
 		/* use default Talos feed black list file */
         curl_easy_setopt(handle, CURLOPT_URL, BLACKLIST_URL);
@@ -226,7 +227,7 @@ static upd_return_codes_e dnload_blacklist_file (const char* full_url) {
     if (curl_rc == CURLE_OK) {
         dnld_rc = upd_success;
     } else {
-        size_t len = strlen(errbuf);
+        size_t len = strnlen_s(errbuf, CURL_ERROR_SIZE);
 
         loginfo("error: libcurl: (%d) ", curl_rc);
         if (len) {
@@ -278,7 +279,7 @@ static upd_return_codes_e dnload_classifier_file (const char *url, char *filenam
     snprintf(full_url, MAX_URL_LENGTH, "%s/%s", url, filename);
 
     /* setup the curl URL, output file, callback function and error buffer */
-    memset(errbuf, 0x00, CURL_ERROR_SIZE);
+    memset_s(errbuf, CURL_ERROR_SIZE, 0x00, CURL_ERROR_SIZE);
     curl_easy_setopt(handle, CURLOPT_URL, full_url);
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, classifier_file);
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, upd_write_data);
@@ -290,7 +291,7 @@ static upd_return_codes_e dnload_classifier_file (const char *url, char *filenam
     if (curl_rc == CURLE_OK) {
         dnld_rc = upd_success;
     } else {
-        size_t len = strlen(errbuf);
+        size_t len = strnlen_s(errbuf, CURL_ERROR_SIZE);
 
         loginfo("error: libcurl: (%d) ", curl_rc);
         if (len) {
@@ -393,9 +394,9 @@ void *updater_main (void *ptr)
     struct configuration *config = ptr;
 
     /* initialize MD5 digests */
-    memset(blacklist_md5, 0x00, MD5_DIGEST_LENGTH);
-    memset(splt_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
-    memset(bd_classifier_md5, 0x00, MD5_DIGEST_LENGTH);
+    memset_s(blacklist_md5, MD5_DIGEST_LENGTH, 0x00, MD5_DIGEST_LENGTH);
+    memset_s(splt_classifier_md5, MD5_DIGEST_LENGTH, 0x00, MD5_DIGEST_LENGTH);
+    memset_s(bd_classifier_md5, MD5_DIGEST_LENGTH, 0x00, MD5_DIGEST_LENGTH);
 
     /* check for labeling */
     if (config->label_url) {

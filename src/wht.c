@@ -41,7 +41,7 @@
  *
  */
 #include <stdint.h>
-#include <string.h>
+#include "safe_lib.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "wht.h"     
@@ -123,7 +123,7 @@ void wht_update (wht_t *wht, const struct pcap_pkthdr *header, const void *data,
         if (len > 0) {
             uint8_t buffer[4] = { 0, 0, 0, 0 };
       
-            memcpy(buffer, d, len);
+            memcpy_s(buffer, len, d, len);
             wht_process_four_bytes(wht, buffer);
         }
     }

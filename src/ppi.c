@@ -44,7 +44,7 @@
 
 #include <stdio.h>  
 #include <stdlib.h>
-#include <string.h>   /* for memset()    */
+#include "safe_lib.h"
 #include "pkt.h"      /* for tcp macros  */
 #include "utils.h"    /* for joy_role_e   */
 #include "config.h"
@@ -126,9 +126,10 @@ void ppi_update (struct ppi *ppi,
             ppi->pkt_info[ppi->np].time = header->ts;
         }
             if (opt_len) {
-                memcpy(ppi->pkt_info[ppi->np].opts, 
-                       (const char*)tcp_start + 20, 
-                       opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len);
+                memcpy_s(ppi->pkt_info[ppi->np].opts,
+                         opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len,
+                         (const char*)tcp_start + 20, 
+                         opt_len > TCP_OPT_LEN ? TCP_OPT_LEN : opt_len);
             } 
             ppi->np++;
         } 

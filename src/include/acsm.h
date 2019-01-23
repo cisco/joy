@@ -43,7 +43,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include "safe_lib.h"
 #include <stddef.h>
 
 #ifdef WIN32
@@ -103,7 +103,7 @@ typedef struct {
 
 #define acsm_tolower(c)      (u_char) ((c >= 'A' && c <= 'Z') ? (c | 0x20) : c)
 
-#define acsm_strlen(s)       strlen((const char *) s)
+#define acsm_strlen(s, mlen)       strnlen_s((const char *) s, mlen)
 
 
 #define NO_CASE 0x01

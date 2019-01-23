@@ -40,10 +40,10 @@
  *
  */
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
+#include "safe_lib.h"
 
 #ifdef WIN32
 #include "Ws2tcpip.h"
@@ -472,7 +472,7 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
     int field_length = 0;
     int bytes_per_val = 0;
 
-    memset(&old_val_time, 0x0, sizeof(struct timeval));
+    memset_s(&old_val_time, sizeof(struct timeval), 0x0, sizeof(struct timeval));
 
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
 
@@ -658,7 +658,7 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
                 }
                 nf_record->tls->sid_len = htons(*(const short *)flow_data);
                 nf_record->tls->sid_len = min(nf_record->tls->sid_len,256);
-                memcpy(nf_record->tls->sid, flow_data+2, nf_record->tls->sid_len);
+                memcpy_s(nf_record->tls->sid, nf_record->tls->sid_len, flow_data+2, nf_record->tls->sid_len);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case TLS_HELLO_RANDOM:
@@ -676,7 +676,7 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
                 if (nf_record->tls->role == role_unknown) {
                     nf_record->tls->role = role_flow_data;
                 }
-                memcpy(nf_record->tls->random, flow_data, 32);
+                memcpy_s(nf_record->tls->random, 32, flow_data, 32);
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case IDP: 
@@ -689,7 +689,7 @@ void nfv9_process_flow_record (flow_record_t *nf_record,
                     return;
                 }
 
-                memcpy(nf_record->idp, flow_data, nf_record->idp_len);
+                memcpy_s(nf_record->idp, nf_record->idp_len, flow_data, nf_record->idp_len);
                 
 
                 /* Get the start of IDP packet payload */

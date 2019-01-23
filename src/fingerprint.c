@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2018 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +43,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include "safe_lib.h"
 #include "fingerprint.h"
 
 int fingerprint_copy(fingerprint_t *dest_fp,
@@ -59,7 +59,7 @@ int fingerprint_copy(fingerprint_t *dest_fp,
         return 1;
     }
 
-    memcpy(dest_fp, src_fp, sizeof(fingerprint_t));
+    memcpy_s(dest_fp, sizeof(fingerprint_t), src_fp, sizeof(fingerprint_t));
 
     return 0;
 }
@@ -83,7 +83,7 @@ fingerprint_t *fingerprint_db_match_exact(fingerprint_db_t *db,
     fingerprint_t *fp_match = NULL;
     uint16_t db_count = 0;
     size_t i = 0;
-    int match = -1;
+    int cmp_ind;
 
     if (db == NULL) {
       return NULL;
@@ -96,9 +96,8 @@ fingerprint_t *fingerprint_db_match_exact(fingerprint_db_t *db,
         /* Optimize by comparing fingerprint length first */
         if (in_fingerprint->fingerprint_len == db->fingerprints[i].fingerprint_len) {
             /* Compare the memory of the 2 fingerprints */
-            match = memcmp(in_fingerprint->fingerprint, db->fingerprints[i].fingerprint,
-                           in_fingerprint->fingerprint_len);
-            if (match == 0) {
+            if ((memcmp_s(in_fingerprint->fingerprint, in_fingerprint->fingerprint_len, db->fingerprints[i].fingerprint,
+                         in_fingerprint->fingerprint_len, &cmp_ind) == EOK) && cmp_ind == 0) {
                 fp_match = &db->fingerprints[i];
                 return fp_match;
             }

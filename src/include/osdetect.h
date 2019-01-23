@@ -43,7 +43,7 @@
 #ifndef OS_DETECT_H
 #define OS_DETECT_H
 
-#include <string.h>
+#include "safe_lib.h"
 #include <stdio.h>
 #include "output.h"
 

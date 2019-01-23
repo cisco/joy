@@ -59,7 +59,8 @@
 #define COMPACT_BD_MAP_MAX 16
 
 #define NULL_KEYWORD "none"
-
+#define NULL_KEYWORD_LEN 4
+ 
 enum SALT_algorithm {
   raw = 0,
   aggregated = 1,

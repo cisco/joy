@@ -45,13 +45,14 @@
 #endif
 #include <stdlib.h>  
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 #include "pthread.h"
 #include "joy_api.h"
+#include "safe_lib.h"
 
 /* test program variables */
 #define NUM_PACKETS_IN_LOOP 20
+#define IP_OR_VLAN  "ip or vlan"
 
 int proc_pcap_file (unsigned long index, char *file_name) {
     int more = 1;
@@ -62,8 +63,8 @@ int proc_pcap_file (unsigned long index, char *file_name) {
     char errbuf[PCAP_ERRBUF_SIZE];
 
     /* initialize fp structure */
-    memset(&fp, 0x00, sizeof(struct bpf_program));
-    strcpy(filter_exp,"ip or vlan");
+    memset_s(&fp, sizeof(struct bpf_program),  0x00, sizeof(struct bpf_program));
+    strncpy_s(filter_exp, PCAP_ERRBUF_SIZE, IP_OR_VLAN, strnlen_s(IP_OR_VLAN, 20));
 
     handle = pcap_open_offline(file_name, errbuf);
     if (handle == NULL) {
@@ -206,7 +207,7 @@ void *thread_main1 (void *file)
     sleep(1);
     printf("Thread 1 Starting\n");
     joy_print_config(0, JOY_JSON_FORMAT);
-    memset(&feat_counts, 0x00, sizeof(joy_ctx_feat_count_t));
+    memset_s(&feat_counts, sizeof(joy_ctx_feat_count_t), 0x00, sizeof(joy_ctx_feat_count_t));
     if (file != NULL) {
         joy_get_feature_counts(0,&feat_counts);
         printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
@@ -304,7 +305,7 @@ int main (int argc, char **argv)
     }
 
     /* setup the joy options we want */
-    memset(&init_data, 0x00, sizeof(joy_init_t));
+    memset_s(&init_data, sizeof(joy_init_t), 0x00, sizeof(joy_init_t));
 
    /* this setup is for general processing */
     init_data.verbosity = 4;      /* verbosity 0 (off) - 5 (critical) */

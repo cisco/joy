@@ -41,13 +41,12 @@
  *
  */
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 #include "config.h"
 #include "utils.h"
 #include "err.h"
 #include "time.h"
-
+#include "safe_lib.h"
 #define JOY_UTILS_MAX_FILEPATH 128
 
 /* external definitions from joy.c */
@@ -127,21 +126,21 @@ JSON_Value* joy_utils_open_resource_parson(const char *filename) {
         /*
          * Use the path that was given in Joy cli
          */
-        strncpy(filepath, glb_config->aux_resource_path, JOY_UTILS_MAX_FILEPATH);
+        strncpy_s(filepath, JOY_UTILS_MAX_FILEPATH, glb_config->aux_resource_path, JOY_UTILS_MAX_FILEPATH-1);
         /* Place "/" before file name in case user left it out */
-        strncat(filepath, "/", JOY_UTILS_MAX_FILEPATH - 1);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+        strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, "/", JOY_UTILS_MAX_FILEPATH - 1);
+        strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, filename, JOY_UTILS_MAX_FILEPATH - 1);
         value = json_parse_file(filepath);
     } else {
         /* Assume user CWD in root of Joy source package */
-        strncpy(filepath, "./resources/", JOY_UTILS_MAX_FILEPATH);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+        strncpy_s(filepath, JOY_UTILS_MAX_FILEPATH, "./resources/", JOY_UTILS_MAX_FILEPATH-1);
+        strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, filename, JOY_UTILS_MAX_FILEPATH - 1);
         value = json_parse_file(filepath);
         if (!value) {
             /* Assume user CWD one-level subdir of Joy source package */
-            memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
-            strncpy(filepath, "../resources/", JOY_UTILS_MAX_FILEPATH);
-            strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+            memset_s(filepath, JOY_UTILS_MAX_FILEPATH, 0, JOY_UTILS_MAX_FILEPATH);
+            strncpy_s(filepath, JOY_UTILS_MAX_FILEPATH, "../resources/", JOY_UTILS_MAX_FILEPATH-1);
+            strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, filename, JOY_UTILS_MAX_FILEPATH - 1);
             value = json_parse_file(filepath);
         }
     }
@@ -175,14 +174,14 @@ FILE* joy_utils_open_test_file(const char *filename) {
     }
 
     /* Assume user CWD in root of Joy source package */
-    strncpy(filepath, "./test/misc/", JOY_UTILS_MAX_FILEPATH);
-    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+    strncpy_s(filepath, JOY_UTILS_MAX_FILEPATH, "./test/misc/", JOY_UTILS_MAX_FILEPATH-1);
+    strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, filename, JOY_UTILS_MAX_FILEPATH - 1);
     fp = fopen(filepath, "r");
     if (!fp) {
         /* Assume user CWD one-level subdir of Joy source package */
-        memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
-        strncpy(filepath, "../test/misc/", JOY_UTILS_MAX_FILEPATH);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+        memset_s(filepath, JOY_UTILS_MAX_FILEPATH, 0, JOY_UTILS_MAX_FILEPATH);
+        strncpy_s(filepath, JOY_UTILS_MAX_FILEPATH, "../test/misc/", JOY_UTILS_MAX_FILEPATH-1);
+        strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, filename, JOY_UTILS_MAX_FILEPATH - 1);
         fp = fopen(filepath, "r");
     }
 
@@ -217,14 +216,14 @@ pcap_t* joy_utils_open_test_pcap(const char *filename) {
     }
 
     /* Assume user CWD in root of Joy source package */
-    strncpy(filepath, "./test/pcaps/", JOY_UTILS_MAX_FILEPATH);
-    strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+    strncpy_s(filepath, JOY_UTILS_MAX_FILEPATH, "./test/pcaps/", JOY_UTILS_MAX_FILEPATH-1);
+    strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, filename, JOY_UTILS_MAX_FILEPATH - 1);
     handle = pcap_open_offline(filepath, errbuf);
     if (!handle) {
         /* Assume user CWD one-level subdir of Joy source package */
-        memset(filepath, 0, JOY_UTILS_MAX_FILEPATH);
-        strncpy(filepath, "../test/pcaps/", JOY_UTILS_MAX_FILEPATH);
-        strncat(filepath, filename, JOY_UTILS_MAX_FILEPATH - 1);
+        memset_s(filepath, JOY_UTILS_MAX_FILEPATH, 0, JOY_UTILS_MAX_FILEPATH);
+        strncpy_s(filepath, JOY_UTILS_MAX_FILEPATH, "../test/pcaps/", JOY_UTILS_MAX_FILEPATH-1);
+        strncat_s(filepath, JOY_UTILS_MAX_FILEPATH, filename, JOY_UTILS_MAX_FILEPATH - 1);
         handle = pcap_open_offline(filepath, errbuf);
     }
 

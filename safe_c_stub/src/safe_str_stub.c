@@ -6,7 +6,7 @@
  * 
  * October 2008-2018, Bo Berry
  *
- * Copyright (c) 2008-2011 by Cisco Systems, Inc
+ * Copyright (c) 2008-2019 by Cisco Systems, Inc
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -97,6 +97,18 @@ errno_t strcasecmp_s (const char *dest, rsize_t dmax, const char *src, int *indi
 
     *indicator = (toupper(*udest) - toupper(*usrc));
     return (EOK);
+}
+
+errno_t
+strncasecmp_s (const char *s1, rsize_t s1max,
+               const char *s2, rsize_t n, int *indicator)
+{
+    if (s1 && s2 && s1max && n && indicator) {
+        return(strcasecmp_s(s1, s1max, s2, indicator));
+    } else {
+        *indicator = -1;
+        return(ESNULLP);  
+    }          
 }
 
 /*

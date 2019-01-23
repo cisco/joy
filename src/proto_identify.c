@@ -43,7 +43,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include "safe_lib.h"
 
 #include "proto_identify.h"
 #include "config.h"
@@ -129,11 +129,11 @@ static int add_keyword(struct keyword_list *wordlist,
     kc = &wordlist->keyword[wordlist->count];
 
     /* Copy the value array */
-    memcpy(kc->value, value, value_bytes_len);
+    memcpy_s(kc->value, value_bytes_len, value, value_bytes_len);
     /* Convert from byte length to array length */
     kc->value_len = (value_bytes_len / sizeof(uint16_t));
     /* Copy the protocol inference struct */
-    memcpy(&kc->pi, pi, sizeof(struct pi_container));
+    memcpy_s(&kc->pi, sizeof(struct pi_container), pi, sizeof(struct pi_container));
 
     /*
      * Increment the count of keywords ingested
@@ -762,8 +762,8 @@ static const struct pi_container *search_keyword_dict(const struct keyword_dict_
 int proto_identify_init(void) {
 
     /* esnure the keyword dictionary is clean */
-    memset(&tcp_keywords, 0x00, sizeof(tcp_keywords));
-    memset(&udp_keywords, 0x00, sizeof(tcp_keywords));
+    memset_s(&tcp_keywords,  sizeof(tcp_keywords), 0x00, sizeof(tcp_keywords));
+    memset_s(&udp_keywords,  sizeof(tcp_keywords), 0x00, sizeof(tcp_keywords));
 
     /* Initialize the list of keywords */
     if (init_keywords()) {

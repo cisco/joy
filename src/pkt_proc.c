@@ -43,7 +43,6 @@
 #include <stdio.h>
 #include <pcap.h>
 #include <ctype.h>
-#include <string.h>
 #include <assert.h>
 #include "pkt_proc.h"
 #include "p2f.h"
@@ -56,6 +55,7 @@
 #include "proto_identify.h"
 #include "pthread.h"
 #include "joy_api_private.h"
+#include "safe_lib.h"
 
 /** netflow version 9 structure templates */
 static struct nfv9_template v9_templates[MAX_TEMPLATES];
@@ -169,7 +169,7 @@ joy_status_e process_ipfix(joy_ctx_data *ctx, const char *start,
     const flow_key_t rec_key = r->key;
     char ipv4_addr[INET_ADDRSTRLEN];
     
-    memset(&prev_key, 0, sizeof(flow_key_t));
+    memset_s(&prev_key, sizeof(flow_key_t), 0, sizeof(flow_key_t));
     
     if (ntohs(ipfix->version_number) != 10) {
         joy_log_warn("ipfix version number is invalid");
@@ -247,6 +247,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
     flow_key_t prev_key;
     int flowset_num = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
+    int cmp_ind = 0;
 
     if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_INFO) {
         inet_ntop(AF_INET, &r->key.sa, ipv4_addr, INET_ADDRSTRLEN);
@@ -254,7 +255,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
         joy_log_debug("Packet len: %u", len);
     }
 
-    memset(&prev_key, 0x0, sizeof(flow_key_t));
+    memset_s(&prev_key, sizeof(flow_key_t), 0x0, sizeof(flow_key_t));
 
     start += 20;
     len -= 20;
@@ -287,7 +288,7 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
                       u_short field_count = htons(template_hdr->FieldCount);
 
                       struct nfv9_template_key nf_template_key;
-                      memset(&nf_template_key, 0x0, sizeof(struct nfv9_template_key));
+                      memset_s(&nf_template_key, sizeof(struct nfv9_template_key), 0x0, sizeof(struct nfv9_template_key));
                       nfv9_template_key_init(&nf_template_key, r->key.sa.s_addr, htonl(nfv9->SourceID), template_id);
 
                       // check to see if template already exists, if so, continue
@@ -388,12 +389,13 @@ static joy_status_e process_nfv9 (joy_ctx_data *ctx,
 
                           if (nf_record != NULL) {
                               // fill out record
-                              if (memcmp(&key,&prev_key,sizeof(flow_key_t)) != 0) {
+                              if ((memcmp_s(&key, sizeof(flow_key_t), &prev_key, sizeof(flow_key_t), &cmp_ind) == EOK) 
+                                  && (cmp_ind != 0)) {
                                   nfv9_process_flow_record(nf_record, cur_template, flow_data, 0);
                               } else {
                                   nfv9_process_flow_record(nf_record, cur_template, flow_data, 1);
                               }
-                              memcpy(&prev_key,&key,sizeof(flow_key_t));
+                              memcpy_s(&prev_key,sizeof(flow_key_t), &key, sizeof(flow_key_t));
 
                               flowset_num += 1;
 
@@ -538,10 +540,10 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
             /* Copy options data into buffer */
             if (opt_len > TCP_OPT_LEN) {
                 record->tcp.opt_len = TCP_OPT_LEN;
-                memcpy(record->tcp.opts, tcp_start + 20, TCP_OPT_LEN);
+                memcpy_s(record->tcp.opts, TCP_OPT_LEN, tcp_start + 20, TCP_OPT_LEN);
             } else {
                 record->tcp.opt_len = opt_len;
-                memcpy(record->tcp.opts, tcp_start + 20, opt_len);
+                memcpy_s(record->tcp.opts, opt_len, tcp_start + 20, opt_len);
             }
         }
     }
@@ -770,7 +772,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
     const void *transport_start = NULL;
 
     /* clear the key structure */
-    memset(key, 0x00, sizeof(flow_key_t));
+    memset_s(key, sizeof(flow_key_t), 0x00, sizeof(flow_key_t));
 
     /* make sure we have a packet */
     if (packet == NULL) {
@@ -909,7 +911,7 @@ void* process_packet (unsigned char *ctx_ptr,
         return NULL;
     }
 
-    memset(&key, 0x00, sizeof(flow_key_t));
+    memset_s(&key, sizeof(flow_key_t), 0x00, sizeof(flow_key_t));
 
     flocap_stats_incr_num_packets(ctx);
     joy_log_info("++++++++++ Packet %lu ++++++++++", ctx->stats.num_packets);
@@ -1161,7 +1163,7 @@ void* process_packet (unsigned char *ctx_ptr,
         if (key.prot == IPPROTO_TCP) {
             /* SYN flag processed and got the next non-zero packet */
             if (record->idp_packet == 1) {
-                memcpy(record->idp, ip, record->idp_len);
+                memcpy_s(record->idp,  record->idp_len, ip, record->idp_len);
                 record->idp_packet = 0;
                 joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
             } else {
@@ -1171,7 +1173,7 @@ void* process_packet (unsigned char *ctx_ptr,
                 record->idp = NULL;
             }
         } else {
-            memcpy(record->idp, ip, record->idp_len);
+            memcpy_s(record->idp, record->idp_len, ip, record->idp_len);
             joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
         }
     }
