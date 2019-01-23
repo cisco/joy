@@ -56,15 +56,15 @@ grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
 
 ext_data_extract_ = set(['0005','000a','000b','000d','0010','002b','002d'])
 
-cs_mapping_file = 'resources/cs_mapping.json.gz'
+cs_mapping_file = os.path.dirname(__file__) + '/resources/cs_mapping.json.gz'
 with gzip.open(cs_mapping_file,'r') as fp:
     cs_mapping = json.loads(fp.read())
 
-imp_date_cs_file = 'resources/implementation_date_cs.json.gz'
+imp_date_cs_file = os.path.dirname(__file__) + '/resources/implementation_date_cs.json.gz'
 with gzip.open(imp_date_cs_file,'r') as fp:
     imp_date_cs_data = json.loads(fp.read())
 
-imp_date_ext_file = 'resources/implementation_date_ext.json.gz'
+imp_date_ext_file = os.path.dirname(__file__) + '/resources/implementation_date_ext.json.gz'
 with gzip.open(imp_date_ext_file,'r') as fp:
     imp_date_ext_data = json.loads(fp.read())
 
@@ -79,7 +79,7 @@ class TLSFingerprint:
         self.fp_db = {}
         self.tls_params_db = {}
         if fp_database != None:
-            with gzip.open(fp_database, 'r') as file_pointer:
+            with gzip.open(os.path.dirname(__file__) + '/' + fp_database, 'r') as file_pointer:
                 for line in file_pointer:
                     fp_ = json.loads(line)
                     fp_['str_repr'] = fp_['str_repr'].replace('()','')
