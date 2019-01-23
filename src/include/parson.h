@@ -65,18 +65,14 @@ JSON_Value * json_parse_file(const char *filename);
 
 /* Parses first JSON value in a file and ignores comments (/ * * / and //),
    returns NULL in case of error */
-#if 0
 JSON_Value * json_parse_file_with_comments(const char *filename);
-#endif
 
 /*  Parses first JSON value in a string, returns NULL in case of error */
 JSON_Value * json_parse_string(const char *string);
 
 /*  Parses first JSON value in a string and ignores comments (/ * * / and //),
     returns NULL in case of error */
-#if 0
 JSON_Value * json_parse_string_with_comments(const char *string);
-#endif
 
 /* Serialization */
 size_t      json_serialization_size(const JSON_Value *value); /* returns 0 on fail */
@@ -181,9 +177,7 @@ JSON_Value  * json_array_get_wrapping_value(const JSON_Array *array);
 
 /* Frees and removes value at given index, does nothing and returns JSONFailure if index doesn't exist.
  * Order of values in array may change during execution.  */
-#if 0
 JSON_Status json_array_remove(JSON_Array *array, size_t i);
-#endif
 
 /* Frees and removes from array value at given index and replaces it with given one.
  * Does nothing and returns JSONFailure if index doesn't exist.
@@ -214,9 +208,7 @@ JSON_Value * json_value_init_string (const char *string); /* copies passed strin
 JSON_Value * json_value_init_number (double number);
 JSON_Value * json_value_init_boolean(int boolean);
 JSON_Value * json_value_init_null   (void);
-#if 0
 JSON_Value * json_value_deep_copy   (const JSON_Value *value);
-#endif
 void         json_value_free        (JSON_Value *value);
 
 JSON_Value_Type json_value_get_type   (const JSON_Value *value);

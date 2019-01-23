@@ -100,13 +100,9 @@ struct json_array_t {
 
 /* Various */
 static char * read_file(const char *filename);
-#if 0
 static void   remove_comments(char *string, const char *start_token, const char *end_token);
-#endif
 static char * parson_strndup(const char *string, size_t n);
-#if 0
 static char * parson_strdup(const char *string);
-#endif
 static int    hex_char_to_int(char c);
 static int    parse_utf16_hex(const char *string, unsigned int *result);
 static int    num_bytes_in_utf8_sequence(unsigned char c);
@@ -163,11 +159,9 @@ static char * parson_strndup(const char *string, size_t n) {
     return output_string;
 }
 
-#if 0
 static char * parson_strdup(const char *string) {
     return parson_strndup(string, strlen(string));
 }
-#endif
 
 static int hex_char_to_int(char c) {
     if (c >= '0' && c <= '9') {
@@ -323,7 +317,6 @@ static char * read_file(const char * filename) {
     return file_contents;
 }
 
-#if 0 /* Removed, does not currently comply with SAFEC */
 static void remove_comments(char *string, const char *start_token, const char *end_token) {
     int in_string = 0, escaped = 0;
     size_t i;
@@ -358,7 +351,6 @@ static void remove_comments(char *string, const char *start_token, const char *e
         string++;
     }
 }
-#endif
 
 /* JSON Object */
 static JSON_Object * json_object_init(JSON_Value *wrapping_value) {
@@ -441,12 +433,14 @@ static JSON_Status json_object_resize(JSON_Object *object, size_t new_capacity) 
 
 static JSON_Value * json_object_getn_value(const JSON_Object *object, const char *name, size_t name_len) {
     size_t i, name_length;
+    int cmp_ind;
     for (i = 0; i < json_object_get_count(object); i++) {
         name_length = strnlen_s(object->names[i], STRING_NAME_MAX);
         if (name_length != name_len) {
             continue;
         }
-        if (strncmp(object->names[i], name, name_len) == 0) {
+        if ((strcmp_s(object->names[i], name_len, name, &cmp_ind) == EOK) 
+            && cmp_ind == 0) {
             return object->values[i];
         }
     }
@@ -455,12 +449,14 @@ static JSON_Value * json_object_getn_value(const JSON_Object *object, const char
 
 static JSON_Status json_object_remove_internal(JSON_Object *object, const char *name, int free_value) {
     size_t i = 0, last_item_index = 0;
+    int cmp_ind;
+
     if (object == NULL || json_object_get_value(object, name) == NULL) {
         return JSONFailure;
     }
     last_item_index = json_object_get_count(object) - 1;
     for (i = 0; i < json_object_get_count(object); i++) {
-        if (strcmp(object->names[i], name) == 0) {
+        if ((strcmp_s(object->names[i], STRING_NAME_MAX, name, &cmp_ind) == EOK) && cmp_ind == 0) {
             parson_free(object->names[i]);
             if (free_value) {
                 json_value_free(object->values[i]);
@@ -1134,7 +1130,6 @@ JSON_Value * json_parse_file(const char *filename) {
     return output_value;
 }
 
-#if 0
 JSON_Value * json_parse_file_with_comments(const char *filename) {
     char *file_contents = read_file(filename);
     JSON_Value *output_value = NULL;
@@ -1145,7 +1140,6 @@ JSON_Value * json_parse_file_with_comments(const char *filename) {
     parson_free(file_contents);
     return output_value;
 }
-#endif
 
 JSON_Value * json_parse_string(const char *string) {
     if (string == NULL) {
@@ -1157,7 +1151,6 @@ JSON_Value * json_parse_string(const char *string) {
     return parse_value((const char**)&string, 0);
 }
 
-#if 0 /* Removed, does not currently comply with SAFEC */
 JSON_Value * json_parse_string_with_comments(const char *string) {
     JSON_Value *result = NULL;
     char *string_mutable_copy = NULL, *string_mutable_copy_ptr = NULL;
@@ -1172,7 +1165,6 @@ JSON_Value * json_parse_string_with_comments(const char *string) {
     parson_free(string_mutable_copy);
     return result;
 }
-#endif
 
 /* JSON Object API */
 
@@ -1448,7 +1440,6 @@ JSON_Value * json_value_init_null(void) {
     return new_value;
 }
 
-#if 0 /* Removed, does not currently comply with SAFEC */
 JSON_Value * json_value_deep_copy(const JSON_Value *value) {
     size_t i = 0;
     JSON_Value *return_value = NULL, *temp_value_copy = NULL, *temp_value = NULL;
@@ -1527,7 +1518,6 @@ JSON_Value * json_value_deep_copy(const JSON_Value *value) {
             return NULL;
     }
 }
-#endif
 
 size_t json_serialization_size(const JSON_Value *value) {
     char num_buf[NUM_BUF_SIZE]; /* recursively allocating buffer on stack is a bad idea, so let's do it only once */
@@ -1653,7 +1643,6 @@ void json_free_serialized_string(char *string) {
     parson_free(string);
 }
 
-#if 0 /* Removed, does not currently comply with SAFEC */
 JSON_Status json_array_remove(JSON_Array *array, size_t ix) {
     size_t to_move_bytes = 0;
     if (array == NULL || ix >= json_array_get_count(array)) {
@@ -1665,7 +1654,6 @@ JSON_Status json_array_remove(JSON_Array *array, size_t ix) {
     array->count -= 1;
     return JSONSuccess;
 }
-#endif
 
 JSON_Status json_array_replace_value(JSON_Array *array, size_t ix, JSON_Value *value) {
     if (array == NULL || value == NULL || value->parent != NULL || ix >= json_array_get_count(array)) {
@@ -1795,6 +1783,7 @@ JSON_Status json_array_append_null(JSON_Array *array) {
 JSON_Status json_object_set_value(JSON_Object *object, const char *name, JSON_Value *value) {
     size_t i = 0;
     JSON_Value *old_value;
+    int cmp_ind;
     if (object == NULL || name == NULL || value == NULL || value->parent != NULL) {
         return JSONFailure;
     }
@@ -1802,7 +1791,8 @@ JSON_Status json_object_set_value(JSON_Object *object, const char *name, JSON_Va
     if (old_value != NULL) { /* free and overwrite old value */
         json_value_free(old_value);
         for (i = 0; i < json_object_get_count(object); i++) {
-            if (strcmp(object->names[i], name) == 0) {
+            if ((strcmp_s(object->names[i], STRING_NAME_MAX, name, &cmp_ind) == EOK) 
+                && cmp_ind == 0) {
                 value->parent = json_object_get_wrapping_value(object);
                 object->values[i] = value;
                 return JSONSuccess;
@@ -2011,6 +2001,8 @@ int json_value_equals(const JSON_Value *a, const JSON_Value *b) {
     const char *key = NULL;
     size_t a_count = 0, b_count = 0, i = 0;
     JSON_Value_Type a_type, b_type;
+    int cmp_ind;
+
     a_type = json_value_get_type(a);
     b_type = json_value_get_type(b);
     if (a_type != b_type) {
@@ -2054,7 +2046,13 @@ int json_value_equals(const JSON_Value *a, const JSON_Value *b) {
             if (a_string == NULL || b_string == NULL) {
                 return 0; /* shouldn't happen */
             }
-            return strcmp(a_string, b_string) == 0;
+
+            if ((strcmp_s(a_string, STRING_NAME_MAX, b_string, &cmp_ind) == EOK) 
+                && cmp_ind == 0) {
+                return 1;
+            } else {
+                return 0;
+            }
         case JSONBoolean:
             return json_value_get_boolean(a) == json_value_get_boolean(b);
         case JSONNumber:
