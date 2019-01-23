@@ -90,7 +90,7 @@ class TLSFingerprint:
                     self.tls_params_db[fp_['str_repr']] = tls_params_
 
         # TLS ClientHello pattern/RE
-        self.pattern = '\x16\x03[\x01-\x03].{2}\x01.{3}\x03[\x01-\x03]'
+        self.pattern = '\x16\x03[\x00-\x03].{2}\x01.{3}\x03[\x00-\x03]'
         self.matcher = re.compile(self.pattern)
 
 
@@ -261,7 +261,7 @@ class TLSFingerprint:
         compression_methods_length = int(data[offset:offset+1].encode('hex'),16)
         offset += 1 + compression_methods_length
         if len(data[offset:]) == 0:
-            return None
+            return self.hex_fp_to_structured_representation(fp_.encode('hex'))
 
         # parse/skip extensions length
         ext_total_len = int(data[offset:offset+2].encode('hex'),16)
@@ -543,6 +543,9 @@ class TLSFingerprint:
         cs_data_len = int(cs_len, 16)*2    
         cs_vec = s[8:8+cs_data_len]
         output += cs_vec + ')'
+
+        if len(s) <= 8+cs_data_len:
+            return output
 
         # parse client extensions
         ext_index = 8+cs_data_len
