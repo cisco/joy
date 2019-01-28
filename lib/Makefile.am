@@ -79,8 +79,11 @@ libjoy_la_SOURCES = \
 		../src/include/fp.h \
 		../src/include/extractor.h
 
-
-
+if BUILD_WITH_SAFEC
+    libjoy_la_LIBADD = -L$(SAFEC_DIR)/lib -lciscosafec
+else
+    libjoy_la_LIBADD = -L$(SAFEC_DIR)/lib -lstubsafec
+endif
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
 
 libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION) $(SSL_LDFLAGS) -lcrypto
