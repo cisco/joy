@@ -73,7 +73,7 @@ am__base_list = \
 am__installdirs = "$(DESTDIR)$(libdir)" \
 	"$(DESTDIR)$(library_includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libjoy_la_LIBADD =
+libjoy_la_DEPENDENCIES =
 am__dirstamp = $(am__leading_dot)dirstamp
 am_libjoy_la_OBJECTS = ../src/libjoy_la-joy_api.lo \
 	../src/libjoy_la-p2f.lo ../src/libjoy_la-osdetect.lo \
@@ -314,6 +314,8 @@ libjoy_la_SOURCES = \
 		../src/include/fp.h \
 		../src/include/extractor.h
 
+@BUILD_WITH_SAFEC_FALSE@libjoy_la_LIBADD = -L$(SAFEC_DIR)/lib -lstubsafec
+@BUILD_WITH_SAFEC_TRUE@libjoy_la_LIBADD = -L$(SAFEC_DIR)/lib -lciscosafec
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
 libjoy_la_LDFLAGS = -version-info $(JOY_LIBRARY_VERSION) $(SSL_LDFLAGS) -lcrypto
 library_includedir = $(includedir)/joy
