@@ -86,11 +86,11 @@
 /* per instance context data */
 struct joy_ctx_data  {
     unsigned int ctx_id;
-    unsigned int idp_recs_ready;
-    unsigned int tls_recs_ready;
-    unsigned int splt_recs_ready;
-    unsigned int salt_recs_ready;
-    unsigned int bd_recs_ready;
+    uint32_t idp_recs_ready;
+    uint32_t tls_recs_ready;
+    uint32_t splt_recs_ready;
+    uint32_t salt_recs_ready;
+    uint32_t bd_recs_ready;
     zfile output;
     char *output_file_basename;
     unsigned int records_in_file;
