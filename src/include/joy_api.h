@@ -130,11 +130,11 @@ typedef enum {
 
 /* structure to hold feature ready counts for reporting */
 typedef struct joy_ctx_feat_count {
-    uint16_t idp_recs_ready;
-    uint16_t tls_recs_ready;
-    uint16_t splt_recs_ready;
-    uint16_t salt_recs_ready;
-    uint16_t bd_recs_ready;
+    uint32_t idp_recs_ready;
+    uint32_t tls_recs_ready;
+    uint32_t splt_recs_ready;
+    uint32_t salt_recs_ready;
+    uint32_t bd_recs_ready;
 } joy_ctx_feat_count_t;
 
 /* structure used to initialize joy through the API Library */
