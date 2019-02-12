@@ -165,6 +165,9 @@ class TLSFingerprint:
         fp_ = OrderedDict({})
         fp_['str_repr'] = fp_str_
         lit_fp = self.eval_fp_str(fp_str_)
+        if len(lit_fp) < 2 or len(lit_fp[1]) < 1:
+            fp_['error'] = 'fingerprint string parsing error'
+            return fp_
         max_imp, min_imp = self.get_implementation_date(lit_fp[1][0])
         fp_['max_implementation_date'] = max_imp
         fp_['min_implementation_date'] = min_imp

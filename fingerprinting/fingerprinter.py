@@ -41,13 +41,14 @@ fingerprinter correlates TLS client_hello's in a packet capture with TLS fingerp
 
 import os
 import sys
+import copy
 import dpkt
-import pcap
 import json
+import pcap
 import time
 import socket
-import optparse
 import datetime
+import optparse
 from collections import OrderedDict
 
 from tls_fingerprint import TLSFingerprint
@@ -95,6 +96,16 @@ class Fingerprinter:
         procs_.reverse()
 
         return procs_
+
+
+    def lookup_fingerprint_string(self, fp_str):
+        if fp_str in self.tls.fp_db:
+            fp_ = copy.deepcopy(self.tls.fp_db[fp_str])
+            del fp_['tls_features']['cs_mapping']
+            self.write_record(fp_)
+        else:
+            fp_ = self.tls.gen_unknown_fingerprint(fp_str, False)
+            self.write_record(fp_)
 
 
     def extract_fingerprints(self, input_files, detailed=False):
@@ -181,6 +192,7 @@ def main():
     parser.add_option('-f','--fp_db',action='store',dest='fp_db',help='location of fingerprint database (e.g., resources/fingerprint_db.json.gz)',default='resources/fingerprint_db.json.gz')
     parser.add_option('-p','--port',action='store',dest='port',help='filter on port <x>',default=None)
     parser.add_option('-o','--output',action='store',dest='output',help='name for output file',default=sys.stdout)
+    parser.add_option('-l','--lookup',action='store',dest='lookup',help='lookup fingerprint string <fp_str>',default=None)
 
     options, args = parser.parse_args()
 
@@ -191,12 +203,14 @@ def main():
         if x.endswith('.pcap'):
             input_files.append(x)
 
-    if len(input_files) == 0:
+    fingerprinter = Fingerprinter(options.fp_db, options.port, options.output)
+    if options.lookup != None:
+        fingerprinter.lookup_fingerprint_string(options.lookup)
+    elif len(input_files) > 0:
+        fingerprinter.extract_fingerprints(input_files)
+    else:
         print 'error: need a pcap/interface'
         return 1
-
-    fingerprinter = Fingerprinter(options.fp_db, options.port, options.output)
-    fingerprinter.extract_fingerprints(input_files)
 
 
 if __name__ == '__main__':
