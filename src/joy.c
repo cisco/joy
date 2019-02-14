@@ -1043,6 +1043,12 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 
         while ((ent = readdir(dir)) != NULL) {
             static int fc_cnt = 1;
+
+            /* initialize the data structures */
+            memset_s(&main_ctx, sizeof(joy_ctx_data), 0x00, sizeof(joy_ctx_data));
+            flow_record_list_init(&main_ctx);
+            flocap_stats_timer_init(&main_ctx);
+
             if ((strcmp_s(ent->d_name, 1, ".", &cmp_ind) == EOK && cmp_ind !=0) && 
                 (strcmp_s(ent->d_name, 2, "..", &cmp_ind) == EOK && cmp_ind !=0)) {
                 strncpy_s(pcap_filename, (MAX_FILENAME_LEN*2), input_directory, (MAX_FILENAME_LEN*2)-1);
@@ -1080,8 +1086,6 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                         first_input_pcap_file = 0;
                     }
                 }
-                flow_record_list_init(&main_ctx);
-                flocap_stats_timer_init(&main_ctx);
 
                 tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
@@ -1622,12 +1626,13 @@ int main (int argc, char **argv) {
 	    }
         }
 
-        /* intialize the data structures */
-        flow_record_list_init(&main_ctx);
-        flocap_stats_timer_init(&main_ctx);
-
         /* loop over remaining arguments to process files */
         for (i=1+opt_count; i<argc; i++) {
+            /* intialize the data structures */
+            memset_s(&main_ctx, sizeof(joy_ctx_data), 0x00, sizeof(joy_ctx_data));
+            flow_record_list_init(&main_ctx);
+            flocap_stats_timer_init(&main_ctx);
+
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 /* processing an input directory */
 		tmp_ret = strnlen_s(argv[i], (MAX_FILENAME_LEN*2));
