@@ -1067,10 +1067,6 @@ typedef struct pkt_queue_ {
 
 static uint64_t pkt_queue_head[MAX_JOY_THREADS];
 static uint64_t pkt_queue_tail[MAX_JOY_THREADS];
-static pthread_mutex_t pkt_queue_lock[MAX_JOY_THREADS] =
-  {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-   PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-   PTHREAD_MUTEX_INITIALIZER};
 static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
 static pkt_queue_t pkt_queue[MAX_JOY_THREADS][MAX_JOY_QUEUE_DEPTH];
 
@@ -1090,25 +1086,26 @@ static void* pkt_proc_thread_main(void* ctx_num) {
 
     while (1) {
         /* dequeue the packet to process */
-        pthread_mutex_lock(&pkt_queue_lock[index]);
         header = pkt_queue[index][pkt_queue_head[index]].header;
         packet = pkt_queue[index][pkt_queue_head[index]].packet;
-        pkt_queue[index][pkt_queue_head[index]].header = NULL;
-        pkt_queue[index][pkt_queue_head[index]].packet = NULL;
-        ++pkt_queue_head[index];
-        if (pkt_queue_head[index] == MAX_JOY_QUEUE_DEPTH) {
-            pkt_queue_head[index] = 0;
-        }
-        pthread_mutex_unlock(&pkt_queue_lock[index]);
 
         /* check for valid data */
         if ((header == NULL ) || (packet == NULL)) {
+            /* no work to do, go back and wait */
 #ifdef WIN32
             Sleep(1);
 #else
             sleep(1);
 #endif
             continue;
+        }
+
+        /* update queue and head pointer */
+        pkt_queue[index][pkt_queue_head[index]].header = NULL;
+        pkt_queue[index][pkt_queue_head[index]].packet = NULL;
+        ++pkt_queue_head[index];
+        if (pkt_queue_head[index] == MAX_JOY_QUEUE_DEPTH) {
+            pkt_queue_head[index] = 0;
         }
 
         /* process the packet */
@@ -1147,14 +1144,12 @@ static void joy_get_packets(unsigned char *num_contexts,
     index = joy_packet_to_context(packet, max_contexts);
 
     /* add to packet back of the queue */
-    pthread_mutex_lock(&pkt_queue_lock[index]);
     pkt_queue[index][pkt_queue_tail[index]].header = (void*)header;
     pkt_queue[index][pkt_queue_tail[index]].packet = (void*)packet;
     pkt_queue_tail[index]++;
     if (pkt_queue_tail[index] == MAX_JOY_QUEUE_DEPTH) {
         pkt_queue_tail[index] = 0;
     }
-    pthread_mutex_unlock(&pkt_queue_lock[index]);
 }
 
 /**
@@ -1439,10 +1434,10 @@ int main (int argc, char **argv) {
         }
 
         while(1) {
+            uint64_t max_contexts = init_data.contexts;
             /*
              * Loop over packets captured from interface.
              */
-            uint64_t max_contexts = init_data.contexts;
             pcap_loop(handle, NUM_PACKETS_IN_LOOP, joy_get_packets, (unsigned char*)max_contexts);
 
            // Close and reopen the log file if reopenLog flag is set
