@@ -202,7 +202,7 @@ extern int joy_initialize (joy_init_t *data, const char *output_dir,
  * Parameters:
  *      config - pointer to pre-setup config
  *      err_info - pointer to the file for error logging
- *      init_data - structure of Joy options
+ *      data - structure of Joy options
  *
  * Returns:
  *      0 - success
@@ -387,7 +387,7 @@ extern uint8_t joy_packet_to_context (const unsigned char *packet, uint8_t num_c
  *      pointer to the context.
  *
  * Parameters:
- *      index - index of the context you want
+ *      ctx_index - index of the context you want
  *
  * Returns:
  *      context - pointer to the context structure

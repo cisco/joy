@@ -578,14 +578,14 @@ int joy_initialize(joy_init_t *init_data,
  * Parameters:
  *      config - pointer to pre-setup config
  *      err_info - pointer to the file for error logging
- *      init_data - structure of Joy options
+ *      data - structure of Joy options
  *
  * Returns:
  *      0 - success
  *      1 - failure
  *
  */
-int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *init_data)
+int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *data)
 {
     unsigned int i = 0;
     int dir_len = 0;
@@ -604,18 +604,18 @@ int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *init_data
     }
 
     /* sanity check the context information */
-    if (init_data->contexts < 1) {
-        init_data->contexts = 1; /* default to 1 context thread */
+    if (data->contexts < 1) {
+        data->contexts = 1; /* default to 1 context thread */
     }
 
     /* allocate the context memory */
-    JOY_API_ALLOC_CONTEXT(ctx_data, init_data->contexts)
-    joy_num_contexts = init_data->contexts;
+    JOY_API_ALLOC_CONTEXT(ctx_data, data->contexts)
+    joy_num_contexts = data->contexts;
 
     glb_config->flow_key_match_method = EXACT_MATCH;
 
     /* setup the inactive and active timeouts for a flow record */
-    flow_record_update_timeouts(init_data->inact_timeout, init_data->act_timeout);
+    flow_record_update_timeouts(data->inact_timeout, data->act_timeout);
 
     /* initialize the protocol identification dictionary */
     if (proto_identify_init()) {
@@ -1127,7 +1127,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
  *      pointer to the context.
  *
  * Parameters:
- *      index - index of the context you want
+ *      ctx_index - index of the context you want
  *
  * Returns:
  *      context - pointer to the context structure
