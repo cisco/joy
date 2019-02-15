@@ -189,6 +189,29 @@ extern int joy_initialize (joy_init_t *data, const char *output_dir,
                            const char *output_file, const char *logfile);
 
 /*
+ * Function: joy_initialize_no_config
+ *
+ * Description: This function initializes the Joy library
+ *      to analyze the data features. This fucntion does not
+ *      perform any configuration options as it is expetced that
+ *      the caller did configuration prior to calling this function.
+ *
+ *      joy_initialize must be called before using any of the other
+ *      API functions.
+ *
+ * Parameters:
+ *      config - pointer to pre-setup config
+ *      err_info - pointer to the file for error logging
+ *      init_data - structure of Joy options
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+extern int joy_initialize_no_config (void *config, FILE *err_info, joy_init_t *data);
+
+/*
  * Function: joy_print_config
  *
  * Description: This function prints out the configuration
@@ -203,6 +226,20 @@ extern int joy_initialize (joy_init_t *data, const char *output_dir,
  *
  */
 extern void joy_print_config (uint8_t index, uint8_t format);
+
+/*
+ * Function: joy_print_flocap_stats_output
+ *
+ * Description: This function prints out flow capture statistics.
+ *
+ * Parameters:
+ *      index - index of the context to print the config into
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_print_flocap_stats_output (uint8_t index);
 
 /*
  * Function: joy_anon_subnets
@@ -342,6 +379,21 @@ extern void joy_update_ctx_global_time (uint8_t ctx_index,
  *
  */
 extern uint8_t joy_packet_to_context (const unsigned char *packet, uint8_t num_contexts);
+
+/*
+ * Function: joy_index_to_context
+ *
+ * Description: This function takes in an index and returns a
+ *      pointer to the context.
+ *
+ * Parameters:
+ *      index - index of the context you want
+ *
+ * Returns:
+ *      context - pointer to the context structure
+ *
+ */
+extern void* joy_index_to_context (uint8_t ctx_index);
 
 /*
  * Function: joy_process_packet

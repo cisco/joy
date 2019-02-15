@@ -250,6 +250,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "verbosity")) {
         parse_check(parse_int((unsigned int*)&config->verbosity, arg, num, 0, 5));
 
+    } else if (match(command, "threads")) {
+        parse_check(parse_int((unsigned int*)&config->num_threads, arg, num, 0, 5));
+
     } else if (match(command, "num_pkts")) {
         parse_check(parse_int((unsigned int*)&config->num_pkts, arg, num, 0, MAX_NUM_PKT_LEN));
 
@@ -325,6 +328,7 @@ void config_set_defaults (struct configuration *config) {
     config->show_config = 0;
     config->show_interfaces = 0;
     config->num_pkts = DEFAULT_NUM_PKT_LEN;
+    config->num_threads = 1;
 }
 
 #define MAX_FILEPATH 128

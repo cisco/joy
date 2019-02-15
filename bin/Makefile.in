@@ -62,29 +62,12 @@ jfd_anon_DEPENDENCIES = $(SAFEC_LIB_STUBS)
 jfd_anon_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(jfd_anon_CFLAGS) $(CFLAGS) \
 	$(jfd_anon_LDFLAGS) $(LDFLAGS) -o $@
-am_joy_OBJECTS = ../src/joy-p2f.$(OBJEXT) \
-	../src/joy-osdetect.$(OBJEXT) ../src/joy-anon.$(OBJEXT) \
-	../src/joy-pkt_proc.$(OBJEXT) ../src/joy-nfv9.$(OBJEXT) \
-	../src/joy-tls.$(OBJEXT) ../src/joy-classify.$(OBJEXT) \
-	../src/joy-radix_trie.$(OBJEXT) ../src/joy-hdr_dsc.$(OBJEXT) \
-	../src/joy-procwatch.$(OBJEXT) ../src/joy-addr_attr.$(OBJEXT) \
-	../src/joy-addr.$(OBJEXT) ../src/joy-wht.$(OBJEXT) \
-	../src/joy-http.$(OBJEXT) ../src/joy-str_match.$(OBJEXT) \
-	../src/joy-acsm.$(OBJEXT) ../src/joy-dns.$(OBJEXT) \
-	../src/joy-example.$(OBJEXT) ../src/joy-updater.$(OBJEXT) \
-	../src/joy-ipfix.$(OBJEXT) ../src/joy-ssh.$(OBJEXT) \
-	../src/joy-ike.$(OBJEXT) ../src/joy-salt.$(OBJEXT) \
-	../src/joy-parson.$(OBJEXT) ../src/joy-fingerprint.$(OBJEXT) \
-	../src/joy-ppi.$(OBJEXT) ../src/joy-utils.$(OBJEXT) \
-	../src/joy-dhcp.$(OBJEXT) ../src/joy-payload.$(OBJEXT) \
-	../src/joy-config.$(OBJEXT) \
-	../src/joy-proto_identify.$(OBJEXT) ../src/joy-fp.$(OBJEXT) \
-	../src/joy-extractor.$(OBJEXT) ../src/joy-joy.$(OBJEXT)
+am_joy_OBJECTS = ../src/joy-joy.$(OBJEXT)
 joy_OBJECTS = $(am_joy_OBJECTS)
 joy_DEPENDENCIES = $(SAFEC_LIB_STUBS)
-joy_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CCLD) $(joy_CFLAGS) $(CFLAGS) $(joy_LDFLAGS) \
-	$(LDFLAGS) -o $@
+joy_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(joy_CFLAGS) \
+	$(CFLAGS) $(joy_LDFLAGS) $(LDFLAGS) -o $@
 am_joy_anon_OBJECTS = ../src/joy_anon-anon.$(OBJEXT) \
 	../src/joy_anon-addr.$(OBJEXT) \
 	../src/joy_anon-str_match.$(OBJEXT) \
@@ -263,42 +246,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-joy_SOURCES = \
-	../src/p2f.c \
-	../src/osdetect.c \
-	../src/anon.c \
-	../src/pkt_proc.c \
-	../src/nfv9.c \
-	../src/tls.c \
-	../src/classify.c \
-	../src/radix_trie.c \
-	../src/hdr_dsc.c \
-	../src/procwatch.c \
-	../src/addr_attr.c \
-	../src/addr.c \
-	../src/wht.c \
-	../src/http.c \
-	../src/str_match.c \
-	../src/acsm.c \
-	../src/dns.c \
-	../src/example.c \
-	../src/updater.c \
-	../src/ipfix.c \
-	../src/ssh.c \
-	../src/ike.c \
-	../src/salt.c \
-	../src/parson.c \
-	../src/fingerprint.c \
-	../src/ppi.c \
-	../src/utils.c \
-	../src/dhcp.c \
-	../src/payload.c \
-	../src/config.c \
-	../src/proto_identify.c \
-	../src/fp.c \
-	../src/extractor.c \
-	../src/joy.c 
-
+joy_SOURCES = ../src/joy.c
 unit_test_SOURCES = ../src/unit_test.c
 joy_api_test_SOURCES = ../src/joy_api_test.c
 joy_api_test2_SOURCES = ../src/joy_api_test2.c
@@ -319,15 +267,15 @@ joy_anon_SOURCES = \
 str_match_test_SOURCES = ../src/str_match_test.c
 @BUILD_WITH_SAFEC_TRUE@SAFEC_LIB = -lciscosafec
 @BUILD_WITH_SAFEC_FALSE@SAFEC_LIB_STUBS = $(SAFEC_DIR)/lib/libstubsafec.a
-joy_CFLAGS = -I ../src/include -DJOY_LIB_API -I $(SSL_CFLAGS) $(LIBCURL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+joy_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 jfd_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec 
 joy_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 joy_api_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 joy_api_test2_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
-@BUILD_MAC_FALSE@joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
-@BUILD_MAC_TRUE@joy_LDFLAGS = $(SSL_LDFLAGS) $(LIBCURL_CFLAGS) -lcrypto -lm -lpcap -lcurl -lpthread  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
+@BUILD_MAC_FALSE@joy_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
+@BUILD_MAC_TRUE@joy_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
 @BUILD_MAC_FALSE@unit_test_LDFLAGS = $(LDFLAGS) -L../lib/.libs -ljoy -lm -lpcap -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
 @BUILD_MAC_TRUE@unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
 @BUILD_MAC_FALSE@joy_anon_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie

@@ -69,7 +69,7 @@ enum SALT_algorithm {
 };
 
 /** structure for the configuration parameters */
-struct configuration {
+typedef struct configuration {
     bool bidir;
     bool include_zeroes;
     bool include_retrans;
@@ -122,10 +122,11 @@ struct configuration {
     char *aux_resource_path;
 
     uint32_t max_records;
+    uint8_t num_threads;
     uint16_t compact_bd_mapping[COMPACT_BD_MAP_MAX];
 
     radix_trie_t rt;
-};
+} configuration_t;
 
 
 /** set the defaults for the joy open source */

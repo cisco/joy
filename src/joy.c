@@ -43,8 +43,8 @@
  */
 
 #include <stdlib.h>  
-#include <getopt.h>  
-#include <errno.h>  
+#include <getopt.h>
+#include <errno.h>
 #include <pcap.h>
 #include <signal.h>
 #include <stdio.h>
@@ -61,19 +61,19 @@
 #include "win_types.h"
 #include "Ws2tcpip.h"
 #include <ShlObj.h>
-#else 
+#else
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <sys/wait.h>    
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <pwd.h>
 #include <grp.h>
 #endif
 
-#include <limits.h>  
+#include <limits.h>
 #include <getopt.h>
-#include <unistd.h>   
+#include <unistd.h>
 #include <pthread.h>
 
 #include "safe_lib.h"
@@ -87,7 +87,6 @@
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "output.h"     /* compressed output             */
-#include "updater.h"    /* updater thread for classifer and label subnets */
 #include "ipfix.h"    /* IPFIX cleanup */
 #include "proto_identify.h"
 #include "pcap.h"
@@ -124,8 +123,6 @@ static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
 static const char *filter_exp = "ip or vlan";
 static char dir_output[MAX_FILENAME_LEN];
-
-struct joy_ctx_data main_ctx;
 
 /* config is the global configuration */
 struct configuration active_config;
@@ -174,7 +171,7 @@ volatile int reopenLog = 0;
 #define STRNCASECMP strncasecmp
 #endif
 
-struct intrface { 
+struct intrface {
     unsigned char name [INTFACENAMESIZE];
     unsigned char mac_addr[MAC_ADDR_STR_LEN];
     unsigned char ip_addr4[INET_ADDRSTRLEN];
@@ -284,7 +281,7 @@ void get_mac_address(char *name, unsigned char mac_addr[MAC_ADDR_STR_LEN])
 		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[3],
 		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[4],
 		(int)(unsigned char)ifr.ifr_hwaddr.sa_data[5]);
-	
+
 	close(sock);
     } else {
 	perror("Failed to create socket\n");
@@ -356,8 +353,8 @@ static unsigned int interface_list_get(void) {
             if (STRNCASECMP(d->name,"lo",2) == 0) {
                 continue;
             }
-            if (dev_addr->addr && (dev_addr->addr->sa_family == AF_INET || 
-				   dev_addr->addr->sa_family == AF_INET6) 
+            if (dev_addr->addr && (dev_addr->addr->sa_family == AF_INET ||
+				   dev_addr->addr->sa_family == AF_INET6)
 		&& dev_addr->netmask) {
                 i = find_interface_in_list(d->name);
                 if (i > -1) {
@@ -406,7 +403,7 @@ static unsigned int interface_list_get(void) {
  */
 
 /*
- * sig_close() causes a graceful shutdown of the program after recieving 
+ * sig_close() causes a graceful shutdown of the program after recieving
  * an appropriate signal
  */
 #ifdef WIN32
@@ -414,29 +411,25 @@ __declspec(noreturn) static void sig_close (int signal_arg) {
 #else
 __attribute__((__noreturn__)) static void sig_close (int signal_arg) {
 #endif
+    int i;
 
     if (handle) {
       pcap_breakloop(handle);
     }
-    flocap_stats_output(&main_ctx,info);
+
     /*
      * flush remaining flow records, and print them even though they are
      * not expired
      */
-    flow_record_list_print_json(&main_ctx, JOY_ALL_FLOWS);
-    zclose(main_ctx.output);
-
-    if (glb_config->ipfix_export_port) {
-        /* Flush any unsent exporter messages in Ipfix module */
-        ipfix_export_flush_message(&main_ctx);
+    for (i=0; i < glb_config->num_threads; ++i) {
+        joy_print_flow_data(i, JOY_ALL_FLOWS);
+        joy_print_flocap_stats_output(i);
+        joy_context_cleanup(i);
     }
-    /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-    ipfix_module_cleanup(&main_ctx);
 
-    /* Cleanup protocol identification module */
-    proto_identify_cleanup();
+    joy_shutdown();
 
-    fprintf(info, "got signal %d, shutting down\n", signal_arg); 
+    fprintf(info, "got signal %d, shutting down\n", signal_arg);
     exit(EXIT_SUCCESS);
 }
 
@@ -446,7 +439,7 @@ __attribute__((__noreturn__)) static void sig_close (int signal_arg) {
  */
 static void sig_reload (int signal_arg) {
 
-    fprintf(info, "got signal %d, closing and reopening log file\n", signal_arg); 
+    fprintf(info, "got signal %d, closing and reopening log file\n", signal_arg);
     reopenLog = 1;
 }
 
@@ -459,22 +452,22 @@ static void sig_reload (int signal_arg) {
  */
 static int usage (char *s) {
     printf("usage: %s [OPTIONS] file1 [file2 ... ]\n", s);
-    printf("where OPTIONS are as follows:\n"); 
+    printf("where OPTIONS are as follows:\n");
     printf("General options\n"
            "  -x F                       read configuration commands from file F\n"
            "  interface=I                read packets live from interface I\n"
            "  promisc=1                  put interface into promiscuous mode\n"
            "  output=F                   write output to file F (otherwise stdout is used)\n"
-           "  logfile=F                  write secondary output to file F (otherwise stderr is used)\n" 
-           "  count=C                    rotate output files so each has about C records\n" 
-           "  upload=user@server:path    upload to user@server:path with scp after file rotation\n" 
-           "  keyfile=F                  use SSH identity (private key) in file F for upload\n" 
-           "  anon=F                     anonymize addresses matching the subnets listed in file F\n" 
-           "  retain=1                   retain a local copy of file after upload\n" 
+           "  logfile=F                  write secondary output to file F (otherwise stderr is used)\n"
+           "  count=C                    rotate output files so each has about C records\n"
+           "  upload=user@server:path    upload to user@server:path with scp after file rotation\n"
+           "  keyfile=F                  use SSH identity (private key) in file F for upload\n"
+           "  anon=F                     anonymize addresses matching the subnets listed in file F\n"
+           "  retain=1                   retain a local copy of file after upload\n"
            "  preemptive_timeout=1       For active flows, look at incoming packets timestamp to decide if\n"
            "                             adding that packet to the flow record will automatically time it out.\n"
            "                             Default=0\n"
-           "  nfv9_port=N                enable Netflow V9 capture on port N\n" 
+           "  nfv9_port=N                enable Netflow V9 capture on port N\n"
            "  ipfix_collect_port=N       enable IPFIX collector on port N\n"
            "  ipfix_collect_online=1     use an active UDP socket for IPFIX collector\n"
            "  ipfix_export_port=N        enable IPFIX export on port N\n"
@@ -498,27 +491,28 @@ static int usage (char *s) {
            "                             0=off, 1=show\n"
            "  username=\"user\"          Drop privileges to username \"user\" after starting packet capture\n"
            "                             Default=\"joy\"\n"
+           "  threads=N                  Number of threads to use for live capture. Default is 1.\n"
            "Data feature options\n"
-           "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n" 
-           "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n" 
+           "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n"
+           "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n"
            "  retrans=1                  include TCP retransmissions in packet list\n"
-           "  bidir=1                    merge unidirectional flows into bidirectional ones\n" 
-           "  dist=1                     include byte distribution array\n" 
-           "  cdist=F                    include compact byte distribution array using the mapping file, F\n" 
-           "  entropy=1                  include byte entropy\n" 
-           "  http=1                     include HTTP data\n" 
-           "  exe=1                      include information about host process associated with flow\n" 
-           "  classify=1                 include results of post-collection classification\n" 
-           "  num_pkts=N                 report on at most N packets per flow (0 <= N < %d)\n" 
+           "  bidir=1                    merge unidirectional flows into bidirectional ones\n"
+           "  dist=1                     include byte distribution array\n"
+           "  cdist=F                    include compact byte distribution array using the mapping file, F\n"
+           "  entropy=1                  include byte entropy\n"
+           "  http=1                     include HTTP data\n"
+           "  exe=1                      include information about host process associated with flow\n"
+           "  classify=1                 include results of post-collection classification\n"
+           "  num_pkts=N                 report on at most N packets per flow (0 <= N < %d)\n"
            "  idp=N                      report N bytes of the initial data packet of each flow\n"
            "  label=L:F                  add label L to addresses that match the subnets in file F\n"
-           "  URLmodel=URL               URL to be used to retrieve classisifer updates\n" 
+           "  URLmodel=URL               URL to be used to retrieve classisifer updates\n"
            "  model=F1:F2                change classifier parameters, SPLT in file F1 and SPLT+BD in file F2\n"
-           "  hd=1                       include header description\n" 
-           "  URLlabel=URL               Full URL including filename to be used to retrieve label updates\n" 
+           "  hd=1                       include header description\n"
+           "  URLlabel=URL               Full URL including filename to be used to retrieve label updates\n"
        get_usage_all_features(feature_list),
-       MAX_NUM_PKT_LEN); 
-    printf("RETURN VALUE                 0 if no errors; nonzero otherwise\n"); 
+       MAX_NUM_PKT_LEN);
+    printf("RETURN VALUE                 0 if no errors; nonzero otherwise\n");
     return -1;
 }
 
@@ -697,50 +691,11 @@ static int get_splt_bd_params(void) {
     } else {
         /*
          * if no URL specified, then process local files
-         * otherwise, if we have a URL, then the updater process
-         * will handle the model updates.
          */
         if (glb_config->params_url == NULL) {
             fprintf(info, "updating classifiers from supplied model(%s)\n", glb_config->params_file);
-            update_params(SPLT_PARAM_TYPE,params_splt);
-            update_params(BD_PARAM_TYPE,params_bd);
+            joy_update_splt_bd_params(params_splt,params_bd);
         }
-    }
-
-    return 0;
-}
-
-/**
- * \brief Read in the compact bd parameters if given.
- *
- * \return 0 success, 1 failure
- */
-static int get_compact_bd(void) {
-    FILE *fp;
-    int count = 0;
-    unsigned short b_value, map_b_value;
-
-    if (!glb_config->compact_byte_distribution) {
-        return 0;
-    }
-
-    memset_s(glb_config->compact_bd_mapping,  sizeof(glb_config->compact_bd_mapping), 0, sizeof(glb_config->compact_bd_mapping));
-
-    fp = fopen(glb_config->compact_byte_distribution, "r");
-    if (fp != NULL) {
-        while (fscanf(fp, "%hu\t%hu", &b_value, &map_b_value) != EOF) {
-	    if (b_value < COMPACT_BD_MAP_MAX) {
-                glb_config->compact_bd_mapping[b_value] = map_b_value;
-                count++;
-                if (count >= 256) {
-                    break;
-                }
-	    }
-        }
-        fclose(fp);
-    } else {
-        joy_log_err("could not open file %s", glb_config->compact_byte_distribution);
-        return 1;
     }
 
     return 0;
@@ -749,76 +704,29 @@ static int get_compact_bd(void) {
 /**
  * \brief Get the labeled subnets.
  *
- * Uses a radix trie to identify addresses that match subnets associated with labels.
- *
  * \return 0 success, 1 failure
  */
 static int get_labeled_subnets(void) {
-    attr_flags subnet_flag;
-    joy_status_e err;
     unsigned int i = 0;
 
     if (!glb_config->num_subnets) {
         return 0;
     }
 
-    glb_config->rt = radix_trie_alloc();
-    if (glb_config->rt == NULL) {
-        joy_log_err("could not allocate memory");
-        return 1;
-    }
-
-    err = radix_trie_init(glb_config->rt);
-    if (err != ok) {
-        joy_log_err("could not initialize subnet labels (radix_trie)");
-        return 1;
-    }
-
-    for (i=0; i<glb_config->num_subnets; i++) {
-        char label[LINEMAX], subnet_file[LINEMAX];
+    for (i=0; i<glb_config->num_subnets; i++){
         int num;
+        char label[LINEMAX], subnet_file[LINEMAX];
 
         num = sscanf(glb_config->subnet[i], "%[^=:]:%[^=:\n#]", label, subnet_file);
         if (num != 2) {
-              fprintf(info, "error: could not parse command \"%s\" into form label:subnet", glb_config->subnet[i]);
+              joy_log_err("error: could not parse command \"%s\" into form label:subnet", glb_config->subnet[i]);
               return 1;
         }
-
-        subnet_flag = radix_trie_add_attr_label(glb_config->rt, label);
-        if (subnet_flag == 0) {
-              joy_log_err("could not add subnet label %s to radix_trie", label);
-              return 1;
-        }
-
-        err = radix_trie_add_subnets_from_file(glb_config->rt, subnet_file, subnet_flag, info);
-        if (err != ok) {
-              joy_log_err("could not add labeled subnets from file %s", subnet_file);
-              return 1;
-        }
+        /* lower the subnet count - the api will add it back */
+        --glb_config->num_subnets;
+        joy_label_subnets(label, JOY_FILE_SUBNET, subnet_file);
     }
-
     joy_log_info("configured labeled subnets (radix_trie)");
-
-    return 0;
-}
-
-static int configure_anonymization(void) {
-    if (glb_config->anon_addrs_file != NULL) {
-        if (anon_init(glb_config->anon_addrs_file, info) == failure) {
-            joy_log_err("could not initialize anonymization subnets from file %s",
-                        glb_config->anon_addrs_file);
-            return 1;
-        }
-    }
-
-    if (glb_config->anon_http_file != NULL) {
-        if (anon_http_init(glb_config->anon_http_file, info, mode_anonymize, ANON_KEYFILE_DEFAULT) == failure) {
-            joy_log_err("could not initialize HTTP anonymization from username file %s",
-                        glb_config->anon_http_file);
-            return 1;
-        }
-    }
-
     return 0;
 }
 
@@ -878,141 +786,24 @@ static int open_interface (char **capture_if, char **capture_mac) {
 }
 
 /**
- * \brief Set the data output to desired target.
- *
- * The output may be stdout, or a file with an auto-generated name,
- * or a file with the name given by user.
- *
- * \return 0 success, 1 failure
- */
-static int set_data_output_file(char *output_filename, char *interface_name, char *mac_address) {
-    const char *outputdir = NULL;
-    int rc = 1;
-#ifdef WIN32
-    PWSTR windir = NULL;
-#endif
-
-    if (!glb_config->filename) {
-        main_ctx.output = zattach(stdout, "w");
-        return 0;
-    }
-
-    /*
-     * Output directory
-     */
-    if (glb_config->outputdir) {
-#ifdef WIN32
-        if (!strncmp(glb_config->outputdir, "_WIN_INSTALL_", strlen("_WIN_INSTALL_"))) {
-            /* Use the LocalAppDataFolder */
-            SHGetKnownFolderPath(&FOLDERID_LocalAppData, 0, NULL, &windir);
-        }
-        else {
-            outputdir = glb_config->outputdir;
-        }
-#else
-        outputdir = glb_config->outputdir;
-#endif
-    } else {
-        outputdir = ".";
-    }
-
-    if (strncmp(glb_config->filename, "auto", strlen("auto")) == 0) {
-        /*
-         * Generate an "auto" output file name, based on the MAC address
-         * and the current time.
-         */
-        if (joy_mode == MODE_ONLINE || joy_mode == MODE_IPFIX_COLLECT_ONLINE) {
-            time_t now = time(0);
-            struct tm *t = localtime(&now);
-
-#ifdef WIN32
-            if (windir != NULL) {
-                /* Use the Windows install directory */
-                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\flocap-%s-%d%.2d%.2d%.2d%.2d%.2d%s", windir,
-                         mac_address,
-                         t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, zsuffix);
-            } else {
-                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\flocap-%s-%d%.2d%.2d%.2d%.2d%.2d%s", outputdir,
-                         mac_address,
-                         t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec,zsuffix);
-            }
-#else
-            snprintf(output_filename, MAX_FILENAME_LEN, "%s/flocap-%s-%d%.2d%.2d%.2d%.2d%.2d%s", outputdir,
-                     mac_address,
-                     t->tm_year + 1900, t->tm_mon + 1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec, zsuffix);
-#endif
-       } else {
-           joy_log_err("cannot use \"output = auto\" with no interface specified; use -o or -l options");
-           goto end;
-       }
-
-       joy_log_info("auto generated output filename: %s", output_filename);
-
-    } else {
-        /*
-         * Set output file based on command line or config file
-         */
-        if (glb_config->filename[0] == '/') {
-            strncpy_s(output_filename, MAX_FILENAME_LEN, glb_config->filename, MAX_FILENAME_LEN-1);
-        } else {
-#ifdef WIN32
-            if (windir) {
-                /* Use the Windows install directory */
-                snprintf(output_filename, MAX_FILENAME_LEN, "%ls\\Joy\\%s", windir, glb_config->filename);
-            } else {
-                snprintf(output_filename, MAX_FILENAME_LEN, "%s\\%s", outputdir, glb_config->filename);
-            }
-#else
-            snprintf(output_filename, MAX_FILENAME_LEN, "%s/%s", outputdir, glb_config->filename);
-#endif
-        }
-    }
-
-    /*
-     * If not doing live capture, open output file now;
-     * otherwise wait until after dropping root privileges.
-     */
-    if (joy_mode != MODE_ONLINE) { 
-        main_ctx.output = zopen(output_filename, "w");
-        if (main_ctx.output == NULL) {
-            joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
-            joy_log_err("choose a new output name or move/remove the old data set");
-            goto end;
-        }
-    }
-
-    /* Success */
-    rc = 0;
-
-end:
-#ifdef WIN32
-    if (windir != NULL) {
-        CoTaskMemFree(windir);
-    }
-#endif
-
-    joy_log_debug("Set output_filename to [%s] for interface [%s]",output_filename,interface_name);
-    return rc;
-}
-
-/**
- \fn int process_directory_of_files (char *input_directory, char *output_filename)
+ \fn int process_directory_of_files (joy_ctx_data *ctx, char *input_directory, char *output_filename)
  \brief logic to handle a directory of input files
+ \param ctx the contex to use
  \param input_directory - directory of pcap input files
  \param output_filename - the name of the resulting directory for the results
  \return 0 on success and negative number for processing error
  \return -11 on directory open failure
  */
 static int first_input_pcap_file = 1;
-int process_directory_of_files (char *input_directory, char *output_filename) {
+int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *output_filename) {
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
     struct dirent *ent = NULL;
     DIR *dir = NULL;
-    char pcap_filename[MAX_FILENAME_LEN*2]; 
+    char pcap_filename[MAX_FILENAME_LEN*2];
     int cmp_ind;
-    
+
     tmp_ret = strnlen_s(input_directory, MAX_FILENAME_LEN*2);
     if (tmp_ret == 0 || tmp_ret >= MAX_FILENAME_LEN*2) {
 	return -1;
@@ -1043,7 +834,13 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 
         while ((ent = readdir(dir)) != NULL) {
             static int fc_cnt = 1;
-            if ((strcmp_s(ent->d_name, 1, ".", &cmp_ind) == EOK && cmp_ind !=0) && 
+
+            /* initialize the data structures */
+            memset_s(ctx, sizeof(joy_ctx_data), 0x00, sizeof(joy_ctx_data));
+            flow_record_list_init(ctx);
+            flocap_stats_timer_init(ctx);
+
+            if ((strcmp_s(ent->d_name, 1, ".", &cmp_ind) == EOK && cmp_ind !=0) &&
                 (strcmp_s(ent->d_name, 2, "..", &cmp_ind) == EOK && cmp_ind !=0)) {
                 strncpy_s(pcap_filename, (MAX_FILENAME_LEN*2), input_directory, (MAX_FILENAME_LEN*2)-1);
 #ifdef WIN32
@@ -1056,7 +853,9 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 if (glb_config->filename) {
                     sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    main_ctx.output = zopen(dir_output, "w");
+                    ctx->output = zopen(dir_output, "w");
+                } else {
+                    ctx->output = stdout;
                 }
 #else
                 if (pcap_filename[strlen(pcap_filename)-1] != '/') {
@@ -1068,22 +867,22 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
                 if (glb_config->filename) {
                     sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    main_ctx.output = zopen(dir_output, "w");
+                    ctx->output = zopen(dir_output, "w");
+                } else {
+                    ctx->output = stdout;
                 }
 #endif
                 /* initialize the outputfile and processing structures */
                 if (glb_config->filename) {
-                    config_print_json(main_ctx.output, glb_config);
+                    joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
                 } else {
                     if (first_input_pcap_file) {
-                        config_print_json(main_ctx.output, glb_config);
+                        joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
                         first_input_pcap_file = 0;
                     }
                 }
-                flow_record_list_init(&main_ctx);
-                flocap_stats_timer_init(&main_ctx);
 
-                tmp_ret = process_pcap_file(pcap_filename, filter_exp, &net, &fp);
+                tmp_ret = process_pcap_file(ctx->ctx_id, pcap_filename, filter_exp, &net, &fp);
                 if (tmp_ret < 0) {
 		    closedir(dir);
                     return tmp_ret;
@@ -1091,8 +890,8 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 
                 /* close the output file */
                 if (glb_config->filename) {
-                    zclose(main_ctx.output);
-                    main_ctx.output = NULL;
+                    zclose(ctx->output);
+                    ctx->output = NULL;
                 }
             }
         }
@@ -1107,14 +906,15 @@ int process_directory_of_files (char *input_directory, char *output_filename) {
 }
 
 /**
- \fn int process_multiple_input_files (char *input_filename, char *output_filename, int fc_cnt)
+ \fn int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char *output_filename, int fc_cnt)
  \brief logic to handle multiple input files
- \param input_filename - the pcap file to process 
+ \param ctx the context to use
+ \param input_filename - the pcap file to process
  \param output_filename - the output directory where are the results will be stored
  \param fc_cnt - the argument number of the current file being processed
  \return none
  */
-int process_multiple_input_files (char *input_filename, char *output_filename, int fc_cnt) {
+int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char *output_filename, int fc_cnt) {
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
@@ -1173,59 +973,188 @@ int process_multiple_input_files (char *input_filename, char *output_filename, i
 
     /* open new output file for multi-file processing */
     if (glb_config->filename) {
-        main_ctx.output = zopen(dir_output, "w");
+        ctx->output = zopen(dir_output, "w");
+    } else {
+        ctx->output = stdout;
     }
 
     /* print the json config */
     if (glb_config->filename) {
-        config_print_json(main_ctx.output, glb_config);
+        joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
     } else {
         if (first_input_pcap_file) {
-            config_print_json(main_ctx.output, glb_config);
+            joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
             first_input_pcap_file = 0;
         }
     }
+    flow_record_list_init(ctx);
+    flocap_stats_timer_init(ctx);
 
     /* process the file */
-    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
+    tmp_ret = process_pcap_file(ctx->ctx_id, input_filename, filter_exp, &net, &fp);
     if (tmp_ret < 0) {
         return tmp_ret;
     }
 
     /* close output file */
     if (glb_config->filename) {
-        zclose(main_ctx.output);
-        main_ctx.output = NULL;
+        zclose(ctx->output);
+        ctx->output = NULL;
     }
-    
+
     return tmp_ret;
 }
 
 /**
- \fn int process_single_input_file (char *input_filename, char *output_filename)
+ \fn int process_single_input_file (joy_data_ctx *ctx, char *input_filename, char *output_filename)
  \brief logic to handle a single input file
+ \param ctx the context to use
  \param input_filename - pcap file to process
  \param output_filename - resulting json output file
  \return 0 for success of negative number for processing error code
  */
-int process_single_input_file (char *input_filename, char *output_filename) {
+int process_single_input_file (joy_ctx_data *ctx, char *input_filename, char *output_filename) {
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
+    char full_outfile[MAX_FILENAME_LEN];
 
     /* initialize fp structure */
     memset_s(&fp, sizeof(struct bpf_program), 0x00, sizeof(struct bpf_program));
 
+    /* set up full output file name */
+    memset_s(&full_outfile, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
+    if (glb_config->outputdir) {
+        int len = strnlen_s(glb_config->outputdir, MAX_DIRNAME_LEN);
+        if (len > (MAX_DIRNAME_LEN-1)) {
+            /* output dir is too long, default to /tmp */
+            strncpy_s(full_outfile, MAX_DIRNAME_LEN, "/tmp/", 5);
+        } else {
+            strncpy_s(full_outfile, MAX_DIRNAME_LEN, glb_config->outputdir, len);
+            if (full_outfile[len-1] != '/') {
+                strncat_s(full_outfile, MAX_DIRNAME_LEN, "/", 1);
+            }
+        }
+    } else {
+        strncpy_s(full_outfile, MAX_DIRNAME_LEN, "/tmp/", 5);
+    }
+
     /* open outputfile */
     if (glb_config->filename) {
-        main_ctx.output = zopen(output_filename,"w");
+        strncat_s(full_outfile, (MAX_DIRNAME_LEN-strlen(full_outfile)),
+                  output_filename, strlen(glb_config->filename));
+        ctx->output = zopen(full_outfile,"w");
+    } else {
+        ctx->output = stdout;
     }
-    
-    /* print configuration */
-    config_print_json(main_ctx.output, glb_config);
 
-    tmp_ret = process_pcap_file(input_filename, filter_exp, &net, &fp);
+    /* print configuration */
+    joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
+
+    flow_record_list_init(ctx);
+    flocap_stats_timer_init(ctx);
+
+    tmp_ret = process_pcap_file(ctx->ctx_id, input_filename, filter_exp, &net, &fp);
     return tmp_ret;
+}
+
+#define MAX_JOY_THREADS 5
+#define MAX_JOY_QUEUE_DEPTH 10000
+typedef struct pkt_queue_ {
+    void *header;
+    void *packet;
+} pkt_queue_t;
+
+static uint64_t pkt_queue_head[MAX_JOY_THREADS];
+static uint64_t pkt_queue_tail[MAX_JOY_THREADS];
+static pthread_mutex_t pkt_queue_lock[MAX_JOY_THREADS] =
+  {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+   PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+   PTHREAD_MUTEX_INITIALIZER};
+static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
+static pkt_queue_t pkt_queue[MAX_JOY_THREADS][MAX_JOY_QUEUE_DEPTH];
+
+static void* pkt_proc_thread_main(void* ctx_num) {
+    uint8_t index = 0;
+    joy_ctx_data *ctx = NULL;
+    void *header = NULL;
+    void *packet = NULL;
+
+    /* get the worker context from the thread number */
+    index = (uint64_t)ctx_num;
+    ctx = joy_index_to_context(index);
+    if (ctx == NULL) {
+        joy_log_crit("error:failed to find the context structure for index %d\n", index);
+        return NULL;
+    }
+
+    while (1) {
+        /* dequeue the packet to process */
+        pthread_mutex_lock(&pkt_queue_lock[index]);
+        header = pkt_queue[index][pkt_queue_head[index]].header;
+        packet = pkt_queue[index][pkt_queue_head[index]].packet;
+        pkt_queue[index][pkt_queue_head[index]].header = NULL;
+        pkt_queue[index][pkt_queue_head[index]].packet = NULL;
+        ++pkt_queue_head[index];
+        if (pkt_queue_head[index] == MAX_JOY_QUEUE_DEPTH) {
+            pkt_queue_head[index] = 0;
+        }
+        pthread_mutex_unlock(&pkt_queue_lock[index]);
+
+        /* check for valid data */
+        if ((header == NULL ) || (packet == NULL)) {
+#ifdef WIN32
+            Sleep(1);
+#else
+            sleep(1);
+#endif
+            continue;
+        }
+
+        /* process the packet */
+        process_packet((unsigned char*)ctx, header, packet);
+
+        /* report executbale info if configured */
+        if (glb_config->report_exe) {
+            /*
+             * periodically obtain host/process flow data
+             */
+            if (get_host_flow_data(ctx) != 0) {
+                joy_log_warn("Could not obtain host/process flow data\n");
+            }
+        }
+
+        /* Periodically report on progress */
+        if ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
+               joy_print_flocap_stats_output(ctx->ctx_id);
+        }
+
+        /* Print out expired flows */
+        joy_print_flow_data(ctx->ctx_id,JOY_EXPIRED_FLOWS);
+    }
+
+    return NULL;
+}
+
+static void joy_get_packets(unsigned char *num_contexts,
+                     const struct pcap_pkthdr *header,
+                     const unsigned char *packet)
+{
+    uint64_t max_contexts = 0;
+    uint64_t index = 0;
+
+    max_contexts = (uint64_t)num_contexts;
+    index = joy_packet_to_context(packet, max_contexts);
+
+    /* add to packet back of the queue */
+    pthread_mutex_lock(&pkt_queue_lock[index]);
+    pkt_queue[index][pkt_queue_tail[index]].header = (void*)header;
+    pkt_queue[index][pkt_queue_tail[index]].packet = (void*)packet;
+    pkt_queue_tail[index]++;
+    if (pkt_queue_tail[index] == MAX_JOY_QUEUE_DEPTH) {
+        pkt_queue_tail[index] = 0;
+    }
+    pthread_mutex_unlock(&pkt_queue_lock[index]);
 }
 
 /**
@@ -1247,20 +1176,20 @@ int main (int argc, char **argv) {
     char *capture_if = NULL;
     char *capture_mac = NULL;
     struct stat sb;
-    pthread_t upd_thread;
     pthread_t uploader_thread;
     int upd_rc;
     pthread_t ipfix_cts_monitor_thread;
     int cts_monitor_thread_rc;
     int c, i = 0;
     int cmp_ind;
+    joy_init_t init_data;
+    int ctx_counter = 0;
 #ifndef _WIN32
     struct passwd *pw = NULL;
     const char *user = NULL;
 #endif
 
     /* initialize the config */
-    memset_s(&main_ctx,  sizeof(struct joy_ctx_data), 0x00, sizeof(struct joy_ctx_data));
     memset_s(&active_config,  sizeof(struct configuration), 0x00, sizeof(struct configuration));
     glb_config = &active_config;
 
@@ -1330,28 +1259,51 @@ int main (int argc, char **argv) {
      */
     if (initial_setup(config_file, num_cmds)) exit(EXIT_FAILURE);
 
-    if (joy_mode != MODE_OFFLINE) {
-        /*
-         * Cheerful message to indicate the start of a new run of the program
-         */
-        fprintf(info, "--- Joy Initialization ---\n");
-        flocap_stats_output(&main_ctx,info);
+    /* setup library and context information */
+    memset_s(&init_data, sizeof(joy_init_t), 0x00, sizeof(joy_init_t));
+    if (joy_mode == MODE_ONLINE) {
+       init_data.contexts = glb_config->num_threads;
+    } else {
+       glb_config->num_threads = 1;
+       init_data.contexts = 1;
     }
+    init_data.inact_timeout = 10;
+    init_data.act_timeout = 20;
 
-    /* 
+    /* config was already setup, use API with pre-set configuration */
+    joy_initialize_no_config(glb_config,info,&init_data);
+
+    /*
      * Retrieve sequence of packet lengths/times and byte distribution
      * parameters if supplied
      */
     if (get_splt_bd_params()) exit(EXIT_FAILURE);
 
     /* Retrieve the compact byte distribution if supplied */
-    if (get_compact_bd()) exit(EXIT_FAILURE);
+    if (glb_config->compact_byte_distribution) {
+        joy_update_compact_bd(glb_config->compact_byte_distribution);
+    }
 
     /* Configure labeled subnets */
     if (get_labeled_subnets()) exit(EXIT_FAILURE);
 
     /* Configure anonymization */
-    if (configure_anonymization()) exit(EXIT_FAILURE);
+    if (glb_config->anon_addrs_file) {
+        joy_anon_subnets(glb_config->anon_addrs_file);
+    }
+    if (glb_config->anon_http_file) {
+        joy_anon_http_usernames(glb_config->anon_http_file);
+    }
+
+    if (joy_mode != MODE_OFFLINE) {
+        /*
+         * Cheerful message to indicate the start of a new run of the program
+         */
+        fprintf(info, "--- Joy Initialization ---\n");
+        for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
+            joy_print_flocap_stats_output(ctx_counter);
+        }
+    }
 
     /* Open interface for live captures */
     if (joy_mode == MODE_ONLINE) {
@@ -1361,15 +1313,9 @@ int main (int argc, char **argv) {
         }
     }
 
-    /* Configure data output */
-    if (set_data_output_file(output_filename, capture_if, capture_mac) == 1) {
-        fprintf(info, "error: set_data_output_file failed!\n");
-        return -2;
-    }
-
     /* initialize the IPFix exporter if configured */
     if (glb_config->ipfix_export_port) {
-        ipfix_exporter_init(glb_config->ipfix_export_remote_host); 
+        ipfix_exporter_init(glb_config->ipfix_export_remote_host);
     }
 
     if (joy_mode == MODE_ONLINE) {   /* live capture */
@@ -1385,7 +1331,7 @@ int main (int argc, char **argv) {
         }
 
         anon_print_subnets(info);
-    
+
         signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
         signal(SIGTERM, sig_close);
 #ifndef WIN32
@@ -1401,7 +1347,7 @@ int main (int argc, char **argv) {
                         filter_exp, pcap_geterr(handle));
                 return -3;
             }
-      
+
             /* apply the compiled filter */
             if (pcap_setfilter(handle, &fp) == -1) {
                 fprintf(info, "error: could not install filter %s: %s\n",
@@ -1436,7 +1382,7 @@ int main (int argc, char **argv) {
                         (unsigned long)pw->pw_uid,
                         (unsigned long)pw->pw_gid,
                         pcap_strerror(errno));
-                return -5; 
+                return -5;
             }
             else {
                 fprintf(info, "changed user to '%.32s' (uid=%lu gid=%lu)\n",
@@ -1450,25 +1396,6 @@ int main (int argc, char **argv) {
             return -5;
         }
 #endif /* _WIN32 */
-
-        /* open output file */
-        if (glb_config->filename) {
-            main_ctx.output = zopen(output_filename, "w");
-            if (main_ctx.output == NULL) {
-                fprintf(info, "error: could not open output file %s (%s)\n", output_filename, strerror(errno));
-                return -1;
-            }
-        }
-
-        /*
-         * start up the updater thread
-         *   updater is only active during live capture runs
-         */
-         upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)glb_config);
-         if (upd_rc) {
-             fprintf(info, "error: could not start updater thread pthread_create() rc: %d\n", upd_rc);
-             return -6;
-         }
 
         /*
          * start up the uploader thread
@@ -1487,67 +1414,37 @@ int main (int argc, char **argv) {
          */
         fflush(info);
 
-        /* 
+        /*
          * write out JSON preamble
-         */ 
-        config_print_json(main_ctx.output, glb_config);
+         */
+        for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
+            joy_print_config(ctx_counter,JOY_JSON_FORMAT);
+        }
+
+        /* spin up the threads */
+        for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
+            int thrd_rc = 0;
+            uint64_t ctx_index = ctx_counter;
+
+            /* init packet processing structures */
+            pkt_queue_head[ctx_counter] = pkt_queue_tail[ctx_counter] = 0;
+            memset_s(&pkt_queue, sizeof(pkt_queue), 0x00, sizeof(pkt_queue));
+
+            /* start the threads */
+            thrd_rc = pthread_create(&pkt_proc_thrd[ctx_counter], NULL, pkt_proc_thread_main, (void*)ctx_index);
+            if (thrd_rc) {
+                joy_log_err("error: could not start packet_processing thread rc: %d\n", thrd_rc);
+                return -8;
+            }
+        }
 
         while(1) {
-            /* 
+            /*
              * Loop over packets captured from interface.
              */
-            pcap_loop(handle, NUM_PACKETS_IN_LOOP, libpcap_process_packet, (unsigned char*)&main_ctx);
-      
-            joy_log_info("PCAP processing loop done");
+            uint64_t max_contexts = init_data.contexts;
+            pcap_loop(handle, NUM_PACKETS_IN_LOOP, joy_get_packets, (unsigned char*)max_contexts);
 
-            if (glb_config->report_exe) {
-                  /*
-                   * periodically obtain host/process flow data
-                   */ 
-                  if (get_host_flow_data(&main_ctx) != 0) {
-                      joy_log_warn("Could not obtain host/process flow data\n");
-                  }
-           }
-
-           /* Periodically report on progress */
-           if ((main_ctx.stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
-                  flocap_stats_output(&main_ctx,info);
-           }
-
-           /* Print out expired flows */
-           flow_record_list_print_json(&main_ctx, JOY_EXPIRED_FLOWS);
-
-           if (glb_config->filename) {
-    
-                  /* rotate output file if needed */
-                  if (glb_config->max_records && (main_ctx.records_in_file > glb_config->max_records)) {
-
-                      /*
-                       * write JSON postamble
-                       */
-                      zclose(main_ctx.output);
-                      if (glb_config->upload_servername) {
-                          upload_file(output_filename);
-                      }
-
-                      // printf("records: %d\tmax_records: %d\n", glb_config->records_in_file, glb_config->max_records);
-                      if (glb_config->max_records != 0) {
-                          set_data_output_file(output_filename, capture_if, capture_mac);
-                      }
-                      main_ctx.output = zopen(output_filename, "w");
-                      if (main_ctx.output == NULL) {
-                          perror("error: could not open output file");
-                          return -1;
-                      }
-                      main_ctx.records_in_file = 0;
-                  }
-      
-                  /*
-                   * flush out buffered debug/info/log messages on the "info" stream
-                   */
-                  fflush(info);
-           }
-           // fflush(main_ctx.output);
            // Close and reopen the log file if reopenLog flag is set
            if (reopenLog && glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind!= 0)) {
               fclose(info);
@@ -1565,9 +1462,17 @@ int main (int argc, char **argv) {
         }
 
         pcap_close(handle);
- 
 
     } else if (joy_mode == MODE_IPFIX_COLLECT_ONLINE) {
+        joy_ctx_data *ctx = NULL;
+
+        /* collection mode  only uses 1 context, so can use index 0 always */
+        ctx = joy_index_to_context(0);
+        if (ctx == NULL) {
+            joy_log_crit("error:failed to find the context structure for index %d\n", 0);
+            return -1;
+        }
+
         /* IPFIX live collecting process */
         signal(SIGINT, sig_close);     /* Ctl-C causes graceful shutdown */
         signal(SIGTERM, sig_close);
@@ -1586,15 +1491,23 @@ int main (int argc, char **argv) {
           return -7;
         }
 
-        flow_record_list_init(&main_ctx);
+        flow_record_list_init(ctx);
 
-        ipfix_collect_main(&main_ctx);
+        ipfix_collect_main(ctx);
 
-        flow_record_list_print_json(&main_ctx, JOY_ALL_FLOWS);
+        joy_print_flow_data(ctx->ctx_id, JOY_ALL_FLOWS);
         fflush(info);
 
     } else { /* mode = mode_offline */
         int multi_file_input = 0;
+        joy_ctx_data *ctx = NULL;
+
+        /* offline only uses 1 context, so can use index 0 always */
+        ctx = joy_index_to_context(0);
+        if (ctx == NULL) {
+            joy_log_crit("error:failed to find the context structure for index %d\n", 0);
+            return -1;
+        }
 
         if (argc-opt_count <= 1) {
             fprintf(stderr, "error: missing pcap file name(s)\n");
@@ -1612,22 +1525,25 @@ int main (int argc, char **argv) {
         if ((stat(argv[1], &sb) == 0 && S_ISDIR(sb.st_mode)) && (glb_config->filename)) {
            multi_file_input = 1;
         }
-      
+
         /* close out the existing open output file and remove it */
         if (glb_config->filename) {
-            zclose(main_ctx.output);
+            zclose(ctx->output);
+            memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
+            snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",ctx->output_file_basename,zsuffix);
             if (remove(output_filename) == -1) {
-		fprintf(stderr, "error:failed to remove %s\n", output_filename);
-		return -1;
-	    }
+                fprintf(stderr, "error:failed to remove %s\n", output_filename);
+                return -1;
+            }
         }
-
-        /* intialize the data structures */
-        flow_record_list_init(&main_ctx);
-        flocap_stats_timer_init(&main_ctx);
 
         /* loop over remaining arguments to process files */
         for (i=1+opt_count; i<argc; i++) {
+            /* intialize the data structures */
+            memset_s(ctx, sizeof(joy_ctx_data), 0x00, sizeof(joy_ctx_data));
+            flow_record_list_init(ctx);
+            flocap_stats_timer_init(ctx);
+
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 /* processing an input directory */
 		tmp_ret = strnlen_s(argv[i], (MAX_FILENAME_LEN*2));
@@ -1635,19 +1551,19 @@ int main (int argc, char **argv) {
 		    fprintf(stderr, "error:failed filename too long %s\n", argv[i]);
 		    return -1;
 		}
-                tmp_ret = process_directory_of_files(argv[i],output_filename);
+                tmp_ret = process_directory_of_files(ctx, argv[i], glb_config->filename);
                 if (tmp_ret < 0) {
                     return tmp_ret;
                 }
             } else {
                 /* check for multi-file input processing via command line */
                 if (multi_file_input) {
-                    tmp_ret = process_multiple_input_files(argv[i],output_filename,i);
+                    tmp_ret = process_multiple_input_files(ctx, argv[i],glb_config->filename,i);
                     if (tmp_ret < 0) {
                         return tmp_ret;
                     }
                 } else {
-                    tmp_ret = process_single_input_file(argv[i],output_filename);
+                    tmp_ret = process_single_input_file(ctx, argv[i],glb_config->filename);
                     if (tmp_ret < 0) {
                         return tmp_ret;
                     }
@@ -1657,62 +1573,55 @@ int main (int argc, char **argv) {
     }
 
     if (joy_mode != MODE_OFFLINE) {
-	flocap_stats_output(&main_ctx,info);
-	// config_print(info, glb_config);
-    }
-    
-    if (glb_config->ipfix_export_port) {
-        /* Flush any unsent exporter messages in Ipfix module */
-        ipfix_export_flush_message(&main_ctx);
-    }
-    /* Cleanup any leftover memory, sockets, etc. in Ipfix module */
-    ipfix_module_cleanup(&main_ctx);
-
-    /* Cleanup protocol identification module */
-    proto_identify_cleanup();
-
-    /* close the output file if it is still open */
-    if (main_ctx.output) {
-        zclose(main_ctx.output);
+        for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
+	    joy_print_flocap_stats_output(ctx_counter);
+        }
     }
 
+    /* shutdown everything */
+    for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
+        joy_context_cleanup(ctx_counter);
+    }
+    joy_shutdown();
     return 0;
 }
 
 
 /**
- * \fn int process_pcap_file (char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp)
+ * \fn int process_pcap_file (int index, char *file_name, char *filter_exp, bpf_u_int32 *net, struct bpf_program *fp)
  * \brief process pcap packet data from a given file
+ * \param index of the context to use
  * \param file_name name of the file with pcap data in it
  * \param filter_exp filter to use
- * \param net 
+ * \param net
  * \param fp
  * \return -1 could not open pcap file error
  * \return -2 could not parse filter error
  * \return -3 could not install filter
  * \return 0 success
  */
-int process_pcap_file (char *file_name, const char *filtr_exp, bpf_u_int32 *net, struct bpf_program *fp) {
-    char errbuf[PCAP_ERRBUF_SIZE]; 
+int process_pcap_file (int index, char *file_name, const char *filtr_exp, bpf_u_int32 *net, struct bpf_program *fp) {
+    char errbuf[PCAP_ERRBUF_SIZE];
     int more = 1;
+    uint64_t idx = index;
 
     joy_log_info("reading pcap file %s", file_name);
 
-    handle = pcap_open_offline(file_name, errbuf);    
-    if (handle == NULL) { 
-        fprintf(stderr,"Couldn't open pcap file %s: %s\n", file_name, errbuf); 
+    handle = pcap_open_offline(file_name, errbuf);
+    if (handle == NULL) {
+        fprintf(stderr,"Couldn't open pcap file %s: %s\n", file_name, errbuf);
         return -1;
-    }   
-    
+    }
+
     if (filtr_exp) {
-      
+
         /* compile the filter expression */
         if (pcap_compile(handle, fp, filtr_exp, 0, *net) == -1) {
             fprintf(stderr, "error: could not parse filter %s: %s\n",
                     filtr_exp, pcap_geterr(handle));
             return -2;
         }
-    
+
         /* apply the compiled filter */
         if (pcap_setfilter(handle, fp) == -1) {
             fprintf(stderr, "error: could not install filter %s: %s\n",
@@ -1720,25 +1629,22 @@ int process_pcap_file (char *file_name, const char *filtr_exp, bpf_u_int32 *net,
             return -3;
         }
     }
-  
+
     while (more) {
         /* Loop over all packets in capture file */
-        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, libpcap_process_packet, (unsigned char *)&main_ctx);
+        more = pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_libpcap_process_packet, (unsigned char *)idx);
         /* Print out expired flows */
-        flow_record_list_print_json(&main_ctx, JOY_EXPIRED_FLOWS);
+        joy_print_flow_data(index, JOY_EXPIRED_FLOWS);
     }
 
     joy_log_info("all flows processed");
-  
+
     /* Cleanup */
     if (filtr_exp) {
         pcap_freecode(fp);
     }
-  
-    pcap_close(handle);
-  
-    flow_record_list_print_json(&main_ctx, JOY_ALL_FLOWS);
-    flow_record_list_free(&main_ctx);
 
+    pcap_close(handle);
+    joy_print_flow_data(index, JOY_ALL_FLOWS);
     return 0;
 }
