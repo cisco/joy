@@ -645,13 +645,14 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
     if (record != NULL) {
        if (create_new_records && flow_record_is_in_chrono_list(ctx, record)
            && flow_record_is_active_expired(record, header)) {
-            /*
-             *  Active-timeout exceeded for this flow_record; print and delete
-             *  it, then set record = NULL to cause the creation of a new
-             *  flow_record to be used in further packet processing
-             */
-           /* WMH NEED TO ADJUST THIS */
-           /* FOR NON PRINTING APPLICATIONS, JUST DROP PACKET */
+           /*
+            *  Active-timeout exceeded for this flow_record; print and delete
+            *  it, then set record = NULL to cause the creation of a new
+            *  flow_record to be used in further packet processing
+            *
+            *  All applications have an output file available. If it is not being used,
+            *  then the printing of this record will just go to a file that is ignored.
+            */
            flow_record_print_and_delete(ctx, record);
            record = NULL;
        } else {
@@ -1671,7 +1672,6 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
      */
     flow_record_print_json(ctx, record);
 
-#ifndef JOY_LIB_API
     /*
      * Export this record before deletion if running in
      * IPFIX exporter mode.
@@ -1679,7 +1679,6 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
     if (glb_config->ipfix_export_port) {
         ipfix_export_main(ctx, record);
     }
-#endif
     /*
      * Delete twin, if there is one
      */
