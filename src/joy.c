@@ -855,7 +855,7 @@ int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *o
                     ++fc_cnt;
                     ctx->output = zopen(dir_output, "w");
                 } else {
-                    ctx->output = stdout;
+                    ctx->output = (FILE*)stdout;
                 }
 #else
                 if (pcap_filename[strlen(pcap_filename)-1] != '/') {
@@ -869,7 +869,7 @@ int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *o
                     ++fc_cnt;
                     ctx->output = zopen(dir_output, "w");
                 } else {
-                    ctx->output = stdout;
+                    ctx->output = (FILE*)stdout;
                 }
 #endif
                 /* initialize the outputfile and processing structures */
@@ -975,7 +975,7 @@ int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char 
     if (glb_config->filename) {
         ctx->output = zopen(dir_output, "w");
     } else {
-        ctx->output = stdout;
+        ctx->output = (FILE*)stdout;
     }
 
     /* print the json config */
@@ -1045,7 +1045,7 @@ int process_single_input_file (joy_ctx_data *ctx, char *input_filename, char *ou
                   output_filename, strlen(glb_config->filename));
         ctx->output = zopen(full_outfile,"w");
     } else {
-        ctx->output = stdout;
+        ctx->output = (FILE*)stdout;
     }
 
     /* print configuration */
