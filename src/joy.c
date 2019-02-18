@@ -491,7 +491,7 @@ static int usage (char *s) {
            "                             0=off, 1=show\n"
            "  username=\"user\"          Drop privileges to username \"user\" after starting packet capture\n"
            "                             Default=\"joy\"\n"
-           "  threads=N                  Number of threads to use for live capture. Default is 1.\n"
+           "  threads=N                  Number of threads to use for live capture (1-5). Default is 1.\n"
            "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n"
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n"
@@ -1092,11 +1092,7 @@ static void* pkt_proc_thread_main(void* ctx_num) {
         /* check for valid data */
         if ((header == NULL ) || (packet == NULL)) {
             /* no work to do, go back and wait */
-#ifdef WIN32
-            Sleep(1);
-#else
-            sleep(1);
-#endif
+            usleep(500); /* wait 500ms and try again */
             continue;
         }
 
@@ -1137,11 +1133,24 @@ static void joy_get_packets(unsigned char *num_contexts,
                      const struct pcap_pkthdr *header,
                      const unsigned char *packet)
 {
+    static uint16_t queue_full_cnt[MAX_JOY_THREADS] = {0,0,0,0,0};
     uint64_t max_contexts = 0;
     uint64_t index = 0;
 
+    /* make sure we have a packet to process */
+    if (packet == NULL) {
+        return;
+    }
+
     max_contexts = (uint64_t)num_contexts;
     index = joy_packet_to_context(packet, max_contexts);
+
+    /* check to make sure queue isn't full */
+    while (pkt_queue[index][pkt_queue_tail[index]].packet != NULL) {
+        ++queue_full_cnt[index];
+        joy_log_err("Context %d Queue is full (%d). Retry in 50ms", (uint16_t)index, queue_full_cnt[index]);
+        usleep(50); /* give the processing thread time to do work */
+    }
 
     /* add to packet back of the queue */
     pkt_queue[index][pkt_queue_tail[index]].header = (void*)header;
@@ -1438,7 +1447,7 @@ int main (int argc, char **argv) {
             /*
              * Loop over packets captured from interface.
              */
-            pcap_loop(handle, NUM_PACKETS_IN_LOOP, joy_get_packets, (unsigned char*)max_contexts);
+            pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_get_packets, (unsigned char*)max_contexts);
 
            // Close and reopen the log file if reopenLog flag is set
            if (reopenLog && glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind!= 0)) {

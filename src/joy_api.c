@@ -1286,6 +1286,11 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
         return;
     }
 
+    /* make sure we have a packet to process */
+    if (packet == NULL) {
+        return;
+    }
+
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
