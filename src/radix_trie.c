@@ -793,9 +793,9 @@ static int radix_trie_high_level_unit_test (void) {
     struct radix_trie *rt = NULL;
     attr_flags flag_internal, flag_malware, flag;
 #ifdef HAVE_CONFIG_H
-    const char *configfile = "../internal.net";
-#else
     const char *configfile = "internal.net";
+#else
+    const char *configfile = "../internal.net";
 #endif
     struct in_addr addr;
     joy_status_e err;

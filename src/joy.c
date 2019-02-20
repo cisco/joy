@@ -122,7 +122,7 @@ typedef enum joy_operating_mode_ {
 static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
 static const char *filter_exp = "ip or vlan";
-static char dir_output[MAX_FILENAME_LEN];
+static char full_path_output[MAX_FILENAME_LEN];
 
 /* config is the global configuration */
 struct configuration active_config;
@@ -786,21 +786,22 @@ static int open_interface (char **capture_if, char **capture_mac) {
 }
 
 /**
- \fn int process_directory_of_files (joy_ctx_data *ctx, char *input_directory, char *output_filename)
+ \fn int process_directory_of_files (joy_ctx_data *ctx, char *input_directory)
  \brief logic to handle a directory of input files
  \param ctx the contex to use
  \param input_directory - directory of pcap input files
- \param output_filename - the name of the resulting directory for the results
  \return 0 on success and negative number for processing error
  \return -11 on directory open failure
  */
 static int first_input_pcap_file = 1;
-int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *output_filename) {
+static int process_directory_of_files(joy_ctx_data *ctx, char *input_directory) {
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
+    struct stat st;
     struct dirent *ent = NULL;
     DIR *dir = NULL;
+    char output_dir[MAX_FILENAME_LEN];
     char pcap_filename[MAX_FILENAME_LEN*2];
     int cmp_ind;
 
@@ -812,21 +813,23 @@ int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *o
     memset_s(&fp,  sizeof(struct bpf_program), 0x00, sizeof(struct bpf_program));
     memset_s(&pcap_filename[0], (MAX_FILENAME_LEN*2), 0x00, (MAX_FILENAME_LEN*2));
 
-    /* create a directory to place all of the output files into */
+    /* use the output filename as the directory to storing results */
     if (glb_config->filename) {
-        struct stat st;
+        strncpy_s(output_dir, (MAX_FILENAME_LEN-1), glb_config->filename, (MAX_FILENAME_LEN-1));
+
+        /* create a directory to place all of the output files into */
         memset_s(&st,  sizeof(struct stat), 0x00, sizeof(struct stat));
-        if (stat(output_filename, &st) == -1) {
+        if (stat(output_dir, &st) == -1) {
 #ifdef WIN32
-            mkdir(output_filename);
+            mkdir(output_dir);
 #else
-            tmp_ret = mkdir(output_filename, 0700);
-	    if (tmp_ret < 0) {
-		joy_log_err("Error creating directory: %s\n", output_filename);
-		return tmp_ret;
-	    }
+            tmp_ret = mkdir(output_dir, 0700);
+            if (tmp_ret < 0) {
+                joy_log_err("Error creating directory: %s\n", output_dir);
+                return tmp_ret;
+            }
 #endif
-         }
+        }
     }
 
     /* open the directory to read the files */
@@ -837,6 +840,9 @@ int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *o
 
             /* initialize the data structures */
             memset_s(ctx, sizeof(joy_ctx_data), 0x00, sizeof(joy_ctx_data));
+            if (glb_config->filename == NULL) {
+                ctx->output = zattach(stdout, "w");
+            }
             flow_record_list_init(ctx);
             flocap_stats_timer_init(ctx);
 
@@ -851,11 +857,9 @@ int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *o
 
                 /* open new output file for multi-file processing */
                 if (glb_config->filename) {
-                    sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                    sprintf(full_path_output, "%s\\%s_%d_json%s", output_dir, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    ctx->output = zopen(dir_output, "w");
-                } else {
-                    ctx->output = (zfile)stdout;
+                    ctx->output = zopen(full_path_output, "w");
                 }
 #else
                 if (pcap_filename[strlen(pcap_filename)-1] != '/') {
@@ -865,11 +869,9 @@ int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *o
 
                 /* open new output file for multi-file processing */
                 if (glb_config->filename) {
-                    sprintf(dir_output, "%s/%s_%d_json%s", output_filename, ent->d_name, fc_cnt, zsuffix);
+                    sprintf(full_path_output, "%s/%s_%d_json%s", output_dir, ent->d_name, fc_cnt, zsuffix);
                     ++fc_cnt;
-                    ctx->output = zopen(dir_output, "w");
-                } else {
-                    ctx->output = (zfile)stdout;
+                    ctx->output = zopen(full_path_output, "w");
                 }
 #endif
                 /* initialize the outputfile and processing structures */
@@ -906,20 +908,21 @@ int process_directory_of_files(joy_ctx_data *ctx, char *input_directory, char *o
 }
 
 /**
- \fn int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char *output_filename, int fc_cnt)
+ \fn int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, int fc_cnt)
  \brief logic to handle multiple input files
  \param ctx the context to use
  \param input_filename - the pcap file to process
- \param output_filename - the output directory where are the results will be stored
  \param fc_cnt - the argument number of the current file being processed
  \return none
  */
-int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char *output_filename, int fc_cnt) {
+static int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, int fc_cnt) {
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
-    char input_path[256];
-    char input_file_base_name[136];
+    struct stat st;
+    char output_dir[MAX_FILENAME_LEN];
+    char input_path[MAX_FILENAME_LEN];
+    char input_file_base_name[MAX_FILENAME_LEN];
 
 #ifdef WIN32
     char fname[128];
@@ -929,25 +932,27 @@ int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char 
     /* initialize variables */
     memset_s(&fp, sizeof(struct bpf_program), 0x00, sizeof(struct bpf_program));
 
-    /* create a directory to place all of the output files into */
+    /* use the output filename as the directory to storing results */
     if (glb_config->filename) {
-        struct stat st;
+        strncpy_s(output_dir, (MAX_FILENAME_LEN-1), glb_config->filename, (MAX_FILENAME_LEN-1));
+
+        /* create a directory to place all of the output files into */
         memset_s(&st, sizeof(struct stat), 0x00, sizeof(struct stat));
-        if (stat(output_filename, &st) == -1) {
+        if (stat(output_dir, &st) == -1) {
 #ifdef WIN32
-            mkdir(output_filename);
+            mkdir(output_dir);
 #else
-            tmp_ret = mkdir(output_filename, 0700);
+            tmp_ret = mkdir(output_dir, 0700);
 	    if (tmp_ret < 0) {
-		joy_log_err("Error creating directory: %s\n", output_filename);
-		return tmp_ret;
-	    }
+                joy_log_err("Error creating directory: %s\n", output_dir);
+                return tmp_ret;
+            }
 #endif
         }
     }
 
     /* copy input filename path */
-    strncpy_s(input_path, 255, input_filename,254);
+    strncpy_s(input_path, (MAX_FILENAME_LEN-1), input_filename, (MAX_FILENAME_LEN-1));
 
 #ifdef WIN32
     /* get the input basename */
@@ -955,27 +960,21 @@ int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char 
     snprintf(input_file_base_name,128, "%s%s", fname, ext);
 
     /* full name for the new output file including directory */
-    if (glb_config->filename) {
-        sprintf(dir_output, "%s\\%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
-        ++fc_cnt;
-    }
+    sprintf(full_path_output, "%s\\%s_%d_json%s", output_dir, input_file_base_name, fc_cnt, zsuffix);
+    ++fc_cnt;
 #else
 
     /* get the input basename */
     snprintf(input_file_base_name, 128, "%s", basename(input_path));
 
     /* full name for the new output file including directory */
-    if (glb_config->filename) {
-        sprintf(dir_output, "%s/%s_%d_json%s", output_filename, input_file_base_name, fc_cnt, zsuffix);
-        ++fc_cnt;
-    }
+    sprintf(full_path_output, "%s/%s_%d_json%s", output_dir, input_file_base_name, fc_cnt, zsuffix);
+    ++fc_cnt;
 #endif
 
     /* open new output file for multi-file processing */
     if (glb_config->filename) {
-        ctx->output = zopen(dir_output, "w");
-    } else {
-        ctx->output = (zfile)stdout;
+        ctx->output = zopen(full_path_output, "w");
     }
 
     /* print the json config */
@@ -1006,14 +1005,13 @@ int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename, char 
 }
 
 /**
- \fn int process_single_input_file (joy_data_ctx *ctx, char *input_filename, char *output_filename)
+ \fn int process_single_input_file (joy_data_ctx *ctx, char *input_filename)
  \brief logic to handle a single input file
  \param ctx the context to use
  \param input_filename - pcap file to process
- \param output_filename - resulting json output file
  \return 0 for success of negative number for processing error code
  */
-int process_single_input_file (joy_ctx_data *ctx, char *input_filename, char *output_filename) {
+static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
     int tmp_ret = 0;
     bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
@@ -1027,8 +1025,8 @@ int process_single_input_file (joy_ctx_data *ctx, char *input_filename, char *ou
     if (glb_config->outputdir) {
         int len = strnlen_s(glb_config->outputdir, MAX_DIRNAME_LEN);
         if (len > (MAX_DIRNAME_LEN-1)) {
-            /* output dir is too long, default to /tmp */
-            strncpy_s(full_outfile, MAX_DIRNAME_LEN, "/tmp/", 5);
+            /* output dir is too long, default to ./ */
+            strncpy_s(full_outfile, MAX_DIRNAME_LEN, "./", 2);
         } else {
             strncpy_s(full_outfile, MAX_DIRNAME_LEN, glb_config->outputdir, len);
             if (full_outfile[len-1] != '/') {
@@ -1036,16 +1034,14 @@ int process_single_input_file (joy_ctx_data *ctx, char *input_filename, char *ou
             }
         }
     } else {
-        strncpy_s(full_outfile, MAX_DIRNAME_LEN, "/tmp/", 5);
+        strncpy_s(full_outfile, MAX_DIRNAME_LEN, "./", 2);
     }
 
     /* open outputfile */
     if (glb_config->filename) {
         strncat_s(full_outfile, (MAX_DIRNAME_LEN-strlen(full_outfile)),
-                  output_filename, strlen(glb_config->filename));
+                  glb_config->filename, strlen(glb_config->filename));
         ctx->output = zopen(full_outfile,"w");
-    } else {
-        ctx->output = (zfile)stdout;
     }
 
     /* print configuration */
@@ -1275,7 +1271,7 @@ int main (int argc, char **argv) {
     init_data.act_timeout = 20;
 
     /* config was already setup, use API with pre-set configuration */
-    joy_initialize_no_config(glb_config,info,&init_data);
+    joy_initialize_no_config(glb_config, info, &init_data);
 
     /*
      * Retrieve sequence of packet lengths/times and byte distribution
@@ -1534,7 +1530,7 @@ int main (int argc, char **argv) {
         if (glb_config->filename) {
             zclose(ctx->output);
             memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
-            snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",ctx->output_file_basename,zsuffix);
+            snprintf(output_filename, MAX_FILENAME_LEN,"%s",ctx->output_file_basename);
             if (remove(output_filename) == -1) {
                 fprintf(stderr, "error:failed to remove %s\n", output_filename);
                 return -1;
@@ -1545,6 +1541,9 @@ int main (int argc, char **argv) {
         for (i=1+opt_count; i<argc; i++) {
             /* intialize the data structures */
             memset_s(ctx, sizeof(joy_ctx_data), 0x00, sizeof(joy_ctx_data));
+            if (glb_config->filename == NULL) {
+                ctx->output = zattach(stdout, "w");
+            }
             flow_record_list_init(ctx);
             flocap_stats_timer_init(ctx);
 
@@ -1555,19 +1554,19 @@ int main (int argc, char **argv) {
 		    fprintf(stderr, "error:failed filename too long %s\n", argv[i]);
 		    return -1;
 		}
-                tmp_ret = process_directory_of_files(ctx, argv[i], glb_config->filename);
+                tmp_ret = process_directory_of_files(ctx, argv[i]);
                 if (tmp_ret < 0) {
                     return tmp_ret;
                 }
             } else {
                 /* check for multi-file input processing via command line */
                 if (multi_file_input) {
-                    tmp_ret = process_multiple_input_files(ctx, argv[i],glb_config->filename,i);
+                    tmp_ret = process_multiple_input_files(ctx, argv[i],i);
                     if (tmp_ret < 0) {
                         return tmp_ret;
                     }
                 } else {
-                    tmp_ret = process_single_input_file(ctx, argv[i],glb_config->filename);
+                    tmp_ret = process_single_input_file(ctx, argv[i]);
                     if (tmp_ret < 0) {
                         return tmp_ret;
                     }

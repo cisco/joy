@@ -414,8 +414,8 @@ int joy_initialize(joy_init_t *init_data,
     if (output_dir != NULL) {
         int len = strnlen_s(output_dir, MAX_DIRNAME_LEN);
         if (len > (MAX_DIRNAME_LEN-1)) {
-            /* output dir is too long, default to /tmp */
-            strncpy_s(output_dirname, MAX_DIRNAME_LEN, "/tmp/", 5);
+            /* output dir is too long, default to ./ */
+            strncpy_s(output_dirname, MAX_DIRNAME_LEN, "./", 2);
         } else {
             strncpy_s(output_dirname, MAX_DIRNAME_LEN, output_dir, len);
             if (output_dirname[len-1] != '/') {
@@ -423,7 +423,7 @@ int joy_initialize(joy_init_t *init_data,
             }
         }
     } else {
-        strncpy_s(output_dirname, MAX_DIRNAME_LEN, "/tmp/", 5);
+        strncpy_s(output_dirname, MAX_DIRNAME_LEN, "./", 2);
     }
 
     glb_config->verbosity = init_data->verbosity;
@@ -519,12 +519,24 @@ int joy_initialize(joy_init_t *init_data,
         if (output_file != NULL) {
             if ((int)strnlen_s(output_file, MAX_FILENAME_LEN) > (int)(MAX_FILENAME_LEN - strnlen_s(output_dirname, MAX_FILENAME_LEN) - 16)) {
                 /* dirname + filename is too long, use default filename scheme */
-                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output",output_dirname);
+                } else {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+                }
             } else {
-                snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d",output_dirname,output_file,this->ctx_id);
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s%s",output_dirname,output_file);
+                } else {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d",output_dirname,output_file,this->ctx_id);
+                }
             }
         } else {
-            snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+            if (joy_num_contexts == 1) {
+                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output",output_dirname);
+            } else {
+                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+            }
         }
 
         /* store off the output file base name */
@@ -543,7 +555,11 @@ int joy_initialize(joy_init_t *init_data,
         if (glb_config->max_records) {
             format_output_filename(this->output_file_basename, output_filename);
         } else {
-            snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
+            if (joy_num_contexts == 1) {
+                snprintf(output_filename, MAX_FILENAME_LEN,"%s",this->output_file_basename);
+            } else {
+                snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
+            }
         }
 
         this->output = zopen(output_filename, "w");
@@ -596,6 +612,8 @@ int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *data)
         joy_log_err("could not initialize the protocol identification dictionary");
         return failure;
     }
+
+    /* make sure logfile/stderr is setup */
     glb_config = (configuration_t*)config;
     if (err_info == NULL) {
         info = stderr;
@@ -624,8 +642,9 @@ int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *data)
         return failure;
     }
 
+    /* setup the output directory */
     if (glb_config->outputdir == NULL) {
-        glb_config->outputdir = strdup("/tmp");
+        glb_config->outputdir = strdup("./");
     }
     dir_len = strlen(glb_config->outputdir);
     if (glb_config->outputdir[dir_len-1] == '/') {
@@ -639,45 +658,59 @@ int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *data)
         /* id the context */
         this->ctx_id = i;
 
-        /* setup the output file basename for the context */
-        memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
-        if (glb_config->filename != NULL) {
+        /* if they haven't specified an output filename, then send to stdout */
+        if (glb_config->filename == NULL) {
+            this->output = zattach(stdout, "w");
+        } else {
+            /* setup the output file basename for the context */
+            memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
+
             if ((int)strnlen_s(glb_config->filename, MAX_FILENAME_LEN) > (int)(MAX_FILENAME_LEN - strnlen_s(glb_config->outputdir, MAX_FILENAME_LEN) - 16)) {
                 /* dirname + filename is too long, use default filename scheme */
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s/joy-output",glb_config->outputdir);
+                } else {
                     snprintf(output_filename,MAX_FILENAME_LEN,"%s/joy-output.ctx%d",glb_config->outputdir,this->ctx_id);
+                }
             } else {
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s/%s",glb_config->outputdir,glb_config->filename);
+                } else {
                     snprintf(output_filename,MAX_FILENAME_LEN,"%s/%s.ctx%d",glb_config->outputdir,glb_config->filename,this->ctx_id);
+                }
             }
-        } else {
-            snprintf(output_filename,MAX_FILENAME_LEN,"%s/joy-output.ctx%d",glb_config->outputdir,this->ctx_id);
-        }
 
-        /* store off the output file base name */
-        this->output_file_basename = calloc(1, strnlen_s(output_filename, MAX_FILENAME_LEN)+1);
-        if (this->output_file_basename == NULL) {
-            joy_log_err("could not store off base output filename");
-            JOY_API_FREE_CONTEXT(ctx_data)
-            return failure;
-        } else {
-            strncpy_s(this->output_file_basename, strnlen_s(output_filename, MAX_FILENAME_LEN)+1,
-                    output_filename, strnlen_s(output_filename, MAX_FILENAME_LEN));
-        }
+            /* store off the output file base name */
+            this->output_file_basename = calloc(1, strnlen_s(output_filename, MAX_FILENAME_LEN)+1);
+            if (this->output_file_basename == NULL) {
+                joy_log_err("could not store off base output filename");
+                JOY_API_FREE_CONTEXT(ctx_data)
+                return failure;
+            } else {
+                strncpy_s(this->output_file_basename, strnlen_s(output_filename, MAX_FILENAME_LEN)+1,
+                        output_filename, strnlen_s(output_filename, MAX_FILENAME_LEN));
+            }
 
-        /* open the output file */
-        memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
-        if (glb_config->max_records) {
-            format_output_filename(this->output_file_basename, output_filename);
-        } else {
-            snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
-        }
+            /* open the output file */
+            memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
+            if (glb_config->max_records) {
+                format_output_filename(this->output_file_basename, output_filename);
+            } else {
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename, MAX_FILENAME_LEN,"%s",this->output_file_basename);
+                } else {
+                    snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename, zsuffix);
+                }
+            }
 
-        this->output = zopen(output_filename, "w");
-        if (this->output == NULL) {
-            joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
-            joy_log_err("choose a new output name or move/remove the old data set");
-            free(this->output_file_basename);
-            JOY_API_FREE_CONTEXT(ctx_data)
-            return failure;
+            this->output = zopen(output_filename, "w");
+            if (this->output == NULL) {
+                joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+                joy_log_err("choose a new output name or move/remove the old data set");
+                free(this->output_file_basename);
+                JOY_API_FREE_CONTEXT(ctx_data)
+                return failure;
+            }
         }
 
         flow_record_list_init(this);
