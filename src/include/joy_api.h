@@ -126,6 +126,7 @@ typedef enum {
 #define JOY_IPFIX_EXPORT_ON        (1 << 17)
 #define JOY_PPI_ON                 (1 << 18)
 #define JOY_SALT_ON                (1 << 19)
+#define JOY_RETAIN_LOCAL_ON        (1 << 20)
 
 
 /* structure to hold feature ready counts for reporting */
@@ -148,6 +149,8 @@ typedef struct joy_init {
     uint16_t idp;                /* idp size to report, recommend 1300 */
     const char *ipfix_host;      /* ip string of the host to send IPFix data to */
     uint16_t ipfix_port;         /* port to send IPFix to remote on */
+    const char *upload_srvname;  /* upload server name */
+    const char *upload_keyfile;  /* upload key file name */
     uint32_t bitmask;            /* bitmask representing which features are on */
 } joy_init_t;
 

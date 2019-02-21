@@ -468,6 +468,7 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
     glb_config->report_ppi = ((init_data->bitmask & JOY_PPI_ON) ? 1 : 0);
     glb_config->report_salt = ((init_data->bitmask & JOY_SALT_ON) ? 1 : 0);
+    glb_config->retain_local = ((init_data->bitmask & JOY_RETAIN_LOCAL_ON) ? 1 : 0);
 
     /* check if IDP option is set */
     if (init_data->bitmask & JOY_IDP_ON) {
@@ -498,6 +499,14 @@ int joy_initialize(joy_init_t *init_data,
             glb_config->ipfix_export_remote_port = DEFAULT_IPFIX_EXPORT_PORT;
         }
         ipfix_exporter_init(glb_config->ipfix_export_remote_host);
+    }
+
+    /* setup the uploader information */
+    if (init_data->upload_srvname) {
+        glb_config->upload_servername = strdup(init_data->upload_srvname);
+    }
+    if (init_data->upload_keyfile) {
+        glb_config->upload_key = strdup(init_data->upload_keyfile);
     }
 
     /* initialize the protocol identification dictionary */
@@ -1400,7 +1409,6 @@ void joy_print_flow_data(uint8_t index, joy_flow_type_e type)
             ctx->records_in_file = 0;
             memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
             format_output_filename(ctx->output_file_basename, output_filename);
-            printf("Rolling Context :%d Output:%s\n",index,output_filename);
             ctx->output = zopen(output_filename, "w");
             if (ctx->output == NULL) {
                 joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));

@@ -1088,7 +1088,7 @@ static void* pkt_proc_thread_main(void* ctx_num) {
         /* check for valid data */
         if ((header == NULL ) || (packet == NULL)) {
             /* no work to do, go back and wait */
-            usleep(500); /* wait 500ms and try again */
+            usleep(500); /* wait 500 microsecs and try again */
             continue;
         }
 
@@ -1103,23 +1103,27 @@ static void* pkt_proc_thread_main(void* ctx_num) {
         /* process the packet */
         process_packet((unsigned char*)ctx, header, packet);
 
-        /* report executbale info if configured */
-        if (glb_config->report_exe) {
-            /*
-             * periodically obtain host/process flow data
-             */
-            if (get_host_flow_data(ctx) != 0) {
-                joy_log_warn("Could not obtain host/process flow data\n");
+        /* every 20 packets lets look for expired flows */
+        if (!(pkt_queue_head[index] % 20)) {
+
+            /* report executbale info if configured */
+            if (glb_config->report_exe) {
+                /*
+                 * periodically obtain host/process flow data
+                 */
+                if (get_host_flow_data(ctx) != 0) {
+                    joy_log_warn("Could not obtain host/process flow data\n");
+                }
             }
-        }
 
-        /* Periodically report on progress */
-        if ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
-               joy_print_flocap_stats_output(ctx->ctx_id);
-        }
+            /* Periodically report on progress */
+            if ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
+                   joy_print_flocap_stats_output(ctx->ctx_id);
+            }
 
-        /* Print out expired flows */
-        joy_print_flow_data(ctx->ctx_id,JOY_EXPIRED_FLOWS);
+            /* Print out expired flows */
+            joy_print_flow_data(ctx->ctx_id,JOY_EXPIRED_FLOWS);
+        }
     }
 
     return NULL;
@@ -1129,6 +1133,7 @@ static void joy_get_packets(unsigned char *num_contexts,
                      const struct pcap_pkthdr *header,
                      const unsigned char *packet)
 {
+    static uint16_t packet_cnt = 0;
     static uint16_t queue_full_cnt[MAX_JOY_THREADS] = {0,0,0,0,0};
     uint64_t max_contexts = 0;
     uint64_t index = 0;
@@ -1144,8 +1149,8 @@ static void joy_get_packets(unsigned char *num_contexts,
     /* check to make sure queue isn't full */
     while (pkt_queue[index][pkt_queue_tail[index]].packet != NULL) {
         ++queue_full_cnt[index];
-        joy_log_err("Context %d Queue is full (%d). Retry in 50ms", (uint16_t)index, queue_full_cnt[index]);
-        usleep(50); /* give the processing thread time to do work */
+        joy_log_err("Context %d Queue is full (%d). Retry in 100 microsecs", (uint16_t)index, queue_full_cnt[index]);
+        usleep(100); /* give the processing thread time to do work */
     }
 
     /* add to packet back of the queue */
@@ -1154,6 +1159,13 @@ static void joy_get_packets(unsigned char *num_contexts,
     pkt_queue_tail[index]++;
     if (pkt_queue_tail[index] == MAX_JOY_QUEUE_DEPTH) {
         pkt_queue_tail[index] = 0;
+    }
+    ++packet_cnt;
+
+    /* every 100 packets, let the worker threads catch up */
+    if (packet_cnt == 100) {
+        usleep(500); /* pause for 500 microsecs */
+        packet_cnt = 0;
     }
 }
 
