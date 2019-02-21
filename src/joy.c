@@ -1056,6 +1056,10 @@ static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
 
 #define MAX_JOY_THREADS 5
 static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
+static pthread_mutex_t thrd_lock[MAX_JOY_THREADS] =
+  {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+   PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+   PTHREAD_MUTEX_INITIALIZER};
 
 static void* pkt_proc_thread_main(void* ctx_num) {
     uint8_t index = 0;
@@ -1070,7 +1074,7 @@ static void* pkt_proc_thread_main(void* ctx_num) {
     }
 
     while (1) {
-        /* we process the flow records every 3 */
+        /* we process the flow records every 3 seconds */
         usleep(3000000); /* 3000000 = 3 sec */
 
         /* report executbale info if configured */
@@ -1084,12 +1088,14 @@ static void* pkt_proc_thread_main(void* ctx_num) {
         }
 
         /* Periodically report on progress */
-        if ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
+        if ((ctx->stats.num_packets) && ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0)) {
                joy_print_flocap_stats_output(ctx->ctx_id);
         }
 
         /* Print out expired flows */
+        pthread_mutex_lock(&thrd_lock[index]);
         joy_print_flow_data(ctx->ctx_id,JOY_EXPIRED_FLOWS);
+        pthread_mutex_unlock(&thrd_lock[index]);
     }
     return NULL;
 }
@@ -1113,7 +1119,9 @@ static void joy_get_packets(unsigned char *num_contexts,
     ctx = joy_index_to_context(index);
 
     /* process the packet */
+    pthread_mutex_lock(&thrd_lock[index]);
     process_packet((unsigned char*)ctx, header, packet);
+    pthread_mutex_unlock(&thrd_lock[index]);
 }
 
 /**

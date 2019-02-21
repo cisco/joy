@@ -1138,7 +1138,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
     /* get the 5-tuple key for this packet */
     rc = get_packet_5tuple_key(packet, &key);
     if (rc == 0) {
-        joy_log_err("Failed to retrieve the 5-tuple key, using default context 0");
+        joy_log_info("Failed to retrieve the 5-tuple key, using default context 0");
         return 0;
     }
 
