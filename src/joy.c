@@ -1,6 +1,6 @@
 /*
  *  
- * Copyright (c) 2016-2018 Cisco Systems, Inc.
+ * Copyright (c) 2016-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -107,7 +107,7 @@ typedef enum joy_operating_mode_ {
  * NUM_PACKETS_IN_LOOP, in order for stats output to periodically take place
  */
 #define GET_ALL_PACKETS 0
-#define NUM_PACKETS_IN_LOOP 5
+#define NUM_PACKETS_IN_LOOP 10
 #ifdef PKG_BUILD
 #define NUM_PACKETS_BETWEEN_STATS_OUTPUT 1000000
 #else
@@ -1055,22 +1055,11 @@ static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
 }
 
 #define MAX_JOY_THREADS 5
-#define MAX_JOY_QUEUE_DEPTH 10000
-typedef struct pkt_queue_ {
-    void *header;
-    void *packet;
-} pkt_queue_t;
-
-static uint64_t pkt_queue_head[MAX_JOY_THREADS];
-static uint64_t pkt_queue_tail[MAX_JOY_THREADS];
 static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
-static pkt_queue_t pkt_queue[MAX_JOY_THREADS][MAX_JOY_QUEUE_DEPTH];
 
 static void* pkt_proc_thread_main(void* ctx_num) {
     uint8_t index = 0;
     joy_ctx_data *ctx = NULL;
-    void *header = NULL;
-    void *packet = NULL;
 
     /* get the worker context from the thread number */
     index = (uint64_t)ctx_num;
@@ -1081,51 +1070,27 @@ static void* pkt_proc_thread_main(void* ctx_num) {
     }
 
     while (1) {
-        /* dequeue the packet to process */
-        header = pkt_queue[index][pkt_queue_head[index]].header;
-        packet = pkt_queue[index][pkt_queue_head[index]].packet;
+        /* we process the flow records every 3 */
+        usleep(3000000); /* 3000000 = 3 sec */
 
-        /* check for valid data */
-        if ((header == NULL ) || (packet == NULL)) {
-            /* no work to do, go back and wait */
-            usleep(500); /* wait 500 microsecs and try again */
-            continue;
-        }
-
-        /* update queue and head pointer */
-        pkt_queue[index][pkt_queue_head[index]].header = NULL;
-        pkt_queue[index][pkt_queue_head[index]].packet = NULL;
-        ++pkt_queue_head[index];
-        if (pkt_queue_head[index] == MAX_JOY_QUEUE_DEPTH) {
-            pkt_queue_head[index] = 0;
-        }
-
-        /* process the packet */
-        process_packet((unsigned char*)ctx, header, packet);
-
-        /* every 20 packets lets look for expired flows */
-        if (!(pkt_queue_head[index] % 20)) {
-
-            /* report executbale info if configured */
-            if (glb_config->report_exe) {
-                /*
-                 * periodically obtain host/process flow data
-                 */
-                if (get_host_flow_data(ctx) != 0) {
-                    joy_log_warn("Could not obtain host/process flow data\n");
-                }
+        /* report executbale info if configured */
+        if (glb_config->report_exe) {
+            /*
+             * periodically obtain host/process flow data
+             */
+            if (get_host_flow_data(ctx) != 0) {
+                joy_log_warn("Could not obtain host/process flow data\n");
             }
-
-            /* Periodically report on progress */
-            if ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
-                   joy_print_flocap_stats_output(ctx->ctx_id);
-            }
-
-            /* Print out expired flows */
-            joy_print_flow_data(ctx->ctx_id,JOY_EXPIRED_FLOWS);
         }
+
+        /* Periodically report on progress */
+        if ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0) {
+               joy_print_flocap_stats_output(ctx->ctx_id);
+        }
+
+        /* Print out expired flows */
+        joy_print_flow_data(ctx->ctx_id,JOY_EXPIRED_FLOWS);
     }
-
     return NULL;
 }
 
@@ -1133,40 +1098,22 @@ static void joy_get_packets(unsigned char *num_contexts,
                      const struct pcap_pkthdr *header,
                      const unsigned char *packet)
 {
-    static uint16_t packet_cnt = 0;
-    static uint16_t queue_full_cnt[MAX_JOY_THREADS] = {0,0,0,0,0};
     uint64_t max_contexts = 0;
     uint64_t index = 0;
+    joy_ctx_data *ctx = NULL;
 
     /* make sure we have a packet to process */
     if (packet == NULL) {
         return;
     }
 
+    /* figure out the worker for this packet */
     max_contexts = (uint64_t)num_contexts;
     index = joy_packet_to_context(packet, max_contexts);
+    ctx = joy_index_to_context(index);
 
-    /* check to make sure queue isn't full */
-    while (pkt_queue[index][pkt_queue_tail[index]].packet != NULL) {
-        ++queue_full_cnt[index];
-        joy_log_err("Context %d Queue is full (%d). Retry in 100 microsecs", (uint16_t)index, queue_full_cnt[index]);
-        usleep(100); /* give the processing thread time to do work */
-    }
-
-    /* add to packet back of the queue */
-    pkt_queue[index][pkt_queue_tail[index]].header = (void*)header;
-    pkt_queue[index][pkt_queue_tail[index]].packet = (void*)packet;
-    pkt_queue_tail[index]++;
-    if (pkt_queue_tail[index] == MAX_JOY_QUEUE_DEPTH) {
-        pkt_queue_tail[index] = 0;
-    }
-    ++packet_cnt;
-
-    /* every 100 packets, let the worker threads catch up */
-    if (packet_cnt == 100) {
-        usleep(500); /* pause for 500 microsecs */
-        packet_cnt = 0;
-    }
+    /* process the packet */
+    process_packet((unsigned char*)ctx, header, packet);
 }
 
 /**
@@ -1437,10 +1384,6 @@ int main (int argc, char **argv) {
         for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
             int thrd_rc = 0;
             uint64_t ctx_index = ctx_counter;
-
-            /* init packet processing structures */
-            pkt_queue_head[ctx_counter] = pkt_queue_tail[ctx_counter] = 0;
-            memset_s(&pkt_queue, sizeof(pkt_queue), 0x00, sizeof(pkt_queue));
 
             /* start the threads */
             thrd_rc = pthread_create(&pkt_proc_thrd[ctx_counter], NULL, pkt_proc_thread_main, (void*)ctx_index);
