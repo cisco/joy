@@ -1077,7 +1077,7 @@ static void* pkt_proc_thread_main(void* ctx_num) {
         /* we process the flow records every 3 seconds */
         usleep(3000000); /* 3000000 = 3 sec */
 
-        /* report executbale info if configured */
+        /* report executable info if configured */
         if (glb_config->report_exe) {
             /*
              * periodically obtain host/process flow data
