@@ -1077,6 +1077,9 @@ static void* pkt_proc_thread_main(void* ctx_num) {
         /* we process the flow records every 3 seconds */
         usleep(3000000); /* 3000000 = 3 sec */
 
+        /* obtain the lock */
+        pthread_mutex_lock(&thrd_lock[index]);
+
         /* report executable info if configured */
         if (glb_config->report_exe) {
             /*
@@ -1089,12 +1092,11 @@ static void* pkt_proc_thread_main(void* ctx_num) {
 
         /* Periodically report on progress */
         if ((ctx->stats.num_packets) && ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0)) {
-               joy_print_flocap_stats_output(ctx->ctx_id);
+            joy_print_flocap_stats_output(ctx->ctx_id);
         }
 
         /* Print out expired flows */
-        pthread_mutex_lock(&thrd_lock[index]);
-        joy_print_flow_data(ctx->ctx_id,JOY_EXPIRED_FLOWS);
+        joy_print_flow_data(ctx->ctx_id, JOY_EXPIRED_FLOWS);
         pthread_mutex_unlock(&thrd_lock[index]);
     }
     return NULL;
@@ -1389,24 +1391,49 @@ int main (int argc, char **argv) {
         }
 
         /* spin up the threads */
-        for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
-            int thrd_rc = 0;
-            uint64_t ctx_index = ctx_counter;
+        if (init_data.contexts > 1) {
+            for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
+                int thrd_rc = 0;
+                uint64_t ctx_index = ctx_counter;
 
-            /* start the threads */
-            thrd_rc = pthread_create(&pkt_proc_thrd[ctx_counter], NULL, pkt_proc_thread_main, (void*)ctx_index);
-            if (thrd_rc) {
-                joy_log_err("error: could not start packet_processing thread rc: %d\n", thrd_rc);
-                return -8;
+                /* start the threads */
+                thrd_rc = pthread_create(&pkt_proc_thrd[ctx_counter], NULL, pkt_proc_thread_main, (void*)ctx_index);
+                if (thrd_rc) {
+                    joy_log_err("error: could not start packet_processing thread rc: %d\n", thrd_rc);
+                    return -8;
+                }
             }
         }
 
         while(1) {
             uint64_t max_contexts = init_data.contexts;
-            /*
-             * Loop over packets captured from interface.
-             */
-            pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_get_packets, (unsigned char*)max_contexts);
+            if (max_contexts > 1) {
+                /*
+                 * Loop over packets captured from interface.
+                 */
+                pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, joy_get_packets, (unsigned char*)max_contexts);
+           } else {
+                joy_ctx_data *ctx = joy_index_to_context(0);
+                pcap_dispatch(handle, NUM_PACKETS_IN_LOOP, libpcap_process_packet, (unsigned char*)ctx);
+
+                /* report executable info if configured */
+                if (glb_config->report_exe) {
+                    /*
+                     * periodically obtain host/process flow data
+                     */
+                    if (get_host_flow_data(ctx) != 0) {
+                        joy_log_warn("Could not obtain host/process flow data\n");
+                    }
+                }
+
+                /* Periodically report on progress */
+                if ((ctx->stats.num_packets) && ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0)) {
+                    joy_print_flocap_stats_output(ctx->ctx_id);
+                }
+
+                /* Print out expired flows */
+                joy_print_flow_data(ctx->ctx_id, JOY_EXPIRED_FLOWS);
+           }
 
            // Close and reopen the log file if reopenLog flag is set
            if (reopenLog && glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind!= 0)) {
