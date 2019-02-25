@@ -37,6 +37,7 @@ libjoy_la_SOURCES = \
 	../src/proto_identify.c \
 	../src/fp.c \
 	../src/extractor.c \
+	../src/updater.c \
 	../src/include/acsm.h \
 		../src/include/addr_attr.h \
 		../src/include/addr.h \
@@ -115,6 +116,7 @@ libjoy_la_SOURCES = \
 	../src/proto_identify.c \
 	../src/fp.c \
 	../src/extractor.c \
+	../src/updater.c \
 	../safe_c_stub/src/safe_str_stub.c \
 	../safe_c_stub/src/safe_mem_stub.c \
 	../src/include/acsm.h \
