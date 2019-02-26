@@ -469,6 +469,7 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->report_ppi = ((init_data->bitmask & JOY_PPI_ON) ? 1 : 0);
     glb_config->report_salt = ((init_data->bitmask & JOY_SALT_ON) ? 1 : 0);
     glb_config->retain_local = ((init_data->bitmask & JOY_RETAIN_LOCAL_ON) ? 1 : 0);
+    glb_config->updater_on = ((init_data->bitmask & JOY_UPDATER_ON) ? 1 : 0);
 
     /* check if IDP option is set */
     if (init_data->bitmask & JOY_IDP_ON) {
@@ -2190,9 +2191,7 @@ void joy_shutdown(void)
     if (glb_config->anon_http_file) free((void*)glb_config->anon_http_file);
     if (glb_config->upload_servername) free((void*)glb_config->upload_servername);
     if (glb_config->upload_key) free((void*)glb_config->upload_key);
-    if (glb_config->params_url) free((void*)glb_config->params_url);
     if (glb_config->params_file) free((void*)glb_config->params_file);
-    if (glb_config->label_url) free((void*)glb_config->label_url);
     if (glb_config->bpf_filter_exp) free((void*)glb_config->bpf_filter_exp);
     if (glb_config->ipfix_export_remote_host) free((void*)glb_config->ipfix_export_remote_host);
     if (glb_config->ipfix_export_template) free((void*)glb_config->ipfix_export_template);

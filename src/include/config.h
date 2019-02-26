@@ -112,17 +112,16 @@ typedef struct configuration {
     char *anon_http_file;
     char *upload_servername;
     char *upload_key;
-    char *params_url;
     char *params_file;
-    char *label_url;
     char *bpf_filter_exp;
     char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
     char *ipfix_export_remote_host;
     char *ipfix_export_template;
     char *aux_resource_path;
 
-    uint32_t max_records;
+    bool updater_on;
     uint8_t num_threads;
+    uint32_t max_records;
     uint16_t compact_bd_mapping[COMPACT_BD_MAP_MAX];
 
     radix_trie_t rt;

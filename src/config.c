@@ -205,12 +205,6 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "keyfile")) {
         parse_check(parse_string(&config->upload_key, arg, num));
 
-    } else if (match(command, "URLmodel")) {
-        parse_check(parse_string(&config->params_url, arg, num));
-
-    } else if (match(command, "URLlabel")) {
-        parse_check(parse_string(&config->label_url, arg, num));
-
     } else if (match(command, "model")) {
         parse_check(parse_string(&config->params_file, arg, num));
 
@@ -283,6 +277,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "ipfix_export_template")) {
         parse_check(parse_string(&config->ipfix_export_template, arg, num));
 
+    } else if (match(command, "updater")) {
+        parse_check(parse_bool(&config->updater_on, arg, num));
+
     } else if (match(command, "nat")) {
         parse_check(parse_bool(&config->flow_key_match_method, arg, num));
 
@@ -329,6 +326,7 @@ void config_set_defaults (struct configuration *config) {
     config->show_interfaces = 0;
     config->num_pkts = DEFAULT_NUM_PKT_LEN;
     config->num_threads = 1;
+    config->updater_on = 0;
 }
 
 #define MAX_FILEPATH 128
@@ -561,6 +559,8 @@ void config_print (FILE *f, const struct configuration *c) {
     config_print_all_features_bool(feature_list);
 
     fprintf(f, "verbosity = %u\n", c->verbosity);
+    fprintf(f, "threads = %u\n", c->num_threads);
+    fprintf(f, "updater = %u\n", c->updater_on);
   
     /* note: anon_print_subnets is silent when no subnets are configured */
     anon_print_subnets(f);
@@ -604,6 +604,8 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
     zprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
     zprintf(f, "\"verbosity\":%u,", c->verbosity);
+    zprintf(f, "\"threads\":%u,", c->num_threads);
+    zprintf(f, "\"updater\":%u,", c->updater_on);
 
     config_print_json_all_features_bool(feature_list);
 

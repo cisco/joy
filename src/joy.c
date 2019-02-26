@@ -87,6 +87,7 @@
 #include "procwatch.h"  /* process to flow mapping       */
 #include "radix_trie.h" /* trie for subnet labels        */
 #include "output.h"     /* compressed output             */
+#include "updater.h"  /* updater thread */
 #include "ipfix.h"    /* IPFIX cleanup */
 #include "proto_identify.h"
 #include "pcap.h"
@@ -123,6 +124,14 @@ static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
 static const char *filter_exp = "ip or vlan";
 static char full_path_output[MAX_FILENAME_LEN];
+
+/* local definitions for the threading aspects */
+#define MAX_JOY_THREADS 5
+static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
+static pthread_mutex_t thrd_lock[MAX_JOY_THREADS] =
+  {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+   PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
+   PTHREAD_MUTEX_INITIALIZER};
 
 /* config is the global configuration */
 struct configuration active_config;
@@ -417,9 +426,16 @@ __attribute__((__noreturn__)) static void sig_close (int signal_arg) {
       pcap_breakloop(handle);
     }
 
+    /* obtain the locks from the child threads */
+    if (glb_config->num_threads > 1) {
+        for (i=0; i < glb_config->num_threads; ++i) {
+            pthread_mutex_lock(&thrd_lock[i]);
+        }
+    }
+
     /*
-     * flush remaining flow records, and print them even though they are
-     * not expired
+     * flush remaining flow records in the child threads, and
+     * print them even though they are not expired
      */
     for (i=0; i < glb_config->num_threads; ++i) {
         joy_print_flow_data(i, JOY_ALL_FLOWS);
@@ -492,6 +508,8 @@ static int usage (char *s) {
            "  username=\"user\"          Drop privileges to username \"user\" after starting packet capture\n"
            "                             Default=\"joy\"\n"
            "  threads=N                  Number of threads to use for live capture (1-5). Default is 1.\n"
+           "  updater=0                  Turn on or off dynamic updating of certain JOY parameters.\n"
+           "                             0=off, 1=on, Default is off.\n"
            "Data feature options\n"
            "  bpf=\"expression\"           only process packets matching BPF \"expression\"\n"
            "  zeros=1                    include zero-length data (e.g. ACKs) in packet list\n"
@@ -690,12 +708,10 @@ static int get_splt_bd_params(void) {
         return 1;
     } else {
         /*
-         * if no URL specified, then process local files
+         * process local files
          */
-        if (glb_config->params_url == NULL) {
-            fprintf(info, "updating classifiers from supplied model(%s)\n", glb_config->params_file);
-            joy_update_splt_bd_params(params_splt,params_bd);
-        }
+        joy_log_info("updating classifiers from supplied model(%s)\n", glb_config->params_file);
+        joy_update_splt_bd_params(params_splt,params_bd);
     }
 
     return 0;
@@ -1054,13 +1070,6 @@ static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
     return tmp_ret;
 }
 
-#define MAX_JOY_THREADS 5
-static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
-static pthread_mutex_t thrd_lock[MAX_JOY_THREADS] =
-  {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-   PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
-   PTHREAD_MUTEX_INITIALIZER};
-
 static void* pkt_proc_thread_main(void* ctx_num) {
     uint8_t index = 0;
     joy_ctx_data *ctx = NULL;
@@ -1145,6 +1154,7 @@ int main (int argc, char **argv) {
     char *capture_if = NULL;
     char *capture_mac = NULL;
     struct stat sb;
+    pthread_t upd_thread;
     pthread_t uploader_thread;
     int upd_rc;
     pthread_t ipfix_cts_monitor_thread;
@@ -1367,13 +1377,24 @@ int main (int argc, char **argv) {
 #endif /* _WIN32 */
 
         /*
+         * start the updater thread
+         */
+         if (glb_config->updater_on) {
+             upd_rc = pthread_create(&upd_thread, NULL, updater_main, (void*)glb_config);
+             if (upd_rc) {
+                 joy_log_crit("critical: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
+                 return -6;
+             }
+         }
+
+        /*
          * start up the uploader thread
          *   uploader is only active during live capture runs
          */
          if (glb_config->upload_servername) {
              upd_rc = pthread_create(&uploader_thread, NULL, uploader_main, (void*)glb_config);
              if (upd_rc) {
-                 fprintf(info, "error: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
+                 joy_log_crit("critical: could not start uploader thread pthread_create() rc: %d\n", upd_rc);
                  return -7;
              }
          }
