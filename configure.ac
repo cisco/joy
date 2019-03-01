@@ -12,7 +12,7 @@
 # Shared objects are named library.so.Major.age.Minor by autotools
 #
 m4_define([joy_major_version], [4])
-m4_define([joy_minor_version], [1])
+m4_define([joy_minor_version], [2])
 m4_define([joy_micro_version], [0])
 
 
