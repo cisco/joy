@@ -85,6 +85,14 @@ This package was written by David McGrew, Blake Anderson, Philip Perricone
 and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
 Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
+### Release 4.2.0
+* Re-write joy.c to use libjoy library
+* Updated joy.c to utilize multi-threads for flow processing
+* Updated unit tests and python tests to reflect new code changes
+* Removed guts of the updater process to prepare for re-write
+* Fixed bug in processing multiple files on the command line
+* Other minor bug fixes
+
 ### Release 4.0.3
 * Added support for make install for Centos
 
