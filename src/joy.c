@@ -404,6 +404,20 @@ static unsigned int interface_list_get(void) {
     return num_ifs;
 }
 
+static void print_libpcap_stats() {
+    struct pcap_stat cap_stats;
+
+    memset_s(&cap_stats, sizeof(struct pcap_stat), 0x00, sizeof(struct pcap_stat));
+    if (pcap_stats(handle, &cap_stats) == 0) {
+        fprintf(info,"Libpcap Stats: Received %u, Mem Dropped %u, IF Dropped %u\n",
+            cap_stats.ps_recv, cap_stats.ps_drop, cap_stats.ps_ifdrop);
+    } else {
+        /* stats failed to be retrieved */
+        fprintf(info,"Libpcap Stats: -= unavilable =-\n");
+    }
+    fflush(info);
+}
+
 /*************************************************************************
  *************************************************************************
  * END network utility functions
@@ -441,6 +455,10 @@ __attribute__((__noreturn__)) static void sig_close (int signal_arg) {
         joy_print_flow_data(i, JOY_ALL_FLOWS);
         joy_print_flocap_stats_output(i);
         joy_context_cleanup(i);
+    }
+
+    if (handle) {
+      print_libpcap_stats();
     }
 
     joy_shutdown();
@@ -1072,6 +1090,7 @@ static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
 
 static void* pkt_proc_thread_main(void* ctx_num) {
     uint8_t index = 0;
+    unsigned long status_cnt = 0;
     joy_ctx_data *ctx = NULL;
 
     /* get the worker context from the thread number */
@@ -1100,8 +1119,10 @@ static void* pkt_proc_thread_main(void* ctx_num) {
         }
 
         /* Periodically report on progress */
-        if ((ctx->stats.num_packets) && ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0)) {
+        if (status_cnt < (ctx->stats.num_packets / NUM_PACKETS_BETWEEN_STATS_OUTPUT)) {
             joy_print_flocap_stats_output(ctx->ctx_id);
+            print_libpcap_stats();
+            status_cnt = (ctx->stats.num_packets / NUM_PACKETS_BETWEEN_STATS_OUTPUT);
         }
 
         /* Print out expired flows */
@@ -1450,6 +1471,7 @@ int main (int argc, char **argv) {
                 /* Periodically report on progress */
                 if ((ctx->stats.num_packets) && ((ctx->stats.num_packets % NUM_PACKETS_BETWEEN_STATS_OUTPUT) == 0)) {
                     joy_print_flocap_stats_output(ctx->ctx_id);
+                    print_libpcap_stats();
                 }
 
                 /* Print out expired flows */
