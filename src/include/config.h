@@ -129,19 +129,19 @@ typedef struct configuration {
 
 
 /** set the defaults for the joy open source */
-void config_set_defaults(struct configuration *config);
+void config_set_defaults(configuration_t *config);
 
 /** set the configuration items from a file */
-int config_set_from_file(struct configuration *config, const char *fname);
+int config_set_from_file(configuration_t *config, const char *fname);
 
 /** set the configuration items from command line arguments */
-int config_set_from_argv(struct configuration *config, char *argv[], int argc);
+int config_set_from_argv(configuration_t *config, char *argv[], int argc);
 
 /** print out the configuration */
-void config_print(FILE *f, const struct configuration *c);
+void config_print(FILE *f, const configuration_t *c);
 
 /** print out the configuration in JSON format */
-void config_print_json(zfile f, const struct configuration *c);
+void config_print_json(zfile f, const configuration_t *c);
 
-extern struct configuration *glb_config;
+extern configuration_t *glb_config;
 #endif /* CONFIG_H */

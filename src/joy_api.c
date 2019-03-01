@@ -77,8 +77,8 @@
 FILE *info = NULL;
 
 /* config is the global library configuration */
-struct configuration active_config;
-struct configuration *glb_config = NULL;
+configuration_t active_config;
+configuration_t *glb_config = NULL;
 
 /* global library intialization flag */
 static bool joy_library_initialized = 0;
@@ -382,7 +382,7 @@ int joy_initialize(joy_init_t *init_data,
     char output_filename[MAX_FILENAME_LEN];
 
     /* clear out the configuration structure */
-    memset_s(&active_config, sizeof(struct configuration), 0x00, sizeof(struct configuration));
+    memset_s(&active_config, sizeof(configuration_t), 0x00, sizeof(configuration_t));
     glb_config = &active_config;
 
     /* set 'info' to stderr as a precaution */
@@ -2211,7 +2211,7 @@ void joy_shutdown(void)
     anon_http_ctx_cleanup();
 
     /* clear out the configuration structure */
-    memset_s(&active_config,  sizeof(struct configuration), 0x00, sizeof(struct configuration));
+    memset_s(&active_config,  sizeof(configuration_t), 0x00, sizeof(configuration_t));
     glb_config = NULL;
 
     /* reset the library initialized flag */

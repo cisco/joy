@@ -134,8 +134,8 @@ static pthread_mutex_t thrd_lock[MAX_JOY_THREADS] =
    PTHREAD_MUTEX_INITIALIZER};
 
 /* config is the global configuration */
-struct configuration active_config;
-struct configuration *glb_config = NULL;
+configuration_t active_config;
+configuration_t *glb_config = NULL;
 
 /* logfile definitions */
 FILE *info = NULL;
@@ -413,7 +413,7 @@ static void print_libpcap_stats() {
             cap_stats.ps_recv, cap_stats.ps_drop, cap_stats.ps_ifdrop);
     } else {
         /* stats failed to be retrieved */
-        fprintf(info,"Libpcap Stats: -= unavilable =-\n");
+        fprintf(info,"Libpcap Stats: -= unavailable =-\n");
     }
     fflush(info);
 }
@@ -1190,7 +1190,7 @@ int main (int argc, char **argv) {
 #endif
 
     /* initialize the config */
-    memset_s(&active_config,  sizeof(struct configuration), 0x00, sizeof(struct configuration));
+    memset_s(&active_config,  sizeof(configuration_t), 0x00, sizeof(configuration_t));
     glb_config = &active_config;
 
     /* Sanity check argument syntax */

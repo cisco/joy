@@ -163,7 +163,7 @@ static int parse_string_multiple (char **s, char *arg, int num_arg,
 
 
 /* parse commands */
-static int config_parse_command (struct configuration *config, 
+static int config_parse_command (configuration_t *config,
                          const char *command, char *arg, int num) {  
     char *tmp;
   
@@ -312,7 +312,7 @@ static int config_parse_command (struct configuration *config,
 }
 
 /**
- * \fn void config_set_defaults (struct configuration *config)
+ * \fn void config_set_defaults (configuration_t *config)
  *
  * \brief Using the global \p config struct, assign the default
  *        values for options contained within.
@@ -320,7 +320,7 @@ static int config_parse_command (struct configuration *config,
  * \param config pointer to configuration structure
  * \return none
  */
-void config_set_defaults (struct configuration *config) {
+void config_set_defaults (configuration_t *config) {
     config->verbosity = 4;
     config->show_config = 0;
     config->show_interfaces = 0;
@@ -372,7 +372,7 @@ static FILE* open_config_file(const char *filename) {
 }
 
 /**
- * \fn void config_set_from_file (struct configuration *config, const char *fname)
+ * \fn void config_set_from_file (configuration_t *config, const char *fname)
  *
  * \brief Read in a .cfg file and parse the contents for option values.
  *
@@ -381,7 +381,7 @@ static FILE* open_config_file(const char *filename) {
  * \return ok
  * \return failure
  */
-int config_set_from_file (struct configuration *config, const char *fname) {
+int config_set_from_file (configuration_t *config, const char *fname) {
     FILE *f;
     char *line = NULL;
     size_t ignore;
@@ -446,7 +446,7 @@ int config_set_from_file (struct configuration *config, const char *fname) {
 }
 
 /**
- * \fn int config_set_from_argv (struct configuration *config, char *argv[], int argc)
+ * \fn int config_set_from_argv (configuration_t *config, char *argv[], int argc)
  *
  * \brief Read in from the command line and parse the args for option values.
  *
@@ -456,7 +456,7 @@ int config_set_from_file (struct configuration *config, const char *fname) {
  * \return ok
  * \return failure
  */
-int config_set_from_argv (struct configuration *config, char *argv[], int argc) {
+int config_set_from_argv (configuration_t *config, char *argv[], int argc) {
     const char *line = NULL;
     ssize_t len;
         int i;
@@ -517,12 +517,12 @@ int config_set_from_argv (struct configuration *config, char *argv[], int argc) 
 #define val(x) x ? x : NULL_KEYWORD 
 
 /**
- * \fn void config_print (FILE *f, const struct configuration *c)
+ * \fn void config_print (FILE *f, const configuration_t *c)
  * \param f file to print configuration to
  * \param c pointer to the configuration structure
  * \return none
  */
-void config_print (FILE *f, const struct configuration *c) {
+void config_print (FILE *f, const configuration_t *c) {
     unsigned int i;
 #ifdef PACKAGE_VERSION
     fprintf(f, "joy version = %s\n", PACKAGE_VERSION);
@@ -567,12 +567,12 @@ void config_print (FILE *f, const struct configuration *c) {
 }
 
 /**
- * \fn void config_print_json (zfile f, const struct configuration *c)
+ * \fn void config_print_json (zfile f, const configuration_t *c)
  * \param f file to print configuration to
  * \param c pointer to the configuration structure
  * \return none
  */
-void config_print_json (zfile f, const struct configuration *c) {
+void config_print_json (zfile f, const configuration_t *c) {
     unsigned int i;
 
     zprintf(f, "{\"version\":\"%s\",", VERSION);

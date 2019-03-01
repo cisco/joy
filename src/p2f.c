@@ -2024,7 +2024,7 @@ __declspec(noreturn) void *uploader_main(void *ptr)
 __attribute__((__noreturn__)) void *uploader_main(void *ptr)
 #endif
 {
-    struct configuration *config = ptr;
+    configuration_t *config = ptr;
 
     /* initialize the uploader filename container */
     memset_s(upload_filename, MAX_FILENAME_LENGTH, 0x00, MAX_FILENAME_LENGTH);
