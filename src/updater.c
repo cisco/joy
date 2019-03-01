@@ -141,7 +141,7 @@ static upd_return_codes_e update_radix_trie (void)
  */
 void *updater_main (void *ptr)
 {
-    struct configuration *config = (struct configuration*)ptr;
+    configuration_t *config = (configuration_t*)ptr;
 
     /* forever loop. Updater will die when the main joy process exits */
     while (1) {
