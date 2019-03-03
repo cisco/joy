@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2018 Cisco Systems, Inc.
+ * Copyright (c) 2018-2019 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -126,6 +126,8 @@ typedef enum {
 #define JOY_IPFIX_EXPORT_ON        (1 << 17)
 #define JOY_PPI_ON                 (1 << 18)
 #define JOY_SALT_ON                (1 << 19)
+#define JOY_RETAIN_LOCAL_ON        (1 << 20)
+#define JOY_UPDATER_ON             (1 << 21)
 
 
 /* structure to hold feature ready counts for reporting */
@@ -148,6 +150,8 @@ typedef struct joy_init {
     uint16_t idp;                /* idp size to report, recommend 1300 */
     const char *ipfix_host;      /* ip string of the host to send IPFix data to */
     uint16_t ipfix_port;         /* port to send IPFix to remote on */
+    const char *upload_srvname;  /* upload server name */
+    const char *upload_keyfile;  /* upload key file name */
     uint32_t bitmask;            /* bitmask representing which features are on */
 } joy_init_t;
 
@@ -189,6 +193,29 @@ extern int joy_initialize (joy_init_t *data, const char *output_dir,
                            const char *output_file, const char *logfile);
 
 /*
+ * Function: joy_initialize_no_config
+ *
+ * Description: This function initializes the Joy library
+ *      to analyze the data features. This fucntion does not
+ *      perform any configuration options as it is expetced that
+ *      the caller did configuration prior to calling this function.
+ *
+ *      joy_initialize must be called before using any of the other
+ *      API functions.
+ *
+ * Parameters:
+ *      config - pointer to pre-setup config
+ *      err_info - pointer to the file for error logging
+ *      data - structure of Joy options
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+extern int joy_initialize_no_config (void *config, FILE *err_info, joy_init_t *data);
+
+/*
  * Function: joy_print_config
  *
  * Description: This function prints out the configuration
@@ -203,6 +230,20 @@ extern int joy_initialize (joy_init_t *data, const char *output_dir,
  *
  */
 extern void joy_print_config (uint8_t index, uint8_t format);
+
+/*
+ * Function: joy_print_flocap_stats_output
+ *
+ * Description: This function prints out flow capture statistics.
+ *
+ * Parameters:
+ *      index - index of the context to print the config into
+ *
+ * Returns:
+ *      none
+ *
+ */
+extern void joy_print_flocap_stats_output (uint8_t index);
 
 /*
  * Function: joy_anon_subnets
@@ -342,6 +383,21 @@ extern void joy_update_ctx_global_time (uint8_t ctx_index,
  *
  */
 extern uint8_t joy_packet_to_context (const unsigned char *packet, uint8_t num_contexts);
+
+/*
+ * Function: joy_index_to_context
+ *
+ * Description: This function takes in an index and returns a
+ *      pointer to the context.
+ *
+ * Parameters:
+ *      ctx_index - index of the context you want
+ *
+ * Returns:
+ *      context - pointer to the context structure
+ *
+ */
+extern void* joy_index_to_context (uint8_t ctx_index);
 
 /*
  * Function: joy_process_packet

@@ -1,6 +1,6 @@
 /*
  *	
- * Copyright (c) 2016-2018 Cisco Systems, Inc.
+ * Copyright (c) 2016-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -69,7 +69,7 @@ enum SALT_algorithm {
 };
 
 /** structure for the configuration parameters */
-struct configuration {
+typedef struct configuration {
     bool bidir;
     bool include_zeroes;
     bool include_retrans;
@@ -112,36 +112,36 @@ struct configuration {
     char *anon_http_file;
     char *upload_servername;
     char *upload_key;
-    char *params_url;
     char *params_file;
-    char *label_url;
     char *bpf_filter_exp;
     char *subnet[MAX_NUM_FLAGS]; /*!< max defined in radix_trie.h    */
     char *ipfix_export_remote_host;
     char *ipfix_export_template;
     char *aux_resource_path;
 
+    bool updater_on;
+    uint8_t num_threads;
     uint32_t max_records;
     uint16_t compact_bd_mapping[COMPACT_BD_MAP_MAX];
 
     radix_trie_t rt;
-};
+} configuration_t;
 
 
 /** set the defaults for the joy open source */
-void config_set_defaults(struct configuration *config);
+void config_set_defaults(configuration_t *config);
 
 /** set the configuration items from a file */
-int config_set_from_file(struct configuration *config, const char *fname);
+int config_set_from_file(configuration_t *config, const char *fname);
 
 /** set the configuration items from command line arguments */
-int config_set_from_argv(struct configuration *config, char *argv[], int argc);
+int config_set_from_argv(configuration_t *config, char *argv[], int argc);
 
 /** print out the configuration */
-void config_print(FILE *f, const struct configuration *c);
+void config_print(FILE *f, const configuration_t *c);
 
 /** print out the configuration in JSON format */
-void config_print_json(zfile f, const struct configuration *c);
+void config_print_json(zfile f, const configuration_t *c);
 
-extern struct configuration *glb_config;
+extern configuration_t *glb_config;
 #endif /* CONFIG_H */

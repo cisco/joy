@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016-2018 Cisco Systems, Inc.
+ * Copyright (c) 2016-2019 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -144,8 +144,8 @@ void flocap_stats_output (joy_ctx_data *ctx, FILE *f) {
 #else
         strftime(time_str, sizeof(time_str) - 1, "%a %b %d %H:%M:%S %Z %Y", localtime(&now.tv_sec));
 #endif
-    fprintf(f, "%s info: %lu packets, %lu active records, %lu records output, %lu alloc fails, %.4e bytes/sec, %.4e packets/sec, %.4e records/sec\n",
-              time_str, ctx->stats.num_packets, ctx->stats.num_records_in_table, ctx->stats.num_records_output, ctx->stats.malloc_fail, bps, pps, rps);
+    fprintf(f, "Context id: %d, %s info: %lu packets, %lu active records, %lu records output, %lu alloc fails, %.4e bytes/sec, %.4e packets/sec, %.4e records/sec\n",
+              ctx->ctx_id, time_str, ctx->stats.num_packets, ctx->stats.num_records_in_table, ctx->stats.num_records_output, ctx->stats.malloc_fail, bps, pps, rps);
     fflush(f);
 
     ctx->last_stats_output_time = now;
@@ -645,13 +645,14 @@ flow_record_t *flow_key_get_record (joy_ctx_data *ctx,
     if (record != NULL) {
        if (create_new_records && flow_record_is_in_chrono_list(ctx, record)
            && flow_record_is_active_expired(record, header)) {
-            /*
-             *  Active-timeout exceeded for this flow_record; print and delete
-             *  it, then set record = NULL to cause the creation of a new
-             *  flow_record to be used in further packet processing
-             */
-           /* WMH NEED TO ADJUST THIS */
-           /* FOR NON PRINTING APPLICATIONS, JUST DROP PACKET */
+           /*
+            *  Active-timeout exceeded for this flow_record; print and delete
+            *  it, then set record = NULL to cause the creation of a new
+            *  flow_record to be used in further packet processing
+            *
+            *  All applications have an output file available. If it is not being used,
+            *  then the printing of this record will just go to a file that is ignored.
+            */
            flow_record_print_and_delete(ctx, record);
            record = NULL;
        } else {
@@ -1671,7 +1672,6 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
      */
     flow_record_print_json(ctx, record);
 
-#ifndef JOY_LIB_API
     /*
      * Export this record before deletion if running in
      * IPFIX exporter mode.
@@ -1679,7 +1679,6 @@ static void flow_record_print_and_delete (joy_ctx_data *ctx, flow_record_t *reco
     if (glb_config->ipfix_export_port) {
         ipfix_export_main(ctx, record);
     }
-#endif
     /*
      * Delete twin, if there is one
      */
@@ -2025,7 +2024,7 @@ __declspec(noreturn) void *uploader_main(void *ptr)
 __attribute__((__noreturn__)) void *uploader_main(void *ptr)
 #endif
 {
-    struct configuration *config = ptr;
+    configuration_t *config = ptr;
 
     /* initialize the uploader filename container */
     memset_s(upload_filename, MAX_FILENAME_LENGTH, 0x00, MAX_FILENAME_LENGTH);

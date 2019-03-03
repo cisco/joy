@@ -1033,6 +1033,9 @@ int get_host_flow_data(joy_ctx_data *ctx) {
     float seconds = 0.0;
     host_flow_t *record = NULL;
 
+    /* set the lock */
+    pthread_mutex_lock(&exe_lock);
+
     /* get current time and determine the delta from last refresh */
     gettimeofday(&current_time, NULL);
     joy_timer_sub(&current_time, &last_refresh_time, &delta_time);
@@ -1040,9 +1043,6 @@ int get_host_flow_data(joy_ctx_data *ctx) {
 
     /* see if we need to refresh the application process data */
     if (seconds > 45) {
-        /* we need to update the table, set the lock */
-        pthread_mutex_lock(&exe_lock);
-
         /* refresh the host data table */
         host_flow_table_init();
 
@@ -1051,10 +1051,10 @@ int get_host_flow_data(joy_ctx_data *ctx) {
 
         /* store the last refresh timestamp */
         gettimeofday(&last_refresh_time, NULL);
-
-        /* all done, remove the lock */
-        pthread_mutex_unlock(&exe_lock);
     }
+
+    /* all done, remove the lock */
+    pthread_mutex_unlock(&exe_lock);
 
 #ifdef DEBUG_PROCESS_TABLE
     /* print out the table if we want to debug anything */

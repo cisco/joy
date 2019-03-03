@@ -1,6 +1,6 @@
 /*
  *      
- * Copyright (c) 2016 Cisco Systems, Inc.
+ * Copyright (c) 2016-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -163,7 +163,7 @@ static int parse_string_multiple (char **s, char *arg, int num_arg,
 
 
 /* parse commands */
-static int config_parse_command (struct configuration *config, 
+static int config_parse_command (configuration_t *config,
                          const char *command, char *arg, int num) {  
     char *tmp;
   
@@ -205,12 +205,6 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "keyfile")) {
         parse_check(parse_string(&config->upload_key, arg, num));
 
-    } else if (match(command, "URLmodel")) {
-        parse_check(parse_string(&config->params_url, arg, num));
-
-    } else if (match(command, "URLlabel")) {
-        parse_check(parse_string(&config->label_url, arg, num));
-
     } else if (match(command, "model")) {
         parse_check(parse_string(&config->params_file, arg, num));
 
@@ -250,6 +244,9 @@ static int config_parse_command (struct configuration *config,
     } else if (match(command, "verbosity")) {
         parse_check(parse_int((unsigned int*)&config->verbosity, arg, num, 0, 5));
 
+    } else if (match(command, "threads")) {
+        parse_check(parse_int((unsigned int*)&config->num_threads, arg, num, 1, 5));
+
     } else if (match(command, "num_pkts")) {
         parse_check(parse_int((unsigned int*)&config->num_pkts, arg, num, 0, MAX_NUM_PKT_LEN));
 
@@ -279,6 +276,9 @@ static int config_parse_command (struct configuration *config,
 
     } else if (match(command, "ipfix_export_template")) {
         parse_check(parse_string(&config->ipfix_export_template, arg, num));
+
+    } else if (match(command, "updater")) {
+        parse_check(parse_bool(&config->updater_on, arg, num));
 
     } else if (match(command, "nat")) {
         parse_check(parse_bool(&config->flow_key_match_method, arg, num));
@@ -312,7 +312,7 @@ static int config_parse_command (struct configuration *config,
 }
 
 /**
- * \fn void config_set_defaults (struct configuration *config)
+ * \fn void config_set_defaults (configuration_t *config)
  *
  * \brief Using the global \p config struct, assign the default
  *        values for options contained within.
@@ -320,11 +320,13 @@ static int config_parse_command (struct configuration *config,
  * \param config pointer to configuration structure
  * \return none
  */
-void config_set_defaults (struct configuration *config) {
+void config_set_defaults (configuration_t *config) {
     config->verbosity = 4;
     config->show_config = 0;
     config->show_interfaces = 0;
     config->num_pkts = DEFAULT_NUM_PKT_LEN;
+    config->num_threads = 1;
+    config->updater_on = 0;
 }
 
 #define MAX_FILEPATH 128
@@ -370,7 +372,7 @@ static FILE* open_config_file(const char *filename) {
 }
 
 /**
- * \fn void config_set_from_file (struct configuration *config, const char *fname)
+ * \fn void config_set_from_file (configuration_t *config, const char *fname)
  *
  * \brief Read in a .cfg file and parse the contents for option values.
  *
@@ -379,7 +381,7 @@ static FILE* open_config_file(const char *filename) {
  * \return ok
  * \return failure
  */
-int config_set_from_file (struct configuration *config, const char *fname) {
+int config_set_from_file (configuration_t *config, const char *fname) {
     FILE *f;
     char *line = NULL;
     size_t ignore;
@@ -444,7 +446,7 @@ int config_set_from_file (struct configuration *config, const char *fname) {
 }
 
 /**
- * \fn int config_set_from_argv (struct configuration *config, char *argv[], int argc)
+ * \fn int config_set_from_argv (configuration_t *config, char *argv[], int argc)
  *
  * \brief Read in from the command line and parse the args for option values.
  *
@@ -454,7 +456,7 @@ int config_set_from_file (struct configuration *config, const char *fname) {
  * \return ok
  * \return failure
  */
-int config_set_from_argv (struct configuration *config, char *argv[], int argc) {
+int config_set_from_argv (configuration_t *config, char *argv[], int argc) {
     const char *line = NULL;
     ssize_t len;
         int i;
@@ -515,12 +517,12 @@ int config_set_from_argv (struct configuration *config, char *argv[], int argc) 
 #define val(x) x ? x : NULL_KEYWORD 
 
 /**
- * \fn void config_print (FILE *f, const struct configuration *c)
+ * \fn void config_print (FILE *f, const configuration_t *c)
  * \param f file to print configuration to
  * \param c pointer to the configuration structure
  * \return none
  */
-void config_print (FILE *f, const struct configuration *c) {
+void config_print (FILE *f, const configuration_t *c) {
     unsigned int i;
 #ifdef PACKAGE_VERSION
     fprintf(f, "joy version = %s\n", PACKAGE_VERSION);
@@ -557,18 +559,20 @@ void config_print (FILE *f, const struct configuration *c) {
     config_print_all_features_bool(feature_list);
 
     fprintf(f, "verbosity = %u\n", c->verbosity);
+    fprintf(f, "threads = %u\n", c->num_threads);
+    fprintf(f, "updater = %u\n", c->updater_on);
   
     /* note: anon_print_subnets is silent when no subnets are configured */
     anon_print_subnets(f);
 }
 
 /**
- * \fn void config_print_json (zfile f, const struct configuration *c)
+ * \fn void config_print_json (zfile f, const configuration_t *c)
  * \param f file to print configuration to
  * \param c pointer to the configuration structure
  * \return none
  */
-void config_print_json (zfile f, const struct configuration *c) {
+void config_print_json (zfile f, const configuration_t *c) {
     unsigned int i;
 
     zprintf(f, "{\"version\":\"%s\",", VERSION);
@@ -600,6 +604,8 @@ void config_print_json (zfile f, const struct configuration *c) {
     zprintf(f, "\"useranon\":\"%s\",", val(c->anon_http_file));
     zprintf(f, "\"bpf\":\"%s\",", val(c->bpf_filter_exp));
     zprintf(f, "\"verbosity\":%u,", c->verbosity);
+    zprintf(f, "\"threads\":%u,", c->num_threads);
+    zprintf(f, "\"updater\":%u,", c->updater_on);
 
     config_print_json_all_features_bool(feature_list);
 

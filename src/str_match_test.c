@@ -165,9 +165,9 @@ int main (void) {
         return -1;
     }
 #ifdef HAVE_CONFIG_H
-    if (str_match_ctx_init_from_file(ctx, "../test/misc/userid-example.txt", NULL) != 0) {
-#else
     if (str_match_ctx_init_from_file(ctx, "test/misc/userid-example.txt", NULL) != 0) {
+#else
+    if (str_match_ctx_init_from_file(ctx, "../test/misc/userid-example.txt", NULL) != 0) {
 #endif
         fprintf(stderr, "error: could not init string matching context from file\n");
         exit(EXIT_FAILURE);

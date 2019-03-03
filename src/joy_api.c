@@ -1,6 +1,6 @@
 /*
  *  
- * Copyright (c) 2018 Cisco Systems, Inc.
+ * Copyright (c) 2018-2019 Cisco Systems, Inc.
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -77,8 +77,8 @@
 FILE *info = NULL;
 
 /* config is the global library configuration */
-struct configuration active_config;
-struct configuration *glb_config = NULL;
+configuration_t active_config;
+configuration_t *glb_config = NULL;
 
 /* global library intialization flag */
 static bool joy_library_initialized = 0;
@@ -382,7 +382,7 @@ int joy_initialize(joy_init_t *init_data,
     char output_filename[MAX_FILENAME_LEN];
 
     /* clear out the configuration structure */
-    memset_s(&active_config, sizeof(struct configuration), 0x00, sizeof(struct configuration));
+    memset_s(&active_config, sizeof(configuration_t), 0x00, sizeof(configuration_t));
     glb_config = &active_config;
 
     /* set 'info' to stderr as a precaution */
@@ -414,8 +414,8 @@ int joy_initialize(joy_init_t *init_data,
     if (output_dir != NULL) {
         int len = strnlen_s(output_dir, MAX_DIRNAME_LEN);
         if (len > (MAX_DIRNAME_LEN-1)) {
-            /* output dir is too long, default to /tmp */
-            strncpy_s(output_dirname, MAX_DIRNAME_LEN, "/tmp/", 5);
+            /* output dir is too long, default to ./ */
+            strncpy_s(output_dirname, MAX_DIRNAME_LEN, "./", 2);
         } else {
             strncpy_s(output_dirname, MAX_DIRNAME_LEN, output_dir, len);
             if (output_dirname[len-1] != '/') {
@@ -423,7 +423,7 @@ int joy_initialize(joy_init_t *init_data,
             }
         }
     } else {
-        strncpy_s(output_dirname, MAX_DIRNAME_LEN, "/tmp/", 5);
+        strncpy_s(output_dirname, MAX_DIRNAME_LEN, "./", 2);
     }
 
     glb_config->verbosity = init_data->verbosity;
@@ -468,6 +468,8 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->preemptive_timeout = ((init_data->bitmask & JOY_PREMPTIVE_TMO_ON) ? 1 : 0);
     glb_config->report_ppi = ((init_data->bitmask & JOY_PPI_ON) ? 1 : 0);
     glb_config->report_salt = ((init_data->bitmask & JOY_SALT_ON) ? 1 : 0);
+    glb_config->retain_local = ((init_data->bitmask & JOY_RETAIN_LOCAL_ON) ? 1 : 0);
+    glb_config->updater_on = ((init_data->bitmask & JOY_UPDATER_ON) ? 1 : 0);
 
     /* check if IDP option is set */
     if (init_data->bitmask & JOY_IDP_ON) {
@@ -500,6 +502,14 @@ int joy_initialize(joy_init_t *init_data,
         ipfix_exporter_init(glb_config->ipfix_export_remote_host);
     }
 
+    /* setup the uploader information */
+    if (init_data->upload_srvname) {
+        glb_config->upload_servername = strdup(init_data->upload_srvname);
+    }
+    if (init_data->upload_keyfile) {
+        glb_config->upload_key = strdup(init_data->upload_keyfile);
+    }
+
     /* initialize the protocol identification dictionary */
     if (proto_identify_init()) {
         joy_log_err("could not initialize the protocol identification dictionary");
@@ -519,12 +529,24 @@ int joy_initialize(joy_init_t *init_data,
         if (output_file != NULL) {
             if ((int)strnlen_s(output_file, MAX_FILENAME_LEN) > (int)(MAX_FILENAME_LEN - strnlen_s(output_dirname, MAX_FILENAME_LEN) - 16)) {
                 /* dirname + filename is too long, use default filename scheme */
-                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output",output_dirname);
+                } else {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+                }
             } else {
-                snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d",output_dirname,output_file,this->ctx_id);
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s%s",output_dirname,output_file);
+                } else {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s%s.ctx%d",output_dirname,output_file,this->ctx_id);
+                }
             }
         } else {
-            snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+            if (joy_num_contexts == 1) {
+                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output",output_dirname);
+            } else {
+                snprintf(output_filename,MAX_FILENAME_LEN,"%sjoy-output.ctx%d",output_dirname,this->ctx_id);
+            }
         }
 
         /* store off the output file base name */
@@ -543,9 +565,12 @@ int joy_initialize(joy_init_t *init_data,
         if (glb_config->max_records) {
             format_output_filename(this->output_file_basename, output_filename);
         } else {
-            snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
+            if (joy_num_contexts == 1) {
+                snprintf(output_filename, MAX_FILENAME_LEN,"%s",this->output_file_basename);
+            } else {
+                snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename,zsuffix);
+            }
         }
-        printf("Context :%d Output:%s\n",this->ctx_id,output_filename);
 
         this->output = zopen(output_filename, "w");
         if (this->output == NULL) {
@@ -554,6 +579,148 @@ int joy_initialize(joy_init_t *init_data,
             free(this->output_file_basename);
             JOY_API_FREE_CONTEXT(ctx_data)
             return failure;
+        }
+
+        flow_record_list_init(this);
+        flocap_stats_timer_init(this);
+    }
+
+    /* set library init flag */
+    joy_library_initialized = 1;
+    return ok;
+}
+
+/*
+ * Function: joy_initialize_no_config
+ *
+ * Description: This function initializes the Joy library
+ *      to analyze the data features. This fucntion does not
+ *      perform any configuration options as it is expetced that
+ *      the caller did configuration prior to calling this function.
+ *
+ *      joy_initialize must be called before using any of the other
+ *      API functions.
+ *
+ * Parameters:
+ *      config - pointer to pre-setup config
+ *      err_info - pointer to the file for error logging
+ *      data - structure of Joy options
+ *
+ * Returns:
+ *      0 - success
+ *      1 - failure
+ *
+ */
+int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *data)
+{
+    unsigned int i = 0;
+    int dir_len = 0;
+    char output_filename[MAX_FILENAME_LEN];
+
+    /* must pass in a pre-setup configuartion */
+    if (config == NULL) {
+        joy_log_err("could not initialize the protocol identification dictionary");
+        return failure;
+    }
+
+    /* make sure logfile/stderr is setup */
+    glb_config = (configuration_t*)config;
+    if (err_info == NULL) {
+        info = stderr;
+    } else {
+        info = err_info;
+    }
+
+    /* sanity check the context information */
+    if (data->contexts < 1) {
+        data->contexts = 1; /* default to 1 context thread */
+    }
+
+    /* allocate the context memory */
+    JOY_API_ALLOC_CONTEXT(ctx_data, data->contexts)
+    joy_num_contexts = data->contexts;
+
+    glb_config->flow_key_match_method = EXACT_MATCH;
+
+    /* setup the inactive and active timeouts for a flow record */
+    flow_record_update_timeouts(data->inact_timeout, data->act_timeout);
+
+    /* initialize the protocol identification dictionary */
+    if (proto_identify_init()) {
+        joy_log_err("could not initialize the protocol identification dictionary");
+        JOY_API_FREE_CONTEXT(ctx_data);
+        return failure;
+    }
+
+    /* setup the output directory */
+    if (glb_config->outputdir == NULL) {
+        glb_config->outputdir = strdup("./");
+    }
+    dir_len = strlen(glb_config->outputdir);
+    if (glb_config->outputdir[dir_len-1] == '/') {
+        glb_config->outputdir[dir_len-1] = '\0';
+    }
+
+    /* initialize all the data context structures */
+    for (i=0; i < JOY_MAX_CTX_INDEX(ctx_data); ++i) {
+        struct joy_ctx_data *this = JOY_CTX_AT_INDEX(ctx_data,i);
+
+        /* id the context */
+        this->ctx_id = i;
+
+        /* if they haven't specified an output filename, then send to stdout */
+        if (glb_config->filename == NULL) {
+            this->output = zattach(stdout, "w");
+        } else {
+            /* setup the output file basename for the context */
+            memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
+
+            if ((int)strnlen_s(glb_config->filename, MAX_FILENAME_LEN) > (int)(MAX_FILENAME_LEN - strnlen_s(glb_config->outputdir, MAX_FILENAME_LEN) - 16)) {
+                /* dirname + filename is too long, use default filename scheme */
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s/joy-output",glb_config->outputdir);
+                } else {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s/joy-output.ctx%d",glb_config->outputdir,this->ctx_id);
+                }
+            } else {
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s/%s",glb_config->outputdir,glb_config->filename);
+                } else {
+                    snprintf(output_filename,MAX_FILENAME_LEN,"%s/%s.ctx%d",glb_config->outputdir,glb_config->filename,this->ctx_id);
+                }
+            }
+
+            /* store off the output file base name */
+            this->output_file_basename = calloc(1, strnlen_s(output_filename, MAX_FILENAME_LEN)+1);
+            if (this->output_file_basename == NULL) {
+                joy_log_err("could not store off base output filename");
+                JOY_API_FREE_CONTEXT(ctx_data)
+                return failure;
+            } else {
+                strncpy_s(this->output_file_basename, strnlen_s(output_filename, MAX_FILENAME_LEN)+1,
+                        output_filename, strnlen_s(output_filename, MAX_FILENAME_LEN));
+            }
+
+            /* open the output file */
+            memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
+            if (glb_config->max_records) {
+                format_output_filename(this->output_file_basename, output_filename);
+            } else {
+                if (joy_num_contexts == 1) {
+                    snprintf(output_filename, MAX_FILENAME_LEN,"%s",this->output_file_basename);
+                } else {
+                    snprintf(output_filename, MAX_FILENAME_LEN,"%s%s",this->output_file_basename, zsuffix);
+                }
+            }
+
+            this->output = zopen(output_filename, "w");
+            if (this->output == NULL) {
+                joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
+                joy_log_err("choose a new output name or move/remove the old data set");
+                free(this->output_file_basename);
+                JOY_API_FREE_CONTEXT(ctx_data)
+                return failure;
+            }
         }
 
         flow_record_list_init(this);
@@ -605,6 +772,39 @@ void joy_print_config(uint8_t index, uint8_t format)
         /* print the configuration in the output */
         config_print_json(ctx->output, glb_config);
     }
+}
+
+/*
+ * Function: joy_print_flocap_stats_output
+ *
+ * Description: This function prints out flow capture statistics.
+ *
+ * Parameters:
+ *      index - index of the context to print the config into
+ *
+ * Returns:
+ *      none
+ *
+ */
+void joy_print_flocap_stats_output(uint8_t index)
+{
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return;
+    }
+
+    /* sanity check the index value */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", index);
+        return;
+    }
+
+    /* get the context to print the statistics for */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
+    flocap_stats_output(ctx,info);
 }
 
 /*
@@ -939,7 +1139,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
     /* get the 5-tuple key for this packet */
     rc = get_packet_5tuple_key(packet, &key);
     if (rc == 0) {
-        joy_log_err("Failed to retrieve the 5-tuple key, using default context 0");
+        joy_log_info("Failed to retrieve the 5-tuple key, using default context 0");
         return 0;
     }
 
@@ -961,6 +1161,45 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
 
     joy_log_debug("Packet goes into context (%d)", context);
     return context;
+}
+
+/*
+ * Function: joy_index_to_context
+ *
+ * Description: This function takes in an index and returns a
+ *      pointer to the context.
+ *
+ * Parameters:
+ *      ctx_index - index of the context you want
+ *
+ * Returns:
+ *      context - pointer to the context structure
+ *
+ */
+void* joy_index_to_context(uint8_t ctx_index) {
+    uint64_t index = 0;
+    joy_ctx_data *ctx = NULL;
+
+    /* check library initialization */
+    if (!joy_library_initialized) {
+        joy_log_crit("Joy Library has not been initialized!");
+        return NULL;
+    }
+
+    /* ctx_index has the int value of the data context
+     * This number is between 0 and max configured contexts
+     */
+    index = (uint64_t)ctx_index;
+
+    /* sanity check the index being used */
+    if (index >= joy_num_contexts ) {
+        joy_log_crit("Joy Library invalid context (%d) for packet processing!", (uint8_t)index);
+        return NULL;
+    }
+
+    /* process the packet */
+    ctx = JOY_CTX_AT_INDEX(ctx_data,index);
+    return (ctx);
 }
 
 /*
@@ -1090,6 +1329,11 @@ void joy_libpcap_process_packet(unsigned char *ctx_index,
         return;
     }
 
+    /* make sure we have a packet to process */
+    if (packet == NULL) {
+        return;
+    }
+
     /* ctx_index has the int value of the data context
      * This number is between 0 and max configured contexts
      */
@@ -1166,7 +1410,6 @@ void joy_print_flow_data(uint8_t index, joy_flow_type_e type)
             ctx->records_in_file = 0;
             memset_s(output_filename, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
             format_output_filename(ctx->output_file_basename, output_filename);
-            printf("Rolling Context :%d Output:%s\n",index,output_filename);
             ctx->output = zopen(output_filename, "w");
             if (ctx->output == NULL) {
                 joy_log_err("could not open output file %s (%s)", output_filename, strerror(errno));
@@ -1948,9 +2191,7 @@ void joy_shutdown(void)
     if (glb_config->anon_http_file) free((void*)glb_config->anon_http_file);
     if (glb_config->upload_servername) free((void*)glb_config->upload_servername);
     if (glb_config->upload_key) free((void*)glb_config->upload_key);
-    if (glb_config->params_url) free((void*)glb_config->params_url);
     if (glb_config->params_file) free((void*)glb_config->params_file);
-    if (glb_config->label_url) free((void*)glb_config->label_url);
     if (glb_config->bpf_filter_exp) free((void*)glb_config->bpf_filter_exp);
     if (glb_config->ipfix_export_remote_host) free((void*)glb_config->ipfix_export_remote_host);
     if (glb_config->ipfix_export_template) free((void*)glb_config->ipfix_export_template);
@@ -1970,7 +2211,7 @@ void joy_shutdown(void)
     anon_http_ctx_cleanup();
 
     /* clear out the configuration structure */
-    memset_s(&active_config,  sizeof(struct configuration), 0x00, sizeof(struct configuration));
+    memset_s(&active_config,  sizeof(configuration_t), 0x00, sizeof(configuration_t));
     glb_config = NULL;
 
     /* reset the library initialized flag */
