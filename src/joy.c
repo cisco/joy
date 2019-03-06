@@ -134,11 +134,11 @@ static pthread_mutex_t thrd_lock[MAX_JOY_THREADS] =
    PTHREAD_MUTEX_INITIALIZER};
 
 /* config is the global configuration */
-configuration_t active_config;
-configuration_t *glb_config = NULL;
+extern configuration_t active_config;
+extern configuration_t *glb_config;
 
 /* logfile definitions */
-FILE *info = NULL;
+extern FILE *info;
 
 /*
  * reopenLog is the flag set when SIGHUP is received

@@ -562,13 +562,13 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         err = dns_header_parse_name(rh, &r, &len, name, sizeof(name));
         if (err != dns_ok) { 
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug(output, "question name err=%u; len=%u\"}]}", err, len);
+            zprintf_debug(output, "question name err=%u; len=%u\"}", err, len);
             return;
         }
         err = dns_question_parse(&question, &r, &len);
         if (err != dns_ok) {
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug(output, "question err=%u; len=%u\"]}]", err, len);
+            zprintf_debug(output, "question err=%u; len=%u\"}", err, len);
             return;
         }
         zprintf(output, "\"%cn\":\"%s\",", qr, name + 1);
