@@ -119,18 +119,12 @@ AC_CHECK_LIB([dl], [dlopen], [AC_MSG_NOTICE("dl is installed")],
                      AC_MSG_ERROR([dl not found. Please install it.]))
 AC_CHECK_LIB([pthread], [pthread_equal], [AC_MSG_NOTICE("pthread is installed")], 
                      AC_MSG_ERROR([libpthread not found. Please install it.]))
-AC_CHECK_LIB([curl], [curl_easy_init], [AC_MSG_NOTICE("curl is installed")], 
-                     AC_MSG_ERROR([libcurl not found. Please install it.]))
-
 
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h inttypes.h])
 
 AC_CHECK_HEADER([pcap.h],[found_pcap_header=yes; break;])
 AS_IF([test "x$found_pcap_header" != "xyes"], [AC_MSG_ERROR([Unable to find pcap.h])])
-
-AC_CHECK_HEADER([curl/curl.h],[found_curl_header=yes; break;])
-AS_IF([test "x$found_curl_header" != "xyes"], [AC_MSG_ERROR([Unable to find curl.h])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -168,25 +162,6 @@ fi
 
 AC_CHECK_LIB([crypto], [EVP_EncryptInit], [AC_MSG_NOTICE("openSSL is installed")],
              [AC_MSG_FAILURE([can't find openSSL libcrypto file])])
-
-##
-# Libcurl installation directory path
-# to override defaults
-##
-AC_ARG_WITH([libcurl-dir],
-    [AS_HELP_STRING([--with-libcurl-dir=],
-    [enable support for joy using libcurl])],
-    [libcurldir="$withval"],
-    [libcurldir="no"])
-
-if test "x$libcurldir" != "xno"; then
-   LDFLAGS="$LDFLAGS -L$libcurldir/lib" 
-   AC_SUBST([CURL_CFLAGS], "$libcurldir/include")
-   AC_SUBST([CURL_LDFLAGS], "-L$libcurldir/lib")
-
-   AC_CHECK_LIB([curl], [curl_easy_install], [],
-             [AC_MSG_FAILURE([--with-libcurl-dir was given, but test for libcurl failed])])
-fi
 
 AC_DEFINE([COMPRESSED_OUTPUT], [0], [Compression is disabled])
 AC_MSG_CHECKING([enable bzip2])

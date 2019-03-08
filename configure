@@ -793,8 +793,6 @@ LIBOBJS
 BUILD_WITH_SAFEC_FALSE
 BUILD_WITH_SAFEC_TRUE
 SAFEC_DIR
-CURL_LDFLAGS
-CURL_CFLAGS
 SSL_LDFLAGS
 SSL_CFLAGS
 AM_CFLAGS_LITE
@@ -923,7 +921,6 @@ with_gnu_ld
 enable_libtool_lock
 enable_cast_qual
 with_ssl_dir
-with_libcurl_dir
 enable_bzip2
 enable_gzip
 with_safec_dir
@@ -1588,7 +1585,6 @@ Optional Packages:
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
   --with-ssl-dir=         location of openSSL install folder, This is
                           optional#
-  --with-libcurl-dir=     enable support for joy using libcurl
   --with-safec-dir=       location of SAFEC install folder, This is an
                           optional option. SafecStubs is the default
 
@@ -6211,13 +6207,13 @@ if test "${lt_cv_nm_interface+set}" = set; then
 else
   lt_cv_nm_interface="BSD nm"
   echo "int some_variable = 0;" > conftest.$ac_ext
-  (eval echo "\"\$as_me:6214: $ac_compile\"" >&5)
+  (eval echo "\"\$as_me:6210: $ac_compile\"" >&5)
   (eval "$ac_compile" 2>conftest.err)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:6217: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
+  (eval echo "\"\$as_me:6213: $NM \\\"conftest.$ac_objext\\\"\"" >&5)
   (eval "$NM \"conftest.$ac_objext\"" 2>conftest.err > conftest.out)
   cat conftest.err >&5
-  (eval echo "\"\$as_me:6220: output\"" >&5)
+  (eval echo "\"\$as_me:6216: output\"" >&5)
   cat conftest.out >&5
   if $GREP 'External.*some_variable' conftest.out > /dev/null; then
     lt_cv_nm_interface="MS dumpbin"
@@ -7422,7 +7418,7 @@ ia64-*-hpux*)
   ;;
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 7425 "configure"' > conftest.$ac_ext
+  echo '#line 7421 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -8791,11 +8787,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:8794: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:8790: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:8798: \$? = $ac_status" >&5
+   echo "$as_me:8794: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -9130,11 +9126,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:9133: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:9129: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>conftest.err)
    ac_status=$?
    cat conftest.err >&5
-   echo "$as_me:9137: \$? = $ac_status" >&5
+   echo "$as_me:9133: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s "$ac_outfile"; then
      # The compiler can only warn and ignore the option if not recognized
      # So say no if there are warnings other than the usual output.
@@ -9235,11 +9231,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:9238: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:9234: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:9242: \$? = $ac_status" >&5
+   echo "$as_me:9238: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -9290,11 +9286,11 @@ else
    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
    -e 's:$: $lt_compiler_flag:'`
-   (eval echo "\"\$as_me:9293: $lt_compile\"" >&5)
+   (eval echo "\"\$as_me:9289: $lt_compile\"" >&5)
    (eval "$lt_compile" 2>out/conftest.err)
    ac_status=$?
    cat out/conftest.err >&5
-   echo "$as_me:9297: \$? = $ac_status" >&5
+   echo "$as_me:9293: \$? = $ac_status" >&5
    if (exit $ac_status) && test -s out/conftest2.$ac_objext
    then
      # The compiler can only warn and ignore the option if not recognized
@@ -12093,7 +12089,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12096 "configure"
+#line 12092 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12189,7 +12185,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 12192 "configure"
+#line 12188 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12692,81 +12688,6 @@ $as_echo "$as_me: error: libpthread not found. Please install it." >&2;}
    { (exit 1); exit 1; }; }
 fi
 
-{ $as_echo "$as_me:$LINENO: checking for curl_easy_init in -lcurl" >&5
-$as_echo_n "checking for curl_easy_init in -lcurl... " >&6; }
-if test "${ac_cv_lib_curl_curl_easy_init+set}" = set; then
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcurl  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char curl_easy_init ();
-int
-main ()
-{
-return curl_easy_init ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
-$as_echo "$ac_try_echo") >&5
-  (eval "$ac_link") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext && {
-	 test "$cross_compiling" = yes ||
-	 $as_test_x conftest$ac_exeext
-       }; then
-  ac_cv_lib_curl_curl_easy_init=yes
-else
-  $as_echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_cv_lib_curl_curl_easy_init=no
-fi
-
-rm -rf conftest.dSYM
-rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:$LINENO: result: $ac_cv_lib_curl_curl_easy_init" >&5
-$as_echo "$ac_cv_lib_curl_curl_easy_init" >&6; }
-if test "x$ac_cv_lib_curl_curl_easy_init" = x""yes; then
-  { $as_echo "$as_me:$LINENO: \"curl is installed\"" >&5
-$as_echo "$as_me: \"curl is installed\"" >&6;}
-else
-  { { $as_echo "$as_me:$LINENO: error: libcurl not found. Please install it." >&5
-$as_echo "$as_me: error: libcurl not found. Please install it." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-
 
 # Checks for header files.
 
@@ -13062,150 +12983,6 @@ fi
 if test "x$found_pcap_header" != "xyes"; then
   { { $as_echo "$as_me:$LINENO: error: Unable to find pcap.h" >&5
 $as_echo "$as_me: error: Unable to find pcap.h" >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-
-if test "${ac_cv_header_curl_curl_h+set}" = set; then
-  { $as_echo "$as_me:$LINENO: checking for curl/curl.h" >&5
-$as_echo_n "checking for curl/curl.h... " >&6; }
-if test "${ac_cv_header_curl_curl_h+set}" = set; then
-  $as_echo_n "(cached) " >&6
-fi
-{ $as_echo "$as_me:$LINENO: result: $ac_cv_header_curl_curl_h" >&5
-$as_echo "$ac_cv_header_curl_curl_h" >&6; }
-else
-  # Is the header compilable?
-{ $as_echo "$as_me:$LINENO: checking curl/curl.h usability" >&5
-$as_echo_n "checking curl/curl.h usability... " >&6; }
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$ac_includes_default
-#include <curl/curl.h>
-_ACEOF
-rm -f conftest.$ac_objext
-if { (ac_try="$ac_compile"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
-$as_echo "$ac_try_echo") >&5
-  (eval "$ac_compile") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest.$ac_objext; then
-  ac_header_compiler=yes
-else
-  $as_echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_header_compiler=no
-fi
-
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-{ $as_echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-$as_echo "$ac_header_compiler" >&6; }
-
-# Is the header present?
-{ $as_echo "$as_me:$LINENO: checking curl/curl.h presence" >&5
-$as_echo_n "checking curl/curl.h presence... " >&6; }
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <curl/curl.h>
-_ACEOF
-if { (ac_try="$ac_cpp conftest.$ac_ext"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
-$as_echo "$ac_try_echo") >&5
-  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } >/dev/null && {
-	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       }; then
-  ac_header_preproc=yes
-else
-  $as_echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-  ac_header_preproc=no
-fi
-
-rm -f conftest.err conftest.$ac_ext
-{ $as_echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-$as_echo "$ac_header_preproc" >&6; }
-
-# So?  What about this header?
-case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
-  yes:no: )
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h: accepted by the compiler, rejected by the preprocessor!" >&5
-$as_echo "$as_me: WARNING: curl/curl.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h: proceeding with the compiler's result" >&5
-$as_echo "$as_me: WARNING: curl/curl.h: proceeding with the compiler's result" >&2;}
-    ac_header_preproc=yes
-    ;;
-  no:yes:* )
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h: present but cannot be compiled" >&5
-$as_echo "$as_me: WARNING: curl/curl.h: present but cannot be compiled" >&2;}
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h:     check for missing prerequisite headers?" >&5
-$as_echo "$as_me: WARNING: curl/curl.h:     check for missing prerequisite headers?" >&2;}
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h: see the Autoconf documentation" >&5
-$as_echo "$as_me: WARNING: curl/curl.h: see the Autoconf documentation" >&2;}
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h:     section \"Present But Cannot Be Compiled\"" >&5
-$as_echo "$as_me: WARNING: curl/curl.h:     section \"Present But Cannot Be Compiled\"" >&2;}
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h: proceeding with the preprocessor's result" >&5
-$as_echo "$as_me: WARNING: curl/curl.h: proceeding with the preprocessor's result" >&2;}
-    { $as_echo "$as_me:$LINENO: WARNING: curl/curl.h: in the future, the compiler will take precedence" >&5
-$as_echo "$as_me: WARNING: curl/curl.h: in the future, the compiler will take precedence" >&2;}
-    ( cat <<\_ASBOX
-## -------------------------------------------------- ##
-## Report this to https://github.com/cisco/joy/issues ##
-## -------------------------------------------------- ##
-_ASBOX
-     ) | sed "s/^/$as_me: WARNING:     /" >&2
-    ;;
-esac
-{ $as_echo "$as_me:$LINENO: checking for curl/curl.h" >&5
-$as_echo_n "checking for curl/curl.h... " >&6; }
-if test "${ac_cv_header_curl_curl_h+set}" = set; then
-  $as_echo_n "(cached) " >&6
-else
-  ac_cv_header_curl_curl_h=$ac_header_preproc
-fi
-{ $as_echo "$as_me:$LINENO: result: $ac_cv_header_curl_curl_h" >&5
-$as_echo "$ac_cv_header_curl_curl_h" >&6; }
-
-fi
-if test "x$ac_cv_header_curl_curl_h" = x""yes; then
-  found_curl_header=yes; break;
-fi
-
-
-if test "x$found_curl_header" != "xyes"; then
-  { { $as_echo "$as_me:$LINENO: error: Unable to find curl.h" >&5
-$as_echo "$as_me: error: Unable to find curl.h" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
@@ -14797,111 +14574,6 @@ See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }; }
 fi
 
-
-##
-# Libcurl installation directory path
-# to override defaults
-##
-
-# Check whether --with-libcurl-dir was given.
-if test "${with_libcurl_dir+set}" = set; then
-  withval=$with_libcurl_dir; libcurldir="$withval"
-else
-  libcurldir="no"
-fi
-
-
-if test "x$libcurldir" != "xno"; then
-   LDFLAGS="$LDFLAGS -L$libcurldir/lib"
-   CURL_CFLAGS="$libcurldir/include"
-
-   CURL_LDFLAGS="-L$libcurldir/lib"
-
-
-
-{ $as_echo "$as_me:$LINENO: checking for curl_easy_install in -lcurl" >&5
-$as_echo_n "checking for curl_easy_install in -lcurl... " >&6; }
-if test "${ac_cv_lib_curl_curl_easy_install+set}" = set; then
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcurl  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char curl_easy_install ();
-int
-main ()
-{
-return curl_easy_install ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
-$as_echo "$ac_try_echo") >&5
-  (eval "$ac_link") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext && {
-	 test "$cross_compiling" = yes ||
-	 $as_test_x conftest$ac_exeext
-       }; then
-  ac_cv_lib_curl_curl_easy_install=yes
-else
-  $as_echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_cv_lib_curl_curl_easy_install=no
-fi
-
-rm -rf conftest.dSYM
-rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:$LINENO: result: $ac_cv_lib_curl_curl_easy_install" >&5
-$as_echo "$ac_cv_lib_curl_curl_easy_install" >&6; }
-if test "x$ac_cv_lib_curl_curl_easy_install" = x""yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBCURL 1
-_ACEOF
-
-  LIBS="-lcurl $LIBS"
-
-else
-  { { $as_echo "$as_me:$LINENO: error: in \`$ac_pwd':" >&5
-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-{ { $as_echo "$as_me:$LINENO: error: --with-libcurl-dir was given, but test for libcurl failed
-See \`config.log' for more details." >&5
-$as_echo "$as_me: error: --with-libcurl-dir was given, but test for libcurl failed
-See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }; }
-fi
-
-fi
 
 
 cat >>confdefs.h <<\_ACEOF
