@@ -273,6 +273,7 @@ fi
 FPM_LINUX_OPTIONS="-C $BUILDROOT -n $NAME -v $VERSION --iteration $ITERATION \
     --after-install $APP_ROOT/joy/install_joy/postinstall-linux \
     --before-install $APP_ROOT/joy/install_joy/preinstall-linux \
+    --after-remove $APP_ROOT/joy/install_joy/postuninstall-linux \
     --before-remove $APP_ROOT/joy/install_joy/preuninstall-linux \
     --vendor Cisco --config-files /usr/local/etc/joy/ \
     --config-files /usr/local/var/joy \

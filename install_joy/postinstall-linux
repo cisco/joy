@@ -52,3 +52,4 @@ fi
 if [ ! -f /usr/local/etc/joy/upload-key ]; then
         ssh-keygen -f /usr/local/etc/joy/upload-key -P "" -t rsa -b 2048
 fi
+ldconfig
