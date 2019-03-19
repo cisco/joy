@@ -17,7 +17,7 @@ m4_define([joy_micro_version], [0])
 
 
 m4_define([joy_version],[joy_major_version.joy_minor_version.joy_micro_version])
-AC_PREREQ(2.63)
+AC_PREREQ(2.69)
 
 AC_INIT([joy],[joy_version],[https://github.com/cisco/joy/issues],[],[https://github.com/cisco/joy/])
 AC_CONFIG_AUX_DIR(config)
@@ -28,12 +28,12 @@ AC_PREFIX_DEFAULT(/usr/local/joy)
 AM_INIT_AUTOMAKE([subdir-objects -Wall -Werror])
 AC_USE_SYSTEM_EXTENSIONS
 AM_MAINTAINER_MODE
+AM_PROG_AR
 #
 
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
-AC_PROG_RANLIB
 ######################## PKG Versioning #######################
 PKG_VERSION_NUMBER="joy_major_version:joy_minor_version:joy_micro_version"
 AC_SUBST(PKG_VERSION_NUMBER)
