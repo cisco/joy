@@ -6,11 +6,6 @@ SUBDIRS=safe_c_stub lib bin
 joy_api:
 	(doxygen Doxyfile)
 
-cscope:
-	rm -f cscope.out cscope.files
-	find . -type f -follow -name "*.[ch]" -print > cscope.files
-	cscope -b
-
 joy_test: 
 	test/run_tests.py
 	bin/unit_test

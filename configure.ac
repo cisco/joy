@@ -17,7 +17,7 @@ m4_define([joy_micro_version], [0])
 
 
 m4_define([joy_version],[joy_major_version.joy_minor_version.joy_micro_version])
-AC_PREREQ(2.63)
+AC_PREREQ(2.69)
 
 AC_INIT([joy],[joy_version],[https://github.com/cisco/joy/issues],[],[https://github.com/cisco/joy/])
 AC_CONFIG_AUX_DIR(config)
@@ -28,12 +28,52 @@ AC_PREFIX_DEFAULT(/usr/local/joy)
 AM_INIT_AUTOMAKE([subdir-objects -Wall -Werror])
 AC_USE_SYSTEM_EXTENSIONS
 AM_MAINTAINER_MODE
+AM_PROG_AR
 #
 
 # Checks for programs.
 AC_PROG_CC
-AM_PROG_CC_C_O
+AC_PROG_CXX
 AC_PROG_RANLIB
+AC_FUNC_STRNLEN
+AC_FUNC_MALLOC
+AC_FUNC_REALLOC
+AC_FUNC_STRTOD
+AC_TYPE_MODE_T
+AC_TYPE_SSIZE_T
+AC_TYPE_INT8_T
+AC_TYPE_UINT8_T
+AC_TYPE_INT16_T
+AC_TYPE_UINT16_T
+AC_TYPE_INT32_T
+AC_TYPE_UINT32_T
+AC_TYPE_INT64_T
+AC_TYPE_UINT64_T
+AM_PROG_CC_C_O
+AC_C_INLINE
+AC_CHECK_TYPES([ptrdiff_t])
+AC_CHECK_FUNCS([gethostbyname])
+AC_CHECK_FUNCS([socket])
+AC_CHECK_FUNCS([strncasecmp])
+AC_CHECK_FUNCS([memmove])
+AC_CHECK_FUNCS([memset])
+AC_CHECK_FUNCS([mkdir])
+AC_CHECK_FUNCS([sqrt])
+AC_CHECK_FUNCS([strcasecmp])
+AC_CHECK_FUNCS([strchr])
+AC_CHECK_HEADERS([arpa/inet.h])
+AC_CHECK_HEADERS([float.h])
+AC_CHECK_HEADERS([limits.h])
+AC_CHECK_HEADERS([malloc.h])
+AC_CHECK_HEADERS([netdb.h])
+AC_CHECK_HEADERS([netinet/in.h])
+AC_CHECK_HEADERS([stddef.h])
+AC_CHECK_HEADERS([sys/ioctl.h])
+AC_CHECK_HEADERS([sys/socket.h])
+AC_CHECK_HEADERS([sys/time.h])
+AC_CHECK_HEADERS([sys/timeb.h])
+AC_CHECK_HEADERS([wchar.h])
+AC_CHECK_HEADERS([ptrdiff.h])
 ######################## PKG Versioning #######################
 PKG_VERSION_NUMBER="joy_major_version:joy_minor_version:joy_micro_version"
 AC_SUBST(PKG_VERSION_NUMBER)
