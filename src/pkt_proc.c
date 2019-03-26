@@ -57,6 +57,8 @@
 #include "joy_api_private.h"
 #include "safe_lib.h"
 
+#define ETHER_HDR_LEN 14
+
 /** netflow version 9 structure templates */
 static struct nfv9_template v9_templates[MAX_TEMPLATES];
 
@@ -1005,8 +1007,8 @@ void* process_packet (unsigned char *ctx_ptr,
          * Let's reset the ip_len to the length of the caplen minus
          * the ethernet header and then process the truncated packet.
          */
-        joy_log_debug("Truncated IP packet: orig len %u , new len %u", ip_len, (header->caplen-14));
-        ip_len = header->caplen - 14;
+        joy_log_debug("Truncated IP packet: orig len %u , new len %u", ip_len, (header->caplen-ETHER_HDR_LEN));
+        ip_len = header->caplen - ETHER_HDR_LEN;
     }
 
     transport_len =  ip_len - ip_hdr_len;
