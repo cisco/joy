@@ -109,75 +109,137 @@ static unsigned int joy_splt_format_data(flow_record_t *rec,
                                          unsigned char *data)
 {
     unsigned int i = 0;
+    unsigned int entry_counter = 0;
     unsigned int entries_used = 0;
     unsigned int num_of_pkts = 0;
     unsigned int data_len = 0;
+    uint16_t last_len = 0;
+    int16_t run_count = 0;
     struct timeval ts;
     uint16_t *formatted_data = (uint16_t*)data;
 
-    /* see how many packets we have to process - max is MAX_NFV9_SPLT_SALT_PKTS */
-    num_of_pkts = (rec->op < MAX_NFV9_SPLT_SALT_PKTS) ? rec->op : MAX_NFV9_SPLT_SALT_PKTS;
+    /* figure out actual entries needed
+     * we max out at 10 entries for a SPLT record.
+     */
+    for (i=0; i < rec->op; ++i) {
+        if (rec->pkt_len[i] != last_len ) {
+            /* run has ended increment entry count */
+            if (run_count < 0) {
+                ++entry_counter;
+            }
+
+            /* store last length */
+            last_len = rec->pkt_len[i];
+
+            /* increment entry count, reset run */
+            ++entry_counter;
+            run_count = 0;
+
+            /* stop if we reach the entry limit */
+            if (entry_counter == MAX_NFV9_SPLT_SALT_PKTS) {
+                break;
+            }
+        } else {
+            /* found a run, start the count */
+            --run_count;
+
+            /* stop if we reach the entry limit */
+            if (entry_counter == (MAX_NFV9_SPLT_SALT_PKTS-1)) {
+                break;
+            }
+        }
+    }
+    /* if we had an active run, increment entry count
+     * this is why the run count leg break 1 entry early
+     */
+    if (run_count < 0) {
+        ++entry_counter;
+    }
+
+    /* number of packets needed to create entries */
+    num_of_pkts = ++i;
+
+    /* if there were runs, adjust the entries used count */
+    if (entry_counter < num_of_pkts) {
+        entries_used = entry_counter;
+    } else {
+        entries_used = num_of_pkts;
+    }
 
     /* figure out the length of the data we are formatting */
     if (export_frmt == JOY_NFV9_EXPORT) {
         /* NFv9 is always 40 bytes */
         data_len = MAX_NFV9_SPLT_SALT_ARRAY_LENGTH;
+        entries_used = MAX_NFV9_SPLT_SALT_PKTS;
     } else {
         /* IPFix is variable length - each entry is represented by 2 16-bit values */
-        data_len = num_of_pkts * 4;
+        data_len = entries_used * 4;
     }
 
-    /* format for Netflow v9 export */
-    if (export_frmt == JOY_NFV9_EXPORT) {
-        /* loop through the SPLT lengths and store appropriately */
-        for (i=0; i < num_of_pkts; ++i) {
-            *(formatted_data+i) = (uint16_t)rec->pkt_len[i];
-        }
+    /* reset our counters */
+    entry_counter = 0;
+    last_len = 0;
+    run_count = 0;
 
-        if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
-            /* padding needs to occur */
-            for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
-               *(formatted_data+i) = (uint16_t)-32768;
+    /* loop through the SPLT lengths and times */
+    for (i=0; i < num_of_pkts; ++i) {
+        /* length is different, write entry data */
+        if (rec->pkt_len[i] != last_len ) {
+            /* if its a run, write run count first */
+            if (run_count < 0) {
+                *(formatted_data+entry_counter) = (int16_t)run_count;
+                joy_timer_sub(&rec->pkt_time[i-1], &rec->pkt_time[entry_counter-1], &ts);
+                *(formatted_data+entries_used+entry_counter) =
+                     (uint16_t)joy_timeval_to_milliseconds(ts);
+                ++entry_counter;
             }
-        }
 
-        /* loop through the SPLT times and store appropriately */
-        for (i=0; i < num_of_pkts; ++i) {
+            /* write out the pkt length data */
+            *(formatted_data+entry_counter) = (uint16_t)rec->pkt_len[i];
+
+            /* calculate the time delta */
             if (i > 0) {
                 joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
             } else {
                 joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
             }
-            *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) =
-                 (uint16_t)joy_timeval_to_milliseconds(ts);
-        }
 
-        if (num_of_pkts < MAX_NFV9_SPLT_SALT_PKTS) {
+            /* write out the time data */
+            *(formatted_data+entries_used+entry_counter) =
+                 (uint16_t)joy_timeval_to_milliseconds(ts);
+
+            /* update our counters */
+            ++entry_counter;
+            last_len = rec->pkt_len[i];
+            run_count = 0;
+        } else {
+            /* found a run, keep track of it */
+            --run_count;
+        }
+    }
+
+    /* finished processing packets and a run was at the end */
+    if (run_count < 0) {
+        /* write out the run count */
+        *(formatted_data+entry_counter) = (int16_t)run_count;
+
+        /* write out the time delta for the run */
+        joy_timer_sub(&rec->pkt_time[i-1], &rec->pkt_time[i+run_count-1], &ts);
+        *(formatted_data+entries_used+entry_counter) =
+             (uint16_t)joy_timeval_to_milliseconds(ts);
+
+        /* update entry counter */
+        ++entry_counter;
+    }
+
+    /* pad out Netflow v9 export */
+    if (export_frmt == JOY_NFV9_EXPORT) {
+        if (entry_counter < MAX_NFV9_SPLT_SALT_PKTS) {
             /* padding needs to occur */
-            for (;i < MAX_NFV9_SPLT_SALT_PKTS; ++ i) {
+            for (i = entry_counter; i < MAX_NFV9_SPLT_SALT_PKTS; ++i) {
+               *(formatted_data+i) = (uint16_t)-32768;
                *(formatted_data+MAX_NFV9_SPLT_SALT_PKTS+i) = (uint16_t)0x00;
             }
-        }
-
-    /* else format for IPFix export */
-    } else {
-        /* loop through the SPLT lengths and store appropriately */
-        for (i=0; i < num_of_pkts; ++i) {
-            *(formatted_data+i) = (uint16_t)rec->pkt_len[i];
-        }
-
-        /* store how many entries we used since IPFix doesn't pad */
-        entries_used = i;
-
-        /* loop through the SPLT times and store appropriately */
-        for (i=0; i < num_of_pkts; ++i) {
-            if (i > 0) {
-                joy_timer_sub(&rec->pkt_time[i], &rec->pkt_time[i-1], &ts);
-            } else {
-                joy_timer_sub(&rec->pkt_time[i], &rec->start, &ts);
-            }
-            *(formatted_data+entries_used+i) =
-                 (uint16_t)joy_timeval_to_milliseconds(ts);
         }
     }
 
