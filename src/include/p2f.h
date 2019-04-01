@@ -98,8 +98,14 @@ typedef struct tcp_info_ {
 } tcp_info_t;
 
 typedef struct flow_key_ {
-    struct in_addr sa;
-    struct in_addr da;
+    union {
+        struct in_addr  v4_sa;
+        struct in6_addr v6_sa;
+    } sa;
+    union {
+        struct in_addr  v4_da;
+        struct in6_addr v6_da;
+    } da;
     uint16_t sp;
     uint16_t dp;
     uint8_t prot;
@@ -129,6 +135,7 @@ extern FILE *info;
 typedef struct flow_record_ {
     flow_key_t key;                       /*!< identifies flow by 5-tuple          */
     uint32_t key_hash;                    /*!< hash of the 5-tuple key             */
+    uint32_t ip_type;                     /*!< IPv4 or IPv6 encoding type          */
     uint16_t app;                         /*!< application protocol prediction     */
     uint8_t dir;                          /*!< direction of the flow               */
     uint8_t np;                           /*!< number of packets                   */

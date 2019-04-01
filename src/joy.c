@@ -122,7 +122,7 @@ typedef enum joy_operating_mode_ {
  */
 static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
-static const char *filter_exp = "ip or vlan";
+static const char *filter_exp = "ip or ip6 or vlan";
 static char full_path_output[MAX_FILENAME_LEN];
 
 /* local definitions for the threading aspects */

@@ -460,7 +460,9 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
                 return err;
             }
             if (ipv4_addr_needs_anonymization(addr)) {
-                zprintf(output, "\"a\":\"%s\"", addr_get_anon_hexstring(addr));
+                char buffer[IPV4_ANON_LEN];
+                addr_get_anon_hexstring(addr, (char*)buffer, IPV4_ANON_LEN);
+                zprintf(output, "\"a\":\"%s\"", buffer);
             } else {
                 inet_ntop(AF_INET, addr, ipv4_addr, INET_ADDRSTRLEN);
                 zprintf(output, "\"a\":\"%s\"", ipv4_addr);

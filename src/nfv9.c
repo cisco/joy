@@ -339,14 +339,16 @@ static int nfv9_process_flow_time_milli(const void *flow_data,
 void nfv9_flow_key_init (flow_key_t *key, 
       const struct nfv9_template *cur_template, const char *flow_data) {
     int i;
+
+    memset_s(key, sizeof(flow_key_t), 0x00, sizeof(flow_key_t));
     for (i = 0; i < cur_template->hdr.FieldCount; i++) {
         switch (htons(cur_template->fields[i].FieldType)) {
             case IPV4_SRC_ADDR:
-                key->sa.s_addr = *(const int *)flow_data;
+                key->sa.v4_sa.s_addr = *(const int *)flow_data;
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case IPV4_DST_ADDR:
-                key->da.s_addr = *(const int *)flow_data;
+                key->da.v4_da.s_addr = *(const int *)flow_data;
                 flow_data += htons(cur_template->fields[i].FieldLength);
                 break;
             case L4_SRC_PORT:
@@ -381,13 +383,13 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
                           const unsigned char **payload,
                           unsigned int *size_payload) {
     unsigned char proto = 0;
-    const struct ip_hdr *ip = NULL;
+    const ip_hdr_t *ip = NULL;
     unsigned int ip_hdr_len;
     const unsigned char *flow_data = nf_record->idp;
     unsigned int flow_len = nf_record->idp_len;
 
     /* Compute ip header offset */
-    ip = (const struct ip_hdr*)(flow_data);
+    ip = (const ip_hdr_t*)(flow_data);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         /*
@@ -397,7 +399,7 @@ static int nfv9_skip_idp_header(flow_record_t *nf_record,
         return 1;
     }
 
-    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+    if (ntohs(ip->ip_len) < sizeof(ip_hdr_t)) {
         /* IP packet is malformed (shorter than a complete IP header) */
         joy_log_warn("ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
         return 1;

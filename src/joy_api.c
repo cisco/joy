@@ -1146,9 +1146,17 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
     /* generate a nice hash to use for the 5-tuple. This calcualtion is essentially
      * a mod 257 on the sum of the 5-tuple. This algortihm also keeps client->server and
      * server->client flows in the same context.
+     * for IPv4 addresses, the upper 96 bits are zero, so using the IPv6 union of the structure
+     * does not affect the sum or the resulting hash.
      */
-    sum += (unsigned int)key.sa.s_addr;
-    sum += (unsigned int)key.da.s_addr;
+    sum += (unsigned int)key.sa.v6_sa.__u6_addr.__u6_addr32[0];
+    sum += (unsigned int)key.sa.v6_sa.__u6_addr.__u6_addr32[1];
+    sum += (unsigned int)key.sa.v6_sa.__u6_addr.__u6_addr32[2];
+    sum += (unsigned int)key.sa.v6_sa.__u6_addr.__u6_addr32[3];
+    sum += (unsigned int)key.da.v6_da.__u6_addr.__u6_addr32[0];
+    sum += (unsigned int)key.da.v6_da.__u6_addr.__u6_addr32[1];
+    sum += (unsigned int)key.da.v6_da.__u6_addr.__u6_addr32[2];
+    sum += (unsigned int)key.da.v6_da.__u6_addr.__u6_addr32[3];
     sum += (unsigned int)key.sp;
     sum += (unsigned int)key.dp;
     sum += (unsigned int)key.prot;

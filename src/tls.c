@@ -2867,21 +2867,21 @@ end_loop:
 static const unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_data,
                                                  unsigned int packet_len,
                                                  unsigned int *size_payload) {
-    const struct ip_hdr *ip = NULL;
+    const ip_hdr_t *ip = NULL;
     unsigned int ip_hdr_len = 0;
     const struct tcp_hdr *tcp = NULL;
     unsigned int tcp_hdr_len = 0;
     const unsigned char *payload = NULL;
 
     /* define/compute ip header offset */
-    ip = (const struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
+    ip = (const ip_hdr_t*)(packet_data + ETHERNET_HDR_LEN);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         joy_log_err("invalid ip header of len %d", ip_hdr_len);
         return NULL;
     }
 
-    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+    if (ntohs(ip->ip_len) < sizeof(ip_hdr_t)) {
         /* IP packet is malformed (shorter than a complete IP header) */
         joy_log_err("ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
         return NULL;

@@ -211,6 +211,7 @@ static int print_flow_table() {
     flow_key_t empty_key;
     host_flow_t *record;
     char ipv4_addr[INET_ADDRSTRLEN];
+    char ipv6_addr[INET6_ADDRSTRLEN];
     int cmp_ind;
     
     
@@ -222,22 +223,42 @@ static int print_flow_table() {
 	    break;
 	}
 #ifdef WIN32
-	inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
-	strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
+        if (record->ip-type == ETH_TYPE_IP) {
+	    inet_ntop(AF_INET, &record->key.sa.v4_sa, ipv4_addr, INET_ADDRSTRLEN);
+	    strcpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
+        } else {
+	    inet_ntop(AF_INET6, &record->key.sa.v6_sa, ipv6_addr, INET6_ADDRSTRLEN);
+	    strcpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        }
 #else
-	inet_ntop(AF_INET, &record->key.sa, ipv4_addr, INET_ADDRSTRLEN);
-	strncpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
+        if (record->ip-type == ETH_TYPE_IP) {
+	    inet_ntop(AF_INET, &record->key.sa.v4_sa, ipv4_addr, INET_ADDRSTRLEN);
+	    strncpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
+        } else {
+	    inet_ntop(AF_INET, &record->key.sa.v6_sa, ipv6_addr, INET6_ADDRSTRLEN);
+	    strncpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        }
 #endif
 	printf("\t========================\n");
 	printf("\tTABLE Local Addr: %s\n", szAddr);
 	printf("\tTABLE Local Port: %d \n", ntohs(record->key.sp));
 	
 #ifdef WIN32
-	inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
-	strcpy_s(szAddr, sizeof(szAddr), ipv4_addr);
+        if (record->ip-type == ETH_TYPE_IP) {
+	    inet_ntop(AF_INET, &record->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
+	    strcpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
+        } else {
+	    inet_ntop(AF_INET6, &record->key.da.v6_da, ipv6_addr, INET6_ADDRSTRLEN);
+	    strcpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        }
 #else
-	inet_ntop(AF_INET, &record->key.da, ipv4_addr, INET_ADDRSTRLEN);
-	strncpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
+        if (record->ip-type == ETH_TYPE_IP) {
+	    inet_ntop(AF_INET, &record->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
+	    strncpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
+        } else {
+	    inet_ntop(AF_INET, &record->key.da.v6_da, ipv6_addr, INET6_ADDRSTRLEN);
+	    strncpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        }
 #endif
 	printf("\tTABLE Remote Addr: %s\n", szAddr);
 	printf("\tTABLE Remote Port: %d\n", ntohs(record->key.dp));
@@ -1074,8 +1095,9 @@ int get_host_flow_data(joy_ctx_data *ctx) {
             /* we can stop, end of filled in entries in table */
             break;
         }
-        twin.sa = record->key.da;
-        twin.da = record->key.sa;
+        memset_s(&twin, sizeof(flow_key_t), 0x00, sizeof(flow_key_t));
+        twin.sa.v4_sa = record->key.da.v4_da;
+        twin.da.v4_da = record->key.sa.v4_sa;
         twin.sp = record->key.dp;
         twin.dp = record->key.sp;
         twin.prot = record->key.prot;
