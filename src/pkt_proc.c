@@ -57,6 +57,8 @@
 #include "joy_api_private.h"
 #include "safe_lib.h"
 
+#define ETHER_HDR_LEN 14
+
 /** netflow version 9 structure templates */
 static struct nfv9_template v9_templates[MAX_TEMPLATES];
 
@@ -1069,12 +1071,9 @@ void* process_packet (unsigned char *ctx_ptr,
 
     if (ctx->curr_pkt_type == ETH_TYPE_IP) {
         ip_len = ntohs(ip->ip_len);
-        if (ip_len < sizeof(ip_hdr_t) || ip_len > header->caplen) {
+        if (ip_len < sizeof(ip_hdr_t)) {
             /*
-             * IP packet is malformed (shorter than a complete IP header, or
-             * claims to be longer than it is), or not entirely captured by
-             * libpcap (which will depend on MTU and SNAPLEN; you can change
-             * the latter if need be).
+             * IP packet is malformed shorter than a complete IP header
              */
             if (allocated_packet_header)
                 free(dyn_header);
@@ -1082,6 +1081,28 @@ void* process_packet (unsigned char *ctx_ptr,
         }
     } else {
         ip_len = ntohs(ipv6->ip_len);
+        if (ip_len < IPV6_HDR_LENGTH) {
+            /*
+             * IP packet is malformed shorter than a complete IP header
+             */
+            if (allocated_packet_header)
+                free(dyn_header);
+            return NULL;
+        }
+    }
+
+    /* check for truncated packet */
+    if (ip_len > header->caplen) {
+        /*
+         * IP packet is truncated (claims to be longer than
+         * what was capture by libpcap).
+         * This will depend on MTU and SNAPLEN; you can change
+         * the latter if need be.
+         * Let's reset the ip_len to the length of the caplen minus
+         * the ethernet header and then process the truncated packet.
+         */
+        joy_log_debug("Truncated IP packet: orig len %u , new len %u", ip_len, (header->caplen-ETHER_HDR_LEN));
+        ip_len = header->caplen - ETHER_HDR_LEN;
     }
 
     /* fill in key components */
