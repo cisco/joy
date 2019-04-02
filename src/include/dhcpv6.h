@@ -1,24 +1,24 @@
 /*
- *	
- * Copyright (c) 2016 Cisco Systems, Inc.
+ *
+ * Copyright (c) 2019 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -34,27 +34,65 @@
  *
  */
 
-/**
- * \file modules.h
+/*
+ * \file dhcpv6.h
  *
- * \brief module interface
+ * \brief Dynamic Host Configuration Protocol (DHCP) IPv6 awareness
  *
  */
-#ifndef MODULES_H
-#define MODULES_H
 
-#include "wht.h"          /* walsh-hadamard transform      */
-#include "example.h"      /* example feature module        */
-#include "dns.h"          /* DNS response capture          */
-#include "ssh.h"          /* secure shell protocol         */
-#include "ike.h"          /* ike protocol                  */
-#include "salt.h"         /* seq of app lengths and times  */
-#include "ppi.h"          /* per-packet information        */
-#include "tls.h"          /* tls protocol                  */
-#include "dhcp.h"         /* dhcp protocol                 */
-#include "dhcpv6.h"       /* dhcp v6 protocol              */
-#include "http.h"         /* http protocol                 */
-#include "payload.h"      /* TCP, UDP, IP payload prefix   */
-#include "fp.h"           /* implementation fingerprinting */
+#ifndef DHCPV6_H
+#define DHCPV6_H
 
-#endif /* MODULES_H */
+#include <stdio.h>   /* for FILE* */
+#include <stdint.h>
+#include <pcap.h>
+#include "output.h"
+#include "utils.h"
+
+#ifdef WIN32
+# include <Winsock2.h>
+#else
+# include <netinet/in.h>
+#endif
+
+#define dhcpv6_usage "  dhcp=1                     report dhcp information\n"
+
+#define dhcpv6_filter(record) \
+    ((record->key.prot == 17) && \
+      ((record->key.sp == 547 && record->key.dp == 546) || (record->key.sp == 546 && record->key.dp == 547)) \
+    )
+
+#define MAX_DHCP_V6_MSGS 10
+#define MAX_DHCP_V6_MSG_LEN 64
+
+typedef struct dhcp_v6_message_ {
+    uint8_t msg_type;
+    uint32_t trans_id;
+    uint8_t data[MAX_DHCP_V6_MSG_LEN];
+} dhcp_v6_message_t;
+
+typedef struct dhcp_v6_ {
+    joy_role_e role;
+    dhcp_v6_message_t messages[MAX_DHCP_V6_MSGS];
+    uint16_t message_count;
+} dhcpv6_t;
+
+void dhcpv6_init(dhcpv6_t **dhcp_v6_handle);
+
+void dhcpv6_update(dhcpv6_t *dhcp_v6,
+                   const struct pcap_pkthdr *header,
+                   const void *data,
+                   unsigned int data_len,
+                   unsigned int report_dhcp);
+
+void dhcpv6_print_json(const dhcpv6_t *d1,
+                       const dhcpv6_t *d2,
+                       zfile f);
+
+void dhcpv6_delete(dhcpv6_t **dhcp_v6_handle);
+
+void dhcpv6_unit_test(void);
+
+#endif /* DHCPV6_H */
+

@@ -456,6 +456,7 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->report_ssh = ((init_data->bitmask & JOY_SSH_ON) ? 1 : 0);
     glb_config->report_tls = ((init_data->bitmask & JOY_TLS_ON) ? 1 : 0);
     glb_config->report_dhcp = ((init_data->bitmask & JOY_DHCP_ON) ? 1 : 0);
+    glb_config->report_dhcpv6 = glb_config->report_dhcp;
     glb_config->report_http = ((init_data->bitmask & JOY_HTTP_ON) ? 1 : 0);
     glb_config->report_ike = ((init_data->bitmask & JOY_IKE_ON) ? 1 : 0);
     glb_config->report_payload = ((init_data->bitmask & JOY_PAYLOAD_ON) ? 1 : 0);

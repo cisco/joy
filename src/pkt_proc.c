@@ -1081,7 +1081,7 @@ void* process_packet (unsigned char *ctx_ptr,
         }
     } else {
         ip_len = ntohs(ipv6->ip_len);
-        if (ip_len < IPV6_HDR_LENGTH) {
+        if (header->caplen < IPV6_HDR_LENGTH) {
             /*
              * IP packet is malformed shorter than a complete IP header
              */

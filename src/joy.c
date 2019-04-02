@@ -671,6 +671,9 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         config_set_from_file(glb_config, config_file);
     }
 
+    /* Make sure DHCP V6 is the same as DHCP */
+    glb_config->report_dhcpv6 = glb_config->report_dhcp;
+
     /* Make sure the config is valid */
     if (config_sanity_check()) return 1;
 
