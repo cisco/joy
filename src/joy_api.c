@@ -1130,7 +1130,7 @@ void joy_update_ctx_global_time(uint8_t ctx_index,
 uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts) {
     uint8_t rc = 0;
     uint8_t context = 0;
-    unsigned int sum = 0;
+    uint32_t sum = 0;
     flow_key_t key;
 
     /* clear the key buffer */

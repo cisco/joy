@@ -381,7 +381,7 @@ static inline char printable(char c) {
     return '*';
 }
 
-static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int *len, 
+static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int *len,
                                            char *outname, unsigned int outname_len) {
     char *terminus = outname + outname_len;
     char *c = *name;
@@ -410,18 +410,17 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
     if (*len <= 0 || outname > terminus || outname_len < 2) {
       return dns_err_unterminated;
     }
-
     outname[1] = 0;         /* set output to "", in case of error */
     while (*len > 0 && outname < terminus) {
         if (char_is_label(*c)) {
             if (*c < 64 && *len > *c) {
                 if (*c == 0) {
-                    *name = c+1; 
+                    *name = c+1;
                     *outname = 0;
                     return dns_ok;  /* got NULL label       */
                 }
                 jump = *c + 1;
-                /* 
+                /*
                  * make (printable) copy of string
                  */
                 *outname++ = '.';
@@ -450,6 +449,84 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
             return dns_err_label_malformed;
         }
     } 
+    return dns_err_unterminated;
+}
+
+static enum dns_err dns_header_parse_mxname (const dns_hdr *hdr, char **name, int *len,
+                                             char *outname, unsigned int outname_len) {
+    char *terminus = outname + outname_len;
+    char *c = *name;
+    unsigned char jump;
+    int i;
+    int processed_preference = 0;
+    int offsetlen = (*name - (const char *)hdr) + *len; /* num bytes available after offset pointer */
+    const char *offsetname;
+    enum dns_err err;
+
+    /*
+     * A DNS name is a sequence of zero or more labels, possibly
+     * followed by an offset.  A label consists of an 8-bit number L
+     * that is less than 64 followed by L characters.  An offset is
+     * 16-bit number, with the first two bits set to one.  A name is
+     * either a sequence of two or more labels, with the last label
+     * being NULL (L=0), or a sequence of one or more labels followed by
+     * an offset, or just an offset.
+     *
+     * An offset is a pointer to (part of) a second name in another
+     * location of the same DNS packet.  Importantly, note that there
+     * may be an offset in the second name; this function must follow
+     * each offset that appears and copy the names to outputname.
+     */
+
+    /* robustness check */
+    if (*len <= 0 || outname > terminus || outname_len < 2) {
+      return dns_err_unterminated;
+    }
+    outname[1] = 0;         /* set output to "", in case of error */
+    while (*len > 0 && outname < terminus) {
+        if (char_is_label(*c)) {
+            /* first 2 bytes of the MX label is the preference */
+            if (!processed_preference) {
+                c += 2;
+                *len -= 2;
+                processed_preference = 1;
+            }
+            if (*c < 64 && *len > *c) {
+                if (*c == 0) {
+                    *name = c+1;
+                    *outname = 0;
+                    return dns_ok;  /* got NULL label       */
+                }
+                jump = *c + 1;
+                /*
+                 * make (printable) copy of string
+                 */
+                *outname++ = '.';
+                for (i=1; i<jump; i++) {
+                    *outname++ = printable(c[i]);
+                }
+                /* advance pointers, decrease lengths */
+                outname_len -= jump;
+                *len -= jump;
+                c += jump;
+                *name += jump;
+            } else {
+                return dns_err_label_too_long;
+            }
+        } else if (char_is_offset(*c)) {
+            uint16_t *offset;
+
+            err = uint16_parse(&offset, name, len);
+            if (err != dns_ok) {
+                return dns_err_offset_too_long;
+            }
+            offsetname = (const void *)((char *)hdr + (ntohs(*offset) & 0x3FFF));
+            offsetlen -= (ntohs(*offset) & 0x3FFF);
+            return dns_header_parse_name(hdr, (void *)&offsetname, &offsetlen, outname, outname_len);
+        } else {
+            return dns_err_label_malformed;
+        }
+    }
     return dns_err_unterminated;
 }
 
@@ -495,10 +572,15 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
             }
             inet_ntop(AF_INET6, addr, ipv6_addr, INET6_ADDRSTRLEN);
             zprintf(output, "\"aaaa\":\"%s\"", ipv6_addr);
-        } else if (type == type_SOA  || type == type_PTR || type == type_CNAME || type == type_NS) {
+        } else if (type == type_SOA  || type == type_PTR || type == type_CNAME || type == type_NS || type == type_MX) {
             const char *typename;
 
-            err = dns_header_parse_name(rh, r, len, name, sizeof(name)); /* note: does not check rdlength */
+            /* mail exchange has a 2-byte preference before the name */
+            if (type == type_MX) {
+                err = dns_header_parse_mxname(rh, r, len, name, sizeof(name)); /* note: does not check rdlength */
+            } else {
+                err = dns_header_parse_name(rh, r, len, name, sizeof(name)); /* note: does not check rdlength */
+            }
             if (err != dns_ok) { 
                 return err; 
             }
@@ -510,6 +592,8 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
                 typename = "ptr";
             } else if (type == type_NS) {
                 typename = "ns";
+            } else if (type == type_MX) {
+                typename = "mx";
             } else {
                 typename = "cname";
             }
@@ -635,6 +719,10 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
             return;
         }
         len -= rdlength;
+        if (rdlength > 1) {
+            r += (rdlength - 1);
+            rdlength = 1;
+        }
         zprintf(output, ",\"ttl\":%u}", ntohl(rr->ttl));
     }
 
