@@ -671,7 +671,12 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
         config_set_from_file(glb_config, config_file);
     }
 
-    /* Make sure DHCP V6 is the same as DHCP */
+    /*
+     * Config parsing will parse DHCP=1 and DHCPv6=1 to the same
+     * configuration variable(dhcp). If we are interested in
+     * DHCP, we would be interested in all DHCP (v4 and v6).
+     * So, make sure DHCP V6 is the same as DHCP.
+     */
     glb_config->report_dhcpv6 = glb_config->report_dhcp;
 
     /* Make sure the config is valid */

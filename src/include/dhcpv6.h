@@ -56,7 +56,7 @@
 # include <netinet/in.h>
 #endif
 
-#define dhcpv6_usage "  dhcp=1                     report dhcp information\n"
+#define dhcpv6_usage "  dhcpv6=1                   report dhcpv6 information\n"
 
 #define dhcpv6_filter(record) \
     ((record->key.prot == 17) && \
@@ -73,9 +73,8 @@ typedef struct dhcp_v6_message_ {
 } dhcp_v6_message_t;
 
 typedef struct dhcp_v6_ {
-    joy_role_e role;
-    dhcp_v6_message_t messages[MAX_DHCP_V6_MSGS];
     uint16_t message_count;
+    dhcp_v6_message_t messages[MAX_DHCP_V6_MSGS];
 } dhcpv6_t;
 
 void dhcpv6_init(dhcpv6_t **dhcp_v6_handle);
@@ -84,7 +83,7 @@ void dhcpv6_update(dhcpv6_t *dhcp_v6,
                    const struct pcap_pkthdr *header,
                    const void *data,
                    unsigned int data_len,
-                   unsigned int report_dhcp);
+                   unsigned int report_dhcpv6);
 
 void dhcpv6_print_json(const dhcpv6_t *d1,
                        const dhcpv6_t *d2,

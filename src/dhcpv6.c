@@ -96,22 +96,28 @@ static const char *dhcpv6_option_types[] = {
 };
 
 static const char* dhcpv6_msg_to_string (uint16_t id) {
-    /* make sure the msg id is in the valid range */
+    /*
+     * make sure the msg id is in the valid range
+     * from dhcpv6_msg_types definition above.
+     */
     if ((id >= 1) && (id <= 13)) {
         return dhcpv6_msg_types[id];
     } else {
-        return "UNKNOWN";
+        return NULL;
     }
 }
 
 static const char* dhcpv6_option_to_string (uint16_t id) {
-    /* make sure the option id is in the valid range */
+    /*
+     * make sure the option id is in the valid range
+     * from dhcpv6_option_types definition above.
+     */
     if (((id >= 1) && (id <= 19)) ||
         ((id >= 25) && (id <= 26)) ||
         (id == 32) || (id == 82) || (id == 83)) {
         return dhcpv6_option_types[id];
     } else {
-        return "UNKNOWN";
+        return NULL;
     }
 }
 
@@ -164,7 +170,7 @@ void dhcpv6_delete(dhcpv6_t **dhcp_v6_handle)
  * \param header PCAP packet header pointer
  * \param data Beginning of the DHCP payload data.
  * \param len Length in bytes of the \p data.
- * \param report_dhcp Flag indicating whether this feature should run.
+ * \param report_dhcpv6 Flag indicating whether this feature should run.
  *                    0 for no, 1 for yes
  *
  * \return none
@@ -173,17 +179,17 @@ void dhcpv6_update(dhcpv6_t *dhcp_v6,
                     const struct pcap_pkthdr *header,
                     const void *data,
                     unsigned int data_len,
-                    unsigned int report_dhcp)
+                    unsigned int report_dhcpv6)
 {
     uint16_t max_bytes = 0;
     const unsigned char *ptr = (const unsigned char *)data;
     dhcp_v6_message_t *msg = NULL;
 
     joy_log_debug("dhcp_v6[%p],header[%p],data[%p],len[%d],report[%d]",
-            dhcp_v6,header,data,data_len,report_dhcp);
+            dhcp_v6,header,data,data_len,report_dhcpv6);
 
     /* Check run flag. Bail if 0 */
-    if (!report_dhcp) {
+    if (!report_dhcpv6) {
         return;
     }
 
@@ -211,6 +217,7 @@ void dhcpv6_update(dhcpv6_t *dhcp_v6,
     msg->trans_id |= (uint8_t)*(ptr+2);
     ptr += 3;
 
+    /* copy the payload into the data storage */
     max_bytes -= 4;
     memcpy_s(msg->data, max_bytes, ptr, max_bytes);
 
@@ -240,18 +247,28 @@ void dhcpv6_print_json(const dhcpv6_t *d1,
         return;
     }
 
+    /* print out the data we want from the messages */
     if (d1->message_count) {
         zprintf(f, ",\"dhcpv6\":[");
         for (i = 0; i < d1->message_count; i++) {
+            const char *disp_buffer = NULL;
             const dhcp_v6_message_t *msg = &d1->messages[i];
             uint8_t *ptr = (uint8_t*)msg->data;
 
+            /* pesky JSON commas to seperate elements */
             if (!first_time) {
                 zprintf(f, ",");
             } else {
                 first_time = 0;
             }
-            zprintf(f, "{\"type\":\"%s\",",dhcpv6_msg_to_string(msg->msg_type));
+
+            /* printout the message type and transaction id */
+            disp_buffer = dhcpv6_msg_to_string(msg->msg_type);
+            if (disp_buffer == NULL) {
+                zprintf(f, "{\"type\":\"%u\",",msg->msg_type);
+            } else {
+                zprintf(f, "{\"type\":\"%s\",",disp_buffer);
+            }
             zprintf(f, "\"transid\":%x,",msg->trans_id);
 
             /* first 4 bytes of the option are the type and length */
@@ -260,7 +277,13 @@ void dhcpv6_print_json(const dhcpv6_t *d1,
             dhcpv6_opt_len = *ptr << 8 | *(ptr+1);
             ptr += 2;
 
-            zprintf(f, "\"option\":\"%s\",",dhcpv6_option_to_string(dhcpv6_option));
+            /* printout the option and length */
+            disp_buffer = dhcpv6_option_to_string(dhcpv6_option);
+            if (disp_buffer == NULL) {
+                zprintf(f, "\"option\":\"%u\",",dhcpv6_option);
+            } else {
+                zprintf(f, "\"option\":\"%s\",",dhcpv6_option_to_string(dhcpv6_option));
+            }
 
 #ifdef DHCPV6_DEBUG
             zprintf(f, "\"optlen\":%u,",dhcpv6_opt_len);
@@ -282,6 +305,7 @@ void dhcpv6_print_json(const dhcpv6_t *d1,
             zprintf(f, "\"}");
         }
 #else
+            /* for CLIENT ID and SERVER ID, printout the mac address */
             if ((dhcpv6_option == DHCPV6_CLIENTID) || (dhcpv6_option == DHCPV6_SERVERID)) {
                 zprintf(f, "\"optlen\":%u,",dhcpv6_opt_len);
                 zprintf(f, "\"macaddr\":\"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\"}",
@@ -295,7 +319,7 @@ void dhcpv6_print_json(const dhcpv6_t *d1,
         zprintf(f, "]");
     }
 
-    /* sanity check */
+    /* sanity check and for compiler complain */
     if (d2 == NULL) {
         return;
     }
