@@ -223,20 +223,20 @@ static int print_flow_table() {
 	    break;
 	}
 #ifdef WIN32
-        if (record->ip-type == ETH_TYPE_IP) {
-	    inet_ntop(AF_INET, &record->key.sa.v4_sa, ipv4_addr, INET_ADDRSTRLEN);
-	    strcpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
-        } else {
+        if (record->ip-type == ETH_TYPE_IPV6) {
 	    inet_ntop(AF_INET6, &record->key.sa.v6_sa, ipv6_addr, INET6_ADDRSTRLEN);
 	    strcpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        } else {
+	    inet_ntop(AF_INET, &record->key.sa.v4_sa, ipv4_addr, INET_ADDRSTRLEN);
+	    strcpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
         }
 #else
-        if (record->ip-type == ETH_TYPE_IP) {
+        if (record->ip-type == ETH_TYPE_IPV6) {
+	    inet_ntop(AF_INET6, &record->key.sa.v6_sa, ipv6_addr, INET6_ADDRSTRLEN);
+	    strncpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        } else {
 	    inet_ntop(AF_INET, &record->key.sa.v4_sa, ipv4_addr, INET_ADDRSTRLEN);
 	    strncpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
-        } else {
-	    inet_ntop(AF_INET, &record->key.sa.v6_sa, ipv6_addr, INET6_ADDRSTRLEN);
-	    strncpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
         }
 #endif
 	printf("\t========================\n");
@@ -244,20 +244,20 @@ static int print_flow_table() {
 	printf("\tTABLE Local Port: %d \n", ntohs(record->key.sp));
 	
 #ifdef WIN32
-        if (record->ip-type == ETH_TYPE_IP) {
-	    inet_ntop(AF_INET, &record->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
-	    strcpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
-        } else {
+        if (record->ip-type == ETH_TYPE_IPV6) {
 	    inet_ntop(AF_INET6, &record->key.da.v6_da, ipv6_addr, INET6_ADDRSTRLEN);
 	    strcpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        } else {
+	    inet_ntop(AF_INET, &record->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
+	    strcpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
         }
 #else
-        if (record->ip-type == ETH_TYPE_IP) {
-	    inet_ntop(AF_INET, &record->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
-	    strncpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
-        } else {
+        if (record->ip-type == ETH_TYPE_IPV6) {
 	    inet_ntop(AF_INET, &record->key.da.v6_da, ipv6_addr, INET6_ADDRSTRLEN);
 	    strncpy_s(szAddr, sizeof(szAddr), ipv6_addr, sizeof(szAddr)-1);
+        } else {
+	    inet_ntop(AF_INET, &record->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
+	    strncpy_s(szAddr, sizeof(szAddr), ipv4_addr, sizeof(szAddr)-1);
         }
 #endif
 	printf("\tTABLE Remote Addr: %s\n", szAddr);

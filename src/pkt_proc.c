@@ -854,22 +854,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
     }
 
     /* we are able to fill out the key structure */
-    if (ether_type == ETH_TYPE_IP) {
-        if (ip_fragment_offset(ip) == 0) {
-            /* fill out IP-specific fields of flow key, plus proto selector */
-            key->sa.v4_sa = ip->ip_src;
-            key->da.v4_da = ip->ip_dst;
-            key->prot = ip->ip_prot;
-
-        }  else {
-            /*
-             * select IP processing, since we don't have a TCP or UDP header
-             */
-            key->sa.v4_sa = ip->ip_src;
-            key->da.v4_da = ip->ip_dst;
-            key->prot = IPPROTO_IP;
-        }
-    } else {
+    if (ether_type == ETH_TYPE_IPV6) {
         bool done = 0;
         char *ext_hdr = NULL;
 
@@ -901,14 +886,29 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
                     break;
             }
         }
+    } else {
+        if (ip_fragment_offset(ip) == 0) {
+            /* fill out IP-specific fields of flow key, plus proto selector */
+            key->sa.v4_sa = ip->ip_src;
+            key->da.v4_da = ip->ip_dst;
+            key->prot = ip->ip_prot;
+
+        }  else {
+            /*
+             * select IP processing, since we don't have a TCP or UDP header
+             */
+            key->sa.v4_sa = ip->ip_src;
+            key->da.v4_da = ip->ip_dst;
+            key->prot = IPPROTO_IP;
+        }
     }
 
     /* determine transport length and start */
     rc = 1;
-    if (ether_type == ETH_TYPE_IP) {
-        transport_start = (char *)ip + ip_hdr_len;
-    } else {
+    if (ether_type == ETH_TYPE_IPV6) {
         transport_start = (char *)ipv6 + ip_hdr_len + (ipv6_ext_hdrs * IPV6_EXT_HDR_LEN);
+    } else {
+        transport_start = (char *)ip + ip_hdr_len;
     }
 
     transport_start = (const char *)ip + ip_hdr_len;
@@ -1059,19 +1059,19 @@ void* process_packet (unsigned char *ctx_ptr,
         gettimeofday(&now,NULL);
         dyn_header->ts.tv_sec = now.tv_sec;
         dyn_header->ts.tv_usec = now.tv_usec;
-        if (ctx->curr_pkt_type == ETH_TYPE_IP) {
-            dyn_header->caplen = ip->ip_len;
-            dyn_header->len = ip->ip_len;
-        } else {
+        if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
             dyn_header->caplen = ipv6->ip_len;
             dyn_header->len = ipv6->ip_len;
+        } else {
+            dyn_header->caplen = ip->ip_len;
+            dyn_header->len = ip->ip_len;
         }
         header = dyn_header;
     }
 
-    if (ctx->curr_pkt_type == ETH_TYPE_IP) {
-        ip_len = ntohs(ip->ip_len);
-        if (ip_len < sizeof(ip_hdr_t)) {
+    if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
+        ip_len = ntohs(ipv6->ip_len);
+        if (header->caplen < IPV6_HDR_LENGTH) {
             /*
              * IP packet is malformed shorter than a complete IP header
              */
@@ -1080,8 +1080,8 @@ void* process_packet (unsigned char *ctx_ptr,
             return NULL;
         }
     } else {
-        ip_len = ntohs(ipv6->ip_len);
-        if (header->caplen < IPV6_HDR_LENGTH) {
+        ip_len = ntohs(ip->ip_len);
+        if (ip_len < sizeof(ip_hdr_t)) {
             /*
              * IP packet is malformed shorter than a complete IP header
              */
@@ -1106,22 +1106,7 @@ void* process_packet (unsigned char *ctx_ptr,
     }
 
     /* fill in key components */
-    if (ctx->curr_pkt_type == ETH_TYPE_IP) {
-        if (ip_fragment_offset(ip) == 0) {
-            /* fill out IP-specific fields of flow key */
-            key.sa.v4_sa = ip->ip_src;
-            key.da.v4_da = ip->ip_dst;
-            key.prot = ip->ip_prot;
-        }  else {
-            // fprintf(info, "found IP fragment (offset: %02x)\n", ip_fragment_offset(ip));
-            /*
-             * select IP processing, since we don't have a TCP or UDP header
-             */
-            key.sa.v4_sa = ip->ip_src;
-            key.da.v4_da = ip->ip_dst;
-            key.prot = IPPROTO_IP;
-        }
-    } else {
+    if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
         bool done = 0;
         char *ext_hdr = NULL;
 
@@ -1156,33 +1141,48 @@ void* process_packet (unsigned char *ctx_ptr,
                     break;
             }
         }
+    } else {
+        if (ip_fragment_offset(ip) == 0) {
+            /* fill out IP-specific fields of flow key */
+            key.sa.v4_sa = ip->ip_src;
+            key.da.v4_da = ip->ip_dst;
+            key.prot = ip->ip_prot;
+        }  else {
+            // fprintf(info, "found IP fragment (offset: %02x)\n", ip_fragment_offset(ip));
+            /*
+             * select IP processing, since we don't have a TCP or UDP header
+             */
+            key.sa.v4_sa = ip->ip_src;
+            key.da.v4_da = ip->ip_dst;
+            key.prot = IPPROTO_IP;
+        }
     }
 
     /* determine transport length and start */
-    if (ctx->curr_pkt_type == ETH_TYPE_IP) {
-        transport_len =  ip_len - ip_hdr_len;
-        transport_start = (char *)ip + ip_hdr_len;
-    } else {
+    if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
         transport_len =  ip_len;
         transport_start = (char *)ipv6 + ip_hdr_len + (ipv6_ext_hdrs * IPV6_EXT_HDR_LEN);
+    } else {
+        transport_len =  ip_len - ip_hdr_len;
+        transport_start = (char *)ip + ip_hdr_len;
     }
 
     /* print source and destination IP addresses */
     if (glb_config->verbosity != JOY_LOG_OFF && glb_config->verbosity <= JOY_LOG_INFO) { \
-        if (ctx->curr_pkt_type == ETH_TYPE_IP) {
-            inet_ntop(AF_INET, &ip->ip_src, ipv4_addr, INET_ADDRSTRLEN);
-            joy_log_info("Source IP: %s", ipv4_addr);
-            inet_ntop(AF_INET, &ip->ip_dst, ipv4_addr, INET_ADDRSTRLEN);
-            joy_log_info("Dest IP: %s", ipv4_addr);
-            joy_log_info("Len: %u", ip_len);
-            joy_log_debug("IP header len: %u", ip_hdr_len);
-        } else {
+        if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
             inet_ntop(AF_INET6, &ipv6->ip_src, ipv6_addr, INET6_ADDRSTRLEN);
             joy_log_info("Source IPv6: %s", ipv6_addr);
             inet_ntop(AF_INET6, &ipv6->ip_dst, ipv6_addr, INET6_ADDRSTRLEN);
             joy_log_info("Dest IP: %s", ipv6_addr);
             joy_log_info("Len: %u", ip_len);
             joy_log_debug("IPv6 header len: %u", (ip_hdr_len + (ipv6_ext_hdrs * 8)));
+        } else {
+            inet_ntop(AF_INET, &ip->ip_src, ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_info("Source IP: %s", ipv4_addr);
+            inet_ntop(AF_INET, &ip->ip_dst, ipv4_addr, INET_ADDRSTRLEN);
+            joy_log_info("Dest IP: %s", ipv4_addr);
+            joy_log_info("Len: %u", ip_len);
+            joy_log_debug("IP header len: %u", ip_hdr_len);
         }
     }
 
@@ -1279,7 +1279,15 @@ void* process_packet (unsigned char *ctx_ptr,
     /*
      * Get IP ID
      */
-    if (ctx->curr_pkt_type == ETH_TYPE_IP) {
+    if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
+        /*
+         * Set minimum ttl in flow record
+         * for IPv6 we use the Hop Limit field
+         */
+        if (record->ip.ttl > ipv6->ip_hop) {
+            record->ip.ttl = ipv6->ip_hop;
+        }
+    } else {
         if (record->ip.num_id < MAX_NUM_IP_ID) {
             record->ip.id[record->ip.num_id] = ntohs(ip->ip_id);
             record->ip.num_id++;
@@ -1290,14 +1298,6 @@ void* process_packet (unsigned char *ctx_ptr,
          */
         if (record->ip.ttl > ip->ip_ttl) {
             record->ip.ttl = ip->ip_ttl;
-        }
-    } else {
-        /*
-         * Set minimum ttl in flow record
-         * for IPv6 we use the Hop Limit field
-         */
-        if (record->ip.ttl > ipv6->ip_hop) {
-            record->ip.ttl = ipv6->ip_hop;
         }
     }
 
@@ -1332,10 +1332,10 @@ void* process_packet (unsigned char *ctx_ptr,
         if (key.prot == IPPROTO_TCP) {
             /* SYN flag processed and got the next non-zero packet */
             if (record->idp_packet == 1) {
-                if (ctx->curr_pkt_type == ETH_TYPE_IP) {
-                    memcpy_s(record->idp,  record->idp_len, ip, record->idp_len);
-                } else {
+                if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
                     memcpy_s(record->idp,  record->idp_len, ipv6, record->idp_len);
+                } else {
+                    memcpy_s(record->idp,  record->idp_len, ip, record->idp_len);
                 }
                 record->idp_packet = 0;
                 joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
@@ -1346,10 +1346,10 @@ void* process_packet (unsigned char *ctx_ptr,
                 record->idp = NULL;
             }
         } else {
-            if (ctx->curr_pkt_type == ETH_TYPE_IP) {
-                memcpy_s(record->idp, record->idp_len, ip, record->idp_len);
-            } else {
+            if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
                 memcpy_s(record->idp, record->idp_len, ipv6, record->idp_len);
+            } else {
+                memcpy_s(record->idp, record->idp_len, ip, record->idp_len);
             }
             joy_log_debug("Stashed %u bytes of IDP", record->idp_len);
         }

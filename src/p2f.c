@@ -1352,7 +1352,12 @@ static void flow_record_print_json
      */
     zprintf(ctx->output, "{");
 
-    if (rec->ip_type == ETH_TYPE_IP) {
+    if (rec->ip_type == ETH_TYPE_IPV6) {
+        inet_ntop(AF_INET6, &rec->key.sa.v6_sa, ipv6_addr, INET6_ADDRSTRLEN);
+        zprintf(ctx->output, "\"sa\":\"%s\",", ipv6_addr);
+        inet_ntop(AF_INET6, &rec->key.da.v6_da, ipv6_addr, INET6_ADDRSTRLEN);
+        zprintf(ctx->output, "\"da\":\"%s\",", ipv6_addr);
+    } else {
         char buffer[33];
         if (ipv4_addr_needs_anonymization(&rec->key.sa.v4_sa)) {
             addr_get_anon_hexstring(&rec->key.sa.v4_sa, (char*)&buffer, 33);
@@ -1368,11 +1373,6 @@ static void flow_record_print_json
             inet_ntop(AF_INET, &rec->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
             zprintf(ctx->output, "\"da\":\"%s\",", ipv4_addr);
         }
-    } else {
-        inet_ntop(AF_INET6, &rec->key.sa.v6_sa, ipv6_addr, INET6_ADDRSTRLEN);
-        zprintf(ctx->output, "\"sa\":\"%s\",", ipv6_addr);
-        inet_ntop(AF_INET6, &rec->key.da.v6_da, ipv6_addr, INET6_ADDRSTRLEN);
-        zprintf(ctx->output, "\"da\":\"%s\",", ipv6_addr);
     }
     zprintf(ctx->output, "\"pr\":%u,", rec->key.prot);
 
