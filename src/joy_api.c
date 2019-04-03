@@ -1150,6 +1150,7 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
      * for IPv4 addresses, the upper 96 bits are zero, so using the IPv6 union of the structure
      * does not affect the sum or the resulting hash.
      */
+#ifdef DARWIN
     sum += (unsigned int)key.sa.v6_sa.__u6_addr.__u6_addr32[0];
     sum += (unsigned int)key.sa.v6_sa.__u6_addr.__u6_addr32[1];
     sum += (unsigned int)key.sa.v6_sa.__u6_addr.__u6_addr32[2];
@@ -1158,6 +1159,40 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
     sum += (unsigned int)key.da.v6_da.__u6_addr.__u6_addr32[1];
     sum += (unsigned int)key.da.v6_da.__u6_addr.__u6_addr32[2];
     sum += (unsigned int)key.da.v6_da.__u6_addr.__u6_addr32[3];
+#else
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[0];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[1];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[2];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[3];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[4];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[5];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[6];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[7];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[8];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[9];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[10];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[11];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[12];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[13];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[14];
+    sum += (unsigned int)key.sa.v6_sa.__in6_u.__u6_addr8[15];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[0];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[1];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[2];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[3];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[4];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[5];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[6];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[7];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[8];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[9];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[10];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[11];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[12];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[13];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[14];
+    sum += (unsigned int)key.da.v6_da.__in6_u.__u6_addr8[15];
+#endif
     sum += (unsigned int)key.sp;
     sum += (unsigned int)key.dp;
     sum += (unsigned int)key.prot;

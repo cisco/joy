@@ -182,6 +182,7 @@ static unsigned int flow_key_hash (const flow_key_t *f) {
          * for IPv4 addresses, the upper 96 bits are zero, so using the IPv6 union of the structure
          * does not affect the sum or the resulting hash.
          */
+#ifdef DARWIN
         hash += (uint32_t)f->sa.v6_sa.__u6_addr.__u6_addr32[0];
         hash += (uint32_t)f->sa.v6_sa.__u6_addr.__u6_addr32[1];
         hash += (uint32_t)f->sa.v6_sa.__u6_addr.__u6_addr32[2];
@@ -190,6 +191,40 @@ static unsigned int flow_key_hash (const flow_key_t *f) {
         hash += (uint32_t)f->da.v6_da.__u6_addr.__u6_addr32[1];
         hash += (uint32_t)f->da.v6_da.__u6_addr.__u6_addr32[2];
         hash += (uint32_t)f->da.v6_da.__u6_addr.__u6_addr32[3];
+#else
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[0];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[1];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[2];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[3];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[4];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[5];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[6];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[7];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[8];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[9];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[10];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[11];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[12];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[13];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[14];
+        hash += (uint32_t)f->sa.v6_sa.__in6_u.__u6_addr8[15];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[0];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[1];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[2];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[3];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[4];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[5];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[6];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[7];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[8];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[9];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[10];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[11];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[12];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[13];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[14];
+        hash += (uint32_t)f->da.v6_da.__in6_u.__u6_addr8[15];
+#endif
         hash += (uint32_t)f->sp;
         hash += (uint32_t)f->dp;
         hash += (uint32_t)f->prot;

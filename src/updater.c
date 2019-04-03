@@ -139,7 +139,11 @@ static upd_return_codes_e update_radix_trie (void)
  * \param ptr always a pointer to the config structure
  * \return never return and the thread terminates when joy exits
  */
-void *updater_main (void *ptr)
+#ifdef WIN32
+__declspec(noreturn) void *updater_main (void *ptr)
+#else
+__attribute__((__noreturn__)) void *updater_main (void *ptr)
+#endif
 {
     configuration_t *config = (configuration_t*)ptr;
 
@@ -153,6 +157,5 @@ void *updater_main (void *ptr)
         SLEEP(UPDATER_WORK_INTERVAL);
     }
 
-    return NULL;
 }
 

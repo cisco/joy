@@ -404,7 +404,7 @@ static unsigned int interface_list_get(void) {
     return num_ifs;
 }
 
-static void print_libpcap_stats() {
+static void print_libpcap_stats(void) {
     struct pcap_stat cap_stats;
 
     memset_s(&cap_stats, sizeof(struct pcap_stat), 0x00, sizeof(struct pcap_stat));
