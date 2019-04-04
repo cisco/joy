@@ -2012,6 +2012,8 @@ void tls_print_json (const tls_t *data,
                      const tls_t *data_twin,
                      zfile f) {
     int i = 0;
+    tls_t *d1 = (tls_t*)data;
+    tls_t *d2 = (tls_t*)data_twin;
 
     if (data == NULL) {
         return;
@@ -2019,12 +2021,30 @@ void tls_print_json (const tls_t *data,
 
     /* Make sure the tls info passed in is reliable */
     if (!data->version) {
-        return;
+        if (data->handshake_buffer) {
+            tls_handshake_buffer_parse(d1);
+            free(d1->handshake_buffer);
+            d1->handshake_buffer = NULL;
+            d1->handshake_length = 0;
+            d1->done_handshake = 1;
+        }
+        if (!data->version) {
+            return;
+        }
     }
 
     /* If a twin is present make sure its info is reliable */
     if (data_twin != NULL && !data_twin->version) {
-        return;
+        if (data_twin->handshake_buffer) {
+            tls_handshake_buffer_parse(d2);
+            free(d2->handshake_buffer);
+            d2->handshake_buffer = NULL;
+            d2->handshake_length = 0;
+            d2->done_handshake = 1;
+        }
+        if (!data_twin->version) {
+            return;
+        }
     }
 
     zprintf(f, ",\"tls\":{");

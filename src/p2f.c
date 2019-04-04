@@ -273,8 +273,24 @@ static int flow_key_is_eq (const flow_key_t *a,
                            const flow_key_t *b) {
     int diff = 0;
 
-    /* see if the key structures are the same */
-    memcmp_s(a, sizeof(flow_key_t), b, sizeof(flow_key_t), &diff);
+    if (a->prot != b->prot) {
+        return 1;
+    }
+
+    if (a->sp != b->sp) {
+        return 1;
+    }
+
+    if (a->dp != b->dp) {
+        return 1;
+    }
+
+    memcmp_s(&a->sa.v6_sa, sizeof(struct in6_addr), &b->sa.v6_sa, sizeof(struct in6_addr), &diff);
+    if (diff != 0) {
+        return 1;
+    }
+
+    memcmp_s(&a->da.v6_da, sizeof(struct in6_addr), &b->da.v6_da, sizeof(struct in6_addr), &diff);
     if (diff != 0) {
         return 1;
     }
@@ -1846,6 +1862,8 @@ void remove_record_and_update_list(joy_ctx_data *ctx, flow_record_t *rec)
 flow_record_t *flow_key_get_twin (joy_ctx_data *ctx,
                                   const flow_key_t *key,
                                   unsigned int key_hash) {
+    unsigned int twin_hash = 0;
+
     if (glb_config->flow_key_match_method == EXACT_MATCH) {
         flow_key_t twin;
 
@@ -1859,7 +1877,12 @@ flow_record_t *flow_key_get_twin (joy_ctx_data *ctx,
         twin.sp = key->dp;
         twin.dp = key->sp;
         twin.prot = key->prot;
+        twin_hash = flow_key_hash(&twin);
 
+        /* sanity check the hash calculation */
+        if (twin_hash != key_hash) {
+            joy_log_err("twin hash doesn't match: hash(%x) twin_hash(%x)", key_hash, twin_hash);
+        }
         return flow_record_list_find_record_by_key(&ctx->flow_record_list_array[key_hash], &twin);
 
     } else {
