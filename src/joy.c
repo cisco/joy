@@ -849,7 +849,7 @@ static int process_directory_of_files(joy_ctx_data *ctx, char *input_directory) 
 
     /* use the output filename as the directory to storing results */
     if (glb_config->filename) {
-        strncpy_s(output_dir, (MAX_FILENAME_LEN-1), glb_config->filename, (MAX_FILENAME_LEN-1));
+        strncpy_s(output_dir, MAX_FILENAME_LEN, glb_config->filename, (MAX_FILENAME_LEN-1));
 
         /* create a directory to place all of the output files into */
         memset_s(&st,  sizeof(struct stat), 0x00, sizeof(struct stat));
@@ -966,7 +966,7 @@ static int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename
 
     /* use the output filename as the directory to storing results */
     if (glb_config->filename) {
-        strncpy_s(output_dir, (MAX_FILENAME_LEN-1), glb_config->filename, (MAX_FILENAME_LEN-1));
+        strncpy_s(output_dir, MAX_FILENAME_LEN, glb_config->filename, (MAX_FILENAME_LEN-1));
 
         /* create a directory to place all of the output files into */
         memset_s(&st, sizeof(struct stat), 0x00, sizeof(struct stat));
@@ -983,7 +983,7 @@ static int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename
         }
 
         /* copy input filename path */
-        strncpy_s(input_path, (MAX_FILENAME_LEN-1), input_filename, (MAX_FILENAME_LEN-1));
+        strncpy_s(input_path, MAX_FILENAME_LEN, input_filename, (MAX_FILENAME_LEN-1));
 
 #ifdef WIN32
         /* get the input basename */
