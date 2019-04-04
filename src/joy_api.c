@@ -640,6 +640,11 @@ int joy_initialize_no_config(void *config, FILE *err_info, joy_init_t *data)
     JOY_API_ALLOC_CONTEXT(ctx_data, data->contexts)
     joy_num_contexts = data->contexts;
 
+    glb_config->num_pkts = DEFAULT_NUM_PKT_LEN;
+    if ((data->num_pkts > 0) && (data->num_pkts < MAX_NUM_PKT_LEN)) {
+        glb_config->num_pkts = data->num_pkts;
+    }
+
     glb_config->flow_key_match_method = EXACT_MATCH;
 
     /* setup the inactive and active timeouts for a flow record */
@@ -1402,7 +1407,7 @@ void joy_print_flow_data(uint8_t index, joy_flow_type_e type)
     flow_record_list_print_json(ctx, type);
 
     /* see if we need to rotate the output files */
-    if (glb_config->max_records) {
+    if ((glb_config->max_records) && (glb_config->filename)) {
         if (ctx->records_in_file >= glb_config->max_records) {
             char output_filename[MAX_FILENAME_LEN];
 

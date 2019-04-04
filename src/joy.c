@@ -660,8 +660,6 @@ static int set_logfile(void) {
  */
 static int initial_setup(char *config_file, unsigned int num_cmds) {
 
-    joy_log_debug("number of commands processed from cmd_line (%d)",num_cmds);
-
     if (config_file) {
         /*
          * Read in configuration from file; note that if we don't read in
@@ -702,6 +700,8 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
     if (glb_config->bpf_filter_exp) {
         filter_exp = glb_config->bpf_filter_exp;
     }
+
+    joy_log_debug("number of commands processed from cmd_line (%d)",num_cmds);
 
     return 0;
 }
@@ -849,7 +849,7 @@ static int process_directory_of_files(joy_ctx_data *ctx, char *input_directory) 
 
     /* use the output filename as the directory to storing results */
     if (glb_config->filename) {
-        strncpy_s(output_dir, (MAX_FILENAME_LEN-1), glb_config->filename, (MAX_FILENAME_LEN-1));
+        strncpy_s(output_dir, MAX_FILENAME_LEN, glb_config->filename, (MAX_FILENAME_LEN-1));
 
         /* create a directory to place all of the output files into */
         memset_s(&st,  sizeof(struct stat), 0x00, sizeof(struct stat));
@@ -877,8 +877,6 @@ static int process_directory_of_files(joy_ctx_data *ctx, char *input_directory) 
             if (glb_config->filename == NULL) {
                 ctx->output = zattach(stdout, "w");
             }
-            flow_record_list_init(ctx);
-            flocap_stats_timer_init(ctx);
 
             if ((strcmp_s(ent->d_name, 1, ".", &cmp_ind) == EOK && cmp_ind !=0) &&
                 (strcmp_s(ent->d_name, 2, "..", &cmp_ind) == EOK && cmp_ind !=0)) {
@@ -968,7 +966,7 @@ static int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename
 
     /* use the output filename as the directory to storing results */
     if (glb_config->filename) {
-        strncpy_s(output_dir, (MAX_FILENAME_LEN-1), glb_config->filename, (MAX_FILENAME_LEN-1));
+        strncpy_s(output_dir, MAX_FILENAME_LEN, glb_config->filename, (MAX_FILENAME_LEN-1));
 
         /* create a directory to place all of the output files into */
         memset_s(&st, sizeof(struct stat), 0x00, sizeof(struct stat));
@@ -983,45 +981,42 @@ static int process_multiple_input_files (joy_ctx_data *ctx, char *input_filename
             }
 #endif
         }
-    }
 
-    /* copy input filename path */
-    strncpy_s(input_path, (MAX_FILENAME_LEN-1), input_filename, (MAX_FILENAME_LEN-1));
+        /* copy input filename path */
+        strncpy_s(input_path, MAX_FILENAME_LEN, input_filename, (MAX_FILENAME_LEN-1));
 
 #ifdef WIN32
-    /* get the input basename */
-    _splitpath_s(input_path,NULL,0,NULL,0,fname,_MAX_FNAME,ext,_MAX_EXT);
-    snprintf(input_file_base_name,128, "%s%s", fname, ext);
+        /* get the input basename */
+        _splitpath_s(input_path,NULL,0,NULL,0,fname,_MAX_FNAME,ext,_MAX_EXT);
+        snprintf(input_file_base_name,128, "%s%s", fname, ext);
 
-    /* full name for the new output file including directory */
-    sprintf(full_path_output, "%s\\%s_%d_json%s", output_dir, input_file_base_name, fc_cnt, zsuffix);
-    ++fc_cnt;
+        /* full name for the new output file including directory */
+        sprintf(full_path_output, "%s\\%s_%d_json%s", output_dir, input_file_base_name, fc_cnt, zsuffix);
+        ++fc_cnt;
 #else
 
-    /* get the input basename */
-    snprintf(input_file_base_name, 128, "%s", basename(input_path));
+        /* get the input basename */
+        snprintf(input_file_base_name, 128, "%s", basename(input_path));
 
-    /* full name for the new output file including directory */
-    sprintf(full_path_output, "%s/%s_%d_json%s", output_dir, input_file_base_name, fc_cnt, zsuffix);
-    ++fc_cnt;
+        /* full name for the new output file including directory */
+        sprintf(full_path_output, "%s/%s_%d_json%s", output_dir, input_file_base_name, fc_cnt, zsuffix);
+        ++fc_cnt;
 #endif
 
-    /* open new output file for multi-file processing */
-    if (glb_config->filename) {
+        /* open new output file for multi-file processing */
         ctx->output = zopen(full_path_output, "w");
-    }
 
-    /* print the json config */
-    if (glb_config->filename) {
+        /* print the json config */
         joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
+
     } else {
+
+        /* print the json config */
         if (first_input_pcap_file) {
             joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
             first_input_pcap_file = 0;
         }
     }
-    flow_record_list_init(ctx);
-    flocap_stats_timer_init(ctx);
 
     /* process the file */
     tmp_ret = process_pcap_file(ctx->ctx_id, input_filename, filter_exp, &net, &fp);
@@ -1054,25 +1049,25 @@ static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
     /* initialize fp structure */
     memset_s(&fp, sizeof(struct bpf_program), 0x00, sizeof(struct bpf_program));
 
-    /* set up full output file name */
-    memset_s(&full_outfile, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
-    if (glb_config->outputdir) {
-        int len = strnlen_s(glb_config->outputdir, MAX_DIRNAME_LEN);
-        if (len > (MAX_DIRNAME_LEN-1)) {
-            /* output dir is too long, default to ./ */
-            strncpy_s(full_outfile, MAX_DIRNAME_LEN, "./", 2);
-        } else {
-            strncpy_s(full_outfile, MAX_DIRNAME_LEN, glb_config->outputdir, len);
-            if (full_outfile[len-1] != '/') {
-                strncat_s(full_outfile, MAX_DIRNAME_LEN, "/", 1);
-            }
-        }
-    } else {
-        strncpy_s(full_outfile, MAX_DIRNAME_LEN, "./", 2);
-    }
-
     /* open outputfile */
     if (glb_config->filename) {
+        /* set up full output file name */
+        memset_s(&full_outfile, MAX_FILENAME_LEN, 0x00, MAX_FILENAME_LEN);
+        if (glb_config->outputdir) {
+            int len = strnlen_s(glb_config->outputdir, MAX_DIRNAME_LEN);
+            if (len > (MAX_DIRNAME_LEN-1)) {
+                /* output dir is too long, default to ./ */
+                strncpy_s(full_outfile, MAX_DIRNAME_LEN, "./", 2);
+            } else {
+                strncpy_s(full_outfile, MAX_DIRNAME_LEN, glb_config->outputdir, len);
+                if (full_outfile[len-1] != '/') {
+                    strncat_s(full_outfile, MAX_DIRNAME_LEN, "/", 1);
+                }
+            }
+        } else {
+            strncpy_s(full_outfile, MAX_DIRNAME_LEN, "./", 2);
+        }
+
         strncat_s(full_outfile, (MAX_DIRNAME_LEN-strlen(full_outfile)),
                   glb_config->filename, strlen(glb_config->filename));
         ctx->output = zopen(full_outfile,"w");
@@ -1080,9 +1075,6 @@ static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
 
     /* print configuration */
     joy_print_config(ctx->ctx_id, JOY_JSON_FORMAT);
-
-    flow_record_list_init(ctx);
-    flocap_stats_timer_init(ctx);
 
     tmp_ret = process_pcap_file(ctx->ctx_id, input_filename, filter_exp, &net, &fp);
     return tmp_ret;
@@ -1570,16 +1562,11 @@ int main (int argc, char **argv) {
             }
         }
 
+        flow_record_list_init(ctx);
+        flocap_stats_timer_init(ctx);
+
         /* loop over remaining arguments to process files */
         for (i=1+opt_count; i<argc; i++) {
-            /* intialize the data structures */
-            memset_s(ctx, sizeof(joy_ctx_data), 0x00, sizeof(joy_ctx_data));
-            if (glb_config->filename == NULL) {
-                ctx->output = zattach(stdout, "w");
-            }
-            flow_record_list_init(ctx);
-            flocap_stats_timer_init(ctx);
-
             if (stat(argv[i], &sb) == 0 && S_ISDIR(sb.st_mode)) {
                 /* processing an input directory */
 		tmp_ret = strnlen_s(argv[i], (MAX_FILENAME_LEN*2));
