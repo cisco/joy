@@ -269,7 +269,7 @@ void dhcpv6_print_json(const dhcpv6_t *d1,
             } else {
                 zprintf(f, "{\"type\":\"%s\",",disp_buffer);
             }
-            zprintf(f, "\"transid\":%x,",msg->trans_id);
+            zprintf(f, "\"transid\":\"%x\",",msg->trans_id);
 
             /* first 4 bytes of the option are the type and length */
             dhcpv6_option = *ptr << 8 | *(ptr+1);
