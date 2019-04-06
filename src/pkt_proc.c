@@ -573,6 +573,20 @@ process_tcp (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const char *tc
      */
     update_all_features(payload_feature_list);
 
+    /* make an attempt to assign TLS role for TLS packets */
+    if (record->tls) {
+        tls_t *tls_r = (tls_t*)record->tls;
+        /* if the source port is not 443, and the dest port is 443, probably client */
+        if ((record->key.sp != 443) && (record->key.dp == 443)) {
+            tls_r->role = role_client;
+        }
+
+        /* if the source port is 443, and the dest port is not 443, probably server */
+        if ((record->key.sp == 443) && (record->key.dp != 443)) {
+            tls_r->role = role_server;
+        }
+    }
+
     /*
      * update header description
      */
