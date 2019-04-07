@@ -781,6 +781,7 @@ process_ip (joy_ctx_data *ctx, const struct pcap_pkthdr *header, const void *ip_
 uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
     uint8_t rc = 0;
     uint16_t ether_type = 0;
+    uint16_t real_ip_type = 0;
     uint16_t vlan_ether_type = 0;
     uint16_t vlan2_ether_type = 0;
     ip_hdr_t *ip = NULL;
@@ -808,11 +809,13 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
            joy_log_info("Ethernet type - IP");
            ip = (ip_hdr_t*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = ip_hdr_length(ip);
+           real_ip_type = ETH_TYPE_IP;
            break;
        case ETH_TYPE_IPV6:
            joy_log_info("Ethernet type - IPv6");
            ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN);
            ip_hdr_len = IPV6_HDR_LENGTH;
+           real_ip_type = ETH_TYPE_IPV6;
            break;
        case ETH_TYPE_DOT1Q:
        case ETH_TYPE_QNQ:
@@ -824,11 +827,13 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
                    joy_log_info("Ethernet type - IP with VLAN #1");
                    ip = (ip_hdr_t*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = ip_hdr_length(ip);
+                   real_ip_type = ETH_TYPE_IP;
                    break;
                case ETH_TYPE_IPV6:
                    joy_log_info("Ethernet type - IPv6");
                    ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN);
                    ip_hdr_len = IPV6_HDR_LENGTH;
+                   real_ip_type = ETH_TYPE_IPV6;
                    break;
                case ETH_TYPE_DOT1Q:
                case ETH_TYPE_QNQ:
@@ -840,11 +845,13 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
                            joy_log_info("Ethernet type - IP with 802.1q VLAN #2");
                            ip = (ip_hdr_t*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
                            ip_hdr_len = ip_hdr_length(ip);
+                           real_ip_type = ETH_TYPE_IP;
                            break;
                        case ETH_TYPE_IPV6:
                            joy_log_info("Ethernet type - IPv6");
                            ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN);
                            ip_hdr_len = IPV6_HDR_LENGTH;
+                           real_ip_type = ETH_TYPE_IPV6;
                            break;
                        default :
                            joy_log_info("Ethernet type - Unknown with 802.1q VLAN #2");
@@ -860,7 +867,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
            return rc;
     }
 
-    if (ether_type == ETH_TYPE_IP) {
+    if (real_ip_type == ETH_TYPE_IP) {
         if (ntohs(ip->ip_len) < sizeof(ip_hdr_t)) {
             joy_log_err("Malformed IP packet");
             return rc;
@@ -868,7 +875,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
     }
 
     /* we are able to fill out the key structure */
-    if (ether_type == ETH_TYPE_IPV6) {
+    if (real_ip_type == ETH_TYPE_IPV6) {
         bool done = 0;
         char *ext_hdr = NULL;
 
@@ -900,7 +907,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
                     break;
             }
         }
-    } else {
+    } else if (real_ip_type == ETH_TYPE_IP) {
         if (ip_fragment_offset(ip) == 0) {
             /* fill out IP-specific fields of flow key, plus proto selector */
             key->sa.v4_sa = ip->ip_src;
@@ -915,6 +922,9 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
             key->da.v4_da = ip->ip_dst;
             key->prot = IPPROTO_IP;
         }
+    } else {
+        /* couldn't figure out the packet type */
+        return rc;
     }
 
     /* determine transport length and start */
