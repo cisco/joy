@@ -925,7 +925,6 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
         transport_start = (char *)ip + ip_hdr_len;
     }
 
-    transport_start = (const char *)ip + ip_hdr_len;
     if (key->prot == IPPROTO_TCP) {
         const struct tcp_hdr *tcp = (const struct tcp_hdr *)transport_start;
         key->sp = ntohs(tcp->src_port);
