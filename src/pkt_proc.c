@@ -929,7 +929,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
 
     /* determine transport length and start */
     rc = 1;
-    if (ether_type == ETH_TYPE_IPV6) {
+    if (real_ip_type == ETH_TYPE_IPV6) {
         transport_start = (char *)ipv6 + ip_hdr_len + (ipv6_ext_hdrs * IPV6_EXT_HDR_LEN);
     } else {
         transport_start = (char *)ip + ip_hdr_len;
