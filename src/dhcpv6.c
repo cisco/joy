@@ -112,7 +112,8 @@ static const char* dhcpv6_option_to_string (uint16_t id) {
      * make sure the option id is in the valid range
      * from dhcpv6_option_types definition above.
      */
-    if (((id >= 1) && (id <= 19)) ||
+    if (((id >= 1) && (id <= 8)) ||
+        ((id >= 11) && (id <= 19)) ||
         ((id >= 25) && (id <= 26)) ||
         (id == 32) || (id == 82) || (id == 83)) {
         return dhcpv6_option_types[id];

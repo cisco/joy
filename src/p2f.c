@@ -1350,16 +1350,16 @@ static void flow_record_print_json
         inet_ntop(AF_INET6, &rec->key.da.v6_da, ipv6_addr, INET6_ADDRSTRLEN);
         zprintf(ctx->output, "\"da\":\"%s\",", ipv6_addr);
     } else {
-        char buffer[33];
+        char buffer[IPV4_ANON_LEN];
         if (ipv4_addr_needs_anonymization(&rec->key.sa.v4_sa)) {
-            addr_get_anon_hexstring(&rec->key.sa.v4_sa, (char*)&buffer, 33);
+            addr_get_anon_hexstring(&rec->key.sa.v4_sa, (char*)&buffer, IPV4_ANON_LEN);
             zprintf(ctx->output, "\"sa\":\"%s\",", buffer);
         } else {
             inet_ntop(AF_INET, &rec->key.sa.v4_sa, ipv4_addr, INET_ADDRSTRLEN);
             zprintf(ctx->output, "\"sa\":\"%s\",", ipv4_addr);
         }
         if (ipv4_addr_needs_anonymization(&rec->key.da.v4_da)) {
-            addr_get_anon_hexstring(&rec->key.da.v4_da, (char*)&buffer, 33);
+            addr_get_anon_hexstring(&rec->key.da.v4_da, (char*)&buffer, IPV4_ANON_LEN);
             zprintf(ctx->output, "\"da\":\"%s\",", buffer);
         } else {
             inet_ntop(AF_INET, &rec->key.da.v4_da, ipv4_addr, INET_ADDRSTRLEN);
