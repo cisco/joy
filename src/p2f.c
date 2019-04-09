@@ -271,6 +271,7 @@ void flow_record_list_free (joy_ctx_data *ctx) {
  */
 static int flow_key_is_eq (const flow_key_t *a,
                            const flow_key_t *b) {
+    errno_t err = EOK;
     int diff = 0;
 
     if (a->prot != b->prot) {
@@ -285,13 +286,13 @@ static int flow_key_is_eq (const flow_key_t *a,
         return 1;
     }
 
-    memcmp_s(&a->sa.v6_sa, sizeof(struct in6_addr), &b->sa.v6_sa, sizeof(struct in6_addr), &diff);
-    if (diff != 0) {
+    err = memcmp_s(&a->sa.v6_sa, sizeof(struct in6_addr), &b->sa.v6_sa, sizeof(struct in6_addr), &diff);
+    if ((err != EOK) || (diff != 0)) {
         return 1;
     }
 
-    memcmp_s(&a->da.v6_da, sizeof(struct in6_addr), &b->da.v6_da, sizeof(struct in6_addr), &diff);
-    if (diff != 0) {
+    err = memcmp_s(&a->da.v6_da, sizeof(struct in6_addr), &b->da.v6_da, sizeof(struct in6_addr), &diff);
+    if ((err != EOK) || (diff != 0)) {
         return 1;
     }
 
