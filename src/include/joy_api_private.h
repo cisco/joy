@@ -86,6 +86,7 @@
 /* per instance context data */
 struct joy_ctx_data  {
     unsigned int ctx_id;
+    uint32_t curr_pkt_type;
     uint32_t idp_recs_ready;
     uint32_t tls_recs_ready;
     uint32_t splt_recs_ready;

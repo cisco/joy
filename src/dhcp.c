@@ -488,6 +488,7 @@ void dhcp_print_json(const dhcp_t *d1,
                      zfile f)
 {
     int i = 0;
+    char buffer[IPV4_ANON_LEN];
 
     /* sanity check */
     if (d1 == NULL) {
@@ -510,25 +511,29 @@ void dhcp_print_json(const dhcp_t *d1,
             zprintf(f, ",\"flags\":\"%u\"", msg->flags);
 
             if (ipv4_addr_needs_anonymization(&msg->ciaddr)) {
-                zprintf(f, ",\"ciaddr\":\"%s\"", addr_get_anon_hexstring(&msg->ciaddr));
+                addr_get_anon_hexstring(&msg->ciaddr, (char*)buffer, IPV4_ANON_LEN);
+                zprintf(f, ",\"ciaddr\":\"%s\"", buffer);
             } else {
                 inet_ntop(AF_INET, &msg->ciaddr, ipv4_addr, INET_ADDRSTRLEN);
                 zprintf(f, ",\"ciaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->yiaddr)) {
-                zprintf(f, ",\"yiaddr\":\"%s\"", addr_get_anon_hexstring(&msg->yiaddr));
+                addr_get_anon_hexstring(&msg->yiaddr, (char*)buffer, IPV4_ANON_LEN);
+                zprintf(f, ",\"yiaddr\":\"%s\"", buffer);
             } else {
                 inet_ntop(AF_INET, &msg->yiaddr, ipv4_addr, INET_ADDRSTRLEN);
                 zprintf(f, ",\"yiaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->siaddr)) {
-                zprintf(f, ",\"siaddr\":\"%s\"", addr_get_anon_hexstring(&msg->siaddr));
+                addr_get_anon_hexstring(&msg->siaddr, (char*)buffer, IPV4_ANON_LEN);
+                zprintf(f, ",\"siaddr\":\"%s\"", buffer);
             } else {
                 inet_ntop(AF_INET, &msg->siaddr, ipv4_addr, INET_ADDRSTRLEN);
                 zprintf(f, ",\"siaddr\":\"%s\"", ipv4_addr);
             }
             if (ipv4_addr_needs_anonymization(&msg->giaddr)) {
-                zprintf(f, ",\"giaddr\":\"%s\"", addr_get_anon_hexstring(&msg->giaddr));
+                addr_get_anon_hexstring(&msg->giaddr, (char*)buffer, IPV4_ANON_LEN);
+                zprintf(f, ",\"giaddr\":\"%s\"", buffer);
             } else {
                 inet_ntop(AF_INET, &msg->giaddr, ipv4_addr, INET_ADDRSTRLEN);
                 zprintf(f, ",\"giaddr\":\"%s\"", ipv4_addr);
@@ -576,20 +581,20 @@ void dhcp_print_json(const dhcp_t *d1,
 static const unsigned char* dhcp_skip_packet_udp_header(const unsigned char *packet_data,
                                                   unsigned int packet_len,
                                                   unsigned int *size_payload) {
-    const struct ip_hdr *ip = NULL;
+    const ip_hdr_t *ip = NULL;
     unsigned int ip_hdr_len = 0;
     unsigned int udp_hdr_len = 8;
     const unsigned char *payload = NULL;
 
     /* define/compute ip header offset */
-    ip = (const struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
+    ip = (ip_hdr_t*)(packet_data + ETHERNET_HDR_LEN);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         joy_log_err("invalid ip header of len %d", ip_hdr_len);
         return NULL;
     }
 
-    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+    if (ntohs(ip->ip_len) < sizeof(ip_hdr_t)) {
         /* IP packet is malformed (shorter than a complete IP header) */
         joy_log_err("ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
         return NULL;

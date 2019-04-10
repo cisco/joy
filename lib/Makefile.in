@@ -134,30 +134,32 @@ am__libjoy_la_SOURCES_DIST = ../src/joy_api.c ../src/p2f.c \
 	../src/str_match.c ../src/acsm.c ../src/dns.c ../src/example.c \
 	../src/ipfix.c ../src/ssh.c ../src/ike.c ../src/salt.c \
 	../src/parson.c ../src/fingerprint.c ../src/ppi.c \
-	../src/utils.c ../src/dhcp.c ../src/payload.c ../src/config.c \
-	../src/proto_identify.c ../src/fp.c ../src/extractor.c \
-	../src/updater.c ../safe_c_stub/src/safe_str_stub.c \
+	../src/utils.c ../src/dhcp.c ../src/dhcpv6.c ../src/payload.c \
+	../src/config.c ../src/proto_identify.c ../src/fp.c \
+	../src/extractor.c ../src/updater.c \
+	../safe_c_stub/src/safe_str_stub.c \
 	../safe_c_stub/src/safe_mem_stub.c ../src/include/acsm.h \
 	../src/include/addr_attr.h ../src/include/addr.h \
 	../src/include/anon.h ../src/include/classify.h \
 	../src/include/config.h ../src/include/dhcp.h \
-	../src/include/dns.h ../src/include/err.h \
-	../src/include/example.h ../src/include/feature.h \
-	../src/include/fingerprint.h ../src/include/hdr_dsc.h \
-	../src/include/http.h ../src/include/ike.h \
-	../src/include/ipfix.h ../src/include/joy_api.h \
-	../src/include/joy_api_private.h ../src/include/map.h \
-	../src/include/modules.h ../src/include/nfv9.h \
-	../src/include/osdetect.h ../src/include/output.h \
-	../src/include/p2f.h ../src/include/parson.h \
-	../src/include/payload.h ../src/include/pkt.h \
-	../src/include/pkt_proc.h ../src/include/ppi.h \
-	../src/include/procwatch.h ../src/include/proto_identify.h \
-	../src/include/radix_trie.h ../src/include/salt.h \
-	../src/include/ssh.h ../src/include/str_match.h \
-	../src/include/tls.h ../src/include/updater.h \
-	../src/include/utils.h ../src/include/fp.h \
-	../src/include/extractor.h ../src/include/wht.h
+	../src/include/dhcpv6.h ../src/include/dns.h \
+	../src/include/err.h ../src/include/example.h \
+	../src/include/feature.h ../src/include/fingerprint.h \
+	../src/include/hdr_dsc.h ../src/include/http.h \
+	../src/include/ike.h ../src/include/ipfix.h \
+	../src/include/joy_api.h ../src/include/joy_api_private.h \
+	../src/include/map.h ../src/include/modules.h \
+	../src/include/nfv9.h ../src/include/osdetect.h \
+	../src/include/output.h ../src/include/p2f.h \
+	../src/include/parson.h ../src/include/payload.h \
+	../src/include/pkt.h ../src/include/pkt_proc.h \
+	../src/include/ppi.h ../src/include/procwatch.h \
+	../src/include/proto_identify.h ../src/include/radix_trie.h \
+	../src/include/salt.h ../src/include/ssh.h \
+	../src/include/str_match.h ../src/include/tls.h \
+	../src/include/updater.h ../src/include/utils.h \
+	../src/include/fp.h ../src/include/extractor.h \
+	../src/include/wht.h
 am__dirstamp = $(am__leading_dot)dirstamp
 @BUILD_WITH_SAFEC_FALSE@am_libjoy_la_OBJECTS =  \
 @BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-joy_api.lo \
@@ -188,6 +190,7 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-ppi.lo \
 @BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-utils.lo \
 @BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-dhcp.lo \
+@BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-dhcpv6.lo \
 @BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-payload.lo \
 @BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-config.lo \
 @BUILD_WITH_SAFEC_FALSE@	../src/libjoy_la-proto_identify.lo \
@@ -225,6 +228,7 @@ am__dirstamp = $(am__leading_dot)dirstamp
 @BUILD_WITH_SAFEC_TRUE@	../src/libjoy_la-ppi.lo \
 @BUILD_WITH_SAFEC_TRUE@	../src/libjoy_la-utils.lo \
 @BUILD_WITH_SAFEC_TRUE@	../src/libjoy_la-dhcp.lo \
+@BUILD_WITH_SAFEC_TRUE@	../src/libjoy_la-dhcpv6.lo \
 @BUILD_WITH_SAFEC_TRUE@	../src/libjoy_la-payload.lo \
 @BUILD_WITH_SAFEC_TRUE@	../src/libjoy_la-config.lo \
 @BUILD_WITH_SAFEC_TRUE@	../src/libjoy_la-proto_identify.lo \
@@ -459,6 +463,7 @@ lib_LTLIBRARIES = libjoy.la
 @BUILD_WITH_SAFEC_FALSE@	../src/ppi.c \
 @BUILD_WITH_SAFEC_FALSE@	../src/utils.c \
 @BUILD_WITH_SAFEC_FALSE@	../src/dhcp.c \
+@BUILD_WITH_SAFEC_FALSE@	../src/dhcpv6.c \
 @BUILD_WITH_SAFEC_FALSE@	../src/payload.c \
 @BUILD_WITH_SAFEC_FALSE@	../src/config.c \
 @BUILD_WITH_SAFEC_FALSE@	../src/proto_identify.c \
@@ -474,6 +479,7 @@ lib_LTLIBRARIES = libjoy.la
 @BUILD_WITH_SAFEC_FALSE@		../src/include/classify.h \
 @BUILD_WITH_SAFEC_FALSE@		../src/include/config.h \
 @BUILD_WITH_SAFEC_FALSE@		../src/include/dhcp.h \
+@BUILD_WITH_SAFEC_FALSE@		../src/include/dhcpv6.h \
 @BUILD_WITH_SAFEC_FALSE@		../src/include/dns.h \
 @BUILD_WITH_SAFEC_FALSE@		../src/include/err.h \
 @BUILD_WITH_SAFEC_FALSE@		../src/include/example.h \
@@ -540,6 +546,7 @@ lib_LTLIBRARIES = libjoy.la
 @BUILD_WITH_SAFEC_TRUE@	../src/ppi.c \
 @BUILD_WITH_SAFEC_TRUE@	../src/utils.c \
 @BUILD_WITH_SAFEC_TRUE@	../src/dhcp.c \
+@BUILD_WITH_SAFEC_TRUE@	../src/dhcpv6.c \
 @BUILD_WITH_SAFEC_TRUE@	../src/payload.c \
 @BUILD_WITH_SAFEC_TRUE@	../src/config.c \
 @BUILD_WITH_SAFEC_TRUE@	../src/proto_identify.c \
@@ -553,6 +560,7 @@ lib_LTLIBRARIES = libjoy.la
 @BUILD_WITH_SAFEC_TRUE@		../src/include/classify.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/config.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/dhcp.h \
+@BUILD_WITH_SAFEC_TRUE@		../src/include/dhcpv6.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/dns.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/err.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/example.h \
@@ -600,6 +608,7 @@ library_include_HEADERS = \
 		../src/include/classify.h \
 		../src/include/config.h \
 		../src/include/dhcp.h \
+		../src/include/dhcpv6.h \
 		../src/include/dns.h \
 		../src/include/err.h \
 		../src/include/example.h \
@@ -771,6 +780,8 @@ clean-libLTLIBRARIES:
 	../src/$(DEPDIR)/$(am__dirstamp)
 ../src/libjoy_la-dhcp.lo: ../src/$(am__dirstamp) \
 	../src/$(DEPDIR)/$(am__dirstamp)
+../src/libjoy_la-dhcpv6.lo: ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
 ../src/libjoy_la-payload.lo: ../src/$(am__dirstamp) \
 	../src/$(DEPDIR)/$(am__dirstamp)
 ../src/libjoy_la-config.lo: ../src/$(am__dirstamp) \
@@ -818,6 +829,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-classify.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-config.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-dhcp.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-dhcpv6.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-dns.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-example.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/libjoy_la-extractor.Plo@am__quote@
@@ -1065,6 +1077,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/dhcp.c' object='../src/libjoy_la-dhcp.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -c -o ../src/libjoy_la-dhcp.lo `test -f '../src/dhcp.c' || echo '$(srcdir)/'`../src/dhcp.c
+
+../src/libjoy_la-dhcpv6.lo: ../src/dhcpv6.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -MT ../src/libjoy_la-dhcpv6.lo -MD -MP -MF ../src/$(DEPDIR)/libjoy_la-dhcpv6.Tpo -c -o ../src/libjoy_la-dhcpv6.lo `test -f '../src/dhcpv6.c' || echo '$(srcdir)/'`../src/dhcpv6.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/$(DEPDIR)/libjoy_la-dhcpv6.Tpo ../src/$(DEPDIR)/libjoy_la-dhcpv6.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/dhcpv6.c' object='../src/libjoy_la-dhcpv6.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -c -o ../src/libjoy_la-dhcpv6.lo `test -f '../src/dhcpv6.c' || echo '$(srcdir)/'`../src/dhcpv6.c
 
 ../src/libjoy_la-payload.lo: ../src/payload.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libjoy_la_CFLAGS) $(CFLAGS) -MT ../src/libjoy_la-payload.lo -MD -MP -MF ../src/$(DEPDIR)/libjoy_la-payload.Tpo -c -o ../src/libjoy_la-payload.lo `test -f '../src/payload.c' || echo '$(srcdir)/'`../src/payload.c

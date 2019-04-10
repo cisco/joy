@@ -62,7 +62,7 @@
 #include <netinet/in.h>
 #endif
 
-
+static char anon_buffer[IPV4_ANON_LEN];
 
 static char *addr_string_anonymize (char *addr_string) {
     struct in_addr addr;
@@ -80,7 +80,8 @@ static char *addr_string_anonymize (char *addr_string) {
 #endif
         return NULL;
     }
-    return addr_get_anon_hexstring(&addr);
+    addr_get_anon_hexstring(&addr, (char*)anon_buffer, IPV4_ANON_LEN);
+    return anon_buffer;
 }
 
 

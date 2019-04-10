@@ -32,6 +32,7 @@ libjoy_la_SOURCES = \
 	../src/ppi.c \
 	../src/utils.c \
 	../src/dhcp.c \
+	../src/dhcpv6.c \
 	../src/payload.c \
 	../src/config.c \
 	../src/proto_identify.c \
@@ -45,6 +46,7 @@ libjoy_la_SOURCES = \
 		../src/include/classify.h \
 		../src/include/config.h \
 		../src/include/dhcp.h \
+		../src/include/dhcpv6.h \
 		../src/include/dns.h \
 		../src/include/err.h \
 		../src/include/example.h \
@@ -111,6 +113,7 @@ libjoy_la_SOURCES = \
 	../src/ppi.c \
 	../src/utils.c \
 	../src/dhcp.c \
+	../src/dhcpv6.c \
 	../src/payload.c \
 	../src/config.c \
 	../src/proto_identify.c \
@@ -126,6 +129,7 @@ libjoy_la_SOURCES = \
 		../src/include/classify.h \
 		../src/include/config.h \
 		../src/include/dhcp.h \
+		../src/include/dhcpv6.h \
 		../src/include/dns.h \
 		../src/include/err.h \
 		../src/include/example.h \
@@ -175,6 +179,7 @@ library_include_HEADERS= \
 		../src/include/classify.h \
 		../src/include/config.h \
 		../src/include/dhcp.h \
+		../src/include/dhcpv6.h \
 		../src/include/dns.h \
 		../src/include/err.h \
 		../src/include/example.h \

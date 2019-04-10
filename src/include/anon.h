@@ -78,6 +78,9 @@ enum anon_mode {
 /** maximum number of subnets that can be anonymized */
 #define MAX_ANON_SUBNETS 256
 
+/** anonymize buffer length */
+#define IPV4_ANON_LEN 33
+
 /** prototype for character operations */
 typedef int (*char_selector)(const char *ptr);
 
@@ -97,7 +100,7 @@ joy_status_e anon_init(const char *pathname, FILE *logfile);
 int anon_print_subnets(FILE *f);
 
 /** \brief converts an address into an anonymized string */
-char *addr_get_anon_hexstring(const struct in_addr *a);
+void addr_get_anon_hexstring(const struct in_addr *a, char *buffer, int size);
 
 /** \brief determines if address is to be anonymized */
 unsigned int ipv4_addr_needs_anonymization(const struct in_addr *a);

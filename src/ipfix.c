@@ -242,9 +242,9 @@ static int ipfix_collect_process_socket(joy_ctx_data *ctx,
   /* Create a flow_key and flow_record to use */
   memset_s(&key, sizeof(flow_key_t), 0, sizeof(flow_key_t));
 
-  key.sa = remote_addr->sin_addr;
+  key.sa.v4_sa = remote_addr->sin_addr;
   key.sp = ntohs(remote_addr->sin_port);
-  key.da = gateway_collect.clctr_addr.sin_addr;
+  key.da.v4_da = gateway_collect.clctr_addr.sin_addr;
   key.dp = ntohs(gateway_collect.clctr_addr.sin_port);
   key.prot = IPPROTO_UDP;
 
@@ -776,11 +776,11 @@ static void ipfix_flow_key_init(flow_key_t *key,
         
         switch (cur_template->fields[i].info_elem_id) {
         case IPFIX_SOURCE_IPV4_ADDRESS:
-            key->sa.s_addr = *(const uint32_t *)flow_data;
+            key->sa.v4_sa.s_addr = *(const uint32_t *)flow_data;
             flow_data += field_length;
             break;
         case IPFIX_DESTINATION_IPV4_ADDRESS:
-            key->da.s_addr = *(const uint32_t *)flow_data;
+            key->da.v4_da.s_addr = *(const uint32_t *)flow_data;
             flow_data += field_length;
             break;
         case IPFIX_SOURCE_TRANSPORT_PORT:
@@ -860,7 +860,7 @@ int ipfix_parse_template_set(const ipfix_hdr_t *ipfix,
          * Define Template Set key:
          * {source IP + observation domain ID + template ID}
          */
-        ipfix_template_key_init(&template_key, rec_key.sa.s_addr,
+        ipfix_template_key_init(&template_key, rec_key.sa.v4_sa.s_addr,
                                 ntohl(ipfix->observe_dom_id), template_id);
         
         /* Check to see if template already exists, if so, continue */
@@ -1034,7 +1034,7 @@ int ipfix_parse_data_set(joy_ctx_data *ctx,
     /* Define data template key:
      * {source IP + observation domain ID + template ID}
      */
-    ipfix_template_key_init(&template_key, rec_key.sa.s_addr,
+    ipfix_template_key_init(&template_key, rec_key.sa.v4_sa.s_addr,
                             ntohl(ipfix->observe_dom_id), template_id);
     
     /* Look for template match */
@@ -1115,13 +1115,13 @@ static int ipfix_skip_idp_header(flow_record_t *ix_record,
                                  unsigned int *size_payload) {
 
     unsigned char proto = 0;
-    const struct ip_hdr *ip = NULL;
+    const ip_hdr_t *ip = NULL;
     unsigned int ip_hdr_len;
     const char *flow_data = ix_record->idp;
     unsigned int flow_len = ix_record->idp_len;
     
     /* define/compute ip header offset */
-    ip = (const struct ip_hdr*)(flow_data);
+    ip = (const ip_hdr_t*)(flow_data);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < IPV4_HDR_LEN) {
         /*
@@ -1131,7 +1131,7 @@ static int ipfix_skip_idp_header(flow_record_t *ix_record,
         return 1;
     }
     
-    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+    if (ntohs(ip->ip_len) < sizeof(ip_hdr_t)) {
         /* IP packet is malformed (shorter than a complete IP header) */
         loginfo("error: ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
         return 1;
@@ -3146,29 +3146,30 @@ static ipfix_exporter_data_t *ipfix_exp_create_simple_data_record
         /*
          * Assign the data fields
          */
+
         /* IPFIX_SOURCE_IPV4_ADDRESS */
-        data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
-        
+        data_record->record.simple.source_ipv4_address = fr_record->key.sa.v4_sa.s_addr;
+
         /* IPFIX_DESTINATION_IPV4_ADDRESS */
-        data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
-        
+        data_record->record.simple.destination_ipv4_address = fr_record->key.da.v4_da.s_addr;
+
         /* IPFIX_SOURCE_TRANSPORT_PORT */
         data_record->record.simple.source_transport_port = fr_record->key.sp;
-        
+
         /* IPFIX_DESTINATION_TRANSPORT_PORT */
         data_record->record.simple.destination_transport_port = fr_record->key.dp;
-        
+
         /* IPFIX_PROTOCOL_IDENTIFIER */
         protocol = (uint8_t)(fr_record->key.prot & 0xff);
         data_record->record.simple.protocol_identifier = protocol;
-        
+
         /*
          * IPFIX_FLOW_START_MICROSECONDS
          * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
          * and pack the fractional microseconds into the least-significant 32 bits.
          */
         data_record->record.simple.flow_start_microseconds = timeval_pack_uint64_t(&fr_record->start);
-        
+
         /*
          * IPFIX_FLOW_END_MICROSECONDS
          * Using an unsigned 64 bit integer, pack the seconds into the most-significant 32 bits,
@@ -3218,11 +3219,11 @@ static ipfix_exporter_data_t *ipfix_exp_create_idp_data_record
          * Assign the data fields
          */
         /* IPFIX_SOURCE_IPV4_ADDRESS */
-        data_record->record.simple.source_ipv4_address = fr_record->key.sa.s_addr;
-        
+        data_record->record.simple.source_ipv4_address = fr_record->key.sa.v4_sa.s_addr;
+
         /* IPFIX_DESTINATION_IPV4_ADDRESS */
-        data_record->record.simple.destination_ipv4_address = fr_record->key.da.s_addr;
-        
+        data_record->record.simple.destination_ipv4_address = fr_record->key.da.v4_da.s_addr;
+
         /* IPFIX_SOURCE_TRANSPORT_PORT */
         data_record->record.simple.source_transport_port = fr_record->key.sp;
         

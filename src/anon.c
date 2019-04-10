@@ -242,6 +242,7 @@ static unsigned int addr_is_in_set (const struct in_addr *a) {
     }
     return 0;
 }
+
 /* determines number of bits in the subnet mask */
 static unsigned int bits_in_mask (void *a, unsigned int bytes) {
     unsigned int n = 0;
@@ -348,25 +349,27 @@ joy_status_e anon_init (const char *pathname, FILE *logfile) {
     return s;
 }
 
-/** buffer used for anonymized data */
-static char hexout[33];
-
 /**
- * \fn char *addr_get_anon_hexstring (const struct in_addr *a)
+ * \fn char *addr_get_anon_hexstring (const struct in_addr *a, char *buffer, int size)
  * \param a address to be anonymized
+ * \param buffer used to store anonymized data
+ * \param size of buffer
  * \return pointer to the anonymized output
  */
-char *addr_get_anon_hexstring (const struct in_addr *a) {
+void addr_get_anon_hexstring (const struct in_addr *a, char *buffer, int size) {
     unsigned char pt[16] = { 0, };
     unsigned char c[16];
 
+    /* must be IPV4_ANON_LEN bytes in length */
+    if (size < IPV4_ANON_LEN)
+       return;
+
+    memset_s(buffer, size, 0x00, size);
     memcpy_s(pt, sizeof(struct in_addr), a, sizeof(struct in_addr));
     AES_encrypt(pt, c, &key.enc_key);
-    snprintf(hexout, 33, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
+    snprintf(buffer, IPV4_ANON_LEN, "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
                c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], 
                c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
- 
-    return hexout;
 }
 
 /**

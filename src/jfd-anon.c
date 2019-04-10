@@ -69,6 +69,8 @@ size_t getline(char **lineptr, size_t *n, FILE *stream);
 
 extern str_match_ctx  usernames_ctx;
 
+static char anon_buffer[IPV4_ANON_LEN];
+
 static char *address_string_anonymize (char *addr_string) {
     struct in_addr addr;
     int l;
@@ -86,7 +88,8 @@ static char *address_string_anonymize (char *addr_string) {
         return NULL;
     }
     if (ipv4_addr_needs_anonymization(&addr)) {
-        return addr_get_anon_hexstring(&addr);
+        addr_get_anon_hexstring(&addr, (char*)anon_buffer, IPV4_ANON_LEN);
+        return anon_buffer;
     }
     return addr_string;
 }

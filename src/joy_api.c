@@ -456,6 +456,7 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->report_ssh = ((init_data->bitmask & JOY_SSH_ON) ? 1 : 0);
     glb_config->report_tls = ((init_data->bitmask & JOY_TLS_ON) ? 1 : 0);
     glb_config->report_dhcp = ((init_data->bitmask & JOY_DHCP_ON) ? 1 : 0);
+    glb_config->report_dhcpv6 = glb_config->report_dhcp;
     glb_config->report_http = ((init_data->bitmask & JOY_HTTP_ON) ? 1 : 0);
     glb_config->report_ike = ((init_data->bitmask & JOY_IKE_ON) ? 1 : 0);
     glb_config->report_payload = ((init_data->bitmask & JOY_PAYLOAD_ON) ? 1 : 0);
@@ -1135,7 +1136,7 @@ void joy_update_ctx_global_time(uint8_t ctx_index,
 uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts) {
     uint8_t rc = 0;
     uint8_t context = 0;
-    unsigned int sum = 0;
+    uint32_t sum = 0;
     flow_key_t key;
 
     /* clear the key buffer */
@@ -1151,12 +1152,31 @@ uint8_t joy_packet_to_context(const unsigned char *packet, uint8_t num_contexts)
     /* generate a nice hash to use for the 5-tuple. This calcualtion is essentially
      * a mod 257 on the sum of the 5-tuple. This algortihm also keeps client->server and
      * server->client flows in the same context.
+     * for IPv4 addresses, the upper 96 bits are zero, so using the IPv6 union of the structure
+     * does not affect the sum or the resulting hash.
      */
-    sum += (unsigned int)key.sa.s_addr;
-    sum += (unsigned int)key.da.s_addr;
-    sum += (unsigned int)key.sp;
-    sum += (unsigned int)key.dp;
-    sum += (unsigned int)key.prot;
+#ifdef DARWIN
+    sum += (uint32_t)key.sa.v6_sa.__u6_addr.__u6_addr32[0];
+    sum += (uint32_t)key.sa.v6_sa.__u6_addr.__u6_addr32[1];
+    sum += (uint32_t)key.sa.v6_sa.__u6_addr.__u6_addr32[2];
+    sum += (uint32_t)key.sa.v6_sa.__u6_addr.__u6_addr32[3];
+    sum += (uint32_t)key.da.v6_da.__u6_addr.__u6_addr32[0];
+    sum += (uint32_t)key.da.v6_da.__u6_addr.__u6_addr32[1];
+    sum += (uint32_t)key.da.v6_da.__u6_addr.__u6_addr32[2];
+    sum += (uint32_t)key.da.v6_da.__u6_addr.__u6_addr32[3];
+#else
+    sum += (uint32_t)key.sa.v6_sa.__in6_u.__u6_addr32[0];
+    sum += (uint32_t)key.sa.v6_sa.__in6_u.__u6_addr32[1];
+    sum += (uint32_t)key.sa.v6_sa.__in6_u.__u6_addr32[2];
+    sum += (uint32_t)key.sa.v6_sa.__in6_u.__u6_addr32[3];
+    sum += (uint32_t)key.da.v6_da.__in6_u.__u6_addr32[0];
+    sum += (uint32_t)key.da.v6_da.__in6_u.__u6_addr32[1];
+    sum += (uint32_t)key.da.v6_da.__in6_u.__u6_addr32[2];
+    sum += (uint32_t)key.da.v6_da.__in6_u.__u6_addr32[3];
+#endif
+    sum += (uint32_t)key.sp;
+    sum += (uint32_t)key.dp;
+    sum += (uint32_t)key.prot;
     sum *= 0x6B;
     sum -= (sum >> 8);
     sum &= 0xff;

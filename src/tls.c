@@ -2008,10 +2008,12 @@ static void tls_print_extensions(const tls_extension_t *extensions,
  *
  * \return none
  */
-void tls_print_json (const tls_t *data,
-                     const tls_t *data_twin,
+void tls_print_json (const tls_t *d1,
+                     const tls_t *d2,
                      zfile f) {
     int i = 0;
+    tls_t *data = (tls_t*)d1;
+    tls_t *data_twin = (tls_t*)d2;
 
     if (data == NULL) {
         return;
@@ -2019,12 +2021,35 @@ void tls_print_json (const tls_t *data,
 
     /* Make sure the tls info passed in is reliable */
     if (!data->version) {
-        return;
+        if (data->handshake_buffer) {
+            tls_handshake_buffer_parse(data);
+            free(data->handshake_buffer);
+            data->handshake_buffer = NULL;
+            data->handshake_length = 0;
+            data->done_handshake = 1;
+        }
+        if (!data->version) {
+            return;
+        }
     }
 
     /* If a twin is present make sure its info is reliable */
     if (data_twin != NULL && !data_twin->version) {
-        return;
+        if (data_twin->handshake_buffer) {
+            tls_handshake_buffer_parse(data_twin);
+            free(data_twin->handshake_buffer);
+            data_twin->handshake_buffer = NULL;
+            data_twin->handshake_length = 0;
+            data_twin->done_handshake = 1;
+        }
+        if (!data_twin->version) {
+            /*
+             * still couldn't get the other side parsed
+             * let's just totally ignore it.
+             */
+            joy_log_info("TLS Twin handshake invalid, continuing");
+            data_twin = NULL;
+        }
     }
 
     zprintf(f, ",\"tls\":{");
@@ -2867,21 +2892,21 @@ end_loop:
 static const unsigned char* tls_skip_packet_tcp_header(const unsigned char *packet_data,
                                                  unsigned int packet_len,
                                                  unsigned int *size_payload) {
-    const struct ip_hdr *ip = NULL;
+    const ip_hdr_t *ip = NULL;
     unsigned int ip_hdr_len = 0;
     const struct tcp_hdr *tcp = NULL;
     unsigned int tcp_hdr_len = 0;
     const unsigned char *payload = NULL;
 
     /* define/compute ip header offset */
-    ip = (const struct ip_hdr*)(packet_data + ETHERNET_HDR_LEN);
+    ip = (const ip_hdr_t*)(packet_data + ETHERNET_HDR_LEN);
     ip_hdr_len = ip_hdr_length(ip);
     if (ip_hdr_len < 20) {
         joy_log_err("invalid ip header of len %d", ip_hdr_len);
         return NULL;
     }
 
-    if (ntohs(ip->ip_len) < sizeof(struct ip_hdr)) {
+    if (ntohs(ip->ip_len) < sizeof(ip_hdr_t)) {
         /* IP packet is malformed (shorter than a complete IP header) */
         joy_log_err("ip packet malformed, ip_len: %d", ntohs(ip->ip_len));
         return NULL;

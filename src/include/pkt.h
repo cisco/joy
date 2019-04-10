@@ -63,8 +63,9 @@
 #define ETHERNET_ADR_LEN  6
 
 #define ETH_TYPE_IP    0X0800
-#define ETH_TYPE_DOT1Q 0X08100
-#define ETH_TYPE_QNQ   0X088A8
+#define ETH_TYPE_IPV6  0X86DD
+#define ETH_TYPE_DOT1Q 0X8100
+#define ETH_TYPE_QNQ   0X88A8
 
 /** ethernet header structure */
 struct ethernet_hdr {
@@ -72,6 +73,48 @@ struct ethernet_hdr {
     unsigned char src_addr[ETHERNET_ADR_LEN];  
     unsigned short ether_type;                  
 };
+
+/* IPv6 Header Length */
+#define IPV6_HDR_LENGTH    40
+#define IPV6_EXT_HDR_LEN    8
+
+/** IP header structure */
+typedef struct ip_hdr_ {
+    unsigned char  ip_vhl;    /* version and hdr length */
+    unsigned char  ip_tos;    /* type of service        */
+    unsigned short ip_len;    /* packet length          */
+    unsigned short ip_id;     /* identification         */
+    unsigned short ip_flgoff; /* flags, frag off field  */
+    unsigned char  ip_ttl;    /* time to live           */
+    unsigned char  ip_prot;   /* protocol               */
+    unsigned short ip_cksum;  /* checksum               */
+    struct in_addr ip_src;    /* source address         */
+    struct in_addr ip_dst;    /* destination address    */
+} ip_hdr_t;
+
+#if CPU_IS_BIG_ENDIAN
+typedef struct ipv6_hdr_ {
+    unsigned int    ip_vrs:4;    /* version (0110)         */
+    unsigned int    ip_tc:8;     /* traffic class          */
+    unsigned int    ip_flb:20;   /* flow label             */
+    unsigned short  ip_len;      /* payload length         */
+    unsigned char   ip_nxh;      /* next header            */
+    unsigned char   ip_hop;      /* hop limit              */
+    struct in6_addr ip_src;      /* source address         */
+    struct in6_addr ip_dst;      /* destination address    */
+} ip_hdrv6_t;
+#else  /* little-endian CPU */
+typedef struct ipv6_hdr_ {
+    unsigned int    ip_flb:20;   /* flow label             */
+    unsigned int    ip_tc:8;     /* traffic class          */
+    unsigned int    ip_vrs:4;    /* version (0110)         */
+    unsigned short  ip_len;      /* payload length         */
+    unsigned char   ip_nxh;      /* next header            */
+    unsigned char   ip_hop;      /* hop limit              */
+    struct in6_addr ip_src;      /* source address         */
+    struct in6_addr ip_dst;      /* destination address    */
+} ip_hdrv6_t;
+#endif  /* CPU_IS_BIG_ENDIAN */
 
 /** Internet Protocol (IP) version four header */
 #if CPU_IS_BIG_ENDIAN
@@ -99,21 +142,6 @@ struct ethernet_hdr {
 #define ip_hdr_length(ip) ((((ip)->ip_vhl) & 0x0f)*4)
 #define ip_version(ip)    (((ip)->ip_vhl) >> 4)
 #endif
-
-
-/** IP header structure */
-struct ip_hdr {
-    unsigned char  ip_vhl;    /* version and hdr length */
-    unsigned char  ip_tos;    /* type of service        */
-    unsigned short ip_len;    /* packet length          */
-    unsigned short ip_id;     /* identification         */
-    unsigned short ip_flgoff; /* flags, frag off field  */
-    unsigned char  ip_ttl;    /* time to live           */
-    unsigned char  ip_prot;   /* protocol               */
-    unsigned short ip_cksum;  /* checksum               */
-    struct in_addr ip_src;    /* source address         */
-    struct in_addr ip_dst;    /* destination address    */
-};
 
 /** Transmission Control Protocol (TCP) header */
 #define TCP_FIN  0x01

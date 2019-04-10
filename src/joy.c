@@ -122,7 +122,7 @@ typedef enum joy_operating_mode_ {
  */
 static joy_operating_mode_e joy_mode = MODE_NONE;
 static pcap_t *handle = NULL;
-static const char *filter_exp = "ip or vlan";
+static const char *filter_exp = "ip or ip6 or vlan";
 static char full_path_output[MAX_FILENAME_LEN];
 
 /* local definitions for the threading aspects */
@@ -404,7 +404,7 @@ static unsigned int interface_list_get(void) {
     return num_ifs;
 }
 
-static void print_libpcap_stats() {
+static void print_libpcap_stats(void) {
     struct pcap_stat cap_stats;
 
     memset_s(&cap_stats, sizeof(struct pcap_stat), 0x00, sizeof(struct pcap_stat));
@@ -668,6 +668,14 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
          */
         config_set_from_file(glb_config, config_file);
     }
+
+    /*
+     * Config parsing will parse DHCP=1 and DHCPv6=1 to the same
+     * configuration variable(dhcp). If we are interested in
+     * DHCP, we would be interested in all DHCP (v4 and v6).
+     * So, make sure DHCP V6 is the same as DHCP.
+     */
+    glb_config->report_dhcpv6 = glb_config->report_dhcp;
 
     /* Make sure the config is valid */
     if (config_sanity_check()) return 1;

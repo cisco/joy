@@ -89,6 +89,13 @@ This package was written by David McGrew, Blake Anderson, Philip Perricone
 and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
 Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
+### Release 4.3.0
+* Add IPv6 support to Joy and libjoy
+* IPFix collection and export only support IPv4
+* NFv9 only supports IPv4
+* Anonymization only supports IPv4 addresses
+* Subnet labeling only supports IPv4 addresses
+
 ### Release 4.2.0
 * Re-write joy.c to use libjoy library
 * Updated joy.c to utilize multi-threads for flow processing
