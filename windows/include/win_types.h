@@ -3,7 +3,7 @@
 
 #include "stdint.h"
 
-#define VERSION "4.2.1"
+#define VERSION "4.3.0"
 
 #define PCAP_NETMASK_UNKNOWN    0xffffffff
 
