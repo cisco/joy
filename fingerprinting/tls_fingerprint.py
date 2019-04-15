@@ -54,7 +54,10 @@ from tls_constants import *
 grease_ = set(['0a0a','1a1a','2a2a','3a3a','4a4a','5a5a','6a6a','7a7a',
                '8a8a','9a9a','aaaa','baba','caca','dada','eaea','fafa'])
 
-ext_data_extract_ = set(['0005','000a','000b','000d','0010','002b','002d'])
+ext_data_extract_ = set(['0001','0005','0007','0008','0009','000a','000b',
+                         '000d','000f','0010','0011','0013','0014','0018',
+                         '001b','001c','002b','002d','0032','5500'])
+ext_data_extract_ = ext_data_extract_.union(grease_)
 
 cs_mapping_file = os.path.dirname(__file__) + '/resources/cs_mapping.json.gz'
 with gzip.open(cs_mapping_file,'r') as fp:
@@ -117,6 +120,7 @@ class TLSFingerprint:
                 self.fp_db[fp_str_] = fp_
             else:
                 self.fp_db[fp_str_] = copy.deepcopy(self.fp_db[approx_])
+                self.fp_db[fp_str_]['origin_str_repr'] = fp_str_
                 self.fp_db[fp_str_]['source'] = ['similarity_match']
                 fp_ = self.fp_db[fp_str_]
         if detailed == False and 'cs_mapping' in fp_['tls_features']:
