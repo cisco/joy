@@ -433,8 +433,15 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
                 /* advance pointers, decrease lengths */
                 outname_len -= jump;
                 *len -= jump;
-                c += jump;
-                *name += jump;
+
+                /* sanity check to make sure we don't go past the data avilable */
+                if ((c + jump) <= (c + offsetlen)) {
+                    c += jump;
+                    *name += jump;
+                } else {
+                    /* would increment past available buffer */
+                    return dns_err_offset_too_long;
+                }
             } else {
                 return dns_err_label_too_long;
             }
