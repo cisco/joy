@@ -707,9 +707,8 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         /* parse rr name, struct, and rdata */
         err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1));
         if (err != dns_ok) { 
-            char *d = r;
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug(output, "rr name ancount=%u; err=%u; len=%u; data=0x%02x%02x%02x%02x\"}]}", ancount, err, len, d[0], d[1], d[2], d[3]);
+            zprintf_debug(output, "rr name ancount=%u; err=%u; len=%u\"}]}", ancount, err, len);
             return;
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
@@ -744,9 +743,8 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         /* parse rr name, struct, and rdata */
         err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1));
         if (err != dns_ok) {
-            char *d = r;
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug(output, "rr name nscount=%u; err=%u; len=%u; data=0x%02x%02x%02x%02x\"}]}", nscount, err, len, d[0], d[1], d[2], d[3]);
+            zprintf_debug(output, "rr name nscount=%u; err=%u; len=%u\"}]}", nscount, err, len);
             return;
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
@@ -774,9 +772,8 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         /* parse rr name, struct, and rdata */
         err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1));
         if (err != dns_ok) {
-            char *d = r;
             zprintf(output, "\"malformed\":%d", len);
-            zprintf_debug(output, "rr name arcount=%u; err=%u; len=%u; data=0x%02x%02x%02x%02x\"}]}", arcount, err, len, d[0], d[1], d[2], d[3]);
+            zprintf_debug(output, "rr name arcount=%u; err=%u; len=%u\"}]}", arcount, err, len);
             return;
         }
         err = dns_rr_parse(&rr, &r, &len, &rdlength);
