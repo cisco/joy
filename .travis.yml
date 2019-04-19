@@ -16,3 +16,5 @@ script:
     - make
     - bin/unit_test
     - test/run_tests.py
+    - make dist
+    - make install DESTDIR=/tmp/joyinstall prefix=/tmp/joy
