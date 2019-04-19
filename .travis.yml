@@ -14,5 +14,6 @@ script:
     - ./configure --enable-gzip
     - make clean
     - make
+    - make install DESTDIR=/tmp/joyinstall prefix=/tmp/joy
     - bin/unit_test
     - test/run_tests.py
