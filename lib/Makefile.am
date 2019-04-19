@@ -80,9 +80,8 @@ libjoy_la_SOURCES = \
 		../src/include/utils.h \
 		../src/include/fp.h \
 		../src/include/extractor.h \
-		../src/include/wht.h \
-		../src/include/fp.h \
-		../src/include/extractor.h
+		../src/include/wht.h 
+
 else
 libjoy_la_SOURCES = \
 	../src/joy_api.c \
@@ -163,9 +162,7 @@ libjoy_la_SOURCES = \
 		../src/include/utils.h \
 		../src/include/fp.h \
 		../src/include/extractor.h \
-		../src/include/wht.h \
-		../src/include/fp.h \
-		../src/include/extractor.h
+		../src/include/wht.h 
 endif
 
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
@@ -213,9 +210,8 @@ library_include_HEADERS= \
 		../src/include/utils.h \
 		../src/include/fp.h \
 		../src/include/extractor.h \
-		../src/include/wht.h \
-		../src/include/fp.h \
-		../src/include/extractor.h
+		../src/include/wht.h 
+
 
 
 if BUILD_WITH_SAFEC
