@@ -513,9 +513,7 @@ lib_LTLIBRARIES = libjoy.la
 @BUILD_WITH_SAFEC_FALSE@		../src/include/utils.h \
 @BUILD_WITH_SAFEC_FALSE@		../src/include/fp.h \
 @BUILD_WITH_SAFEC_FALSE@		../src/include/extractor.h \
-@BUILD_WITH_SAFEC_FALSE@		../src/include/wht.h \
-@BUILD_WITH_SAFEC_FALSE@		../src/include/fp.h \
-@BUILD_WITH_SAFEC_FALSE@		../src/include/extractor.h
+@BUILD_WITH_SAFEC_FALSE@		../src/include/wht.h 
 
 @BUILD_WITH_SAFEC_TRUE@libjoy_la_SOURCES = \
 @BUILD_WITH_SAFEC_TRUE@	../src/joy_api.c \
@@ -594,9 +592,7 @@ lib_LTLIBRARIES = libjoy.la
 @BUILD_WITH_SAFEC_TRUE@		../src/include/utils.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/fp.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/extractor.h \
-@BUILD_WITH_SAFEC_TRUE@		../src/include/wht.h \
-@BUILD_WITH_SAFEC_TRUE@		../src/include/fp.h \
-@BUILD_WITH_SAFEC_TRUE@		../src/include/extractor.h
+@BUILD_WITH_SAFEC_TRUE@		../src/include/wht.h 
 
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
 library_includedir = $(includedir)/joy
@@ -642,9 +638,7 @@ library_include_HEADERS = \
 		../src/include/utils.h \
 		../src/include/fp.h \
 		../src/include/extractor.h \
-		../src/include/wht.h \
-		../src/include/fp.h \
-		../src/include/extractor.h
+		../src/include/wht.h 
 
 @BUILD_WITH_SAFEC_FALSE@libjoy_la_LIBADD = $(SSL_LDFLAGS) -lcrypto
 @BUILD_WITH_SAFEC_TRUE@libjoy_la_LIBADD = -L$(SAFEC_DIR)/lib -lciscosafec
