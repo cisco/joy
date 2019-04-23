@@ -831,7 +831,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
                    break;
                case ETH_TYPE_IPV6:
                    joy_log_info("Ethernet type - IPv6");
-                   ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN);
+                   ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = IPV6_HDR_LENGTH;
                    real_ip_type = ETH_TYPE_IPV6;
                    break;
@@ -849,7 +849,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
                            break;
                        case ETH_TYPE_IPV6:
                            joy_log_info("Ethernet type - IPv6");
-                           ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN);
+                           ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
                            ip_hdr_len = IPV6_HDR_LENGTH;
                            real_ip_type = ETH_TYPE_IPV6;
                            break;
@@ -1027,7 +1027,7 @@ void* process_packet (unsigned char *ctx_ptr,
                    break;
                case ETH_TYPE_IPV6:
                    joy_log_info("Ethernet type - IPv6");
-                   ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN);
+                   ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
                    ip_hdr_len = IPV6_HDR_LENGTH;
                    ctx->curr_pkt_type = ETH_TYPE_IPV6;
                    break;
@@ -1045,7 +1045,7 @@ void* process_packet (unsigned char *ctx_ptr,
                            break;
                        case ETH_TYPE_IPV6:
                            joy_log_info("Ethernet type - IPv6");
-                           ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN);
+                           ipv6 = (ip_hdrv6_t*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN);
                            ip_hdr_len = IPV6_HDR_LENGTH;
                            ctx->curr_pkt_type = ETH_TYPE_IPV6;
                            break;
