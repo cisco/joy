@@ -588,7 +588,7 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
                 return err; 
             }
 
-            /* advance to end of the resource record */
+            /* get the typename */
             if (type == type_SOA) {
                 typename = "soa";
             } else if (type == type_PTR) {
@@ -601,6 +601,14 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
                 typename = "cname";
             }
             zprintf(output, "\"%s\":\"%s\"", typename, name + 1);
+
+            /* advance to end of the resource record */
+            if (*len-1 > 0) {
+                err = data_advance(r, len, *len-1);
+                if (err != dns_ok) {
+                    return err;
+                }
+            }
 
         } else if (type == type_TXT) {
             zprintf(output, "\"txt\":\"%s\"", "NYI");
