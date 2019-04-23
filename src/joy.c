@@ -117,6 +117,11 @@ typedef enum joy_operating_mode_ {
 #define MAX_RECORDS 2147483647
 #define MAX_FILENAME_LEN 1024
 
+/* 2GB Ring Buffer, SnapLen of 16K */
+#define PCAP_RING_SIZE 0x80000000
+#define PCAP_SNAPLEN_SIZE 16384
+#define PCAP_TIMEOUT_VAL 10000
+
 /*
  * Local globals
  */
@@ -780,7 +785,8 @@ static int get_labeled_subnets(void) {
  * \return 0 success, -1 failure
  */
 static int open_interface (char **capture_if, char **capture_mac) {
-    int linktype;
+    int linktype = 0;
+    int status = 0;
     char errbuf[PCAP_ERRBUF_SIZE];
 
     /*
@@ -807,20 +813,58 @@ static int open_interface (char **capture_if, char **capture_mac) {
     }
 
     errbuf[0] = 0;
-    handle = pcap_open_live(*capture_if, 65535, glb_config->promisc, 10000, errbuf);
+    /* create the capture interface handle */
+    handle = pcap_create(*capture_if, errbuf);
     if (handle == NULL) {
-        fprintf(info, "could not open device %s: %s\n", *capture_if, errbuf);
+        joy_log_err("could not open device %s: %s", *capture_if, errbuf);
         return -1;
     }
     if (errbuf[0] != 0) {
-        fprintf(stderr, "warning: %s\n", errbuf);
+        joy_log_warn("warning: %s", errbuf);
+    }
+
+    /* setup promisc mode */
+    status = pcap_set_promisc(handle,glb_config->promisc);
+    if (status !=0) {
+        joy_log_err("Promisc mode config(%d) failed: status (%d)",glb_config->promisc,status);
+        return -1;
+    }
+
+    /* setup the snaplen - should be large enough to handle largest single packet */
+    status = pcap_set_snaplen(handle,PCAP_SNAPLEN_SIZE);
+    if (status !=0) {
+        joy_log_err("Snaplen config(%d) failed: status (%d)",PCAP_SNAPLEN_SIZE,status);
+        return -1;
+    }
+
+    status = pcap_set_timeout(handle, PCAP_TIMEOUT_VAL);
+    if (status !=0) {
+        joy_log_err("Timeout config(%d) failed: status (%d)",PCAP_TIMEOUT_VAL,status);
+        return -1;
+    }
+
+    status = pcap_set_buffer_size(handle, PCAP_RING_SIZE);
+    if (status !=0) {
+        joy_log_err("Ring buffer config(%d) failed: status (%d)",PCAP_RING_SIZE,status);
+        return -1;
+    }
+
+    status = pcap_activate(handle);
+    if (status !=0) {
+        joy_log_err("Activate PCAP handle failed: status (%d)",status);
+        return -1;
+    }
+
+    status = pcap_set_datalink(handle,DLT_EN10MB);
+    if (status !=0) {
+        joy_log_err("Datalink config (%d) failed: status (%d)",DLT_EN10MB,status);
+        return -1;
     }
 
     /* verify that we can handle the link layer headers */
     linktype = pcap_datalink(handle);
     if (linktype != DLT_EN10MB) {
-        fprintf(info, "device %s has unsupported linktype (%d)\n",
-                *capture_if, linktype);
+        joy_log_err("device %s has unsupported linktype (%d)",*capture_if, linktype);
         return -1;
     }
 
