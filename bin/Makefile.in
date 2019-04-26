@@ -142,8 +142,9 @@ joy_api_test2_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(CFLAGS) $(joy_api_test2_LDFLAGS) $(LDFLAGS) -o $@
 am_joy_static_OBJECTS = ../src/joy_static-joy.$(OBJEXT)
 joy_static_OBJECTS = $(am_joy_static_OBJECTS)
+am__DEPENDENCIES_1 =
 joy_static_DEPENDENCIES = ../lib/.libs/libjoy.a $(SAFEC_LIB_STUBS) \
-	$(SAFEC_LIB_A)
+	$(SAFEC_LIB_A) $(am__DEPENDENCIES_1)
 joy_static_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(joy_static_CFLAGS) \
 	$(CFLAGS) $(joy_static_LDFLAGS) $(LDFLAGS) -o $@
@@ -404,7 +405,7 @@ str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(S
 @BUILD_MAC_FALSE@joy_api_test2_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
 @BUILD_MAC_TRUE@joy_api_test2_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -lm -lpcap -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
 joy_LDADD = $(SAFEC_LIB_STUBS)
-joy_static_LDADD = ../lib/.libs/libjoy.a $(SAFEC_LIB_STUBS) $(SAFEC_LIB_A) 
+joy_static_LDADD = ../lib/.libs/libjoy.a $(SAFEC_LIB_STUBS) $(SAFEC_LIB_A) $(SSL_LDFLAGS) -lcrypto -lm
 unit_test_LDADD = $(SAFEC_LIB_STUBS)
 joy_anon_LDADD = $(SAFEC_LIB_STUBS)
 jfd_anon_LDADD = $(SAFEC_LIB_STUBS)

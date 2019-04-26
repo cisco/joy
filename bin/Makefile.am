@@ -61,7 +61,7 @@ joy_api_test2_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -
 
 endif
 joy_LDADD=$(SAFEC_LIB_STUBS)
-joy_static_LDADD=../lib/.libs/libjoy.a $(SAFEC_LIB_STUBS) $(SAFEC_LIB_A) 
+joy_static_LDADD=../lib/.libs/libjoy.a $(SAFEC_LIB_STUBS) $(SAFEC_LIB_A) $(SSL_LDFLAGS) -lcrypto -lm
 unit_test_LDADD=$(SAFEC_LIB_STUBS)
 joy_anon_LDADD=$(SAFEC_LIB_STUBS)
 jfd_anon_LDADD=$(SAFEC_LIB_STUBS)
