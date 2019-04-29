@@ -1,7 +1,8 @@
 
-bin_PROGRAMS = joy unit_test joy_api_test joy_api_test2 jfd-anon joy-anon str_match_test
+bin_PROGRAMS = joy joy_static unit_test joy_api_test joy_api_test2 jfd-anon joy-anon str_match_test
 
 joy_SOURCES = ../src/joy.c
+joy_static_SOURCES = ../src/joy.c
 unit_test_SOURCES = ../src/unit_test.c
 joy_api_test_SOURCES = ../src/joy_api_test.c
 joy_api_test2_SOURCES = ../src/joy_api_test2.c
@@ -23,11 +24,13 @@ str_match_test_SOURCES = ../src/str_match_test.c
 
 if BUILD_WITH_SAFEC
  SAFEC_LIB= -lciscosafec
+ SAFEC_LIB_A=$(SAFEC_DIR)/lib/libciscosafec.a
 else
  SAFEC_LIB_STUBS=$(SAFEC_DIR)/lib/libstubsafec.a
 endif
 
 joy_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+joy_static_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 jfd_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec 
 joy_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
@@ -37,6 +40,7 @@ str_match_test_CFLAGS = -I../src/include -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(S
 
 if BUILD_MAC
 joy_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
+joy_static_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -lm -lpcap -Wl,-pie
 unit_test_LDFLAGS = -lm -lpcap -L../lib/.libs -ljoy -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
 joy_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
 jfd_anon_LDFLAGS = $(SSL_LDFLAGS) -lcrypto  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -Wl,-pie
@@ -47,6 +51,7 @@ joy_api_test2_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -
 
 else
 joy_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -L../lib/.libs -ljoy -lm -lpcap  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
+joy_static_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -lpthread -lm -lpcap -pie
 unit_test_LDFLAGS = $(LDFLAGS) -L../lib/.libs -ljoy -lm -lpcap -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
 joy_anon_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
 jfd_anon_LDFLAGS = $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto  -L$(SAFEC_DIR)/lib $(SAFEC_LIB) -pie
@@ -56,6 +61,7 @@ joy_api_test2_LDFLAGS= $(LDFLAGS) $(SSL_LDFLAGS) -lcrypto -L../lib/.libs -ljoy -
 
 endif
 joy_LDADD=$(SAFEC_LIB_STUBS)
+joy_static_LDADD=../lib/.libs/libjoy.a $(SAFEC_LIB_STUBS) $(SAFEC_LIB_A) $(SSL_LDFLAGS) -lcrypto -lm
 unit_test_LDADD=$(SAFEC_LIB_STUBS)
 joy_anon_LDADD=$(SAFEC_LIB_STUBS)
 jfd_anon_LDADD=$(SAFEC_LIB_STUBS)
