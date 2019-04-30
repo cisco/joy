@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2016-2018 Cisco Systems, Inc.
+ * Copyright (c) 2016-2019 Cisco Systems, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -335,7 +335,7 @@ static joy_status_e decode_ssh_vector(const char **dataptr,
     unsigned int length;
 
     if (*datalen < 4) {
-        fprintf(stderr, "ERROR: wanted %u, only have %u\n", 4, *datalen);
+        joy_log_err("ERROR: wanted %u, only have %u", 4, *datalen);
         return failure;
     }
 
@@ -343,7 +343,7 @@ static joy_status_e decode_ssh_vector(const char **dataptr,
     *datalen -= 4;
 
     if (length > *datalen) {
-        fprintf(stderr, "ERROR: wanted %u, only have %u\n", length, *datalen);
+        joy_log_err("ERROR: wanted %u, only have %u", length, *datalen);
         return failure;
     }
 
@@ -1541,16 +1541,16 @@ static int ssh_test_handshake(void) {
 void ssh_unit_test() {
     int num_fails = 0;
 
-    fprintf(info, "\n******************************\n");
-    fprintf(info, "SSH Unit Test starting...\n");
+    joy_log_info("\n******************************");
+    joy_log_info("SSH Unit Test starting...");
 
     num_fails += ssh_test_handshake();
 
     if (num_fails) {
-        fprintf(info, "Finished - # of failures: %d\n", num_fails);
+        joy_log_info("Finished - # of failures: %d", num_fails);
     } else {
-        fprintf(info, "Finished - success\n");
+        joy_log_info("Finished - success");
     }
-    fprintf(info, "******************************\n\n");
+    joy_log_info("******************************\n");
 }
 
