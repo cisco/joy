@@ -482,6 +482,33 @@ static void sig_reload (int signal_arg) {
     reopenLog = 1;
 }
 
+static void joy_close_and_reopen_logfile (void) {
+    int i = 0;
+
+    /* obtain the locks from the child threads */
+    if (glb_config->num_threads > 1) {
+        for (i=0; i < glb_config->num_threads; ++i) {
+            pthread_mutex_lock(&thrd_lock[i]);
+        }
+    }
+
+    fclose(info);
+    info = NULL;
+    reopenLog = 0;
+    info = fopen(glb_config->logfile, "a");
+    if (info == NULL) {
+        fprintf(stderr, "error: could not open new log file %s\n", glb_config->logfile);
+        exit(EXIT_FAILURE);
+    }
+
+    /* release the locks from the child threads */
+    if (glb_config->num_threads > 1) {
+        for (i=0; i < glb_config->num_threads; ++i) {
+            pthread_mutex_unlock(&thrd_lock[i]);
+        }
+    }
+}
+
 /**
  * \brief Print the "help" usage message.
  *
@@ -1524,13 +1551,7 @@ int main (int argc, char **argv) {
 
            // Close and reopen the log file if reopenLog flag is set
            if (reopenLog && glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind!= 0)) {
-              fclose(info);
-              reopenLog = 0;
-              info = fopen(glb_config->logfile, "a");
-              if (info == NULL) {
-                 fprintf(stderr, "error: could not open new log file %s\n", glb_config->logfile);
-                 return -1;
-              }
+              joy_close_and_reopen_logfile();
            }
         }
 
