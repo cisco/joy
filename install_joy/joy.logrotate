@@ -6,6 +6,7 @@
     missingok
     notifempty
     sharedscripts
+    su joy joy
     postrotate
       systemctl reload joy.service >/dev/null 2>&1 || true
     endscript

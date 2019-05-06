@@ -482,6 +482,33 @@ static void sig_reload (int signal_arg) {
     reopenLog = 1;
 }
 
+static void joy_close_and_reopen_logfile (void) {
+    int i = 0;
+
+    /* obtain the locks from the child threads */
+    if (glb_config->num_threads > 1) {
+        for (i=0; i < glb_config->num_threads; ++i) {
+            pthread_mutex_lock(&thrd_lock[i]);
+        }
+    }
+
+    fclose(info);
+    info = NULL;
+    reopenLog = 0;
+    info = fopen(glb_config->logfile, "a");
+    if (info == NULL) {
+        fprintf(stderr, "error: could not open new log file %s\n", glb_config->logfile);
+        exit(EXIT_FAILURE);
+    }
+
+    /* release the locks from the child threads */
+    if (glb_config->num_threads > 1) {
+        for (i=0; i < glb_config->num_threads; ++i) {
+            pthread_mutex_unlock(&thrd_lock[i]);
+        }
+    }
+}
+
 /**
  * \brief Print the "help" usage message.
  *
@@ -659,11 +686,10 @@ static int set_logfile(void) {
  *        some initial startup tasks.
  *
  * \param config_file Configuration that will be read into program state.
- * \param num_cmds The number of commands processed from the console.
  *
  * \return 0 success, 1 failure
  */
-static int initial_setup(char *config_file, unsigned int num_cmds) {
+static int initial_setup(char *config_file) {
 
     if (config_file) {
         /*
@@ -688,6 +714,28 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
     /* Determine the mode that Joy will be running in */
     if (set_operating_mode()) return 1;
 
+    if (joy_mode == MODE_ONLINE) {
+        /* Get interface list */
+        num_interfaces = interface_list_get();
+
+        if (glb_config->show_interfaces) {
+            /* Print the interfaces */
+            print_interfaces(info, num_interfaces);
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * \brief Complete the initial setup tasks.
+ *
+ * \param num_cmds The number of commands processed from the console.
+ *
+ * \return 0 success, 1 failure
+ */
+static int finish_initial_setup(unsigned int num_cmds) {
+
     /* Set log to file or console */
     if (set_logfile()) return 1;
 
@@ -697,16 +745,6 @@ static int initial_setup(char *config_file, unsigned int num_cmds) {
     if (glb_config->show_config) {
         /* Print running configuration */
         config_print(info, glb_config);
-    }
-
-    if (joy_mode == MODE_ONLINE) {
-        /* Get interface list */
-        num_interfaces = interface_list_get();
-
-        if (glb_config->show_interfaces) {
-            /* Print the interfaces */
-            print_interfaces(info, num_interfaces);
-        }
     }
 
     /* set up BPF expression if specified */
@@ -1233,6 +1271,15 @@ int main (int argc, char **argv) {
     const char *user = NULL;
 #endif
 
+    /*
+     * set "info" to stderr; this output stream is used for
+     * debug/info/warnings/errors.  setting it here is actually
+     * defensive coding, just in case some function that writes to
+     * "info" gets invoked before info gets set below (if we are in
+     * online mode, it will be set to a log file)
+     */
+    info = stderr;
+
     /* initialize the config */
     memset_s(&active_config,  sizeof(configuration_t), 0x00, sizeof(configuration_t));
     glb_config = &active_config;
@@ -1248,15 +1295,6 @@ int main (int argc, char **argv) {
             done_with_options = 1;
         }
     }
-
-    /*
-     * set "info" to stderr; this output stream is used for
-     * debug/info/warnings/errors.  setting it here is actually
-     * defensive coding, just in case some function that writes to
-     * "info" gets invoked before info gets set below (if we are in
-     * online mode, it will be set to a log file)
-     */
-    info = stderr;
 
     /* in debug mode, turn off output buffering */
 #if P2F_DEBUG
@@ -1301,7 +1339,61 @@ int main (int argc, char **argv) {
     /*
      * Configure and prepare the program for execution
      */
-    if (initial_setup(config_file, num_cmds)) exit(EXIT_FAILURE);
+    if (initial_setup(config_file)) exit(EXIT_FAILURE);
+
+    /* Open interface for live captures */
+    if (joy_mode == MODE_ONLINE) {
+        if (open_interface(&capture_if, &capture_mac) < 0) {
+            fprintf(info, "error: open_interface for live capture session failed!\n");
+            return -2;
+        }
+
+#ifndef _WIN32
+        /*
+         * Drop privileges once pcap handle exists
+         */
+        if (glb_config->username) {
+            user = glb_config->username;
+        } else {
+            user = getenv("SUDO_USER");
+        }
+
+        if (user == NULL) {
+            joy_log_crit("Please specify username=foo or run program with sudo");
+            return -5;
+        }
+
+        pw = getpwnam(user);
+
+        if (pw) {
+            if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
+                setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
+                fprintf(info, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
+                        pw->pw_name,
+                        (unsigned long)pw->pw_uid,
+                        (unsigned long)pw->pw_gid,
+                        pcap_strerror(errno));
+                return -5;
+            }
+            else {
+                fprintf(info, "changed user to '%.32s' (uid=%lu gid=%lu)\n",
+                        pw->pw_name,
+                        (unsigned long)pw->pw_uid,
+                        (unsigned long)pw->pw_gid);
+            }
+        }
+        else {
+            joy_log_crit("could not find user '%.32s'", user);
+            return -5;
+        }
+#endif /* _WIN32 */
+
+    }
+
+    /*
+     * Finish initial setup for the program for execution
+     */
+    if (finish_initial_setup(num_cmds)) exit(EXIT_FAILURE);
 
     /* setup library and context information */
     memset_s(&init_data, sizeof(joy_init_t), 0x00, sizeof(joy_init_t));
@@ -1349,14 +1441,6 @@ int main (int argc, char **argv) {
         }
     }
 
-    /* Open interface for live captures */
-    if (joy_mode == MODE_ONLINE) {
-        if (open_interface(&capture_if, &capture_mac) < 0) {
-            fprintf(info, "error: open_interface for live capture session failed!\n");
-            return -2;
-        }
-    }
-
     /* initialize the IPFix exporter if configured */
     if (glb_config->ipfix_export_port) {
         ipfix_exporter_init(glb_config->ipfix_export_remote_host);
@@ -1400,46 +1484,6 @@ int main (int argc, char **argv) {
             }
 
         }
-
-#ifndef _WIN32
-        /*
-         * Drop privileges once pcap handle exists
-         */
-        if (glb_config->username) {
-            user = glb_config->username;
-        } else {
-            user = getenv("SUDO_USER");
-        }
-
-        if (user == NULL) {
-            joy_log_crit("Please specify username=foo or run program with sudo");
-            return -5;
-        }
-
-        pw = getpwnam(user);
-
-        if (pw) {
-            if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
-                setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0) {
-                fprintf(info, "error: could not change to '%.32s' uid=%lu gid=%lu: %s\n",
-                        pw->pw_name,
-                        (unsigned long)pw->pw_uid,
-                        (unsigned long)pw->pw_gid,
-                        pcap_strerror(errno));
-                return -5;
-            }
-            else {
-                fprintf(info, "changed user to '%.32s' (uid=%lu gid=%lu)\n",
-                        pw->pw_name,
-                        (unsigned long)pw->pw_uid,
-                        (unsigned long)pw->pw_gid);
-            }
-        }
-        else {
-            joy_log_crit("could not find user '%.32s'", user);
-            return -5;
-        }
-#endif /* _WIN32 */
 
         /*
          * start the updater thread
@@ -1524,13 +1568,7 @@ int main (int argc, char **argv) {
 
            // Close and reopen the log file if reopenLog flag is set
            if (reopenLog && glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind!= 0)) {
-              fclose(info);
-              reopenLog = 0;
-              info = fopen(glb_config->logfile, "a");
-              if (info == NULL) {
-                 fprintf(stderr, "error: could not open new log file %s\n", glb_config->logfile);
-                 return -1;
-              }
+              joy_close_and_reopen_logfile();
            }
         }
 

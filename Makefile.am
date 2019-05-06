@@ -28,6 +28,7 @@ install-data-hook:
 	mkdir -p $(DESTDIR)/$(prefix)/etc/joy
 	mkdir -p $(DESTDIR)/etc/logrotate.d
 	cp install_joy/joy.logrotate $(DESTDIR)/etc/logrotate.d/joy
+	chmod 644 $(DESTDIR)/etc/logrotate.d/joy
 	mkdir -p $(DESTDIR)/$(prefix)/share/joy
 	mkdir -p $(DESTDIR)/$(prefix)/share/man
 	mkdir -p $(DESTDIR)/$(prefix)/share/man/man1
