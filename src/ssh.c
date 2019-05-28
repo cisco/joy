@@ -335,7 +335,7 @@ static joy_status_e decode_ssh_vector(const char **dataptr,
     unsigned int length;
 
     if (*datalen < 4) {
-        joy_log_err("ERROR: wanted %u, only have %u", 4, *datalen);
+        joy_log_info("wanted %u, only have %u", 4, *datalen);
         return failure;
     }
 
@@ -343,7 +343,7 @@ static joy_status_e decode_ssh_vector(const char **dataptr,
     *datalen -= 4;
 
     if (length > *datalen) {
-        joy_log_err("ERROR: wanted %u, only have %u", length, *datalen);
+        joy_log_info("wanted %u, only have %u", length, *datalen);
         return failure;
     }
 
