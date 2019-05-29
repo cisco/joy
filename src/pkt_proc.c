@@ -908,7 +908,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
             }
         }
     } else if (real_ip_type == ETH_TYPE_IP) {
-        if (ip_fragment_offset(ip) == 0) {
+        if (ip_is_fragment(ip) == 0) {
             /* fill out IP-specific fields of flow key, plus proto selector */
             key->sa.v4_sa = ip->ip_src;
             key->da.v4_da = ip->ip_dst;
@@ -1165,13 +1165,12 @@ void* process_packet (unsigned char *ctx_ptr,
             }
         }
     } else {
-        if (ip_fragment_offset(ip) == 0) {
+        if (ip_is_fragment(ip) == 0) {
             /* fill out IP-specific fields of flow key */
             key.sa.v4_sa = ip->ip_src;
             key.da.v4_da = ip->ip_dst;
             key.prot = ip->ip_prot;
         }  else {
-            // fprintf(info, "found IP fragment (offset: %02x)\n", ip_fragment_offset(ip));
             /*
              * select IP processing, since we don't have a TCP or UDP header
              */
