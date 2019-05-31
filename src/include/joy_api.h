@@ -128,6 +128,7 @@ typedef enum {
 #define JOY_SALT_ON                (1 << 19)
 #define JOY_RETAIN_LOCAL_ON        (1 << 20)
 #define JOY_UPDATER_ON             (1 << 21)
+#define JOY_FPX_ON                 (1 << 22)
 
 
 /* structure to hold feature ready counts for reporting */
