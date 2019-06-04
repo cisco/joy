@@ -965,22 +965,26 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
  * \return none
  */
 void dns_print_json (const dns_t *dns1, const dns_t *dns2, zfile f) {
-    unsigned int count;
-    char * const *twin_dns_name = NULL;
-    const unsigned short *twin_pkt_len = NULL;
+    unsigned int count = 0;
   
-    count = dns1->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns1->pkt_count;
-    if (dns2) {
-        count = dns2->pkt_count > count ? count : dns2->pkt_count;
-        twin_dns_name = dns2->dns_name;
-        twin_pkt_len = dns2->pkt_len;
+    if (dns1) {
+        count = dns1->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns1->pkt_count;
     }
 
-    if (count == 0) {
+    if (dns2) {
+        count = dns2->pkt_count > count ? count : dns2->pkt_count;
+    }
+
+    if ((count == 0) || (count > MAX_NUM_DNS_PKT)) {
+        joy_log_info("DNS count out of bounds (%d)", count);
         return;  /* no DNS data to report */
     }
  
-    dns_printf(dns1->dns_name, dns1->pkt_len, twin_dns_name, twin_pkt_len, count, f);  
+    if (dns2) {
+        dns_printf(dns1->dns_name, dns1->pkt_len, dns2->dns_name, dns2->pkt_len, count, f);
+    } else {
+        dns_printf(dns1->dns_name, dns1->pkt_len, NULL, NULL, count, f);
+    }
 }
 
 
