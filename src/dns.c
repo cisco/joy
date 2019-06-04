@@ -945,7 +945,7 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
     }
 
     if (!dns->dns_name[dns->pkt_count]) {
-        dns->dns_name[dns->pkt_count] = malloc(len);
+        dns->dns_name[dns->pkt_count] = calloc(1, len);
         if (dns->dns_name[dns->pkt_count] == NULL) {
             return; /* failure */
         }
