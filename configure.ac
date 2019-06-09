@@ -13,7 +13,7 @@
 #
 m4_define([joy_major_version], [4])
 m4_define([joy_minor_version], [3])
-m4_define([joy_micro_version], [1])
+m4_define([joy_micro_version], [2])
 
 
 m4_define([joy_version],[joy_major_version.joy_minor_version.joy_micro_version])
