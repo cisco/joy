@@ -2346,7 +2346,9 @@ static void tls_certificate_print_json(const tls_certificate_t *data, zfile f) {
     if (data->num_extension_items) {
         zprintf(f, ",\"extensions\":[");
         for (j = 0; j < data->num_extension_items; j++) {
-            zprintf(f, "{\"%s\":\"%s\"}", data->extensions[j].id, (char *)data->extensions[j].data);
+            if (data->extensions[j].data != NULL) {
+                zprintf(f, "{\"%s\":\"%s\"}", data->extensions[j].id, (char *)data->extensions[j].data);
+            }
             if (j == (data->num_extension_items - 1)) {
                 zprintf(f, "]");
             } else {
