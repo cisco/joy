@@ -336,6 +336,7 @@ joy_status_e anon_init (const char *pathname, FILE *logfile) {
             if (got_input) {
                 if (anon_subnet_add_from_string(addr) != ok) {
                     fprintf(anon_info, "error: could not add subnet %s to anon set\n", addr);
+                    fclose(fp);
                     return failure;
                 }
             }

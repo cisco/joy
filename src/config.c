@@ -407,6 +407,7 @@ int config_set_from_file (configuration_t *config, const char *fname) {
         linecount++;
         if (len > LINEMAX) {
             fprintf(info, "error: line too long in file %s\n", fname);
+            fclose(f);
             return failure;
         }
 
@@ -442,6 +443,7 @@ int config_set_from_file (configuration_t *config, const char *fname) {
         }
     }
     free(line);
+    fclose(f);
     return ok;
 }
 
