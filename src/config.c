@@ -407,6 +407,7 @@ int config_set_from_file (configuration_t *config, const char *fname) {
         linecount++;
         if (len > LINEMAX) {
             fprintf(info, "error: line too long in file %s\n", fname);
+            fclose(f);
             return failure;
         }
 
@@ -428,11 +429,13 @@ int config_set_from_file (configuration_t *config, const char *fname) {
                        // printf("%s = %s ### %d ### %s", lhs, rhs, num, line);
                        if (config_parse_command(config, lhs, rhs, num) != ok) {
                            fprintf(info, "error: unknown command (%s)\n", lhs);
+                           fclose(f);
                            exit(EXIT_FAILURE);
                        }
             } else if (num == 1) {
                        printf("error: could not parse line %u in file %s (\"%s ...\")\n", 
                                       linecount, fname, lhs);
+                       fclose(f);
                        exit(EXIT_FAILURE);
             } else {
                        printf("error: could not parse line %s in file %s\n", line, fname);
@@ -442,6 +445,7 @@ int config_set_from_file (configuration_t *config, const char *fname) {
         }
     }
     free(line);
+    fclose(f);
     return ok;
 }
 
