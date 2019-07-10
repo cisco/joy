@@ -151,14 +151,7 @@
  /** DNS header structure */
 typedef struct {
         uint16_t id;
-        unsigned char qr : 1;
-        unsigned char opcode : 4;
-        unsigned char aa : 1;
-        unsigned char tc : 1;
-        unsigned char rd : 1;
-        unsigned char ra : 1;
-        unsigned char z : 3;
-        unsigned char rcode : 4;
+        uint16_t flags;
         uint16_t qdcount;
         uint16_t ancount;
         uint16_t nscount;
@@ -173,14 +166,7 @@ typedef struct {
 /** DNS header structure */
 typedef struct {
     uint16_t id;
-    unsigned char qr:1;
-    unsigned char opcode:4;
-    unsigned char aa:1;
-    unsigned char tc:1;
-    unsigned char rd:1;
-    unsigned char ra:1;
-    unsigned char z:3;
-    unsigned char rcode:4;
+    uint16_t flags;
     uint16_t qdcount;
     uint16_t ancount;
     uint16_t nscount;
@@ -194,14 +180,7 @@ typedef struct {
 /** DNS header structure */
 typedef struct {
     uint16_t id;
-    unsigned char rd:1;
-    unsigned char tc:1;
-    unsigned char aa:1;
-    unsigned char opcode:4;
-    unsigned char qr:1;
-    unsigned char rcode:4;
-    unsigned char z:3;
-    unsigned char ra:1;
+    uint16_t flags;
     uint16_t qdcount;
     uint16_t ancount;
     uint16_t nscount;
@@ -301,7 +280,9 @@ enum dns_err {
 
 /* advance the data position */
 static enum dns_err data_advance (char **data, int *len, unsigned int size) {
-    if (*len < (int)size) {
+    unsigned int tlen = (unsigned int)*len;
+
+    if (tlen < size) {
         return dns_err_malformed;
     } 
     *data += size;
@@ -643,6 +624,8 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
     const dns_question *question = NULL;
     const dns_rr *rr;
     int len = 0;
+    uint8_t flags_rcode = 0;
+    uint8_t flags_qr = 0;
     char qr = 0;
     uint16_t qdcount = 0, ancount = 0, nscount = 0, arcount = 0;
     int rdlength = 0;
@@ -669,7 +652,9 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
     len = pkt_len;
     r = dns_name;
     rh = (const dns_hdr*)r;
-    if (rh->qr == 0) {
+    flags_rcode = ntohs(rh->flags) & 0x000f;
+    flags_qr = ntohs(rh->flags) >> 15;
+    if (flags_qr == 0) {
         qr = 'q';
     } else {
         qr = 'r';
@@ -685,6 +670,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         zprintf_debug(output, "qdcount=%u; err=%u\"}", qdcount, err);
       return;
     }
+
     memset_s(name, DNS_OUTNAME_LEN, 0x00, DNS_OUTNAME_LEN);
     while (qdcount-- > 0) {
         /* parse question name and struct */
@@ -702,7 +688,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         }
         zprintf(output, "\"%cn\":\"%s\",", qr, name + 1);
     }
-    zprintf(output, "\"rc\":%u,\"rr\":[", rh->rcode);
+    zprintf(output, "\"rc\":%u,\"rr\":[", flags_rcode);
 
     ancount = ntohs(rh->ancount); 
     comma = 0;
@@ -767,10 +753,17 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
             return;
         }
         len -= rdlength;
+        if (rdlength > 1) {
+            r += (rdlength - 1);
+            rdlength = 1;
+        }
         zprintf(output, ",\"ttl\":%u}", ntohl(rr->ttl));
     }
 
     arcount = ntohs(rh->arcount);
+    if (rdlength > 1) {
+        r += (rdlength - 1);
+    }
     memset_s(name, DNS_OUTNAME_LEN, 0x00, DNS_OUTNAME_LEN);
     while (arcount-- > 0) {
         if (comma++) {
@@ -796,6 +789,10 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
             return;
         }
         len -= rdlength;
+        if (rdlength > 1) {
+            r += (rdlength - 1);
+            rdlength = 1;
+        }
         zprintf(output, ",\"ttl\":%u}", ntohl(rr->ttl));
     }
     zprintf(output, "]}");
@@ -805,10 +802,11 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
 static void dns_printf (char * const dns_name[], const unsigned short pkt_len[], 
                 char * const twin_dns_name[], const unsigned short twin_pkt_len[], 
                 unsigned int count, zfile output) {
-    unsigned int i;
+    unsigned int i = 0;
 
     zprintf(output, ",\"dns\":[");
   
+    /* if a twin exists, print out that data */
     if (twin_dns_name) { /* bidirectional flow */
         for (i=0; i<count; i++) {
             if (i) {
@@ -818,9 +816,9 @@ static void dns_printf (char * const dns_name[], const unsigned short pkt_len[],
                 dns_print_packet(twin_dns_name[i], twin_pkt_len[i], output);
             }
         }
-    
-    } else { /* unidirectional flow, with no twin */
-    
+    } else {
+        /* unidirectional flow */
+        /* print out the data from the primary record */
         for (i=0; i<count; i++) {
             if (i) {
                 zprintf(output, ",");
@@ -830,6 +828,7 @@ static void dns_printf (char * const dns_name[], const unsigned short pkt_len[],
             }
         }
     }
+
     zprintf(output, "]");
 }
 
@@ -967,12 +966,14 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
 void dns_print_json (const dns_t *dns1, const dns_t *dns2, zfile f) {
     unsigned int count = 0;
   
-    if (dns1) {
-        count = dns1->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns1->pkt_count;
-    }
+    /* should never get called with null dns1 handle*/
+    if (dns1 == NULL)
+        return;
+
+    count = dns1->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns1->pkt_count;
 
     if (dns2) {
-        count = dns2->pkt_count > count ? count : dns2->pkt_count;
+        count = dns2->pkt_count > MAX_NUM_DNS_PKT ? MAX_NUM_DNS_PKT : dns2->pkt_count;
     }
 
     if ((count == 0) || (count > MAX_NUM_DNS_PKT)) {

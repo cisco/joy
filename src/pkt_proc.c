@@ -1090,8 +1090,8 @@ void* process_packet (unsigned char *ctx_ptr,
         dyn_header->ts.tv_sec = now.tv_sec;
         dyn_header->ts.tv_usec = now.tv_usec;
         if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
-            dyn_header->caplen = ipv6->ip_len;
-            dyn_header->len = ipv6->ip_len;
+            dyn_header->caplen = ipv6->ip_len + IPV6_HDR_LENGTH;
+            dyn_header->len = ipv6->ip_len + IPV6_HDR_LENGTH;
         } else {
             dyn_header->caplen = ip->ip_len;
             dyn_header->len = ip->ip_len;
