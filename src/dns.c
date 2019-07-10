@@ -280,7 +280,9 @@ enum dns_err {
 
 /* advance the data position */
 static enum dns_err data_advance (char **data, int *len, unsigned int size) {
-    if (*len < (int)size) {
+    unsigned int tlen = (unsigned int)*len;
+
+    if (tlen < size) {
         return dns_err_malformed;
     } 
     *data += size;
@@ -804,22 +806,23 @@ static void dns_printf (char * const dns_name[], const unsigned short pkt_len[],
 
     zprintf(output, ",\"dns\":[");
   
-    /* print out the data from the primary record */
-    for (i=0; i<count; i++) {
-        if (i) {
-            zprintf(output, ",");
-        }
-        if (dns_name[i]) {
-            dns_print_packet(dns_name[i], pkt_len[i], output);
-        }
-    }
-
     /* if a twin exists, print out that data */
     if (twin_dns_name) { /* bidirectional flow */
         for (i=0; i<count; i++) {
             zprintf(output, ",");
             if (twin_dns_name[i]) {
                 dns_print_packet(twin_dns_name[i], twin_pkt_len[i], output);
+            }
+        }
+    } else {
+        /* unidirectional flow */
+        /* print out the data from the primary record */
+        for (i=0; i<count; i++) {
+            if (i) {
+                zprintf(output, ",");
+            }
+            if (dns_name[i]) {
+                dns_print_packet(dns_name[i], pkt_len[i], output);
             }
         }
     }
