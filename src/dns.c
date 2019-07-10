@@ -809,7 +809,9 @@ static void dns_printf (char * const dns_name[], const unsigned short pkt_len[],
     /* if a twin exists, print out that data */
     if (twin_dns_name) { /* bidirectional flow */
         for (i=0; i<count; i++) {
-            zprintf(output, ",");
+            if (i) {
+                zprintf(output, ",");
+            }
             if (twin_dns_name[i]) {
                 dns_print_packet(twin_dns_name[i], twin_pkt_len[i], output);
             }
