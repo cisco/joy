@@ -370,7 +370,7 @@ static inline char printable(char c) {
 
 static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int *len,
                                            char *outname, unsigned int outname_len,
-                                           unsigned int recursion_cnt) {
+                                           unsigned int recursion_depth) {
     char *terminus = outname + outname_len;
     char *c = *name;
     unsigned char jump;
@@ -432,12 +432,10 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
             }
             offsetname = (const void *)((char *)hdr + (ntohs(*offset) & 0x3FFF));
             offsetlen -= (ntohs(*offset) & 0x3FFF);
-            if (recursion_cnt < DNS_MAX_RECURSION_DEPTH) {
-                ++recursion_cnt;
-                return dns_header_parse_name(hdr, (void *)&offsetname, &offsetlen, outname, outname_len, recursion_cnt);
-            } else {
+            if (recursion_depth >= DNS_MAX_RECURSION_DEPTH) {
                 return dns_err_offset_too_long;
             }
+            return dns_header_parse_name(hdr, (void *)&offsetname, &offsetlen, outname, outname_len, recursion_depth + 1);
         } else {
             return dns_err_label_malformed;
         }
@@ -447,7 +445,7 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
 
 static enum dns_err dns_header_parse_mxname (const dns_hdr *hdr, char **name, int *len,
                                              char *outname, unsigned int outname_len,
-                                             unsigned int recursion_cnt) {
+                                             unsigned int recursion_depth) {
     char *terminus = outname + outname_len;
     char *c = *name;
     unsigned char jump;
@@ -516,12 +514,10 @@ static enum dns_err dns_header_parse_mxname (const dns_hdr *hdr, char **name, in
             }
             offsetname = (const void *)((char *)hdr + (ntohs(*offset) & 0x3FFF));
             offsetlen -= (ntohs(*offset) & 0x3FFF);
-            if (recursion_cnt < DNS_MAX_RECURSION_DEPTH) {
-                ++recursion_cnt;
-                return dns_header_parse_mxname(hdr, (void *)&offsetname, &offsetlen, outname, outname_len, recursion_cnt);
-            } else {
+            if (recursion_depth >= DNS_MAX_RECURSION_DEPTH) {
                 return dns_err_offset_too_long;
             }
+            return dns_header_parse_mxname(hdr, (void *)&offsetname, &offsetlen, outname, outname_len, recursion_depth + 1);
         } else {
             return dns_err_label_malformed;
         }
