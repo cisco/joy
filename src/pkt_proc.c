@@ -1100,7 +1100,7 @@ void* process_packet (unsigned char *ctx_ptr,
     }
 
     if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
-        ip_len = ntohs(ipv6->ip_len);
+        ip_len = ntohs(ipv6->ip_len) + IPV6_HDR_LENGTH;
         if (header->caplen < IPV6_HDR_LENGTH) {
             /*
              * IP packet is malformed shorter than a complete IP header
@@ -1189,7 +1189,7 @@ void* process_packet (unsigned char *ctx_ptr,
 
     /* determine transport length and start */
     if (ctx->curr_pkt_type == ETH_TYPE_IPV6) {
-        transport_len =  ip_len;
+        transport_len =  ip_len - IPV6_HDR_LENGTH;
         transport_start = (char *)ipv6 + ip_hdr_len + (ipv6_ext_hdrs * IPV6_EXT_HDR_LEN);
     } else {
         transport_len =  ip_len - ip_hdr_len;

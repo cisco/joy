@@ -263,6 +263,9 @@ enum dns_class {
 /** DNS Output Name Length */
 #define DNS_OUTNAME_LEN 256
 
+/** DNS Max Recursion processing depth */
+#define DNS_MAX_RECURSION_DEPTH 50
+
 /** DNS error codes */
 enum dns_err {
     dns_ok                  = 0,
@@ -366,7 +369,8 @@ static inline char printable(char c) {
 }
 
 static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int *len,
-                                           char *outname, unsigned int outname_len) {
+                                           char *outname, unsigned int outname_len,
+                                           unsigned int recursion_depth) {
     char *terminus = outname + outname_len;
     char *c = *name;
     unsigned char jump;
@@ -428,7 +432,10 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
             }
             offsetname = (const void *)((char *)hdr + (ntohs(*offset) & 0x3FFF));
             offsetlen -= (ntohs(*offset) & 0x3FFF);
-            return dns_header_parse_name(hdr, (void *)&offsetname, &offsetlen, outname, outname_len);
+            if (recursion_depth >= DNS_MAX_RECURSION_DEPTH) {
+                return dns_err_offset_too_long;
+            }
+            return dns_header_parse_name(hdr, (void *)&offsetname, &offsetlen, outname, outname_len, recursion_depth + 1);
         } else {
             return dns_err_label_malformed;
         }
@@ -437,7 +444,8 @@ static enum dns_err dns_header_parse_name (const dns_hdr *hdr, char **name, int 
 }
 
 static enum dns_err dns_header_parse_mxname (const dns_hdr *hdr, char **name, int *len,
-                                             char *outname, unsigned int outname_len) {
+                                             char *outname, unsigned int outname_len,
+                                             unsigned int recursion_depth) {
     char *terminus = outname + outname_len;
     char *c = *name;
     unsigned char jump;
@@ -506,7 +514,10 @@ static enum dns_err dns_header_parse_mxname (const dns_hdr *hdr, char **name, in
             }
             offsetname = (const void *)((char *)hdr + (ntohs(*offset) & 0x3FFF));
             offsetlen -= (ntohs(*offset) & 0x3FFF);
-            return dns_header_parse_name(hdr, (void *)&offsetname, &offsetlen, outname, outname_len);
+            if (recursion_depth >= DNS_MAX_RECURSION_DEPTH) {
+                return dns_err_offset_too_long;
+            }
+            return dns_header_parse_mxname(hdr, (void *)&offsetname, &offsetlen, outname, outname_len, recursion_depth + 1);
         } else {
             return dns_err_label_malformed;
         }
@@ -561,9 +572,9 @@ dns_rdata_print (const dns_hdr *rh, const dns_rr *rr, char **r, int *len, zfile 
 
             /* mail exchange has a 2-byte preference before the name */
             if (type == type_MX) {
-                err = dns_header_parse_mxname(rh, r, len, name, (DNS_OUTNAME_LEN-1)); /* note: does not check rdlength */
+                err = dns_header_parse_mxname(rh, r, len, name, (DNS_OUTNAME_LEN-1), 0); /* note: does not check rdlength */
             } else {
-                err = dns_header_parse_name(rh, r, len, name, (DNS_OUTNAME_LEN-1)); /* note: does not check rdlength */
+                err = dns_header_parse_name(rh, r, len, name, (DNS_OUTNAME_LEN-1), 0); /* note: does not check rdlength */
             }
             if (err != dns_ok) { 
                 return err; 
@@ -674,7 +685,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
     memset_s(name, DNS_OUTNAME_LEN, 0x00, DNS_OUTNAME_LEN);
     while (qdcount-- > 0) {
         /* parse question name and struct */
-        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1));
+        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) { 
             zprintf(output, "\"malformed\":%d", len);
             zprintf_debug(output, "question name err=%u; len=%u\"}", err, len);
@@ -699,7 +710,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         }
         zprintf(output, "{");
         /* parse rr name, struct, and rdata */
-        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1));
+        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) { 
             zprintf(output, "\"malformed\":%d", len);
             zprintf_debug(output, "rr name ancount=%u; err=%u; len=%u\"}]}", ancount, err, len);
@@ -735,7 +746,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         }
         zprintf(output, "{");
         /* parse rr name, struct, and rdata */
-        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1));
+        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) {
             zprintf(output, "\"malformed\":%d", len);
             zprintf_debug(output, "rr name nscount=%u; err=%u; len=%u\"}]}", nscount, err, len);
@@ -771,7 +782,7 @@ static void dns_print_packet (char *dns_name, unsigned int pkt_len, zfile output
         }
         zprintf(output, "{");
         /* parse rr name, struct, and rdata */
-        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1));
+        err = dns_header_parse_name(rh, &r, &len, name, (DNS_OUTNAME_LEN-1), 0);
         if (err != dns_ok) {
             zprintf(output, "\"malformed\":%d", len);
             zprintf_debug(output, "rr name arcount=%u; err=%u; len=%u\"}]}", arcount, err, len);
@@ -857,7 +868,7 @@ void dns_unit_test () {
     assert(sizeof(dns_question) == 4);
     assert(sizeof(dns_rr) == 10);
   
-    err = dns_header_parse_name(&hdr, (char**)&c, &len, name2, sizeof(name2));
+    err = dns_header_parse_name(&hdr, (char**)&c, &len, name2, sizeof(name2), 0);
   
     printf("name: %s\tlen: %u\terr: %u\n", name2, len, err);
 }
