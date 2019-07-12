@@ -89,6 +89,12 @@ This package was written by David McGrew, Blake Anderson, Philip Perricone
 and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
 Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
+### Release 4.4.0
+* Fix SIGSEGV in DNS parsing (recursion depth bug)
+* Fix bug in IPv6 payload calculation
+* Fix bug in IPv6 IDP length
+* Bump MAX library contexts to 64 (user request)
+
 ### Release 4.3.0
 * Add IPv6 support to Joy and libjoy
 * IPFix collection and export only support IPv4
