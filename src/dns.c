@@ -264,7 +264,7 @@ enum dns_class {
 #define DNS_OUTNAME_LEN 256
 
 /** DNS Max Recursion processing depth */
-#define DNS_MAX_RECURSION_DEPTH 30
+#define DNS_MAX_RECURSION_DEPTH 20
 
 /** DNS error codes */
 enum dns_err {
