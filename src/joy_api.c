@@ -472,6 +472,7 @@ int joy_initialize(joy_init_t *init_data,
     glb_config->retain_local = ((init_data->bitmask & JOY_RETAIN_LOCAL_ON) ? 1 : 0);
     glb_config->updater_on = ((init_data->bitmask & JOY_UPDATER_ON) ? 1 : 0);
     glb_config->report_fpx = ((init_data->bitmask & JOY_FPX_ON) ? 1 : 0);
+    glb_config->include_classifier = ((init_data->bitmask & JOY_CLASSIFY_ON) ? 1 : 0);
 
     /* check if IDP option is set */
     if (init_data->bitmask & JOY_IDP_ON) {
