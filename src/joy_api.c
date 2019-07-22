@@ -1754,6 +1754,26 @@ void joy_splt_external_processing(uint8_t index,
         if ((rec->splt_ext_processed == 0) &&
             ((rec->op >= min_pkts) || (flow_record_is_expired(ctx,rec)))) {
 
+            /* include classification if desired */
+            if (glb_config->include_classifier) {
+                float score = 0.0;
+
+                if (rec->twin) {
+                    score = classify(rec->pkt_len, rec->pkt_time, rec->twin->pkt_len, rec->twin->pkt_time,
+                                             rec->start, rec->twin->start,
+                                             glb_config->num_pkts, rec->key.sp, rec->key.dp, rec->np, rec->twin->np, rec->op, rec->twin->op,
+                                             rec->ob, rec->twin->ob, glb_config->byte_distribution,
+                                             rec->byte_count, rec->twin->byte_count);
+                    rec->twin->classify_value = score;
+                } else {
+                    score = classify(rec->pkt_len, rec->pkt_time, NULL, NULL,   rec->start, rec->start,
+                                             glb_config->num_pkts, rec->key.sp, rec->key.dp, rec->np, 0, rec->op, 0,
+                                             rec->ob, 0, glb_config->byte_distribution,
+                                             rec->byte_count, NULL);
+                    rec->classify_value = score;
+                }
+            }
+
             /* format the SPLT data for external processing */
             data_len = joy_splt_format_data(rec, export_frmt, data);
 
