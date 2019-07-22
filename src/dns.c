@@ -264,7 +264,7 @@ enum dns_class {
 #define DNS_OUTNAME_LEN 256
 
 /** DNS Max Recursion processing depth */
-#define DNS_MAX_RECURSION_DEPTH 50
+#define DNS_MAX_RECURSION_DEPTH 20
 
 /** DNS error codes */
 enum dns_err {
@@ -912,6 +912,8 @@ void dns_delete (dns_t **dns_handle) {
     for (i=0; i<dns->pkt_count; i++) {
         if (dns->dns_name[i]) {
             free(dns->dns_name[i]);
+            dns->dns_name[i] = NULL;
+            dns->pkt_len[i] = 0;
         }
     }
 
@@ -955,7 +957,7 @@ void dns_update (dns_t *dns, const struct pcap_pkthdr *header, const void *start
     }
 
     if (!dns->dns_name[dns->pkt_count]) {
-        dns->dns_name[dns->pkt_count] = calloc(1, len);
+        dns->dns_name[dns->pkt_count] = calloc(1, len+1);
         if (dns->dns_name[dns->pkt_count] == NULL) {
             return; /* failure */
         }

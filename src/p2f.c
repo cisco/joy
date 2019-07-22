@@ -1594,11 +1594,13 @@ static void flow_record_print_json
                                      glb_config->num_pkts, rec->key.sp, rec->key.dp, rec->np, rec->twin->np, rec->op, rec->twin->op,
                                      rec->ob, rec->twin->ob, glb_config->byte_distribution,
                                      rec->byte_count, rec->twin->byte_count);
+            ((flow_record_t*)rec)->twin->classify_value = score;
         } else {
             score = classify(rec->pkt_len, rec->pkt_time, NULL, NULL,   rec->start, rec->start,
                                      glb_config->num_pkts, rec->key.sp, rec->key.dp, rec->np, 0, rec->op, 0,
                                      rec->ob, 0, glb_config->byte_distribution,
                                      rec->byte_count, NULL);
+            ((flow_record_t*)rec)->classify_value = score;
         }
 
         zprintf(ctx->output, ",\"p_malware\":%f", score);

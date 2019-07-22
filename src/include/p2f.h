@@ -170,8 +170,9 @@ typedef struct flow_record_ {
     uint8_t joy_app_data_len;             /*!< application specific data length */
     char *joy_app_data;                   /*!< application specific data */
     uint64_t uptime_seconds;              /*!< executable uptime associated with flow    */
+    float classify_value;
     uint8_t exp_type;
-    bool first_switched_found;    /*!< hack to make sure we only correct once */
+    bool first_switched_found;            /*!< hack to make sure we only correct once */
     bool idp_ext_processed;
     bool tls_ext_processed;
     bool salt_ext_processed;
