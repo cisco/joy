@@ -208,40 +208,40 @@ void my_bd_callback(void *curr_rec, unsigned int data_len, unsigned char *data) 
 
 void *thread_main1 (void *file)
 {
-    //unsigned int recs = 0;
-    //joy_ctx_feat_count_t feat_counts;
+    unsigned int recs = 0;
+    joy_ctx_feat_count_t feat_counts;
 
     sleep(1);
     printf("Thread 1 Starting\n");
     joy_print_config(0, JOY_JSON_FORMAT);
-    //memset_s(&feat_counts, sizeof(joy_ctx_feat_count_t), 0x00, sizeof(joy_ctx_feat_count_t));
+    memset_s(&feat_counts, sizeof(joy_ctx_feat_count_t), 0x00, sizeof(joy_ctx_feat_count_t));
     if (file != NULL) {
-        //joy_get_feature_counts(0,&feat_counts);
-        //printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
-        //    feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
-        //    feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
+        joy_get_feature_counts(0,&feat_counts);
+        printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
+            feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
+            feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
         proc_pcap_file(0, file);
-        //joy_get_feature_counts(0,&feat_counts);
-        //printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
-        //    feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
-        //    feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
+        joy_get_feature_counts(0,&feat_counts);
+        printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
+            feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
+            feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
         joy_idp_external_processing(0, my_idp_callback);
-        //joy_tls_external_processing(0, my_tls_callback);
-        //joy_splt_external_processing(0, JOY_NFV9_EXPORT, 1, my_splt_callback);
+        joy_tls_external_processing(0, my_tls_callback);
+        joy_splt_external_processing(0, JOY_NFV9_EXPORT, 1, my_splt_callback);
         //joy_splt_external_processing(0, JOY_IPFIX_EXPORT, 1, my_splt_callback);
         //joy_salt_external_processing(0, JOY_NFV9_EXPORT, 1, my_salt_callback);
         //joy_salt_external_processing(0, JOY_IPFIX_EXPORT, 1, my_salt_callback);
-        //joy_bd_external_processing(0, 1, my_bd_callback);
+        joy_bd_external_processing(0, 1, my_bd_callback);
         //recs = joy_purge_old_flow_records(0, 300);
         //printf("Thread 1 deleted %d records\n",recs);
         //joy_export_flows_ipfix(0, JOY_ALL_FLOWS);
         joy_print_flow_data(0, JOY_ALL_FLOWS);
-        //recs = joy_delete_flow_records(0, JOY_DELETE_ALL);
-        //printf("Thread 1 deleted %d records\n",recs);
-        //joy_get_feature_counts(0,&feat_counts);
-        //printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
-        //    feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
-        //    feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
+        recs = joy_delete_flow_records(0, JOY_DELETE_ALL);
+        printf("Thread 1 deleted %d records\n",recs);
+        joy_get_feature_counts(0,&feat_counts);
+        printf("Thread 1 Feature Counts:\nIDP: %d\nTLS: %d\nSPLT: %d\nSALT: %d\nBD: %d\n",
+            feat_counts.idp_recs_ready, feat_counts.tls_recs_ready, feat_counts.splt_recs_ready,
+            feat_counts.salt_recs_ready, feat_counts.bd_recs_ready);
     } else {
         printf("Thread 1 No File to Process\n");
     }
@@ -322,7 +322,8 @@ int main (int argc, char **argv)
     init_data.idp = 1400;
     init_data.ipfix_host = "72.163.4.161";    /* Host to send IPFix data to */
     init_data.ipfix_port = 0;                 /* use default IPFix port */
-    init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
+    //init_data.bitmask = (JOY_HTTP_ON | JOY_TLS_ON | JOY_IDP_ON | JOY_SALT_ON | JOY_BYTE_DIST_ON);
+    init_data.bitmask = (JOY_IDP_ON | JOY_BYTE_DIST_ON);
 
 #ifdef HAVE_CONFIG_H
     printf("Joy Version = %s\n", joy_get_version());

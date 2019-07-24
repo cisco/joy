@@ -1774,11 +1774,16 @@ void joy_splt_external_processing(uint8_t index,
                 }
             }
 
-            /* format the SPLT data for external processing */
-            data_len = joy_splt_format_data(rec, export_frmt, data);
+            if (rec->op > 0) {
+                /* format the SPLT data for external processing */
+                data_len = joy_splt_format_data(rec, export_frmt, data);
 
-            /* let the callback function process the flow record */
-            callback_fn(rec, data_len, data);
+                /* let the callback function process the flow record */
+                callback_fn(rec, data_len, data);
+            } else {
+                /* there are no SPLT packets to process */
+                callback_fn(rec, 0, data);
+            }
 
             /* mark the SPLT data as being processed */
             rec->splt_ext_processed = 1;
