@@ -13,7 +13,7 @@
 #
 m4_define([joy_major_version], [4])
 m4_define([joy_minor_version], [4])
-m4_define([joy_micro_version], [1])
+m4_define([joy_micro_version], [2])
 
 
 m4_define([joy_version],[joy_major_version.joy_minor_version.joy_micro_version])
@@ -243,9 +243,25 @@ else
     AC_MSG_RESULT(no)
 fi
 
+#
+# User wants af_packet
+#
+AC_MSG_CHECKING([enable af_packet])
+AC_ARG_ENABLE(af_packet,
+        [AS_HELP_STRING([--enable-af_packet],[enable the use of af_packet])],
+        [enable_af_packet="yes"],
+        [enable_af_packet="no"])  
+
+if test "x$enable_af_packet" = "xyes"; then
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+fi
+AM_CONDITIONAL(BUILD_WITH_AF_PACKET, test "x$enable_af_packet" != "xno")
 
 
 
+AC_MSG_CHECKING([SafeC Stubs])
 SAFEC_STUB_DIR='$(abs_top_builddir)/safe_c_stub'
 #AC_SUBST(SAFEC_STUB_DIR)
 

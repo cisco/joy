@@ -111,7 +111,10 @@ am__v_lt_1 =
 jfd_anon_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(jfd_anon_CFLAGS) \
 	$(CFLAGS) $(jfd_anon_LDFLAGS) $(LDFLAGS) -o $@
-am_joy_OBJECTS = ../src/joy-joy.$(OBJEXT)
+am__joy_SOURCES_DIST = ../src/joy.c ../src/af_packet_v3.c
+@BUILD_WITH_AF_PACKET_FALSE@am_joy_OBJECTS = ../src/joy-joy.$(OBJEXT)
+@BUILD_WITH_AF_PACKET_TRUE@am_joy_OBJECTS = ../src/joy-joy.$(OBJEXT) \
+@BUILD_WITH_AF_PACKET_TRUE@	../src/joy-af_packet_v3.$(OBJEXT)
 joy_OBJECTS = $(am_joy_OBJECTS)
 joy_DEPENDENCIES = $(SAFEC_LIB_STUBS)
 joy_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -140,7 +143,12 @@ joy_api_test2_DEPENDENCIES = $(SAFEC_LIB_STUBS)
 joy_api_test2_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(joy_api_test2_CFLAGS) \
 	$(CFLAGS) $(joy_api_test2_LDFLAGS) $(LDFLAGS) -o $@
-am_joy_static_OBJECTS = ../src/joy_static-joy.$(OBJEXT)
+am__joy_static_SOURCES_DIST = ../src/joy.c ../src/af_packet_v3.c
+@BUILD_WITH_AF_PACKET_FALSE@am_joy_static_OBJECTS =  \
+@BUILD_WITH_AF_PACKET_FALSE@	../src/joy_static-joy.$(OBJEXT)
+@BUILD_WITH_AF_PACKET_TRUE@am_joy_static_OBJECTS =  \
+@BUILD_WITH_AF_PACKET_TRUE@	../src/joy_static-joy.$(OBJEXT) \
+@BUILD_WITH_AF_PACKET_TRUE@	../src/joy_static-af_packet_v3.$(OBJEXT)
 joy_static_OBJECTS = $(am_joy_static_OBJECTS)
 am__DEPENDENCIES_1 =
 joy_static_DEPENDENCIES = ../lib/.libs/libjoy.a $(SAFEC_LIB_STUBS) \
@@ -200,10 +208,10 @@ SOURCES = $(jfd_anon_SOURCES) $(joy_SOURCES) $(joy_anon_SOURCES) \
 	$(joy_api_test_SOURCES) $(joy_api_test2_SOURCES) \
 	$(joy_static_SOURCES) $(str_match_test_SOURCES) \
 	$(unit_test_SOURCES)
-DIST_SOURCES = $(jfd_anon_SOURCES) $(joy_SOURCES) $(joy_anon_SOURCES) \
-	$(joy_api_test_SOURCES) $(joy_api_test2_SOURCES) \
-	$(joy_static_SOURCES) $(str_match_test_SOURCES) \
-	$(unit_test_SOURCES)
+DIST_SOURCES = $(jfd_anon_SOURCES) $(am__joy_SOURCES_DIST) \
+	$(joy_anon_SOURCES) $(joy_api_test_SOURCES) \
+	$(joy_api_test2_SOURCES) $(am__joy_static_SOURCES_DIST) \
+	$(str_match_test_SOURCES) $(unit_test_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -357,8 +365,14 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-joy_SOURCES = ../src/joy.c
-joy_static_SOURCES = ../src/joy.c
+@BUILD_WITH_AF_PACKET_FALSE@joy_SOURCES = ../src/joy.c
+@BUILD_WITH_AF_PACKET_TRUE@joy_SOURCES = ../src/joy.c \
+@BUILD_WITH_AF_PACKET_TRUE@	../src/af_packet_v3.c
+
+@BUILD_WITH_AF_PACKET_FALSE@joy_static_SOURCES = ../src/joy.c
+@BUILD_WITH_AF_PACKET_TRUE@joy_static_SOURCES = ../src/joy.c \
+@BUILD_WITH_AF_PACKET_TRUE@	../src/af_packet_v3.c
+
 unit_test_SOURCES = ../src/unit_test.c
 joy_api_test_SOURCES = ../src/joy_api_test.c
 joy_api_test2_SOURCES = ../src/joy_api_test2.c
@@ -380,8 +394,10 @@ str_match_test_SOURCES = ../src/str_match_test.c
 @BUILD_WITH_SAFEC_TRUE@SAFEC_LIB = -lciscosafec
 @BUILD_WITH_SAFEC_TRUE@SAFEC_LIB_A = $(SAFEC_DIR)/lib/libciscosafec.a
 @BUILD_WITH_SAFEC_FALSE@SAFEC_LIB_STUBS = $(SAFEC_DIR)/lib/libstubsafec.a
-joy_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
-joy_static_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+@BUILD_WITH_AF_PACKET_FALSE@joy_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+@BUILD_WITH_AF_PACKET_TRUE@joy_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec -DUSE_AF_PACKET
+@BUILD_WITH_AF_PACKET_FALSE@joy_static_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
+@BUILD_WITH_AF_PACKET_TRUE@joy_static_CFLAGS = -I../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec -DUSE_AF_PACKET
 unit_test_CFLAGS = -I../src/include  -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
 jfd_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec 
 joy_anon_CFLAGS = -I../src/include  -DFORCED_COMPRESSED_OUTPUT_OFF=1 -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include  -I $(SAFEC_DIR)/include/safec
@@ -517,6 +533,8 @@ jfd-anon$(EXEEXT): $(jfd_anon_OBJECTS) $(jfd_anon_DEPENDENCIES) $(EXTRA_jfd_anon
 	$(AM_V_CCLD)$(jfd_anon_LINK) $(jfd_anon_OBJECTS) $(jfd_anon_LDADD) $(LIBS)
 ../src/joy-joy.$(OBJEXT): ../src/$(am__dirstamp) \
 	../src/$(DEPDIR)/$(am__dirstamp)
+../src/joy-af_packet_v3.$(OBJEXT): ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
 
 joy$(EXEEXT): $(joy_OBJECTS) $(joy_DEPENDENCIES) $(EXTRA_joy_DEPENDENCIES) 
 	@rm -f joy$(EXEEXT)
@@ -549,6 +567,8 @@ joy_api_test2$(EXEEXT): $(joy_api_test2_OBJECTS) $(joy_api_test2_DEPENDENCIES) $
 	$(AM_V_CCLD)$(joy_api_test2_LINK) $(joy_api_test2_OBJECTS) $(joy_api_test2_LDADD) $(LIBS)
 ../src/joy_static-joy.$(OBJEXT): ../src/$(am__dirstamp) \
 	../src/$(DEPDIR)/$(am__dirstamp)
+../src/joy_static-af_packet_v3.$(OBJEXT): ../src/$(am__dirstamp) \
+	../src/$(DEPDIR)/$(am__dirstamp)
 
 joy_static$(EXEEXT): $(joy_static_OBJECTS) $(joy_static_DEPENDENCIES) $(EXTRA_joy_static_DEPENDENCIES) 
 	@rm -f joy_static$(EXEEXT)
@@ -578,6 +598,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/jfd_anon-anon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/jfd_anon-jfd-anon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/jfd_anon-str_match.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-af_packet_v3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy-joy.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy_anon-acsm.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy_anon-addr.Po@am__quote@
@@ -586,6 +607,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy_anon-str_match.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy_api_test-joy_api_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy_api_test2-joy_api_test2.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy_static-af_packet_v3.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/joy_static-joy.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/str_match_test-str_match_test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../src/$(DEPDIR)/unit_test-unit_test.Po@am__quote@
@@ -698,6 +720,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-joy.obj `if test -f '../src/joy.c'; then $(CYGPATH_W) '../src/joy.c'; else $(CYGPATH_W) '$(srcdir)/../src/joy.c'; fi`
 
+../src/joy-af_packet_v3.o: ../src/af_packet_v3.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -MT ../src/joy-af_packet_v3.o -MD -MP -MF ../src/$(DEPDIR)/joy-af_packet_v3.Tpo -c -o ../src/joy-af_packet_v3.o `test -f '../src/af_packet_v3.c' || echo '$(srcdir)/'`../src/af_packet_v3.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/$(DEPDIR)/joy-af_packet_v3.Tpo ../src/$(DEPDIR)/joy-af_packet_v3.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/af_packet_v3.c' object='../src/joy-af_packet_v3.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-af_packet_v3.o `test -f '../src/af_packet_v3.c' || echo '$(srcdir)/'`../src/af_packet_v3.c
+
+../src/joy-af_packet_v3.obj: ../src/af_packet_v3.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -MT ../src/joy-af_packet_v3.obj -MD -MP -MF ../src/$(DEPDIR)/joy-af_packet_v3.Tpo -c -o ../src/joy-af_packet_v3.obj `if test -f '../src/af_packet_v3.c'; then $(CYGPATH_W) '../src/af_packet_v3.c'; else $(CYGPATH_W) '$(srcdir)/../src/af_packet_v3.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/$(DEPDIR)/joy-af_packet_v3.Tpo ../src/$(DEPDIR)/joy-af_packet_v3.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/af_packet_v3.c' object='../src/joy-af_packet_v3.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_CFLAGS) $(CFLAGS) -c -o ../src/joy-af_packet_v3.obj `if test -f '../src/af_packet_v3.c'; then $(CYGPATH_W) '../src/af_packet_v3.c'; else $(CYGPATH_W) '$(srcdir)/../src/af_packet_v3.c'; fi`
+
 ../src/joy_anon-anon.o: ../src/anon.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_anon_CFLAGS) $(CFLAGS) -MT ../src/joy_anon-anon.o -MD -MP -MF ../src/$(DEPDIR)/joy_anon-anon.Tpo -c -o ../src/joy_anon-anon.o `test -f '../src/anon.c' || echo '$(srcdir)/'`../src/anon.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/$(DEPDIR)/joy_anon-anon.Tpo ../src/$(DEPDIR)/joy_anon-anon.Po
@@ -809,6 +845,20 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/joy.c' object='../src/joy_static-joy.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_static_CFLAGS) $(CFLAGS) -c -o ../src/joy_static-joy.obj `if test -f '../src/joy.c'; then $(CYGPATH_W) '../src/joy.c'; else $(CYGPATH_W) '$(srcdir)/../src/joy.c'; fi`
+
+../src/joy_static-af_packet_v3.o: ../src/af_packet_v3.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_static_CFLAGS) $(CFLAGS) -MT ../src/joy_static-af_packet_v3.o -MD -MP -MF ../src/$(DEPDIR)/joy_static-af_packet_v3.Tpo -c -o ../src/joy_static-af_packet_v3.o `test -f '../src/af_packet_v3.c' || echo '$(srcdir)/'`../src/af_packet_v3.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/$(DEPDIR)/joy_static-af_packet_v3.Tpo ../src/$(DEPDIR)/joy_static-af_packet_v3.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/af_packet_v3.c' object='../src/joy_static-af_packet_v3.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_static_CFLAGS) $(CFLAGS) -c -o ../src/joy_static-af_packet_v3.o `test -f '../src/af_packet_v3.c' || echo '$(srcdir)/'`../src/af_packet_v3.c
+
+../src/joy_static-af_packet_v3.obj: ../src/af_packet_v3.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_static_CFLAGS) $(CFLAGS) -MT ../src/joy_static-af_packet_v3.obj -MD -MP -MF ../src/$(DEPDIR)/joy_static-af_packet_v3.Tpo -c -o ../src/joy_static-af_packet_v3.obj `if test -f '../src/af_packet_v3.c'; then $(CYGPATH_W) '../src/af_packet_v3.c'; else $(CYGPATH_W) '$(srcdir)/../src/af_packet_v3.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) ../src/$(DEPDIR)/joy_static-af_packet_v3.Tpo ../src/$(DEPDIR)/joy_static-af_packet_v3.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='../src/af_packet_v3.c' object='../src/joy_static-af_packet_v3.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(joy_static_CFLAGS) $(CFLAGS) -c -o ../src/joy_static-af_packet_v3.obj `if test -f '../src/af_packet_v3.c'; then $(CYGPATH_W) '../src/af_packet_v3.c'; else $(CYGPATH_W) '$(srcdir)/../src/af_packet_v3.c'; fi`
 
 ../src/str_match_test-str_match_test.o: ../src/str_match_test.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(str_match_test_CFLAGS) $(CFLAGS) -MT ../src/str_match_test-str_match_test.o -MD -MP -MF ../src/$(DEPDIR)/str_match_test-str_match_test.Tpo -c -o ../src/str_match_test-str_match_test.o `test -f '../src/str_match_test.c' || echo '$(srcdir)/'`../src/str_match_test.c
