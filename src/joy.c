@@ -895,6 +895,16 @@ static int open_interface (char *capture_if) {
         joy_log_warn("warning: %s", errbuf);
     }
 
+    handle = pcap_open_live(capture_if, PCAP_SNAPLEN_SIZE, glb_config->promisc, PCAP_TIMEOUT_VAL, errbuf);
+    if (handle == NULL) {
+        fprintf(info, "could not open device %s: %s\n", capture_if, errbuf);
+        return -1;
+    }
+    if (errbuf[0] != 0) {
+        fprintf(stderr, "warning: %s\n", errbuf);
+    }
+
+#if 0
     /* setup promisc mode */
     status = pcap_set_promisc(handle,glb_config->promisc);
     if (status !=0) {
@@ -926,6 +936,7 @@ static int open_interface (char *capture_if) {
         joy_log_err("Activate PCAP handle failed: status (%d)",status);
         return -1;
     }
+#endif
 
     status = pcap_set_datalink(handle,DLT_EN10MB);
     if (status !=0) {
@@ -1324,12 +1335,15 @@ int main (int argc, char **argv) {
     int cmp_ind;
     joy_init_t init_data;
     int ctx_counter = 0;
-#ifndef USE_AF_PACKET
-    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
+#ifdef USE_AF_PACKET
+    struct mercury_config af_cfg;
+    struct ring_limits af_rlp;
 #ifndef _WIN32
     struct passwd *pw = NULL;
     const char *user = NULL;
 #endif
+#else
+    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
 #endif
 
     /*
@@ -1408,11 +1422,27 @@ int main (int argc, char **argv) {
             fprintf(info, "error: find_interface for live capture session failed!\n");
             return -2;
         }
-#ifndef USE_AF_PACKET
+
+#ifdef USE_AF_PACKET
+        memset_s(&af_cfg, sizeof(struct mercury_config), 0x00, sizeof(struct mercury_config));
+        memset_s(&af_rlp, sizeof(struct ring_limits), 0x00, sizeof(struct ring_limits));
+        af_cfg.buffer_fraction = 8;
+        af_cfg.capture_interface = capture_if;
+        af_cfg.num_threads = glb_config->num_threads;
+        if (glb_config->username) {
+            af_cfg.user = glb_config->username;
+        } else {
+            af_cfg.user = getenv("SUDO_USER");
+        }
+        ring_limits_init(&af_rlp, af_cfg.buffer_fraction);
+        af_packet_bind_and_dispatch(&af_cfg,&af_rlp);
+#else
         if (open_interface(capture_if) < 0) {
             fprintf(info, "error: open_interface for live capture session failed!\n");
             return -2;
         }
+#endif
+
 #ifndef _WIN32
         /*
          * Drop privileges once pcap handle exists
@@ -1452,7 +1482,6 @@ int main (int argc, char **argv) {
             return -5;
         }
 #endif /* _WIN32 */
-#endif /* not USE_AF_PACKET */
 
     }
 
@@ -1591,22 +1620,7 @@ int main (int argc, char **argv) {
         }
 
 #ifdef USE_AF_PACKET
-        {
-            struct mercury_config af_cfg;
-            struct ring_limits af_rlp;
-
-            memset_s(&af_cfg, sizeof(struct mercury_config), 0x00, sizeof(struct mercury_config));
-            af_cfg.buffer_fraction = 8;
-            af_cfg.capture_interface = capture_if;
-            af_cfg.num_threads = glb_config->num_threads;
-            if (glb_config->username) {
-                af_cfg.user = glb_config->username;
-            } else {
-                af_cfg.user = getenv("SUDO_USER");
-            }
-            ring_limits_init(&af_rlp, af_cfg.buffer_fraction);
-            af_packet_bind_and_dispatch(&af_cfg,&af_rlp);
-        }
+        af_packet_start_processing(&af_cfg,&af_rlp);
 #else
         /* spin up the threads */
         if (init_data.contexts > 1) {

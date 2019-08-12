@@ -161,6 +161,11 @@ int af_packet_bind_and_dispatch(//const char *if_name,
 				struct mercury_config *cfg,
 				const struct ring_limits *rlp);
 
+int af_packet_start_processing(//const char *if_name,
+				//packet_callback_t p_callback,
+				struct mercury_config *cfg,
+				const struct ring_limits *rlp);
+
 void ring_limits_init(struct ring_limits *rl, float frac);
 
 #endif /* AF_PACKET_V3 */

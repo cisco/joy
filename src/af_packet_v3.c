@@ -605,6 +605,20 @@ void *packet_capture_thread_func(void *arg)  {
 }
 
 
+static struct stats_tracking statst;
+static struct thread_storage *tstor;  // Holds the array of struct thread_storage, one for each thread
+static int t_start_p = 0;
+
+/* We need all our threads to get a clean start at the same time or
+ * else some threads will start working before other threads are ready
+ * and this makes a mess of drop counters and gets in the way of
+ * dropping privs and other such things that need to happen in a
+ * coordinated manner. We pass a pointer to these via the thread
+ * storage struct.
+ */
+static pthread_cond_t t_start_c  = PTHREAD_COND_INITIALIZER;
+static pthread_mutex_t t_start_m = PTHREAD_MUTEX_INITIALIZER;
+
 int af_packet_bind_and_dispatch(struct mercury_config *cfg,
 				const struct ring_limits *rlp) {
   int thread = 0;
@@ -612,25 +626,12 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   int num_threads = cfg->num_threads;
   int fanout_arg = ((getpid() & 0xffff) | (rlp->af_fanout_type << 16));
 
-  /* We need all our threads to get a clean start at the same time or
-   * else some threads will start working before other threads are ready
-   * and this makes a mess of drop counters and gets in the way of
-   * dropping privs and other such things that need to happen in a
-   * coordinated manner. We pass a pointer to these via the thread
-   * storage struct.
-   */
-  int t_start_p = 0;
-  pthread_cond_t t_start_c  = PTHREAD_COND_INITIALIZER;
-  pthread_mutex_t t_start_m = PTHREAD_MUTEX_INITIALIZER;
-
-  struct stats_tracking statst;
   memset(&statst, 0, sizeof(statst));
   statst.num_threads = num_threads;
   statst.t_start_p = &t_start_p;
   statst.t_start_c = &t_start_c;
   statst.t_start_m = &t_start_m;
 
-  struct thread_storage *tstor;  // Holds the array of struct thread_storage, one for each thread
   tstor = (struct thread_storage *)malloc(num_threads * sizeof(struct thread_storage));
   if (!tstor) {
     perror("could not allocate memory for strocut thread_storage array\n");
@@ -707,11 +708,14 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
       }
   }
 
-  /* drop privileges from root to normal user */
-  if (drop_root_privileges(cfg->user, NULL) != status_ok) {
-      return status_err;
-  }
-  printf("dropped root privileges\n");
+  return 0;
+}
+
+int af_packet_start_processing(struct mercury_config *cfg,
+				const struct ring_limits *rlp) {
+  int thread = 0;
+  int err;
+  int num_threads = cfg->num_threads;
 
   /* Start up the threads */
   pthread_t stats_thread;
