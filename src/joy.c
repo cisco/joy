@@ -1338,12 +1338,12 @@ int main (int argc, char **argv) {
 #ifdef USE_AF_PACKET
     struct mercury_config af_cfg;
     struct ring_limits af_rlp;
+#else
+    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
+#endif
 #ifndef _WIN32
     struct passwd *pw = NULL;
     const char *user = NULL;
-#endif
-#else
-    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
 #endif
 
     /*
