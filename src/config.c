@@ -245,7 +245,11 @@ static int config_parse_command (configuration_t *config,
         parse_check(parse_int((unsigned int*)&config->verbosity, arg, num, 0, 5));
 
     } else if (match(command, "threads")) {
-        parse_check(parse_int((unsigned int*)&config->num_threads, arg, num, 1, 5));
+#ifdef USE_AF_PACKET
+        parse_check(parse_int((unsigned int*)&config->num_threads, arg, num, 1, 24));
+#else
+        parse_check(parse_int((unsigned int*)&config->num_threads, arg, num, 1, 8));
+#endif
 
     } else if (match(command, "num_pkts")) {
         parse_check(parse_int((unsigned int*)&config->num_pkts, arg, num, 0, MAX_NUM_PKT_LEN));

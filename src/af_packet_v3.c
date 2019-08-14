@@ -697,6 +697,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
       tstor[thread].t_start_m = &t_start_m;
       tstor[thread].handler.func = joy_handler_function;
       tstor[thread].handler.context.joy_data.thread_id = thread;
+      tstor[thread].handler.context.joy_data.packet_cnt = 0;
 
       memcpy(&(tstor[thread].ring_params), &thread_ring_req, sizeof(thread_ring_req));
 
@@ -711,8 +712,7 @@ int af_packet_bind_and_dispatch(struct mercury_config *cfg,
   return 0;
 }
 
-int af_packet_start_processing(struct mercury_config *cfg,
-				const struct ring_limits *rlp) {
+int af_packet_start_processing(struct mercury_config *cfg) {
   int thread = 0;
   int err;
   int num_threads = cfg->num_threads;

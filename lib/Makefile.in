@@ -594,7 +594,8 @@ lib_LTLIBRARIES = libjoy.la
 @BUILD_WITH_SAFEC_TRUE@		../src/include/extractor.h \
 @BUILD_WITH_SAFEC_TRUE@		../src/include/wht.h 
 
-libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
+@BUILD_WITH_AF_PACKET_FALSE@libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
+@BUILD_WITH_AF_PACKET_TRUE@libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec -DUSE_AF_PACKET
 library_includedir = $(includedir)/joy
 library_include_HEADERS = \
 		../src/include/acsm.h \

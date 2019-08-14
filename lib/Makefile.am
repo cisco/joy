@@ -165,7 +165,11 @@ libjoy_la_SOURCES = \
 		../src/include/wht.h 
 endif
 
+if BUILD_WITH_AF_PACKET
+libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec -DUSE_AF_PACKET
+else
 libjoy_la_CFLAGS = -I ../src/include -I $(SSL_CFLAGS) $(AM_CFLAGS) -I $(SAFEC_DIR)/include -I $(SAFEC_DIR)/include/safec
+endif
 
 library_includedir=$(includedir)/joy
 library_include_HEADERS= \

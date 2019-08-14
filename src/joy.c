@@ -93,7 +93,6 @@
 #include "pcap.h"
 #include "joy_api_private.h"
 
-//#define USE_AF_PACKET
 #ifdef USE_AF_PACKET
 #include "af_packet_v3.h"
 
@@ -140,7 +139,7 @@ static char full_path_output[MAX_FILENAME_LEN];
 
 /* local definitions for the threading aspects */
 #ifndef USE_AF_PACKET
-#define MAX_JOY_THREADS 5
+#define MAX_JOY_THREADS 8
 static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
 static pthread_mutex_t thrd_lock[MAX_JOY_THREADS] =
   {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
@@ -1232,8 +1231,14 @@ void joy_handler_function(void *handler_ctx, struct packet_info *pi, uint8_t *et
     /* process the data */
     process_packet((unsigned char*)ctx, (void*)pi, eth);
 
-    /* print any expired flow records */
-    joy_print_flow_data(index, JOY_EXPIRED_FLOWS);
+    /* increment the packet count for this thread */
+    ++joy_data->packet_cnt;
+
+    /* every 20 packets scan the flow records for exipred entries */
+    if ((joy_data->packet_cnt % 20) == 0) {
+        /* print any expired flow records */
+        joy_print_flow_data(index, JOY_EXPIRED_FLOWS);
+    }
 
 }
 
@@ -1620,7 +1625,7 @@ int main (int argc, char **argv) {
         }
 
 #ifdef USE_AF_PACKET
-        af_packet_start_processing(&af_cfg,&af_rlp);
+        af_packet_start_processing(&af_cfg);
 #else
         /* spin up the threads */
         if (init_data.contexts > 1) {
