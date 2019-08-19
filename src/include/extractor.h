@@ -77,7 +77,8 @@ struct extractor {
 
 enum status {
     status_ok  = 0,
-    status_err = 1
+    status_err = 1,
+    status_err_no_more_data = 2
 };
 
 

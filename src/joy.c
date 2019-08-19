@@ -93,6 +93,13 @@
 #include "pcap.h"
 #include "joy_api_private.h"
 
+#ifdef USE_AF_PACKET
+#include "af_packet_v3.h"
+
+extern int sig_close_flag; /* Watched by the stats tracking thread */
+extern int sig_close_workers; /* Packet proccessing var */
+#endif
+
 /**
  * \brief The supported operating modes that Joy can run in.
  */
@@ -131,12 +138,14 @@ static const char *filter_exp = "ip or ip6 or vlan";
 static char full_path_output[MAX_FILENAME_LEN];
 
 /* local definitions for the threading aspects */
-#define MAX_JOY_THREADS 5
+#ifndef USE_AF_PACKET
+#define MAX_JOY_THREADS 8
 static pthread_t pkt_proc_thrd[MAX_JOY_THREADS];
 static pthread_mutex_t thrd_lock[MAX_JOY_THREADS] =
   {PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
    PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER,
    PTHREAD_MUTEX_INITIALIZER};
+#endif
 
 /* config is the global configuration */
 extern configuration_t active_config;
@@ -409,6 +418,7 @@ static unsigned int interface_list_get(void) {
     return num_ifs;
 }
 
+#ifndef USE_AF_PACKET
 static void print_libpcap_stats(void) {
     struct pcap_stat cap_stats;
 
@@ -422,6 +432,7 @@ static void print_libpcap_stats(void) {
     }
     fflush(info);
 }
+#endif
 
 /*************************************************************************
  *************************************************************************
@@ -440,6 +451,7 @@ __declspec(noreturn) static void sig_close (int signal_arg) {
 __attribute__((__noreturn__)) static void sig_close (int signal_arg) {
 #endif
     int i;
+#ifndef USE_AF_PACKET
 
     if (handle) {
       pcap_breakloop(handle);
@@ -465,6 +477,18 @@ __attribute__((__noreturn__)) static void sig_close (int signal_arg) {
     if (handle) {
       print_libpcap_stats();
     }
+#endif
+
+#ifdef USE_AF_PACKET
+    psignal(signal_arg, "\nGracefully shutting down");
+    sig_close_flag = 1;
+
+    /* print any expired flow records */
+    for (i=0; i < glb_config->num_threads; ++i) {
+        joy_print_flow_data(i, JOY_ALL_FLOWS);
+        joy_context_cleanup(i);
+    }
+#endif
 
     joy_shutdown();
 
@@ -483,6 +507,7 @@ static void sig_reload (int signal_arg) {
 }
 
 static void joy_close_and_reopen_logfile (void) {
+#ifndef USE_AF_PACKET
     int i = 0;
 
     /* obtain the locks from the child threads */
@@ -491,6 +516,7 @@ static void joy_close_and_reopen_logfile (void) {
             pthread_mutex_lock(&thrd_lock[i]);
         }
     }
+#endif
 
     fclose(info);
     info = NULL;
@@ -501,12 +527,14 @@ static void joy_close_and_reopen_logfile (void) {
         exit(EXIT_FAILURE);
     }
 
+#ifndef USE_AF_PACKET
     /* release the locks from the child threads */
     if (glb_config->num_threads > 1) {
         for (i=0; i < glb_config->num_threads; ++i) {
             pthread_mutex_unlock(&thrd_lock[i]);
         }
     }
+#endif
 }
 
 /**
@@ -822,13 +850,9 @@ static int get_labeled_subnets(void) {
  *
  * \return 0 success, -1 failure
  */
-static int open_interface (char **capture_if, char **capture_mac) {
-    int linktype = 0;
-    int status = 0;
-    char errbuf[PCAP_ERRBUF_SIZE];
-
+static int find_interface (char **capture_if, char **capture_mac) {
     /*
-     * set capture interface as needed
+     * find capture interface as needed
      */
     if (strncmp(glb_config->intface, "auto", strlen("auto")) == 0) {
         *capture_if = (char*)ifl[0].name;
@@ -848,19 +872,38 @@ static int open_interface (char **capture_if, char **capture_mac) {
     if (*capture_if == NULL) {
         fprintf(info, "could not find specified capture device: %s\n", glb_config->intface);
         return -1;
+    } else {
+        return 0;
     }
+}
+
+#ifndef USE_AF_PACKET
+static int open_interface (char *capture_if) {
+    int linktype = 0;
+    int status = 0;
+    char errbuf[PCAP_ERRBUF_SIZE];
 
     errbuf[0] = 0;
     /* create the capture interface handle */
-    handle = pcap_create(*capture_if, errbuf);
+    handle = pcap_create(capture_if, errbuf);
     if (handle == NULL) {
-        joy_log_err("could not open device %s: %s", *capture_if, errbuf);
+        joy_log_err("could not open device %s: %s", capture_if, errbuf);
         return -1;
     }
     if (errbuf[0] != 0) {
         joy_log_warn("warning: %s", errbuf);
     }
 
+    handle = pcap_open_live(capture_if, PCAP_SNAPLEN_SIZE, glb_config->promisc, PCAP_TIMEOUT_VAL, errbuf);
+    if (handle == NULL) {
+        fprintf(info, "could not open device %s: %s\n", capture_if, errbuf);
+        return -1;
+    }
+    if (errbuf[0] != 0) {
+        fprintf(stderr, "warning: %s\n", errbuf);
+    }
+
+#if 0
     /* setup promisc mode */
     status = pcap_set_promisc(handle,glb_config->promisc);
     if (status !=0) {
@@ -892,6 +935,7 @@ static int open_interface (char **capture_if, char **capture_mac) {
         joy_log_err("Activate PCAP handle failed: status (%d)",status);
         return -1;
     }
+#endif
 
     status = pcap_set_datalink(handle,DLT_EN10MB);
     if (status !=0) {
@@ -902,12 +946,13 @@ static int open_interface (char **capture_if, char **capture_mac) {
     /* verify that we can handle the link layer headers */
     linktype = pcap_datalink(handle);
     if (linktype != DLT_EN10MB) {
-        joy_log_err("device %s has unsupported linktype (%d)",*capture_if, linktype);
+        joy_log_err("device %s has unsupported linktype (%d)",capture_if, linktype);
         return -1;
     }
 
     return 0;
 }
+#endif
 
 /**
  \fn int process_directory_of_files (joy_ctx_data *ctx, char *input_directory)
@@ -1170,6 +1215,35 @@ static int process_single_input_file (joy_ctx_data *ctx, char *input_filename) {
     return tmp_ret;
 }
 
+#ifdef USE_AF_PACKET
+void joy_handler_function(void *handler_ctx, struct packet_info *pi, uint8_t *eth) {
+    struct joy_hndlr_ctx *joy_data = (struct joy_hndlr_ctx*)handler_ctx;
+    uint8_t index = 0;
+    joy_ctx_data *ctx = NULL;
+
+    /* get the worker context from the thread number */
+    index = (uint64_t)joy_data->thread_id;
+    ctx = joy_index_to_context(index);
+    if (ctx == NULL) {
+        joy_log_crit("error:failed to find the context structure for index %d\n", index);
+    }
+
+    /* process the data */
+    process_packet((unsigned char*)ctx, (void*)pi, eth);
+
+    /* increment the packet count for this thread */
+    ++joy_data->packet_cnt;
+
+    /* every 20 packets scan the flow records for exipred entries */
+    if ((joy_data->packet_cnt % 20) == 0) {
+        /* print any expired flow records */
+        joy_print_flow_data(index, JOY_EXPIRED_FLOWS);
+    }
+
+}
+
+#else
+
 static void* pkt_proc_thread_main(void* ctx_num) {
     uint8_t index = 0;
     unsigned long status_cnt = 0;
@@ -1237,6 +1311,7 @@ static void joy_get_packets(unsigned char *num_contexts,
     process_packet((unsigned char*)ctx, header, packet);
     pthread_mutex_unlock(&thrd_lock[index]);
 }
+#endif
 
 /**
  \fn int main (int argc, char **argv)
@@ -1250,7 +1325,6 @@ int main (int argc, char **argv) {
     unsigned int num_cmds = 0;
     unsigned int done_with_options = 0;
     char *config_file = NULL;
-    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
     struct bpf_program fp;
     int tmp_ret;
     char output_filename[MAX_FILENAME_LEN];  /* data output file */
@@ -1266,6 +1340,12 @@ int main (int argc, char **argv) {
     int cmp_ind;
     joy_init_t init_data;
     int ctx_counter = 0;
+#ifdef USE_AF_PACKET
+    struct mercury_config af_cfg;
+    struct ring_limits af_rlp;
+#else
+    bpf_u_int32 net = PCAP_NETMASK_UNKNOWN;
+#endif
 #ifndef _WIN32
     struct passwd *pw = NULL;
     const char *user = NULL;
@@ -1343,10 +1423,30 @@ int main (int argc, char **argv) {
 
     /* Open interface for live captures */
     if (joy_mode == MODE_ONLINE) {
-        if (open_interface(&capture_if, &capture_mac) < 0) {
+        if (find_interface(&capture_if, &capture_mac) < 0) {
+            fprintf(info, "error: find_interface for live capture session failed!\n");
+            return -2;
+        }
+
+#ifdef USE_AF_PACKET
+        memset_s(&af_cfg, sizeof(struct mercury_config), 0x00, sizeof(struct mercury_config));
+        memset_s(&af_rlp, sizeof(struct ring_limits), 0x00, sizeof(struct ring_limits));
+        af_cfg.buffer_fraction = 8;
+        af_cfg.capture_interface = capture_if;
+        af_cfg.num_threads = glb_config->num_threads;
+        if (glb_config->username) {
+            af_cfg.user = glb_config->username;
+        } else {
+            af_cfg.user = getenv("SUDO_USER");
+        }
+        ring_limits_init(&af_rlp, af_cfg.buffer_fraction);
+        af_packet_bind_and_dispatch(&af_cfg,&af_rlp);
+#else
+        if (open_interface(capture_if) < 0) {
             fprintf(info, "error: open_interface for live capture session failed!\n");
             return -2;
         }
+#endif
 
 #ifndef _WIN32
         /*
@@ -1436,9 +1536,11 @@ int main (int argc, char **argv) {
          * Cheerful message to indicate the start of a new run of the program
          */
         fprintf(info, "--- Joy Initialization ---\n");
+#ifndef USE_AF_PACKET
         for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
             joy_print_flocap_stats_output(ctx_counter);
         }
+#endif
     }
 
     /* initialize the IPFix exporter if configured */
@@ -1466,6 +1568,7 @@ int main (int argc, char **argv) {
         signal(SIGHUP, sig_reload);
 #endif
 
+#ifndef USE_AF_PACKET
         /* interface is already open, apply any filter expressions */
         if (filter_exp) {
 
@@ -1484,6 +1587,7 @@ int main (int argc, char **argv) {
             }
 
         }
+#endif
 
         /*
          * start the updater thread
@@ -1520,6 +1624,9 @@ int main (int argc, char **argv) {
             joy_print_config(ctx_counter,JOY_JSON_FORMAT);
         }
 
+#ifdef USE_AF_PACKET
+        af_packet_start_processing(&af_cfg);
+#else
         /* spin up the threads */
         if (init_data.contexts > 1) {
             for (ctx_counter=0; ctx_counter < init_data.contexts; ++ctx_counter) {
@@ -1534,8 +1641,10 @@ int main (int argc, char **argv) {
                 }
             }
         }
+#endif
 
         while(1) {
+#ifndef USE_AF_PACKET
             uint64_t max_contexts = init_data.contexts;
             if (max_contexts > 1) {
                 /*
@@ -1565,7 +1674,7 @@ int main (int argc, char **argv) {
                 /* Print out expired flows */
                 joy_print_flow_data(ctx->ctx_id, JOY_EXPIRED_FLOWS);
            }
-
+#endif
            // Close and reopen the log file if reopenLog flag is set
            if (reopenLog && glb_config->logfile && (strcmp_s(glb_config->logfile, NULL_KEYWORD_LEN, NULL_KEYWORD, &cmp_ind) == EOK && cmp_ind!= 0)) {
               joy_close_and_reopen_logfile();
