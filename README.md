@@ -89,6 +89,10 @@ This package was written by David McGrew, Blake Anderson, Philip Perricone
 and Bill Hudson {mcgrew,blaander,phperric,bhudson}@cisco.com of Cisco Systems
 Advanced Security Research Group (ASRG) and Security and Trust Organization (STO).
 
+### Release 4.5.0
+* Added the ability to use AF_PACKET v3 and AF_FANOUT instead of libpcap
+* minor bug fixes
+
 ### Release 4.4.0
 * Fix SIGSEGV in DNS parsing (recursion depth bug)
 * Fix bug in IPv6 payload calculation
