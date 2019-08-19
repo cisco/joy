@@ -91,6 +91,7 @@ Advanced Security Research Group (ASRG) and Security and Trust Organization (STO
 
 ### Release 4.5.0
 * Added the ability to use AF_PACKET v3 and AF_FANOUT instead of libpcap
+    use --enable-af_packet on the configure command for AF_PACKET
 * minor bug fixes
 
 ### Release 4.4.0
