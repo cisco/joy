@@ -569,7 +569,7 @@ class TLSFingerprint:
             x_index = x_index_next
             output += '('
             output += x_type
-            if x_len != '0000':
+            if x_type in ext_data_extract_:
                 output += x_len
                 output += x_data
             output += ')'
