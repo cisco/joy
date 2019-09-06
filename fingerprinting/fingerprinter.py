@@ -50,7 +50,8 @@ import socket
 import datetime
 import optparse
 from collections import OrderedDict
-
+if os.name == 'nt':
+    import win_inet_pton
 from tls_fingerprint import TLSFingerprint
 
 class Fingerprinter:
