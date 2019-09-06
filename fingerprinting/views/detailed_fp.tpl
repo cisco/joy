@@ -72,7 +72,7 @@ th {
       <tr>
         <td>{{fp_['fingerprint']['process_info'][i]['prevalence']}}</td>
         <td>{{fp_['fingerprint']['process_info'][i]['process']}}</td>
-        <td>{{fp_['fingerprint']['process_info'][i]['application_category']}}</td>
+        <td>{{fp_['fingerprint']['process_info'][i].get('application_category')}}</td>
         <td>{{fp_['fingerprint']['process_info'][i]['sha256']}}</td>
       </tr>
     % end
