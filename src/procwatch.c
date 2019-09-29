@@ -469,11 +469,11 @@ int host_flow_table_add_tcp(int all_sockets) {
 	    if ((pTcpTable->table[i].dwRemoteAddr != 0) || (all_sockets)) {
 		IpAddr.S_un.S_addr = (u_long)pTcpTable->table[i].dwLocalAddr;
 		key.prot = 6; // TCP
-		key.sa = IpAddr;
+		key.sa.v4_sa = IpAddr;
 		key.sp = ntohs((u_short)pTcpTable->table[i].dwLocalPort);
 		
 		IpAddr.S_un.S_addr = (u_long)pTcpTable->table[i].dwRemoteAddr;
-		key.da = IpAddr;
+		key.da.v4_da = IpAddr;
 		key.dp = ntohs((u_short)pTcpTable->table[i].dwRemotePort);
 		record = get_host_flow(&key);
 		if (record != NULL) {
