@@ -10,6 +10,10 @@
               forensics, and security monitoring.
 [![Build Status](https://travis-ci.org/cisco/joy.svg?branch=master)](https://travis-ci.org/cisco/joy)
 
+#### TLS Fingerprinting
+
+Addendum: For our most recent network fingerprinting tools and data, please see [Mercury](https://github.com/cisco/mercury).
+
 ## Overview
 
 Joy is a BSD-licensed libpcap-based software package for extracting
@@ -69,8 +73,6 @@ from it, but do understand that it is not suitable for production
 use.
 
 #### TLS Fingerprinting
-
-Addendum: For our most recent network fingerprinting tools and data, please see [Mercury](https://github.com/cisco/mercury).
 
 We have recently released the largest and most informative open source [TLS fingerprint database](https://github.com/cisco/joy/blob/master/fingerprinting/resources/fingerprint_db.json.gz). Among other features, our approach builds on previous work by being fully automated and annotating TLS fingerprints with significantly more information.  We have built a set of python tools to enable the application of this database, as well as the generation of new databases with the help of Joy. For more information, please see the [TLS fingerprinting documentation](https://github.com/cisco/joy/blob/master/doc/using-joy-fingerprinting-00.pdf).
 
