@@ -390,7 +390,7 @@ void get_process_info(HANDLE hProcessSnap, unsigned long pid, host_flow_t *recor
 		    record->hash = calloc(1, 2 * SHA256_DIGEST_LENGTH + 1);
 		    if (record->hash != NULL) {
 			if (prev_hash) {
-			    strncpy_s(record->hash , 2 * SHA256_DIGEST_LENGTH + 1, prev_hash, strnlen_s(prev_hash, PROC_PATH_LEN);
+			    strncpy_s(record->hash , 2 * SHA256_DIGEST_LENGTH + 1, prev_hash, strnlen_s(prev_hash, PROC_PATH_LEN));
 			} else {
 			    calculate_sha256_hash(record->full_path, record->hash);
 			}
