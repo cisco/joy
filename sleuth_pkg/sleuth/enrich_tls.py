@@ -104,8 +104,8 @@ def check_compliance(compliance_policy, scs):
                 return "yes" if scs_desc in compliance_data[compliance_policy] else "no"
 
     return "error loading file"
-    
-    
+
+
 def audit_certs_issuer(certs, trusted_ca_list):
     """
     As implemented now, we will get the tls certs in order, the root cert is at the end. We check to see if the issuer
@@ -306,13 +306,17 @@ def enrich_tls(flow, kwargs):
     except KeyError:
         scs = None
 
+    print(json.dumps(tls, indent=4))
+    exit()
+
     if 's_cert' in tls:
         certs = list()
         for x in tls['s_cert']:
             tmp = dict()
             tmp['cert_sig_alg'] = x['signature_algo']
             tmp['sig_key_size'] = x['signature_key_size']
-            tmp['issuer'] = x['issuer']
+            if 'issuer' in x:
+                tmp['issuer'] = x['issuer']
             certs.append(tmp)
     else:
         certs = None
