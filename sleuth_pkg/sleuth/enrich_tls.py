@@ -104,7 +104,7 @@ def check_compliance(compliance_policy, scs):
                 return "yes" if scs_desc in compliance_data[compliance_policy] else "no"
 
     return "error loading file"
-    
+
     
 def audit_certs_issuer(certs, trusted_ca_list):
     """
@@ -312,7 +312,8 @@ def enrich_tls(flow, kwargs):
             tmp = dict()
             tmp['cert_sig_alg'] = x['signature_algo']
             tmp['sig_key_size'] = x['signature_key_size']
-            tmp['issuer'] = x['issuer']
+            if 'issuer' in x:
+                tmp['issuer'] = x['issuer']
             certs.append(tmp)
     else:
         certs = None
