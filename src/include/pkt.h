@@ -1,24 +1,24 @@
 /*
- *	
+ *
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -60,18 +60,44 @@
 
 /** ethernet header */
 #define ETHERNET_HDR_LEN 14
+#define TRILL_HDR_LEN 6
 #define ETHERNET_ADR_LEN  6
 
 #define ETH_TYPE_IP    0X0800
 #define ETH_TYPE_IPV6  0X86DD
 #define ETH_TYPE_DOT1Q 0X8100
 #define ETH_TYPE_QNQ   0X88A8
+#define ETH_TYPE_TRILL 0X22F3
+
+typedef struct trill_header {
+#ifdef	_BIT_FIELDS_HTOL
+	uint8_t th_version : 2;
+	uint8_t th_reserved : 2;
+	uint8_t th_multidest : 1;
+	uint8_t th_optslen_hi : 3;
+#else
+	uint8_t th_optslen_hi : 3;
+	uint8_t th_multidest : 1;
+	uint8_t th_reserved : 2;
+	uint8_t th_version : 2;
+#endif
+
+#ifdef	_BIT_FIELDS_HTOL
+	uint8_t th_optslen_lo : 2;
+	uint8_t th_hopcount : 6;
+#else
+	uint8_t th_hopcount : 6;
+	uint8_t th_optslen_lo : 2;
+#endif
+	uint16_t th_egressnick;
+	uint16_t th_ingressnick;
+} trill_hdr_t;
 
 /** ethernet header structure */
 struct ethernet_hdr {
-    unsigned char dst_addr[ETHERNET_ADR_LEN];  
-    unsigned char src_addr[ETHERNET_ADR_LEN];  
-    unsigned short ether_type;                  
+    unsigned char dst_addr[ETHERNET_ADR_LEN];
+    unsigned char src_addr[ETHERNET_ADR_LEN];
+    unsigned short ether_type;
 };
 
 /* IPv6 Header Length */
@@ -121,7 +147,7 @@ typedef struct ipv6_hdr_ {
 #define IP_RF    0x8000 /* Reserved           */
 #define IP_DF    0x4000 /* Don't Fragment     */
 #define IP_MF    0x2000 /* More Fragments     */
-#define IP_FOFF  0x1fff /* Fragment Offset    */ 
+#define IP_FOFF  0x1fff /* Fragment Offset    */
 
 #define ip_is_fragment(ip) (htons((ip)->ip_flgoff) & (IP_MF | IP_FOFF))
 #define ip_fragment_offset(ip) (htons((ip)->ip_flgoff) & IP_FOFF)
@@ -179,8 +205,8 @@ struct udp_hdr {
 
 /** ICMP header structure */
 struct icmp_hdr {
-    unsigned char  type; 
-    unsigned char  code; 
+    unsigned char  type;
+    unsigned char  code;
     unsigned short checksum;
     unsigned int   rest_of_header;
 };

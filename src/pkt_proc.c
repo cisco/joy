@@ -840,6 +840,7 @@ uint8_t get_packet_5tuple_key (const unsigned char *packet, flow_key_t *key) {
                    joy_log_info("Ethernet type - 802.1q VLAN #2");
                     //Offset to get VLAN_TYPE
                    vlan2_ether_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + 2));
+                   joy_log_info("Ethernet type - %x", vlan_ether_type);
                    switch(vlan2_ether_type) {
                        case ETH_TYPE_IP:
                            joy_log_info("Ethernet type - IP with 802.1q VLAN #2");
@@ -966,6 +967,9 @@ void* process_packet (unsigned char *ctx_ptr,
     flow_record_t *record = NULL;
     bool allocated_packet_header = 0;
     uint16_t ether_type = 0,vlan_ether_type = 0, vlan2_ether_type = 0;
+    trill_hdr_t * trill_header;
+    uint16_t trill_eth_type = 0;
+    uint32_t trill_op_len = 0;
     char ipv4_addr[INET_ADDRSTRLEN];
     char ipv6_addr[INET6_ADDRSTRLEN];
     const struct pcap_pkthdr *header =  pkt_header;
@@ -1021,7 +1025,61 @@ void* process_packet (unsigned char *ctx_ptr,
            joy_log_info("Ethernet type - 802.1q VLAN #1");
            //Offset to get VLAN_TYPE
            vlan_ether_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + 2));
+           joy_log_info("vlan_ether_type %x", vlan_ether_type);
            switch(vlan_ether_type) {
+               case ETH_TYPE_TRILL:
+		trill_header = (trill_hdr_t*) (const uint8_t *)(packet +ETHERNET_HDR_LEN + DOT1Q_HDR_LEN );
+                trill_op_len = (trill_header->th_optslen_hi <<2)|trill_header->th_optslen_lo;
+                trill_op_len*=4;
+		joy_log_info("trill_op_len %x", trill_op_len);
+		trill_eth_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + 4 +12 + DOT1Q_HDR_LEN + 2));
+		 joy_log_info("trill_eth_type %x", trill_eth_type);
+	     switch(trill_eth_type) {
+               case ETH_TYPE_IP:
+                   joy_log_info("Ethernet type - IP with VLAN #1");
+                   ip = (ip_hdr_t*)(packet + 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len);
+                   ip_hdr_len = ip_hdr_length(ip);
+                   ctx->curr_pkt_type = ETH_TYPE_IP;
+                   tot_frame_hdr_len = 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len;
+                   break;
+               case ETH_TYPE_IPV6:
+                   joy_log_info("Ethernet type - IPv6");
+                   ipv6 = (ip_hdrv6_t*)(packet + 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len);
+                   ip_hdr_len = IPV6_HDR_LENGTH;
+                   ctx->curr_pkt_type = ETH_TYPE_IPV6;
+                   tot_frame_hdr_len = 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len;
+                   break;
+               case ETH_TYPE_DOT1Q:
+               case ETH_TYPE_QNQ:
+                   joy_log_info("Ethernet type - 802.1q VLAN #2");
+                    //Offset to get VLAN_TYPE
+                   vlan2_ether_type = ntohs(*(const uint16_t *)(packet + ETHERNET_HDR_LEN + TRILL_HDR_LEN + trill_op_len +12 + DOT1Q_HDR_LEN + 2 + 2));
+		    joy_log_info("vlan2_ether_type %x", vlan2_ether_type);
+                   switch(vlan2_ether_type) {
+                       case ETH_TYPE_IP:
+                           joy_log_info("Ethernet type - IP with 802.1q VLAN #2 with trill");
+                           ip = (ip_hdr_t*)(packet + 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len);
+                           ip_hdr_len = ip_hdr_length(ip);
+                           ctx->curr_pkt_type = ETH_TYPE_IP;
+                           tot_frame_hdr_len = 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len;
+                           break;
+                       case ETH_TYPE_IPV6:
+                           joy_log_info("Ethernet type - IPv6");
+                           ipv6 = (ip_hdrv6_t*)(packet + 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len);
+                           ip_hdr_len = IPV6_HDR_LENGTH;
+                           ctx->curr_pkt_type = ETH_TYPE_IPV6;
+                           tot_frame_hdr_len = 2*ETHERNET_HDR_LEN + DOT1Q_HDR_LEN + DOT1Q_HDR_LEN + TRILL_HDR_LEN + trill_op_len;
+                           break;
+                       default :
+                           joy_log_info("Ethernet type - Unknown with 802.1q VLAN #2 with trill");
+                           return NULL;
+                   }
+                   break;
+               default :
+                   joy_log_info("Ethernet type - Unknown trill");
+                   return NULL;
+               }
+               break;
                case ETH_TYPE_IP:
                    joy_log_info("Ethernet type - IP with VLAN #1");
                    ip = (ip_hdr_t*)(packet + ETHERNET_HDR_LEN + DOT1Q_HDR_LEN);
