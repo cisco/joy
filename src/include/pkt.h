@@ -60,18 +60,56 @@
 
 /** ethernet header */
 #define ETHERNET_HDR_LEN 14
+#define TRILL_HDR_LEN 6
 #define ETHERNET_ADR_LEN  6
 
 #define ETH_TYPE_IP    0X0800
 #define ETH_TYPE_IPV6  0X86DD
 #define ETH_TYPE_DOT1Q 0X8100
 #define ETH_TYPE_QNQ   0X88A8
+#define ETH_TYPE_TRILL 0X22F3
+
+typedef struct  __attribute__ ((__packed__)) trill_hdr_ {
+    unsigned int    version:2;
+    unsigned int    res:2;
+    unsigned int    m:1;
+    unsigned int    op_len_hi:3;
+    unsigned int    op_len_lo:2;
+    unsigned int    hop_cnt:6;
+    unsigned int    egress_nick:16;
+     unsigned int   ingress_nick:16;
+} k_trill_hdr_t;
+
+
+typedef struct trill_header {
+#ifdef	_BIT_FIELDS_HTOL
+	uint8_t th_version : 2;
+	uint8_t th_reserved : 2;
+	uint8_t th_multidest : 1;
+	uint8_t th_optslen_hi : 3;
+#else
+	uint8_t th_optslen_hi : 3;
+	uint8_t th_multidest : 1;
+	uint8_t th_reserved : 2;
+	uint8_t th_version : 2;
+#endif
+
+#ifdef	_BIT_FIELDS_HTOL
+	uint8_t th_optslen_lo : 2;
+	uint8_t th_hopcount : 6;
+#else
+	uint8_t th_hopcount : 6;
+	uint8_t th_optslen_lo : 2;
+#endif
+	uint16_t th_egressnick;
+	uint16_t th_ingressnick;
+} trill_hdr_t;
 
 /** ethernet header structure */
 struct ethernet_hdr {
-    unsigned char dst_addr[ETHERNET_ADR_LEN];  
-    unsigned char src_addr[ETHERNET_ADR_LEN];  
-    unsigned short ether_type;                  
+    unsigned char dst_addr[ETHERNET_ADR_LEN];
+    unsigned char src_addr[ETHERNET_ADR_LEN];
+    unsigned short ether_type;
 };
 
 /* IPv6 Header Length */
@@ -121,7 +159,7 @@ typedef struct ipv6_hdr_ {
 #define IP_RF    0x8000 /* Reserved           */
 #define IP_DF    0x4000 /* Don't Fragment     */
 #define IP_MF    0x2000 /* More Fragments     */
-#define IP_FOFF  0x1fff /* Fragment Offset    */ 
+#define IP_FOFF  0x1fff /* Fragment Offset    */
 
 #define ip_is_fragment(ip) (htons((ip)->ip_flgoff) & (IP_MF | IP_FOFF))
 #define ip_fragment_offset(ip) (htons((ip)->ip_flgoff) & IP_FOFF)
@@ -179,8 +217,8 @@ struct udp_hdr {
 
 /** ICMP header structure */
 struct icmp_hdr {
-    unsigned char  type; 
-    unsigned char  code; 
+    unsigned char  type;
+    unsigned char  code;
     unsigned short checksum;
     unsigned int   rest_of_header;
 };
