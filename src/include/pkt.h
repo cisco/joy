@@ -1,24 +1,24 @@
 /*
- *	
+ *
  * Copyright (c) 2016 Cisco Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   Redistributions in binary form must reproduce the above
  *   copyright notice, this list of conditions and the following
  *   disclaimer in the documentation and/or other materials provided
  *   with the distribution.
- * 
+ *
  *   Neither the name of the Cisco Systems, Inc. nor the names of its
  *   contributors may be used to endorse or promote products derived
  *   from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -68,18 +68,6 @@
 #define ETH_TYPE_DOT1Q 0X8100
 #define ETH_TYPE_QNQ   0X88A8
 #define ETH_TYPE_TRILL 0X22F3
-
-typedef struct  __attribute__ ((__packed__)) trill_hdr_ {
-    unsigned int    version:2;
-    unsigned int    res:2;
-    unsigned int    m:1;
-    unsigned int    op_len_hi:3;
-    unsigned int    op_len_lo:2;
-    unsigned int    hop_cnt:6;
-    unsigned int    egress_nick:16;
-     unsigned int   ingress_nick:16;
-} k_trill_hdr_t;
-
 
 typedef struct trill_header {
 #ifdef	_BIT_FIELDS_HTOL
