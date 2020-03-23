@@ -44,9 +44,9 @@ PROGNAME=`basename $0`
 DEBIAN_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     libssl1.0.2 libssl-dev make python python-pip ruby ruby-ffi"
 DEBIAN_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.2 -d logrotate"
-UBUNTU_PKGS="gcc git libcurl3 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
+UBUNTU_PKGS="gcc git libcurl4 libcurl4-openssl-dev libpcap0.8 libpcap-dev \
     libssl1.0.0 libssl-dev make python python-pip ruby ruby-ffi"
-UBUNTU_REQS="-d libcurl3 -d libpcap0.8 -d libssl1.0.0 -d logrotate"
+UBUNTU_REQS="-d libcurl4 -d libpcap0.8 -d libssl1.0.0 -d logrotate"
 MAC_PKGS="gcc gem git make python ruby"
 RPM_PKGS="gcc git libcurl libcurl-devel libpcap libpcap-devel make openssl \
     openssl-devel python python2-pip ruby rubygems"
