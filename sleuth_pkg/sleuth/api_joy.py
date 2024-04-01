@@ -43,6 +43,9 @@ import bz2
 from .sleuth import DictStreamIteratorFromFile
 from .sleuth import DictStreamIterator
 from .sleuth import SleuthFileType
+from .sleuth import DictStreamProcessor
+from .sleuth import DictStreamFilterIterator
+from .sleuth import SleuthPredicate
 
 
 class FlowIteratorFromFile(DictStreamIteratorFromFile):
@@ -126,8 +129,8 @@ class FlowStitchIterator(DictStreamIterator):
 
         self.flows = iter(self.active_flows.values())
 
-    def next(self):
-        return self.flows.next()
+    def __next__(self):
+        return self.flows.__next__()
 
     # merge f2 into f1, where both flows are in the same direction, and
     # f1 precedes f2 (f1.ts < f2.ts)
@@ -187,8 +190,8 @@ class DNSLinkedFlowEnrichIterator(DictStreamIterator):
     def __iter__(self):
         return self
 
-    def next(self):
-        flow = self.source.next()
+    def __next__(self):
+        flow = self.source.__next__()
         #
         # if flow is not dns, check cache for response returning destination address
         #

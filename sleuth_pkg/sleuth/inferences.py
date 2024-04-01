@@ -52,11 +52,11 @@ def tls_fp_dict_init():
     with open(tls_fp_path) as f:
         for counter, line in enumerate(f):
             tmp = json.loads(line)
-            #print json.dumps(tmp)
+            #print(json.dumps(tmp))
             fpvalue = json.dumps(tmp['str_repr'])
             fpvalue = fpvalue.strip('"')
             if fpvalue in tls_fp_dict:
-                print "warning: duplicate tls fingerprint in line " + str(counter + 1) + " of file " + tls_fp_file
+                print("warning: duplicate tls fingerprint in line " + str(counter + 1) + " of file " + tls_fp_file)
             tls_fp_dict[fpvalue] = tmp
 
 
@@ -121,7 +121,7 @@ def hex_fp_normalize(s):
 
 def element_is_parent(s):
     if s:
-        if s[0] is '(' and s[1] is '(':
+        if s[0] == '(' and s[1] == '(':
             return True
         else:
             return False
@@ -129,22 +129,22 @@ def element_is_parent(s):
         return False
 
 def get_next_element(s):
-    if s is '':
+    if s == '':
         return '', '', 0
-    if s[0] is ')':
+    if s[0] == ')':
         level = 0
         for c in s:
-            if c is not ')':
+            if c != ')':
                 break;
             level = level + 1
         return '', '', -level
 
     if True:
         level = 0
-        while s[level] is '(':
+        while s[level] == '(':
             level = level + 1
 
-        if level is 0:
+        if level == 0:
             return '', '', 0
 
         tmp =  string.split(s[level:], ')', 1)
@@ -153,10 +153,10 @@ def get_next_element(s):
 
 def print_out_structured_data(s):
     current_level = 0
-    while s is not '':
+    while s != '':
         element, s, level = get_next_element(s)
         current_level += level
-        print current_level, element, s 
+        print(current_level, element, s)
 
 
 def structured_fp_normalize(s):
@@ -179,7 +179,7 @@ def structured_fp_normalize(s):
     
     # parse client extensions, if present
     output += '('
-    while s is not '' and s is not ')':
+    while s != '' and s != ')':
         element, s, level = get_next_element(s)
         typecode = element[0:4]
         data = element[4:]
@@ -194,7 +194,7 @@ def tls_inference(f, kwargs):
     
     if not tls_fp_dict:
         tls_fp_dict_init()
-        # print json.dumps(tls_fp_dict)
+        # print(json.dumps(tls_fp_dict))
 
     if 'fingerprints' in f:
         if 'tls' in f['fingerprints']:

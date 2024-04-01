@@ -35,7 +35,7 @@
 """
 import os
 import json
-from sleuth import SleuthTemplateDict
+from .sleuth import SleuthTemplateDict
 
 class fingerprinter(object):
     fingerprint_dict = {

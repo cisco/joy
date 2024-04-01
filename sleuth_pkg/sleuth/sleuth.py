@@ -55,7 +55,7 @@ class DictStreamIterator(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         n = dict()
         return n
 
@@ -97,7 +97,7 @@ class DictStreamIteratorFromFile(DictStreamIterator):
             else:
                 self.f = open(self.file_name, 'r')
 
-    def next(self):
+    def __next__(self):
         while True:
             try:
                 line = self.f.readline()
@@ -129,15 +129,15 @@ class DictStreamFilterIterator(DictStreamIterator):
         self.source = source
         self.filter = filter
 
-    def next(self):
+    def __next__(self):
         """
         Find the next JSON object from source that matches the given filter
         :return:
         """
-        tmp = self.source.next()
+        tmp = self.source.__next__()
 
         while self.filter.match(tmp) is not True:
-            tmp = self.source.next()
+            tmp = self.source.__next__()
 
         return tmp
 
@@ -147,9 +147,9 @@ class DictStreamSelectIterator(DictStreamIterator):
         self.source = source
         self.template = SleuthTemplateDict(elements)
 
-    def next(self):
+    def __next__(self):
         while True:
-            tmp = self.source.next()
+            tmp = self.source.__next__()
             output = self.template.copy_selected_elements(self.template.template, tmp)
             if output:
                 return output
@@ -160,8 +160,8 @@ class DictStreamNormalizeIterator(DictStreamIterator):
         self.source = source
         self.template = SleuthTemplateDict(elements)
 
-    def next(self):
-        tmp = self.source.next()
+    def __next__(self):
+        tmp = self.source.__next__()
         output = self.template.normalize_selected_elements(self.template.template, tmp)
 
         return output
@@ -172,8 +172,8 @@ class DictStreamApplyIterator(DictStreamIterator):
         self.template = SleuthTemplateDict(elements)
         self.func = func
 
-    def next(self):
-        tmp = self.source.next()
+    def __next__(self):
+        tmp = self.source.__next__()
         output = self.template.apply_to_selected_elements(self.template.template, tmp, self.func)
 
         return output
@@ -186,8 +186,8 @@ class DictStreamEnrichIterator(DictStreamIterator):
         self.function = function
         self.kwargs = kwargs
 
-    def next(self):
-        nextval = self.source.next()
+    def __next__(self):
+        nextval = self.source.__next__()
         tmp = self.function(nextval, self.kwargs)
         if tmp:
             nextval[self.name] = tmp
@@ -201,8 +201,8 @@ class DictStreamEnrichIntoIterator(DictStreamIterator):
         self.function = function
         self.kwargs = kwargs
 
-    def next(self):
-        nextval = self.source.next()
+    def __next__(self):
+        nextval = self.source.__next__()
         tmp = self.function(nextval, self.kwargs)
         if tmp:
             if self.name not in nextval:
@@ -221,9 +221,9 @@ class DictStreamDistributionIterator(DictStreamIterator):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         try:
-            obj = self.source.next()
+            obj = self.source.__next__()
             value = pickle.dumps(obj)
             self.key = tuple(obj.keys())
             if value in self.dist:
@@ -244,7 +244,7 @@ class DictStreamDistributionIterator(DictStreamIterator):
 
             for d in output:
                 json.dump(d, sys.stdout, indent=self.indent)
-                print ""
+                print("")
 
             raise StopIteration
 
@@ -277,7 +277,7 @@ class DictStreamProcessor(object):
             for obj in self.obj_set:
                 try:
                     json.dump(obj, sys.stdout, indent=self.indent)
-                    print ""
+                    print("")
                 except IOError:
                     # Broken pipe, exit loop
                     break
@@ -301,7 +301,7 @@ class DictStreamGroupProcessor(DictStreamProcessor):
 
     def post_process(self, proc=None):
         if self.context:
-            print self.context
+            print(self.context)
 
         for k, v in self.dict.items():
             v.post_process(copy.deepcopy(proc))
@@ -348,7 +348,7 @@ class DictStreamSumProcessor(DictStreamProcessor):
         # NOTE: sum_over might interfere with --dist
         d["sum_over"] = self.total
         json.dump(d, sys.stdout, indent=self.indent)
-        print ""
+        print("")
 
 
 class DictStreamDistributionProcessor(DictStreamProcessor):
@@ -379,7 +379,7 @@ class DictStreamDistributionProcessor(DictStreamProcessor):
 
         for d in output:
             json.dump(d, sys.stdout, indent=self.indent)
-            print ""
+            print("")
 
 
 """
@@ -413,7 +413,7 @@ class SleuthTemplateDict(object):
         if needArg:
             t += "None"
         t += '}'
-        #print "t: " + t
+        #print("t: " + t)
         return eval(t)
 
     def copy_selected_elements(self, tmplDict, obj):
@@ -543,9 +543,9 @@ class SimplePredicate(object):
             self.matchAll = True
 
     def eval(self, flow):
-        # print 'flow: ' + str(flow)
-        # print 'op: ' + str(self.op)
-        # print 'arg: ' + str(self.arg)
+        # print('flow: ' + str(flow))
+        # print('op: ' + str(self.op))
+        # print('arg: ' + str(self.arg))
 
         # If flow is list, match any element in it
         if isinstance(flow, list):
@@ -561,8 +561,9 @@ class SimplePredicate(object):
                             listMatch = True
             return listMatch
         elif isinstance(flow, dict):
-            # print 'dict flow: ' + str(flow)
-            x = flow.values()[0]
+            # print('dict flow: ' + str(flow))
+
+            x = list(flow.values())[0]
             return self.eval(x)
 
         if self.op == '=':
@@ -571,9 +572,9 @@ class SimplePredicate(object):
             elif isinstance(self.arg, int):
                 return self.arg == flow
             else:
-                # print '------------------'
-                # print 'flow: ' + str(flow)
-                # print 'arg:  ' + str(self.arg)
+                # print('------------------')
+                # print('flow: ' + str(flow))
+                # print('arg:  ' + str(self.arg)
                 return fnmatch.fnmatch(flow, self.arg)
         elif self.op == '~':
             if self.arg == '*':
@@ -593,7 +594,7 @@ class SimplePredicate(object):
         else:
             output = self.template.get_selected_element(self.template.template, flow)
             if output:
-                return self.eval(output.values()[0])
+                return self.eval(list(output.values())[0])
             else:
                 if self.op == '~' and self.arg == '*':
                     # True because element is absent from flow
